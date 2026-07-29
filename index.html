@@ -2055,9 +2055,22 @@
             var elMchA   = document.getElementById('sim-a-mch');
             var elMchB   = document.getElementById('sim-b-mch');
 
-            if (elMchPad) elMchPad.textContent = mchPad > 0 ? ('R$ ' + mchPad.toFixed(2).replace('.', ',') + '/h') : 'R$ 0,00/h';
-            if (elMchA)   elMchA.textContent   = mchA > 0   ? ('R$ ' + mchA.toFixed(2).replace('.', ',') + '/h')   : 'R$ 0,00/h';
-            if (elMchB)   elMchB.textContent   = mchB > 0   ? ('R$ ' + mchB.toFixed(2).replace('.', ',') + '/h')   : 'R$ 0,00/h';
+            var debugPadInfo = `G11 (MC R$ Unit): R$ ${mcRsPad.toFixed(4)} | F14 (Qtd): ${F15} | F17 (Setup): ${F17} min | G16 (Prod/h): ${G16} cx/h | F16 (Rodagem): ${F16.toFixed(2)} min | F19 (Tempo Total): ${F19.toFixed(2)} min`;
+            var debugAInfo   = `G11 (MC R$ Unit): R$ ${mcRsAVal.toFixed(4)} | F14 (Qtd): ${F15} | F17 (Setup): ${F17} min | G16 (Prod/h): ${G16} cx/h | F16 (Rodagem): ${F16.toFixed(2)} min | F19 (Tempo Total): ${F19.toFixed(2)} min`;
+            var debugBInfo   = `G11 (MC R$ Unit): R$ ${mcRsBVal.toFixed(4)} | F14 (Qtd): ${F15} | F17 (Setup): ${F17} min | G16 (Prod/h): ${G16} cx/h | F16 (Rodagem): ${F16.toFixed(2)} min | F19 (Tempo Total): ${F19.toFixed(2)} min`;
+
+            if (elMchPad) {
+                elMchPad.textContent = mchPad > 0 ? ('R$ ' + mchPad.toFixed(2).replace('.', ',') + '/h') : 'R$ 0,00/h';
+                elMchPad.title = debugPadInfo;
+            }
+            if (elMchA) {
+                elMchA.textContent   = mchA > 0   ? ('R$ ' + mchA.toFixed(2).replace('.', ',') + '/h')   : 'R$ 0,00/h';
+                elMchA.title = debugAInfo;
+            }
+            if (elMchB) {
+                elMchB.textContent   = mchB > 0   ? ('R$ ' + mchB.toFixed(2).replace('.', ',') + '/h')   : 'R$ 0,00/h';
+                elMchB.title = debugBInfo;
+            }
         }
 
         function dawosGetTempos() {
@@ -2201,8 +2214,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v89"></script>
-    <script src="app.js?v=20260729_v89"></script>
+    <script src="impressora_data.js?v=20260729_v90"></script>
+    <script src="app.js?v=20260729_v90"></script>
 </body>
 </html>
 
