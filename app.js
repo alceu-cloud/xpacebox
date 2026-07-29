@@ -482,8 +482,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = null;
         loginError.textContent = '';
         
-        // Restaura usuário e senha salvos no Lembrar-me
-        fillRememberedCredentials();
+        // Limpa os campos da tela de login ao sair
+        usernameInput.value = '';
+        passwordInput.value = '';
+        if (rememberMeCheckbox) rememberMeCheckbox.checked = false;
         
         // Voltar abas para primeira
         const firstTab = tabBtns[0];
