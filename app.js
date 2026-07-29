@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = user;
             
             // Lógica de "Lembrar de mim"
-            if (rememberMeCheckbox && rememberMeCheckbox.checked) {
+            if (!rememberMeCheckbox || rememberMeCheckbox.checked) {
                 localStorage.setItem('dawos_remembered_user', username);
                 localStorage.setItem('dawos_remembered_pass', password);
             } else {
@@ -463,17 +463,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função auxiliar para preencher credenciais lembradas
     function fillRememberedCredentials() {
-        if (!rememberMeCheckbox) return;
+        if (!usernameInput || !passwordInput) return;
         const savedUser = localStorage.getItem('dawos_remembered_user');
         const savedPass = localStorage.getItem('dawos_remembered_pass');
         if (savedUser && savedPass) {
             usernameInput.value = savedUser;
             passwordInput.value = savedPass;
-            rememberMeCheckbox.checked = true;
+            if (rememberMeCheckbox) rememberMeCheckbox.checked = true;
         } else {
-            usernameInput.value = '';
-            passwordInput.value = '';
-            rememberMeCheckbox.checked = true;
+            if (rememberMeCheckbox) rememberMeCheckbox.checked = true;
         }
     }
 
