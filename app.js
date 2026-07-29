@@ -473,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             usernameInput.value = '';
             passwordInput.value = '';
-            rememberMeCheckbox.checked = false;
+            rememberMeCheckbox.checked = true;
         }
     }
 
@@ -482,10 +482,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = null;
         loginError.textContent = '';
         
-        // Limpa os campos da tela de login ao sair
-        usernameInput.value = '';
-        passwordInput.value = '';
-        if (rememberMeCheckbox) rememberMeCheckbox.checked = false;
+        // Restaura credenciais lembradas no dispositivo (se salvas pelo usuário neste PC)
+        fillRememberedCredentials();
         
         // Voltar abas para primeira
         const firstTab = tabBtns[0];
