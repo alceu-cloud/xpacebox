@@ -347,12 +347,13 @@ input[type="number"],
 input[type="text"],
 input[type="password"],
 select {
-    background-color: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    color: var(--color-text-primary);
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    color: #0f172a;
     font-family: var(--font-body);
     font-size: 0.9rem;
+    font-weight: 600;
     padding: 12px 16px;
     width: 100%;
     outline: none;
@@ -363,9 +364,9 @@ input[type="number"]:focus,
 input[type="text"]:focus,
 input[type="password"]:focus,
 select:focus {
-    border-color: var(--color-laranja);
-    box-shadow: var(--glow-orange);
-    background-color: rgba(217, 119, 36, 0.03);
+    border-color: #e3007e;
+    box-shadow: 0 0 0 3px rgba(227, 0, 126, 0.15);
+    background-color: #ffffff;
 }
 
 select {
@@ -393,8 +394,8 @@ select {
 }
 
 .box-option-card {
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
     border-radius: 12px;
     padding: 16px;
     display: flex;
@@ -406,15 +407,15 @@ select {
 }
 
 .box-option-card:hover {
-    border-color: rgba(27, 54, 93, 0.6);
+    border-color: #e3007e;
     transform: translateY(-2px);
-    background: rgba(27, 54, 93, 0.1);
+    background: #fdf2f8;
 }
 
 .box-option-card.active {
-    background: rgba(217, 119, 36, 0.08);
-    border-color: var(--color-laranja);
-    box-shadow: var(--glow-orange);
+    background: #fdf2f8;
+    border: 2px solid #e3007e;
+    box-shadow: 0 8px 25px rgba(227, 0, 126, 0.2);
 }
 
 .option-icon {
@@ -540,15 +541,16 @@ select {
 }
 
 .summary-card {
-    background: linear-gradient(145deg, rgba(14, 27, 47, 0.8), rgba(6, 11, 19, 0.9));
-    border-color: rgba(27, 54, 93, 0.4);
-    box-shadow: var(--glow-navy), var(--card-shadow);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 40px -10px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
+    border-radius: 20px;
 }
 
 .summary-header .badge {
-    background: rgba(217, 119, 36, 0.15);
-    border: 1px solid rgba(217, 119, 36, 0.4);
-    color: var(--color-laranja-bright);
+    background: rgba(227, 0, 126, 0.1);
+    border: 1px solid rgba(227, 0, 126, 0.3);
+    color: #e3007e;
     font-family: var(--font-mono);
     font-size: 0.7rem;
     font-weight: 700;
@@ -591,12 +593,13 @@ select {
 }
 
 .detail-label {
-    color: var(--color-text-secondary);
+    color: #475569;
+    font-weight: 600;
 }
 
 .detail-value {
-    color: var(--color-text-primary);
-    font-weight: 500;
+    color: #0f172a;
+    font-weight: 700;
 }
 
 /* Tabela de Custos */
@@ -642,10 +645,10 @@ select {
 
 /* Bloco de Preços Totais */
 .price-container {
-    background: rgba(10, 20, 36, 0.4);
+    background: #f8fafc;
     border-radius: 12px;
     padding: 20px;
-    border: 1px solid var(--border-color);
+    border: 1px solid #e2e8f0;
     display: flex;
     flex-direction: column;
     gap: 12px;
