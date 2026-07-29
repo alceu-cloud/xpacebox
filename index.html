@@ -697,38 +697,38 @@
 
                             <!-- BLOCO 1: PREÇO PADRÃO (VERDE — MC% configurada no Admin) -->
                             <div style="background:rgba(74,222,128,0.05); border:1px solid rgba(74,222,128,0.25); border-radius:12px; padding:20px; margin-bottom:20px;">
-                                <div style="font-size:0.65rem; color:#4ade80; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px;">
+                                <div style="font-size:0.88rem; color:#16a34a; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:16px;">
                                     ⭐ Preço Padrão — MC% Configurada: <span id="pf-mc-padrao-label">40</span>%
                                 </div>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; align-items:center;">
                                     
                                     <!-- LADO ESQUERDO: Preço Unitário Sugerido -->
                                     <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:10px 0;">
-                                        <div style="font-size:0.65rem; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Preço Unitário Sugerido</div>
-                                        <div id="pf-preco-padrao" style="font-family:var(--font-title); font-size:2.2rem; color:#4ade80; font-weight:bold; line-height:1;">R$ 3,94</div>
+                                        <div style="font-size:0.85rem; color:#475569; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-weight:700;">Preço Unitário Sugerido</div>
+                                        <div id="pf-preco-padrao" style="font-family:var(--font-title); font-size:2.4rem; color:#16a34a; font-weight:bold; line-height:1;">R$ 3,94</div>
                                     </div>
 
                                     <!-- LADO DIREITO: Painel de Resultados Detalhados (Custo MP c/ IPI, Custo MP s/ Nota, Comissão, Total Pedido) -->
-                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Custo MP (c/ IPI):</span>
-                                            <strong id="pf-custo-mat" style="color:#d97706; font-family:var(--font-mono); font-weight:700;">R$ 2,06</strong>
+                                            <strong id="pf-custo-mat" style="color:#d97706; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 2,06</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Custo MP (s/ Nota):</span>
-                                            <strong id="pf-custo-snota" style="color:#6d28d9; font-family:var(--font-mono); font-weight:700;">R$ 1,82</strong>
+                                            <strong id="pf-custo-snota" style="color:#6d28d9; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 1,82</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão (%):</span>
-                                            <strong id="pf-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700;">2,00%</strong>
+                                            <strong id="pf-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">2,00%</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão a Receber (R$):</span>
-                                            <strong id="pf-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700;">R$ 78,76</strong>
+                                            <strong id="pf-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 78,76</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; padding-top:2px;">
-                                            <span style="color:#0f172a; font-weight:700;">Total do Pedido:</span>
-                                            <strong id="pf-total-padrao" style="color:#16a34a; font-size:1.05rem; font-family:var(--font-title); font-weight:800;">R$ 3.938,00</strong>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:1rem; padding-top:4px;">
+                                            <span style="color:#0f172a; font-weight:800;">Total do Pedido:</span>
+                                            <strong id="pf-total-padrao" style="color:#16a34a; font-size:1.25rem; font-family:var(--font-title); font-weight:800;">R$ 3.938,00</strong>
                                         </div>
                                     </div>
 
@@ -737,54 +737,54 @@
 
                             <!-- BLOCO 2: SIMULADOR A (AZUL — Informe a Margem, veja o Preço) -->
                             <div style="background:rgba(2,132,199,0.05); border:1px solid rgba(2,132,199,0.25); border-radius:12px; padding:20px; margin-bottom:20px;">
-                                <div style="font-size:0.65rem; color:#0284c7; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px;">
+                                <div style="font-size:0.88rem; color:#0284c7; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:16px;">
                                     🎯 Simulador A — Informe a Margem, veja o Preço
                                 </div>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; align-items:center;">
                                     
                                     <!-- LADO ESQUERDO: Input MC% -> Seta -> Preço Unitário -->
-                                    <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:10px 0;">
+                                    <div style="display:flex; align-items:center; justify-content:center; gap:14px; padding:10px 0;">
                                         <div>
-                                            <label style="font-size:0.7rem; color:#475569; font-weight:700; display:block; margin-bottom:6px;">MC% Desejada</label>
+                                            <label style="font-size:0.85rem; color:#475569; font-weight:700; display:block; margin-bottom:6px;">MC% Desejada</label>
                                             <div style="display:flex; align-items:center; gap:6px;">
                                                 <input type="number" id="sim-a-margem" value="40" placeholder="ex: 35" step="0.1" min="0" max="99"
                                                     oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                     onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                     onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                    style="width:90px; font-size:1.1rem; font-weight:700; color:#0284c7; text-align:center; background:#ffffff; border:1px solid #0284c7; border-radius:8px; padding:8px;">
-                                                <span style="color:#475569; font-size:1rem; font-weight:700;">%</span>
+                                                    style="width:95px; font-size:1.2rem; font-weight:700; color:#0284c7; text-align:center; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; padding:8px;">
+                                                <span style="color:#475569; font-size:1.1rem; font-weight:700;">%</span>
                                             </div>
                                         </div>
                                         
-                                        <div style="font-size:1.6rem; color:#64748b; margin:0 2px;">→</div>
+                                        <div style="font-size:1.8rem; color:#64748b; margin:0 2px;">→</div>
                                         
                                         <div style="text-align:center;">
-                                            <div style="font-size:0.6rem; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
-                                            <div id="sim-a-preco" style="font-family:var(--font-title); font-size:1.8rem; color:#0284c7; font-weight:bold; line-height:1;">R$ 3,94</div>
+                                            <div style="font-size:0.75rem; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
+                                            <div id="sim-a-preco" style="font-family:var(--font-title); font-size:2rem; color:#0284c7; font-weight:bold; line-height:1;">R$ 3,94</div>
                                         </div>
                                     </div>
 
                                     <!-- LADO DIREITO: Painel de Resultados Detalhados (MCR$, Despesas, Comissão, Total Pedido) -->
-                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">MCR$ (unitário):</span>
-                                            <strong id="sim-a-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700;">R$ 1,1664</strong>
+                                            <strong id="sim-a-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 1,1664</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Despesa de Vendas:</span>
-                                            <strong id="sim-a-despesas-val" style="color:#d97706; font-weight:700;">25,97%</strong>
+                                            <strong id="sim-a-despesas-val" style="color:#d97706; font-weight:700; font-size:1.05rem;">25,97%</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão (%):</span>
-                                            <strong id="sim-a-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700;">2,00%</strong>
+                                            <strong id="sim-a-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">2,00%</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão a Receber (R$):</span>
-                                            <strong id="sim-a-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700;">R$ 78,76</strong>
+                                            <strong id="sim-a-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 78,76</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; padding-top:2px;">
-                                            <span style="color:#0f172a; font-weight:700;">Total do Pedido:</span>
-                                            <strong id="sim-a-total" style="color:#0284c7; font-size:1.05rem; font-family:var(--font-title); font-weight:800;">R$ 3.938,00</strong>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:1rem; padding-top:4px;">
+                                            <span style="color:#0f172a; font-weight:800;">Total do Pedido:</span>
+                                            <strong id="sim-a-total" style="color:#0284c7; font-size:1.25rem; font-family:var(--font-title); font-weight:800;">R$ 3.938,00</strong>
                                         </div>
                                     </div>
 
@@ -793,54 +793,54 @@
 
                             <!-- BLOCO 3: SIMULADOR B (ROXO — Informe o Preço, veja a Margem) -->
                             <div style="background:rgba(124,58,237,0.05); border:1px solid rgba(124,58,237,0.25); border-radius:12px; padding:20px; margin-bottom:20px;">
-                                <div style="font-size:0.65rem; color:#7c3aed; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px;">
+                                <div style="font-size:0.88rem; color:#7c3aed; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:16px;">
                                     🔍 Simulador B — Informe o Preço (ex: concorrente), veja a Margem
                                 </div>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; align-items:center;">
                                     
                                     <!-- LADO ESQUERDO: Input -> Seta -> Margem % -->
-                                    <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:10px 0;">
+                                    <div style="display:flex; align-items:center; justify-content:center; gap:14px; padding:10px 0;">
                                         <div>
-                                            <label style="font-size:0.7rem; color:#475569; font-weight:700; display:block; margin-bottom:6px;">Preço Unitário (R$)</label>
+                                            <label style="font-size:0.85rem; color:#475569; font-weight:700; display:block; margin-bottom:6px;">Preço Unitário (R$)</label>
                                             <div style="display:flex; align-items:center; gap:6px;">
                                                 <span style="color:#475569; font-weight:700;">R$</span>
                                                 <input type="number" id="sim-b-preco" value="3.938" placeholder="ex: 4.50" step="0.001" min="0"
                                                     oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                     onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                     onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                    style="width:105px; font-size:1.1rem; font-weight:700; color:#7c3aed; text-align:center; background:#ffffff; border:1px solid #7c3aed; border-radius:8px; padding:8px;">
+                                                    style="width:110px; font-size:1.2rem; font-weight:700; color:#7c3aed; text-align:center; background:#ffffff; border:1.5px solid #7c3aed; border-radius:8px; padding:8px;">
                                             </div>
                                         </div>
                                         
-                                        <div style="font-size:1.6rem; color:#64748b; margin:0 2px;">→</div>
+                                        <div style="font-size:1.8rem; color:#64748b; margin:0 2px;">→</div>
                                         
                                         <div style="text-align:center;">
-                                            <div style="font-size:0.6rem; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Margem de Contribuição</div>
-                                            <div id="sim-b-mc-pct" style="font-family:var(--font-title); font-size:1.8rem; color:#7c3aed; font-weight:bold; line-height:1;">40,01%</div>
+                                            <div style="font-size:0.75rem; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Margem de Contribuição</div>
+                                            <div id="sim-b-mc-pct" style="font-family:var(--font-title); font-size:2rem; color:#7c3aed; font-weight:bold; line-height:1;">40,01%</div>
                                         </div>
                                     </div>
 
                                     <!-- LADO DIREITO: Painel de Resultados Detalhados (MCR$, Despesas, Comissão, Total Pedido) -->
-                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">MCR$ (unitário):</span>
-                                            <strong id="sim-b-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700;">R$ 1,1664</strong>
+                                            <strong id="sim-b-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 1,1664</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Despesa de Vendas:</span>
-                                            <strong id="sim-b-despesas-val" style="color:#d97706; font-weight:700;">25,97%</strong>
+                                            <strong id="sim-b-despesas-val" style="color:#d97706; font-weight:700; font-size:1.05rem;">25,97%</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão (%):</span>
-                                            <strong id="sim-b-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700;">2,00%</strong>
+                                            <strong id="sim-b-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">2,00%</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:6px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão a Receber (R$):</span>
-                                            <strong id="sim-b-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700;">R$ 78,76</strong>
+                                            <strong id="sim-b-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 78,76</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; padding-top:2px;">
-                                            <span style="color:#0f172a; font-weight:700;">Total do Pedido:</span>
-                                            <strong id="sim-b-total-pedido" style="color:#7c3aed; font-size:1.05rem; font-family:var(--font-title); font-weight:800;">R$ 3.938,00</strong>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:1rem; padding-top:4px;">
+                                            <span style="color:#0f172a; font-weight:800;">Total do Pedido:</span>
+                                            <strong id="sim-b-total-pedido" style="color:#7c3aed; font-size:1.25rem; font-family:var(--font-title); font-weight:800;">R$ 3.938,00</strong>
                                         </div>
                                     </div>
 
@@ -1972,7 +1972,7 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="app.js?v=20260729_v82"></script>
+    <script src="app.js?v=20260729_v83"></script>
 </body>
 </html>
 
