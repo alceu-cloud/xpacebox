@@ -87,15 +87,15 @@
             <form id="login-form" onsubmit="event.preventDefault();">
                 <div class="form-group">
                     <label for="username">Usuário</label>
-                    <input type="text" id="username" required placeholder="Digite seu usuário" value="">
+                    <input type="text" id="username" name="username" required placeholder="Digite seu usuário" value="" autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label for="password">Senha</label>
-                    <input type="password" id="password" required placeholder="Digite sua senha" value="">
+                    <input type="password" id="password" name="password" required placeholder="Digite sua senha" value="" autocomplete="current-password">
                 </div>
                 <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer;">
-                    <input type="checkbox" id="remember-me" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-laranja);">
-                    <label for="remember-me" style="margin-bottom: 0; font-size: 0.8rem; color: var(--color-text-secondary); cursor: pointer;">Lembrar de mim</label>
+                    <input type="checkbox" id="remember-me" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-laranja);">
+                    <label for="remember-me" style="margin-bottom: 0; font-size: 0.8rem; color: var(--color-text-secondary); cursor: pointer;">Lembrar de mim neste dispositivo</label>
                 </div>
                 <div id="login-error" class="login-error-msg"></div>
                 <button type="submit" class="btn btn-primary btn-login">Entrar</button>
@@ -1945,7 +1945,7 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="app.js?v=20260729_v73"></script>
+    <script src="app.js?v=20260729_v74"></script>
 </body>
 </html>
 
