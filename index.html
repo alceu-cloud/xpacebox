@@ -1741,6 +1741,11 @@
             if (elAreaChapaMm) elAreaChapaMm.textContent = areaStrMm + ' MM²';
             if (elSummaryArea) elSummaryArea.textContent = areaStrM2 + ' M² (' + areaStrMm + ' MM²)';
 
+            // Quantidade do lote
+            var qtyEl = document.getElementById('quantity');
+            var qty = dawosParseFloat(qtyEl ? qtyEl.value : null, 1000);
+            if (qty <= 0) qty = 1000;
+
             // Cálculo do Peso Unitário da Caixa (kg) e Peso Total do Lote (kg)
             var grammageStr = matObj ? matObj.grammage : '0,325 kg/m²';
             var grammageKg = 0.325;
@@ -1779,9 +1784,6 @@
                 }
             }
 
-            var qtyEl = document.getElementById('quantity');
-            var qty = dawosParseFloat(qtyEl ? qtyEl.value : null, 1000);
-            if (qty <= 0) qty = 1000;
             var elSummaryQty = document.getElementById('summary-qty-text');
             if (elSummaryQty) elSummaryQty.textContent = qty.toLocaleString('pt-BR') + ' unids';
 
@@ -1970,7 +1972,7 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="app.js?v=20260729_v81"></script>
+    <script src="app.js?v=20260729_v82"></script>
 </body>
 </html>
 
