@@ -471,12 +471,9 @@ document.addEventListener('DOMContentLoaded', () => {
             passwordInput.value = savedPass;
             rememberMeCheckbox.checked = true;
         } else {
-            // Preenchimento padrão automático para a conta principal
-            usernameInput.value = 'alceu';
-            passwordInput.value = 'Amj20021979';
-            rememberMeCheckbox.checked = true;
-            localStorage.setItem('dawos_remembered_user', 'alceu');
-            localStorage.setItem('dawos_remembered_pass', 'Amj20021979');
+            usernameInput.value = '';
+            passwordInput.value = '';
+            rememberMeCheckbox.checked = false;
         }
     }
 
