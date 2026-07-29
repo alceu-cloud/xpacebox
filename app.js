@@ -1854,11 +1854,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Carrega params quando abre a aba admin de parâmetros
+    // Carrega params e tempos quando abre a aba admin correspondente
     document.querySelectorAll('.admin-menu-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (btn.getAttribute('data-admin-target') === 'admin-section-params') {
+            const target = btn.getAttribute('data-admin-target');
+            if (target === 'admin-section-params') {
                 loadParamsIntoForm();
+            } else if (target === 'admin-section-tempos') {
+                if (typeof dawosRenderTemposAdmin === 'function') dawosRenderTemposAdmin();
             }
         });
     });
