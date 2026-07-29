@@ -1810,12 +1810,10 @@
             var qty = dawosParseFloat(qtyEl ? qtyEl.value : null, 1000);
             if (qty <= 0) qty = 1000;
 
-            // Cálculo do Peso Unitário da Caixa (kg) e Peso Total do Lote (kg)
-            var grammageStr = matObj ? matObj.grammage : '0,412 kg/m²';
-            var grammageKg = 0.412;
-            if (matObj && matObj.code === 'PO3060') {
-                grammageKg = 0.412;
-            } else if (grammageStr) {
+            // 1. Peso Real da Caixa para Exibição na Tela (usando a gramatura do papel real)
+            var grammageStr = matObj ? matObj.grammage : '0,358 kg/m²';
+            var grammageKg = 0.358;
+            if (grammageStr) {
                 var gClean = String(grammageStr).replace(',', '.');
                 var gNum = parseFloat(gClean);
                 if (!isNaN(gNum)) {
@@ -1825,6 +1823,14 @@
             var pesoUnitKg = areaM2 * grammageKg;
             var pesoUnitG  = Math.round(pesoUnitKg * 1000);
             var pesoTotalKg = pesoUnitKg * qty;
+
+            // 2. Peso Estrutural do Papelão para Consulta na Tabela Nova de Tempos (Excel)
+            var pesoLookupKg = pesoUnitKg;
+            if (paperClassCode === 'OSRR-B' || paperCode === 'PO3060') {
+                pesoLookupKg = areaM2 * 0.412;
+            } else if (pesoUnitKg > 0) {
+                pesoLookupKg = pesoUnitKg * 1.15;
+            }
 
             var pesoUnitDisplay  = pesoUnitKg < 1 ? (pesoUnitKg.toFixed(3).replace('.', ',') + ' KG (' + pesoUnitG + 'g)') : (pesoUnitKg.toFixed(2).replace('.', ',') + ' KG');
             var pesoTotalDisplay = pesoTotalKg.toFixed(1).replace('.', ',') + ' KG';
@@ -1991,7 +1997,7 @@
             if (paperClassCode && paperCode) {
                 for (var i = 0; i < temposList.length; i++) {
                     var t = temposList[i];
-                    if (t.papel === paperClassCode && t.codigo === paperCode && pesoUnitKg >= t.minWeight && pesoUnitKg <= (t.maxWeight + 0.009)) {
+                    if (t.papel === paperClassCode && t.codigo === paperCode && pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
                         matchedTempo = t;
                         break;
                     }
@@ -2002,7 +2008,7 @@
             if (!matchedTempo && paperClassCode) {
                 for (var i = 0; i < temposList.length; i++) {
                     var t = temposList[i];
-                    if (t.papel === paperClassCode && pesoUnitKg >= t.minWeight && pesoUnitKg <= (t.maxWeight + 0.009)) {
+                    if (t.papel === paperClassCode && pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
                         matchedTempo = t;
                         break;
                     }
@@ -2013,7 +2019,7 @@
             if (!matchedTempo) {
                 for (var i = 0; i < temposList.length; i++) {
                     var t = temposList[i];
-                    if (pesoUnitKg >= t.minWeight && pesoUnitKg <= (t.maxWeight + 0.009)) {
+                    if (pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
                         matchedTempo = t;
                         break;
                     }
@@ -2219,8 +2225,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v94"></script>
-    <script src="app.js?v=20260729_v94"></script>
+    <script src="impressora_data.js?v=20260729_v95"></script>
+    <script src="app.js?v=20260729_v95"></script>
 </body>
 </html>
 
