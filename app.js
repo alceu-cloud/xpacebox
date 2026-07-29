@@ -1887,6 +1887,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init
     fillRememberedCredentials();
+    setTimeout(fillRememberedCredentials, 50);
+    setTimeout(fillRememberedCredentials, 300);
+    setTimeout(fillRememberedCredentials, 700);
+    window.addEventListener('load', fillRememberedCredentials);
+    window.addEventListener('pageshow', fillRememberedCredentials);
+
     loadParamsIntoForm();
     renderPaperCostTable();
     updatePricingFormation();
