@@ -2019,25 +2019,37 @@
                 matchedTempo = temposList[0];
             }
 
-            var setupMin = matchedTempo ? matchedTempo.setupMin : 19.15;
-            var prodHora = matchedTempo ? matchedTempo.prodHora : 1421;
+            // 7. CÁLCULO OFICIAL EXCEL (FOTOS 1, 2 e 3): MC HORA (R$/h)
+            // F17 = Set-up em minutos (Tabela de Tempos)
+            var F17 = matchedTempo ? matchedTempo.setupMin : 19.15;
+            // G16 = Caixas por Hora (Tabela de Tempos)
+            var G16 = matchedTempo ? matchedTempo.prodHora : 1421;
+            // F15 = Quantidade do Pedido
+            var F15 = qty;
 
-            var horasSetup = setupMin / 60;
-            var horasProd  = (qty > 0 && prodHora > 0) ? (qty / prodHora) : 0;
-            var tempoTotalHoras = horasSetup + horasProd;
+            // Foto 3: F16 = (F15 / G16) * 60 (Tempo de rodagem em minutos)
+            var F16 = (G16 > 0 && F15 > 0) ? ((F15 / G16) * 60) : 0;
 
-            // MC H Preço Padrão:
+            // Foto 2: F19 = F16 + F17 (Tempo total do processo em minutos)
+            var F19 = F16 + F17;
+
+            // Foto 1: MC HORA = (G11 * F14) * (60 / F19)
+            // Onde (G11 * F14) é a Margem de Contribuição R$ Total do Pedido!
+
+            // 1. Preço Padrão Sugerido:
             var mcRsPad = precoP ? calcMCRS(precoP) : 0;
-            var mcTotalPad = (mcRsPad || 0) * qty;
-            var mchPad = tempoTotalHoras > 0 ? (mcTotalPad / tempoTotalHoras) : 0;
+            var mcTotalPad = (mcRsPad || 0) * F15;
+            var mchPad = F19 > 0 ? (mcTotalPad * (60 / F19)) : 0;
 
-            // MC H Simulador A:
-            var mcTotalA = (mcRsA !== null ? mcRsA : 0) * qty;
-            var mchA = tempoTotalHoras > 0 ? (mcTotalA / tempoTotalHoras) : 0;
+            // 2. Simulador A:
+            var mcRsAVal = mcRsA !== null ? mcRsA : 0;
+            var mcTotalA = mcRsAVal * F15;
+            var mchA = F19 > 0 ? (mcTotalA * (60 / F19)) : 0;
 
-            // MC H Simulador B:
-            var mcTotalB = (mcRsB !== null ? mcRsB : 0) * qty;
-            var mchB = tempoTotalHoras > 0 ? (mcTotalB / tempoTotalHoras) : 0;
+            // 3. Simulador B:
+            var mcRsBVal = mcRsB !== null ? mcRsB : 0;
+            var mcTotalB = mcRsBVal * F15;
+            var mchB = F19 > 0 ? (mcTotalB * (60 / F19)) : 0;
 
             var elMchPad = document.getElementById('pf-mch-padrao');
             var elMchA   = document.getElementById('sim-a-mch');
@@ -2189,8 +2201,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v88"></script>
-    <script src="app.js?v=20260729_v88"></script>
+    <script src="impressora_data.js?v=20260729_v89"></script>
+    <script src="app.js?v=20260729_v89"></script>
 </body>
 </html>
 
