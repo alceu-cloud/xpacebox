@@ -725,13 +725,13 @@
 
                                     <!-- LADO DIREITO: Painel de Resultados Detalhados (Custo MP c/ IPI, Custo MP s/ Nota, Comissão, Total Pedido) -->
                                     <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
                                             <span style="color:#334155; font-weight:600;">Custo MP (c/ IPI):</span>
-                                            <strong id="pf-custo-mat" style="color:#d97706; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 2,06</strong>
+                                            <strong id="pf-custo-mat" style="color:#d97706; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 2,06</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
                                             <span style="color:#334155; font-weight:600;">Custo MP (s/ Nota):</span>
-                                            <strong id="pf-custo-snota" style="color:#6d28d9; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">R$ 1,82</strong>
+                                            <strong id="pf-custo-snota" style="color:#6d28d9; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 1,82</strong>
                                         </div>
                                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão (%):</span>
@@ -1921,11 +1921,11 @@
             var elCustoMat = document.getElementById('pf-custo-mat');
             var elCustoSnota = document.getElementById('pf-custo-snota');
             if (sellingCompany === 'CARCAT') {
-                if (elCustoMat)   elCustoMat.textContent   = dawosFmtBRL(custoMat) + ' (Base)';
-                if (elCustoSnota) elCustoSnota.textContent = dawosFmtBRL(custoSNotaMatDisplay);
+                if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat) + ' <span style="font-size:0.62rem; background:#be185d; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE</span>';
+                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay);
             } else {
-                if (elCustoMat)   elCustoMat.textContent   = dawosFmtBRL(custoMat);
-                if (elCustoSnota) elCustoSnota.textContent = dawosFmtBRL(custoSNotaMatDisplay) + ' (Base)';
+                if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat);
+                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay) + ' <span style="font-size:0.62rem; background:#6d28d9; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE</span>';
             }
 
             // 6. Parâmetros operacionais e precificação DAWOS
@@ -2293,8 +2293,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v97"></script>
-    <script src="app.js?v=20260729_v97"></script>
+    <script src="impressora_data.js?v=20260729_v98"></script>
+    <script src="app.js?v=20260729_v98"></script>
 </body>
 </html>
 
