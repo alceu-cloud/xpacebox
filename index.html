@@ -754,16 +754,16 @@
                                     <!-- LADO ESQUERDO: Input MC% -> Seta -> Preço Unitário + MC H -->
                                     <div style="display:flex; flex-direction:column; gap:12px;">
                                         <!-- Quadro Input -> Preço -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 18px; display:flex; align-items:center; justify-content:center; gap:14px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 10px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
                                             <div>
-                                                <label style="font-size:0.85rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase;">MC% Desejada</label>
-                                                <div style="display:flex; align-items:center; gap:6px;">
+                                                <label style="font-size:0.75rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase; white-space:nowrap;">MC% Desejada</label>
+                                                <div style="display:flex; align-items:center; gap:4px;">
                                                     <input type="number" id="sim-a-margem" value="40" placeholder="ex: 35" step="0.1" min="0" max="99"
                                                         oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                        style="width:95px; font-size:1.2rem; font-weight:700; color:#0284c7; text-align:center; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; padding:8px;">
-                                                    <span style="color:#475569; font-size:1.1rem; font-weight:700;">%</span>
+                                                        style="width:85px; font-size:1.15rem; font-weight:700; color:#0284c7; text-align:center; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; padding:6px 4px;">
+                                                    <span style="color:#475569; font-size:1rem; font-weight:700;">%</span>
                                                 </div>
                                             </div>
                                             
@@ -819,16 +819,16 @@
                                     <!-- LADO ESQUERDO: Input -> Seta -> Margem % + MC H -->
                                     <div style="display:flex; flex-direction:column; gap:12px;">
                                         <!-- Quadro Input -> Margem -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 18px; display:flex; align-items:center; justify-content:center; gap:14px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 10px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
                                             <div>
-                                                <label style="font-size:0.85rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase;">Preço Unitário (R$)</label>
-                                                <div style="display:flex; align-items:center; gap:6px;">
-                                                    <span style="color:#475569; font-weight:700;">R$</span>
-                                                    <input type="number" id="sim-b-preco" value="3.938" placeholder="ex: 4.50" step="0.001" min="0"
+                                                <label style="font-size:0.75rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase; white-space:nowrap;">Preço Unitário (R$)</label>
+                                                <div style="display:flex; align-items:center; gap:4px;">
+                                                    <span style="color:#475569; font-weight:700; font-size:0.9rem;">R$</span>
+                                                    <input type="number" id="sim-b-preco" value="3.938" placeholder="ex: 4.50" step="0.01" min="0"
                                                         oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                        style="width:110px; font-size:1.2rem; font-weight:700; color:#7c3aed; text-align:center; background:#ffffff; border:1.5px solid #7c3aed; border-radius:8px; padding:8px;">
+                                                        style="width:95px; font-size:1.15rem; font-weight:700; color:#7c3aed; text-align:center; background:#ffffff; border:1.5px solid #7c3aed; border-radius:8px; padding:6px 4px;">
                                                 </div>
                                             </div>
                                             
@@ -1954,11 +1954,14 @@
 
             // Simulador B: Informa Preço -> Dá a Margem
             var simB = document.getElementById('sim-b-preco');
-            if (simB && (simB.value === '3.86' || simB.value === '' || simB.dataset.initialized !== '1')) {
-                simB.value = '3.938';
-                simB.dataset.initialized = '1';
+            var currentBoxKey = length + 'x' + width + 'x' + height + 'x' + paperCode;
+            if (simB && (simB.dataset.boxKey !== currentBoxKey || simB.value === '' || simB.value === '3.86' || simB.value === '3.938')) {
+                if (precoP && precoP > 0) {
+                    simB.value = precoP.toFixed(2);
+                }
+                simB.dataset.boxKey = currentBoxKey;
             }
-            var precoB = dawosParseFloat(simB ? simB.value : null, 3.938);
+            var precoB = dawosParseFloat(simB ? simB.value : null, precoP || 3.938);
             var mcPctB = calcMCPct(precoB);
             var mcRsB  = calcMCRS(precoB);
             var totalPedidoB = precoB * qty;
@@ -2214,8 +2217,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v91"></script>
-    <script src="app.js?v=20260729_v91"></script>
+    <script src="impressora_data.js?v=20260729_v92"></script>
+    <script src="app.js?v=20260729_v92"></script>
 </body>
 </html>
 
