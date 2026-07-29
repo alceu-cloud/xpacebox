@@ -236,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginScreen = document.getElementById('login-screen');
     const curtainOverlay = document.getElementById('curtain-overlay');
     const adminLandingScreen = document.getElementById('admin-landing-screen');
+    const gerenteRestrictedScreen = document.getElementById('gerente-restricted-screen');
     const appContainer = document.getElementById('app-container');
     
     // Login
@@ -248,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Header & Logout Geral
     const btnLogout = document.getElementById('btn-logout');
     const btnAdminLogout = document.getElementById('btn-admin-logout');
+    const btnGerenteLogout = document.getElementById('btn-gerente-logout');
     const btnBackToLanding = document.getElementById('btn-back-to-landing');
     const headerUserStatus = document.getElementById('header-user-status');
     const welcomeUserName = document.getElementById('welcome-user-name');
@@ -441,8 +443,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (user.role === 'admin') {
                     // Direciona Administrador para tela de escolha
                     adminLandingScreen.classList.remove('hidden');
+                } else if (user.role === 'gerente') {
+                    // Direciona Gerente para tela de aviso de permissões pendentes
+                    if (gerenteRestrictedScreen) {
+                        const gName = document.getElementById('gerente-user-name');
+                        if (gName) gName.textContent = user.name;
+                        gerenteRestrictedScreen.classList.remove('hidden');
+                    }
                 } else {
-                    // Direciona Cliente comum direto para a calculadora
+                    // Direciona Representante ou Cliente direto para a calculadora de formação de preço
                     appContainer.className = 'app-container mode-pricing';
                     appContainer.classList.remove('hidden');
                     // Ativa a primeira aba
@@ -475,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Logout Geral (Admin e Cliente)
+    // Logout Geral (Admin, Gerente, Representante, Cliente)
     function executeLogout() {
         currentUser = null;
         loginError.textContent = '';
@@ -490,14 +499,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Esconder containers do painel e mostrar login
         appContainer.classList.add('hidden');
         adminLandingScreen.classList.add('hidden');
+        if (gerenteRestrictedScreen) gerenteRestrictedScreen.classList.add('hidden');
         loginScreen.classList.remove('hidden');
 
         // Reset classes de modo
         appContainer.className = 'app-container';
     }
 
-    btnLogout.addEventListener('click', executeLogout);
-    btnAdminLogout.addEventListener('click', executeLogout);
+    if (btnLogout) btnLogout.addEventListener('click', executeLogout);
+    if (btnAdminLogout) btnAdminLogout.addEventListener('click', executeLogout);
+    if (btnGerenteLogout) btnGerenteLogout.addEventListener('click', executeLogout);
 
     // Voltar do Painel para a Tela de Escolha do Admin
     btnBackToLanding.addEventListener('click', () => {
@@ -609,12 +620,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. CRUD USUÁRIOS
     function renderAdminCredentials() {
         adminCredentialsList.innerHTML = '';
+        const roleBadgeStyles = {
+            admin: 'background: rgba(227, 0, 126, 0.15); color: #e3007e; border: 1px solid rgba(227, 0, 126, 0.3); font-weight: 700;',
+            representante: 'background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700;',
+            gerente: 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700;',
+            cliente: 'background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); font-weight: 700;'
+        };
+
         users.forEach((user, index) => {
             const tr = document.createElement('tr');
+            const styleStr = roleBadgeStyles[user.role.toLowerCase()] || 'background: rgba(255,255,255,0.05); color: var(--color-text-secondary);';
             tr.innerHTML = `
                 <td><strong>${user.name}</strong></td>
                 <td style="font-family: var(--font-mono);">${user.username}</td>
-                <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--color-text-secondary);">${user.role.toUpperCase()}</span></td>
+                <td><span class="badge" style="padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; ${styleStr}">${user.role.toUpperCase()}</span></td>
                 <td style="font-family: var(--font-mono);">${user.password}</td>
                 <td style="text-align: right;">
                     <button type="button" class="btn-admin-action btn-edit-user" data-index="${index}">EDITAR</button>

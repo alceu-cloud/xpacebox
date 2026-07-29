@@ -146,6 +146,26 @@
         </div>
     </div>
 
+    <!-- Tela de Acesso Restrito para Gerente (sem permissões no momento) -->
+    <div id="gerente-restricted-screen" class="admin-landing-wrapper hidden">
+        <div class="admin-landing-card card" style="border: 2px solid #ef4444; max-width: 600px;">
+            <div class="admin-landing-logo-container">
+                <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAC5AT0DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigA0KKKACiiigAoooJxQA0Pk06uF+In7SPw9+Dy/8AFWeOvB/hc/8AUX1u3sf/AEY4rxPxr/wWk/Ze+H29b74y+E7gx9Rppn1LH/gPHJVKjUl8KM/aw7n1Jj/Z/WjH+z+tfAviv/g5I/Zd8N+Z9k8R+J9e8v8A58fD9xHv+n2jyq881v8A4OpPgPp/7ux8H/FjUJN2N76fp8Ef5m8/pXQsBXe0DP6zA/T35qMtX5I61/wdh+BLZZP7O+EfjC8+fCfa9UtrXP5eZWDq3/B2lpaW3+g/A3UriT+5P4sSE/paPWn9k4v+Qn65TP2My1GWr8Yv+IuL/q33/Avj/730+0/4O3BNOizfANoY/43Txv5gH/lPp/2Vi/5A+uU+5+zWWoy1fj7D/doeHROqzfBXWo49+HdPEccmP/ACXrp9F/4Ou/hXKrf2l8M/iFa7e9tNZ3P85I6P7LxX8gfXKfc/Vv5qPmr83PDn/B0T+znr0vl3Om/FDRBvxvvNGtz/6LuJK9K8F/8HBX7KnipFWT4lzaXcd0v9A1GPP/AG0W3Mf61h9TrrXkNPrEO59t0mwV4J4N/wCCmf7PvxK8uPR/jV8N5Jpv9XDP4gt7aZ/pHI6SfpXsnhzxRpvizTvtWl6pZ6tbMMefa3Mcsf8A32lYypzjuja5sUUUVIBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAMX71fn1/wAHKfjS+8G/8E2Lj7DPcWz6p4k0+ykkgn8siP8AeSHn/tnX6CBuPxr5/D/8FAf7AHhf/gop8ItM8D+MNY8SaLo+mazFrO/RbiOK5leO3uYhHmSOSPZ/pGeYyfkrbDVFTrRnPoZ1I88T+U+iv6MvBP8AwbYfsu+FVj+3aH4s8RNH/BBLX5U8z/wH8qvVPCP/AErf5lnwQsf2P4O+FZDH0+3vcX3/AKUSSV9E+IMPHoeT/Z9Q/l5or+srwv8AsE/AnwWN2l/CH4V6btCfNb+FrKNzs6f8s812Fn4a8C/DqP8A0fTvCuhqH8zMUFvbfP8ApzXPU4oow6L7zpp5XVmfyK6R4P1TXrX7RY6bqV9H5nl+Zb28kldJZfs3/Ea8mjjg8AeNpJJf9X5eh3Enm/8AkOv6xrv49eCNM8z7V4s8N2/l/f8AM1OFMfm9UZP2p/hrCN3/ Anng7H/AGGrf/4uuSpxphu8P/Ajenkdb+R/cz+V/wD4Yn+Mv/RI/iZ/4S97/wDG6P8Ahif4y/8ARI/iZ/4S97/8br+pr/hrz4Y5/wCR88M/+DCP/Glh/a0+Gs7bY/HXhdm9G1ONf61zf67YP/n5D/I2/1dxa3pz/DBt/wAT9g/lE/4Yn+Mv/RI/iZ/4S97/wDG6c37FPxiRFZvhL8Tgvc/8Ine/wDxyv6wIf2nvh1eS/u/HHhCRz0VdZtyT/4/VjS/i/4V1r/j38Q6HcfhXawf9+61jxlQl1h96MZ5FXj0f3M/kY1n4WeJvDcscep+HPEGmyS/dFzp8kf/oYrG1CwudMupLe5glgnj+R45IzHJ/3w/Nf2I3OoWWtRsiz2lzH/AHEkST/vmsjxB4M8P+LV26ppOlX3/Xe0jlz/ AN9A120uJqX8pyyy6SP469I8H6pr1r51jpupX0e8R77e3kko1vwdrXhr/j/0jUrH/rvaSR/+h1/Uv4q/Yw+CHjhmbVPhL8L9SkYctP4WsZHb/gbR5ri9Y/4ItfsyeIbiSa8+Evh3zP4PInubWOP6RxyKtdf+v07b/gZ/2cz+Xe5/wCWf+7UVf1BXn/BC39lS+i8tvhJpyqevla3qkZP/td1Sg/4IHfsnWs/mJ8K4WP9x/EerOn5fbMf/X5rP+36Hf7ifqMz+YOU9KK/p+/4cXfsq/8ARKdI/DBpqH/yRV3TP+CFn7KVg3/JI9Nk+b/lprGqf4x/j/kVLz+j/wAAf1Gf8p/LxRX9WWl/8EZf2Y9K+78HfBcn/XxayXP/AKMeul0j/glD+znolws1v8FPhb5kfyfv/DVtbf8AohKj/WOl/KX/AGfM/kv69B+dSQ28kn/LNv3f+xX9gXh79h74Q+Fdq2Pwp+F9n/d+zeFrOPy//Iddhp3wj8M6Z/x6+G/D9v8A9e+mx/0Ws5cTUvs/kH9mvufxgWfhPV7+4WO30++uP+mdvZ13Hhn9lr4i+KGb+zfA3jS7/wCvfRLiT9a/sfstLht1/d2dvH/uR1a3SL/q1i8z5P8AP/1qw/1m/l/Af9mr+Y/kW03/AIJzfHLV/lh+FPxJkk/5aefodzbR/l/Sutsf+CUv7Ql3s/4tb4w/eSI/7+C2j/k9f1b7m2bvl/eUfvN27+On/rHin8MIg8tpfzH8tlt/wAEbP2ir9f3fwq8SSf99f4fhVy1/4Is/tKSyrH/AMKr16Of7/lyf+z/ ANfbr71/URtk9v8AvukKy+351n/rBj/If9n0v5mfzAWX/BDf9pS82t/wrXWIfM+f95JH+86/xfU/h/XVs/8Agg3+0ZcR7pPBNt/t/wDE0tv3f8//AK/4/wBD+2Sja3/POsf9YsfxH/Z9L+Zn89dn/wAEAP2hJ4t0lh4Us/n2fvNc/r5fSt/R/wDggJ8cNQ/1lx4Mt5I+v/Ewkr98fmo2ms/7dxt/s/h/wbmn1Oh/N+P/AAx+Cdp/wb0/GGWJvM1zwXZyf3ftFx1x9Ksxf8G83xca4X7R4w+HsfHz/wCkXH7uv3mw9GyT1o/tnH/3f/AS/qlL+aX3n4XWP/Buv8QmVmm+IPgyOT+Dy/8ASf8AOH8+lXbD/g3J8bXP+s+KHhiP95/z4/8AxL1+4WyjZ7/rWazjHf3P/ASHgaPdz+b/AEPxLt/+DcLXZYm/4u14f8zd/Bocyfl+8q5bf8G2uoQws0nxusfL+/8AuPCf+FwK/aqirjm+OX2/ww5ZbhX0l98j8Vbj/g28eJlb/hc/2yPy+nkSWw7fy6fjXP6r/bua/Z/c/Fn4IerR8F3e2T/u3vP578/y/dOij+2sf2/D/gB/ZuEfT8/1Pwvf/g2qvo2X/i78kcn/AGKqSY59r+rNt/wbda5D8v8AwuxpI/7knhORfw+XUDj1696/ceip/tfH/Ay+6P6E/2ZhX0l/4G/8z8PJf+DcLXdW+b4yXEf/AFz8LyR7ef8AsI8f/W/Cq0v/ AAbQa1LH/Alo1L/tvwvJL/7f/19evrX7m0U/7Zx3Zv/AV/kH9l4XtL/wCY+C11/wbWeJpF8tfiZJc/DXPwr/93/X+XVeT/g2q8YL974gf+Ur95L61793f/WX/jn/ADsv69Pxq351i/i/8BX+Qf2Xhey+99/9D8Gv+IbXxP53/I+f7T/8i7H5f/pR/n8atQ/8G2b6L97/AMJ5ct5fzf8AIJT/AD6V+8FJt+b736U/7Vx3f8Bf2bhe34s/CWb/AINrNcb/AJmTxPHv+/5FvbR+Z/nn/9VRf8Q12qfx/EfxJHJ5f/QJtOPf3/z/AFr93KTZ/vfWn/amM/m/AX9mYT+X8/8AM/CaT/g2y1by2kX4neN/M37Pn8OWfl+n1qH/AIhMNWdv3vxA8UfvP3nm/w8I5beX7+nfNfu/tPrQFP8Az0o/tXG/zL7h/wBmcH/L+LPwkk/4Nqq+lbb/AMLX8YR/9dPBFm+3/631ps// aNb+z1uJNW+On2y3j+/+88J2y/99Dn+Xr3r93dnvRt+7Vf2pjP5l9xF/ZOD35fx/+R/yPwk/4Rtf2d0a0k8dfFSOP+D7R4Tto/L64z+94z09/yqyP+Da7VLhW8n4g/FmP+NPsnhi1/mJOOhr91tp/vUbfmq/7Uxnb8A/snB/8+1/5M/1PwouP+DbDxlF5jL4u+L0i/P5f2jwhbfu+/PzfjUen/8ABtl44l2/2l8TvihZ/wB/7R4OtvL+uN/+RX7xUU/7Vxv/AE6/8BX+RH9j4DtL/wAC/wCCN2e9G0etOozmub+ux6gijFBGKWigBAMUGlooATb/ALRoAwf/AK1LRQAh+ajb/vfnS0UAN2igj/aNOpMUANx/tUYz3x+FO/iooATH1owfU/lTqKAExn3/AAoAwc/5xS0UAGKTH+0fzpabn5u/SgBaTB/vGnUUAIM//qpM/wC1/hS0UAJj/a/xpAv+1/jS/wAVJQAm3+tGw/7P506imAm2kwf73/j1LR+FAhM4ox+FG7mj/wCt+NADf9r9adkH0oox/tUAJS4/2qOf/r0UAMY/P26elPwPWkwT+VJvyePrQA4jNJg/vKVR/wDXo20AN/hpQMd6dSE0wEH/ALNS/mKT/gWKTn+7/SgQ4/lR+dMwcfrTgc0wCilopAJg0mD6n86dTD96gAAx3ox/tGl/Cg/doEIf/rqQDH/1qB/nNFAxMf5xSE+9L/3zSDr+GfxpiFGfenU2nUCE/hpe/8AnFH40c/7NADcf7VLg/3qMH+9RuPqfyppAI3y9aMf7RoHzUp/xpiGgZ/+vS/jR/hSA/N3oAcOKKT86PzoAd1pj9utKDmg9fp/hQA7/wCvRTafQAf5zRTW60/tQA1+tOPWkb/OaB93/wCvSEIf/rUr/rQD/j1pr/LQwHfj/hRk/wC1SDp/+qjd1oAd+VFR5PqPzp2fejcB350h/wA4oo/ioAdTD1pafQAw9f/AK9Ppu6lz83/ANagBv8Anp/hRj/aobp/jRu9aAD/AD1pcH1pu4/3aVTmgQ48n/69M/Cng5pMCkMTAx/hTqYxw1OoENJ/zigHNG7k/hSc+350AKeKac0bs0jHFACjNH40jHGKP8KAEJw3Xj0xSgfMT6980g/xp2eOtADaM/5xSE5xQp4oAO1GeKPzpe/4UAJg0Yx+f603cdvf86ATQAuf8/wD66TdSD8aAfmP+eKAHg0ZozSbv/r0AH8VGeKN3zH/OKCcUAH/AqB9/vSZ/yaAT7fpQA7P+c0n+eKM/T9KAf880AB/z1oz74oz/ALQoz7/5/KgBO+ef8/hRnH+TSbs0c+v+fyoAd260g69ad/F/9em/x0APopuaKAEfp+NCdKD0/GhetADu3+f89abS9x/n/PWmn7lCAeP880ZptJQA9v8A61Ieoo/zmikIB/Slopp+9+NAA9InQfjT2ptAEjfeph60UU2Ag++fwp/aiioGIelID/jS0U2A0dfxpX6fjRRTEJ2pp+6aKKpAJ2ox8tFFIBvemn7w+tFFMAPWlfpRRSAb/DS0UUACdaWPt/n+dFFMQ2hP4/8/wBRRRQAf5/zzS/4UUVIBSc+3+fwooppAJ+dH+P+NFFNbgLH1/z7/wCFJ/FRRSGL2H+e/wD9eijpRQAmP880H8KKKBMDRRRSEf//Z" alt="Logo DAWOS Embalagens" class="admin-landing-logo">
+            </div>
+            <h3 style="color: #ef4444; font-family: var(--font-title); font-size: 1.4rem; font-weight: 700; margin-bottom: 8px;">Acesso Temporariamente Suspenso</h3>
+            <p style="font-size: 0.95rem; color: var(--color-text-secondary); margin-bottom: 24px; line-height: 1.5;">
+                Olá, <strong id="gerente-user-name" style="color: var(--color-text-primary);">Gerente</strong>!<br>
+                O seu perfil de Gerente atualmente não possui permissões de acesso liberadas no sistema.
+            </p>
+            <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 28px; text-align: left; font-size: 0.85rem; color: var(--color-text-muted);">
+                ℹ️ <strong>Status do Perfil:</strong><br>
+                • <strong>Cargo:</strong> Gerente<br>
+                • <strong>Status:</strong> Aguardando liberação de permissões pelo Administrador DAWOS.
+            </div>
+            <button type="button" id="btn-gerente-logout" class="btn-logout" style="padding: 10px 24px; font-size: 0.85rem;">🚪 Sair da Conta</button>
+        </div>
+    </div>
+
     <div class="app-container hidden" id="app-container">
         <!-- Cabeçalho Principal -->
         <header class="main-header">
@@ -880,7 +900,9 @@
                                         <label for="input-user-role">Cargo</label>
                                         <select id="input-user-role">
                                             <option value="cliente">Cliente</option>
-                                            <option value="admin">Administrador</option>
+                                            <option value="representante">Representante (Apenas Formação de Preço)</option>
+                                            <option value="gerente">Gerente (Sem acesso no momento)</option>
+                                            <option value="admin">Administrador (Acesso Total)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -1945,7 +1967,7 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="app.js?v=20260729_v78"></script>
+    <script src="app.js?v=20260729_v79"></script>
 </body>
 </html>
 
