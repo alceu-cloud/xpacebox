@@ -603,6 +603,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderPaperCostTable();
             } else if (targetId === 'admin-section-params' && typeof loadParamsIntoForm === 'function') {
                 loadParamsIntoForm();
+            } else if (targetId === 'admin-section-tempos' && typeof dawosRenderTemposAdmin === 'function') {
+                dawosRenderTemposAdmin();
             }
         });
     });

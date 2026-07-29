@@ -2093,6 +2093,9 @@
             alert('✅ Tabela de Tempos restaurada para os valores padrão!');
         }
 
+        // Renderiza a tabela de tempos assim que o script carrega
+        setTimeout(dawosRenderTemposAdmin, 100);
+
         // Expõe globalmente para os oninput dos simuladores e para o app.js
         window.updatePricingFormation = dawosRecalcPreco;
         window.dawosRecalcPreco = dawosRecalcPreco;
@@ -2115,9 +2118,10 @@
 
         // Roda após tudo carregar — inicializa o painel de VER PREÇO com os dados salvos
         document.addEventListener('DOMContentLoaded', function() {
-            // Aguarda app.js calcular o custo primeiro (800ms)
+            // Aguarda app.js calcular o custo primeiro (500ms)
             setTimeout(function() {
                 dawosLoadParamsIntoForm();
+                dawosRenderTemposAdmin();
                 dawosRecalcPreco();
                 // Garante listeners em TODOS os inputs de dimensões, materiais e simuladores
                 ['dim-length', 'dim-width', 'dim-height', 'length', 'width', 'height', 'material-supplier', 'paper-supplier', 'paper-class', 'paper-type', 'quantity', 'sim-a-margem', 'sim-b-preco'].forEach(function(id) {
@@ -2150,7 +2154,7 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="app.js?v=20260729_v85"></script>
+    <script src="app.js?v=20260729_v86"></script>
 </body>
 </html>
 
