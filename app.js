@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { code: 'K1BB-BB',   name: 'K1BB-BB',        paperType: 'ODBB-BB',    supplier: 'SOPASTA',   grammage: '0,643 kg/m²', pressureRes: '7,50 kg/col', thickness: '', costIpi: 4.51 },
         { code: 'RIKS3C',    name: 'RIKS3C RESINA',  paperType: 'OCRR-C',     supplier: 'SOPASTA',   grammage: '0,514 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.61 },
         // TROMBINI
-        { code: 'PO3060',    name: 'PO3060',          paperType: 'OSRR-B',    supplier: 'TROMBINI',  grammage: '0,358 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.93 },
+        { code: 'PO3060',    name: 'PO3060',          paperType: 'OSRR-B',    supplier: 'TROMBINI',  grammage: '0,412 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.93 },
         { code: 'PO3200',    name: 'PO3200',          paperType: 'OSKK-B',    supplier: 'TROMBINI',  grammage: '0,388 kg/m²', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.33 },
         { code: 'PO4050',    name: 'PO4050',          paperType: 'OSBM-B',    supplier: 'TROMBINI',  grammage: '0,403 kg/m²', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.82 },
         { code: 'PO4190',    name: 'PO4190',          paperType: 'OSBKRES-B', supplier: 'TROMBINI',  grammage: '0,503 kg/m²', pressureRes: '7,00 kg/col', thickness: '', costIpi: 5.67 },

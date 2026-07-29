@@ -1811,9 +1811,11 @@
             if (qty <= 0) qty = 1000;
 
             // Cálculo do Peso Unitário da Caixa (kg) e Peso Total do Lote (kg)
-            var grammageStr = matObj ? matObj.grammage : '0,325 kg/m²';
-            var grammageKg = 0.325;
-            if (grammageStr) {
+            var grammageStr = matObj ? matObj.grammage : '0,412 kg/m²';
+            var grammageKg = 0.412;
+            if (matObj && matObj.code === 'PO3060') {
+                grammageKg = 0.412;
+            } else if (grammageStr) {
                 var gClean = String(grammageStr).replace(',', '.');
                 var gNum = parseFloat(gClean);
                 if (!isNaN(gNum)) {
@@ -2217,8 +2219,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v93"></script>
-    <script src="app.js?v=20260729_v93"></script>
+    <script src="impressora_data.js?v=20260729_v94"></script>
+    <script src="app.js?v=20260729_v94"></script>
 </body>
 </html>
 
