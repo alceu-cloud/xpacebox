@@ -900,10 +900,12 @@
                                     <div class="form-group">
                                         <label for="input-user-role">Cargo</label>
                                         <select id="input-user-role">
-                                            <option value="cliente">Cliente</option>
-                                            <option value="representante">Representante (Apenas Formação de Preço)</option>
-                                            <option value="gerente">Gerente (Sem acesso no momento)</option>
-                                            <option value="admin">Administrador (Acesso Total)</option>
+                                            <option value="cliente">Cliente - Colocação de Pedido</option>
+                                            <option value="rep_junior">Representante Júnior - Sistema Básico</option>
+                                            <option value="rep_senior">Representante Sênior - Sistema e Configurações Medianas</option>
+                                            <option value="rep_master">Representante Master - Sistema e Configurações Avançadas</option>
+                                            <option value="gerente">Gerente - Sem Acesso</option>
+                                            <option value="admin">Administrador - Acesso Total</option>
                                         </select>
                                     </div>
                                 </div>
@@ -1968,7 +1970,7 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="app.js?v=20260729_v80"></script>
+    <script src="app.js?v=20260729_v81"></script>
 </body>
 </html>
 

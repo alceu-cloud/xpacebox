@@ -620,8 +620,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. CRUD USUÁRIOS
     function renderAdminCredentials() {
         adminCredentialsList.innerHTML = '';
+        const roleLabels = {
+            admin: 'ADMINISTRADOR',
+            rep_junior: 'REP. JÚNIOR',
+            rep_senior: 'REP. SÊNIOR',
+            rep_master: 'REP. MASTER',
+            representante: 'REPRESENTANTE',
+            gerente: 'GERENTE',
+            cliente: 'CLIENTE'
+        };
+
         const roleBadgeStyles = {
             admin: 'background: rgba(227, 0, 126, 0.15); color: #e3007e; border: 1px solid rgba(227, 0, 126, 0.3); font-weight: 700;',
+            rep_junior: 'background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700;',
+            rep_senior: 'background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.3); font-weight: 700;',
+            rep_master: 'background: rgba(2, 132, 199, 0.15); color: #0369a1; border: 1px solid rgba(2, 132, 199, 0.3); font-weight: 700;',
             representante: 'background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700;',
             gerente: 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700;',
             cliente: 'background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); font-weight: 700;'
@@ -629,11 +642,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         users.forEach((user, index) => {
             const tr = document.createElement('tr');
-            const styleStr = roleBadgeStyles[user.role.toLowerCase()] || 'background: rgba(255,255,255,0.05); color: var(--color-text-secondary);';
+            const rKey = (user.role || '').toLowerCase();
+            const styleStr = roleBadgeStyles[rKey] || 'background: rgba(255,255,255,0.05); color: var(--color-text-secondary);';
+            const labelStr = roleLabels[rKey] || (user.role || '').toUpperCase();
             tr.innerHTML = `
                 <td><strong>${user.name}</strong></td>
                 <td style="font-family: var(--font-mono);">${user.username}</td>
-                <td><span class="badge" style="padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; ${styleStr}">${user.role.toUpperCase()}</span></td>
+                <td><span class="badge" style="padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; ${styleStr}">${labelStr}</span></td>
                 <td style="font-family: var(--font-mono);">${user.password}</td>
                 <td style="text-align: right;">
                     <button type="button" class="btn-admin-action btn-edit-user" data-index="${index}">EDITAR</button>
