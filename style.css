@@ -1380,28 +1380,49 @@ select {
 }
 
 .admin-table-wrapper {
-    background: var(--bg-input);
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-    overflow-x: auto;
-    margin-top: 12px;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(227, 0, 126, 0.2) !important;
+    overflow-x: auto !important;
+    margin-top: 12px !important;
 }
 
 .admin-table {
-    width: 100%;
+    width: 100% !important;
+    border-collapse: collapse !important;
 }
 
 .admin-table th {
-    background: rgba(27, 54, 93, 0.2);
+    background: rgba(227, 0, 126, 0.08) !important;
+    color: #be185d !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    padding: 12px 14px !important;
+    border-bottom: 1.5px solid rgba(227, 0, 126, 0.2) !important;
+    text-transform: uppercase !important;
 }
 
-.admin-table input[type="text"] {
-    background: #060b13;
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    width: 100%;
+.admin-table td {
+    padding: 12px 14px !important;
+    border-bottom: 1px solid rgba(227, 0, 126, 0.08) !important;
+    color: #1e293b !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+}
+
+.admin-table tbody tr:hover {
+    background: rgba(255, 245, 249, 0.6) !important;
+}
+
+.admin-table input[type="text"],
+.admin-table input[type="number"] {
+    background: #ffffff !important;
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    width: 100% !important;
+    color: #0f172a !important;
 }
 
 .admin-table input[type="text"]:focus {
@@ -1487,19 +1508,22 @@ select {
 /* ==========================================================================
    CARDS DE SEÇÃO ADMINISTRATIVA (CADASTROS GERAIS)
    ========================================================================== */
-.admin-section-card {
-    background: rgba(10, 20, 36, 0.4);
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 24px;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+.admin-section-card,
+.admin-form-card {
+    background: linear-gradient(135deg, #fff5f9 0%, #ffffff 100%) !important;
+    border: 1.5px solid rgba(227, 0, 126, 0.25) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 10px 30px rgba(227, 0, 126, 0.05), 0 4px 6px rgba(15, 23, 42, 0.02) !important;
+    color: #0f172a !important;
 }
 
-.admin-section-card h3 {
-    font-family: var(--font-title);
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--color-text-primary);
+.admin-section-card h3,
+.admin-form-card h4 {
+    font-family: var(--font-title) !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: #e3007e !important;
 }
 
 /* ==========================================================================
