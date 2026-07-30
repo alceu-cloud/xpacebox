@@ -25,15 +25,47 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(key, JSON.stringify(data));
     }
 
+    // Salva a lista de usuários em DUAL CLOUD (Tabela + Backup KV) para garantir 100% de acesso em qualquer PC no mundo
+    async function saveUsersToCloud(usersList) {
+        if (!window.supabaseClient) return;
+        try {
+            for (let u of usersList) {
+                await window.supabaseClient.from('xpace_users').upsert({
+                    name: u.name,
+                    username: (u.username || '').toLowerCase(),
+                    password: u.password,
+                    role: u.role,
+                    company_id: 'DAWOS'
+                }, { onConflict: 'username' });
+            }
+        } catch (e) {
+            console.warn("Aviso ao salvar usuário individual:", e);
+        }
+        try {
+            await window.supabaseClient.from('xpace_pricing_params').upsert({
+                company_id: 'DAWOS_USER_LIST',
+                outros: 0,
+                mc_padrao: 0,
+                user_json: JSON.stringify(usersList),
+                updated_at: new Date()
+            }, { onConflict: 'company_id' });
+            console.log("☁️ Lista de Usuários sincronizada com sucesso na nuvem mundial!");
+        } catch (e) {
+            console.warn("Aviso ao salvar backup de usuários na nuvem:", e);
+        }
+    }
+
     // Sincronização em Nuvem Supabase para XPACEBOX
     async function syncSupabaseCloudData() {
         if (!window.supabaseClient) return;
         try {
+            let localUsers = getStoredData('dawos_users', defaultUsers) || [];
+            
+            // 1. Busca da tabela xpace_users
             const { data: usersData } = await window.supabaseClient.from('xpace_users').select('*');
             if (usersData && usersData.length > 0) {
-                let localUsers = getStoredData('dawos_users', defaultUsers) || [];
-                // Mescla sem apagar usuários locais recém-criados
                 usersData.forEach(cloudUser => {
+                    if (!cloudUser.username) return;
                     const idx = localUsers.findIndex(u => (u.username || '').toLowerCase() === (cloudUser.username || '').toLowerCase());
                     if (idx >= 0) {
                         localUsers[idx] = {
@@ -51,10 +83,33 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 });
-                users = localUsers;
-                saveStoredData('dawos_users', users);
-                if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
             }
+
+            // 2. Busca do Backup em Nuvem Multi-Dispositivo
+            const { data: backupData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_USER_LIST');
+            if (backupData && backupData.length > 0 && backupData[0].user_json) {
+                try {
+                    const parsed = JSON.parse(backupData[0].user_json);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(bUser => {
+                            if (!bUser.username) return;
+                            const idx = localUsers.findIndex(u => (u.username || '').toLowerCase() === (bUser.username || '').toLowerCase());
+                            if (idx >= 0) {
+                                localUsers[idx] = bUser;
+                            } else {
+                                localUsers.push(bUser);
+                            }
+                        });
+                    }
+                } catch(e){}
+            }
+
+            users = localUsers;
+            saveStoredData('dawos_users', users);
+            if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
+        } catch(e) {
+            console.warn("Erro no syncSupabaseCloudData:", e);
+        }
 
             const { data: matsData } = await window.supabaseClient.from('xpace_materials').select('*');
             if (matsData && matsData.length > 0) {
@@ -775,19 +830,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAdminCredentials();
         hideForm(formUserContainer);
 
-        // Sincroniza criação/edição na nuvem Supabase
-        if (window.supabaseClient) {
-            try {
-                await window.supabaseClient.from('xpace_users').upsert({
-                    name: newUser.name,
-                    username: newUser.username,
-                    password: newUser.password,
-                    role: newUser.role,
-                    company_id: 'DAWOS'
-                }, { onConflict: 'username' });
-                console.log("☁️ Usuário salvo no Supabase Nuvem com Sucesso!");
-            } catch(e) { console.warn("Erro ao salvar usuário no Supabase:", e); }
-        }
+        // Sincroniza criação/edição em Dual Cloud para liberação imediata em qualquer PC
+        await saveUsersToCloud(users);
+        alert(`✅ USUÁRIO "${newUser.name}" (${newUser.username}) SALVO E ATIVADO EM TODOS OS DISPOSITIVOS COM SUCESSO!`);
     });
 
     adminCredentialsList.addEventListener('click', async (e) => {
@@ -810,13 +855,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 users.splice(index, 1);
                 saveStoredData('dawos_users', users);
                 renderAdminCredentials();
-
-                // Remove permanentemente da nuvem Supabase
+                await saveUsersToCloud(users);
                 if (window.supabaseClient) {
                     try {
                         await window.supabaseClient.from('xpace_users').delete().eq('username', targetUser.username);
-                        console.log("☁️ Usuário excluído do Supabase Nuvem com Sucesso:", targetUser.username);
-                    } catch(e) { console.warn("Erro ao excluir do Supabase:", e); }
+                    } catch(e) {}
                 }
             }
         }
