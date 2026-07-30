@@ -220,6 +220,24 @@ document.addEventListener('DOMContentLoaded', () => {
             lengthFormula: 'C+6 + L+6 + C+6 + L+6 + 35'
         },
         {
+            style: 'MT-B',
+            desc: 'MALETA TRANSPASSE TOTAL - B',
+            category: 'maleta',
+            subvalue: 'Caixa 4 Abas - Transpasse Total',
+            wave: 'B',
+            widthFormula: 'L+3 + A+6 + L+3',
+            lengthFormula: 'C+3 + L+3 + C+3 + L+3 + 30'
+        },
+        {
+            style: 'MT-BC',
+            desc: 'MALETA TRANSPASSE TOTAL - BC',
+            category: 'maleta',
+            subvalue: 'Caixa 4 Abas - Transpasse Total',
+            wave: 'BC',
+            widthFormula: 'L+6 + A+12 + L+6',
+            lengthFormula: 'C+6 + L+6 + C+6 + L+6 + 35'
+        },
+        {
             style: 'TAB-B',
             desc: 'TABULEIRO - B',
             category: 'acessorio',
@@ -238,11 +256,15 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let engineering = getStoredData('dawos_engineering', defaultEngineering);
-    if (!engineering || engineering.length === 0 || !engineering.some(e => e.style === 'MN-B') || !engineering.some(e => e.style === 'TAB-B')) {
+    if (!engineering || engineering.length === 0 || !engineering.some(e => e.style === 'MN-B') || !engineering.some(e => e.style === 'MT-B')) {
         engineering = defaultEngineering;
         saveStoredData('dawos_engineering', defaultEngineering);
     } else {
-        // Atualiza descrições existentes de TAB-B e TAB-BC para remover '/ DIVISÓRIA'
+        // Garante adição de MT-B e MT-BC em bancos existentes
+        if (!engineering.some(e => e.style === 'MT-B')) {
+            engineering.push(defaultEngineering[2]);
+            engineering.push(defaultEngineering[3]);
+        }
         engineering.forEach(e => {
             if (e.style === 'TAB-B') e.desc = 'TABULEIRO - B';
             if (e.style === 'TAB-BC') e.desc = 'TABULEIRO - BC';
@@ -1600,10 +1622,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const selectedWave = getWaveFromPaperClass(paperClassCode);
         
-        // Busca fórmula correspondente na Engenharia
+        const boxSubtype = (document.getElementById('box-subtype') || {}).value || localStorage.getItem('xpace_selected_boxsubtype') || '';
+
+        // Busca fórmula correspondente na Engenharia (suporta sub-opções como Transpasse Total)
         const matchedEng = engineering.find(e => 
             e.category.toLowerCase() === (boxType || '').toLowerCase() && 
-            e.wave.toUpperCase() === (selectedWave || '').toUpperCase()
+            e.wave.toUpperCase() === (selectedWave || '').toUpperCase() &&
+            (!e.subvalue || e.subvalue.toLowerCase() === boxSubtype.toLowerCase())
         );
         
         if (matchedEng) {
