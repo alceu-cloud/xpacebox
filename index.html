@@ -872,9 +872,9 @@
                                             <span style="color:#334155; font-weight:600;">MCR$ (unitário):</span>
                                             <strong id="sim-b-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 1,1664</strong>
                                         </div>
-                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
-                                            <span style="color:#7c3aed; font-weight:800;">🎯 Lote Mínimo p/ R$ <span class="mch-label-val">1.500</span>/h:</span>
-                                            <strong id="sim-b-lote-mch" style="color:#7c3aed; font-family:var(--font-mono); font-weight:800; font-size:0.95rem;">— unids</strong>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; gap:6px;">
+                                            <span style="color:#7c3aed; font-weight:800; white-space:nowrap; flex-shrink:0;">🎯 Lote p/ R$ <span class="mch-label-val">1.500</span>/h:</span>
+                                            <strong id="sim-b-lote-mch" style="color:#7c3aed; font-family:var(--font-mono); font-weight:800; font-size:0.85rem; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">— unids</strong>
                                         </div>
                                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
                                             <span style="color:#334155; font-weight:600;">Despesa de Vendas:</span>
@@ -2408,11 +2408,14 @@
             if (elBLoteMch) {
                 if (surplusPerBox > 0.0001 && setupCostTotal > 0) {
                     var reqQty = Math.ceil(setupCostTotal / surplusPerBox);
+                    elBLoteMch.style.color = '#7c3aed';
                     elBLoteMch.innerHTML = reqQty.toLocaleString('pt-BR') + ' unids';
                     elBLoteMch.title = `Para vender a R$ ${precoB.toFixed(2)} e atingir a meta de R$ ${mchTargetVal}/h, você precisa produzir e vender pelo menos ${reqQty.toLocaleString('pt-BR')} caixas.`;
                 } else {
-                    elBLoteMch.textContent = '⚠️ Preço < R$ ' + Math.round(mchTargetVal) + '/h';
-                    elBLoteMch.title = `Neste preço de R$ ${precoB.toFixed(2)}, a margem por caixa é menor que a rodagem de R$ ${mchTargetVal}/h.`;
+                    var maxSpeedMch = Math.round(mcRsBVal * G16);
+                    elBLoteMch.style.color = '#e11d48';
+                    elBLoteMch.innerHTML = '⚠️ Inatingível <span style="font-size:0.7rem; font-weight:normal;">(máx R$' + maxSpeedMch + '/h)</span>';
+                    elBLoteMch.title = `Neste preço de R$ ${precoB.toFixed(2)}, a margem unitária (R$ ${mcRsBVal.toFixed(4)}) rende no máximo R$ ${maxSpeedMch}/h em velocidade total. Aumente o preço para atingir R$ ${mchTargetVal}/h.`;
                 }
             }
 
@@ -2617,8 +2620,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v133"></script>
-    <script src="app.js?v=20260729_v133"></script>
+    <script src="impressora_data.js?v=20260729_v134"></script>
+    <script src="app.js?v=20260729_v134"></script>
 </body>
 </html>
 
