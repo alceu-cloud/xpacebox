@@ -1846,26 +1846,47 @@
             return 'R$ ' + parts.join(',');
         }
 
+        // Global state getters & setters (previne perda de seleção ao navegar entre abas)
+        function getSelectedCompany() {
+            if (window.xpaceSelectedCompany) return window.xpaceSelectedCompany.toUpperCase();
+            var saved = localStorage.getItem('xpace_selected_company');
+            if (saved) {
+                window.xpaceSelectedCompany = saved.toUpperCase();
+                return window.xpaceSelectedCompany;
+            }
+            return 'DAWOS';
+        }
+
+        function getSelectedBoxType() {
+            if (window.xpaceSelectedBoxType) return window.xpaceSelectedBoxType.toLowerCase();
+            var saved = localStorage.getItem('xpace_selected_boxtype');
+            if (saved) {
+                window.xpaceSelectedBoxType = saved.toLowerCase();
+                return window.xpaceSelectedBoxType;
+            }
+            return 'maleta';
+        }
+
         // Sincroniza UI de Empresa e Modelo de Caixa com o estado salvo
         function syncSelectionsUI() {
-            var savedCompany = localStorage.getItem('xpace_selected_company') || 'DAWOS';
+            var savedCompany = getSelectedCompany();
             var companyInput = document.getElementById('selling-company');
             if (companyInput) companyInput.value = savedCompany;
             
             document.querySelectorAll('.company-option-card').forEach(function(c) {
-                if ((c.getAttribute('data-company') || '').toUpperCase() === savedCompany.toUpperCase()) {
+                if ((c.getAttribute('data-company') || '').toUpperCase() === savedCompany) {
                     c.classList.add('active');
                 } else {
                     c.classList.remove('active');
                 }
             });
 
-            var savedBoxType = localStorage.getItem('xpace_selected_boxtype') || 'maleta';
+            var savedBoxType = getSelectedBoxType();
             var boxTypeInput = document.getElementById('box-type');
             if (boxTypeInput) boxTypeInput.value = savedBoxType;
 
             document.querySelectorAll('.box-option-card').forEach(function(c) {
-                if (c.getAttribute('data-value') === savedBoxType) {
+                if ((c.getAttribute('data-value') || '').toLowerCase() === savedBoxType) {
                     c.classList.add('active');
                 } else {
                     c.classList.remove('active');
@@ -1877,11 +1898,17 @@
             });
             var activeGrid = document.getElementById('sub-grid-' + savedBoxType);
             if (activeGrid) activeGrid.classList.add('active');
+
+            var companyTextEl = document.getElementById('summary-company-text');
+            var companyLabelEl = document.getElementById('pf-company-label');
+            if (companyTextEl) companyTextEl.textContent = savedCompany;
+            if (companyLabelEl) companyLabelEl.textContent = savedCompany + ' Embalagens';
         }
 
         function dawosSelectCompany(el) {
             if (!el) return;
-            var comp = el.getAttribute('data-company') || 'DAWOS';
+            var comp = (el.getAttribute('data-company') || 'DAWOS').toUpperCase();
+            window.xpaceSelectedCompany = comp;
             localStorage.setItem('xpace_selected_company', comp);
             document.querySelectorAll('.company-option-card').forEach(function(c) { c.classList.remove('active'); });
             el.classList.add('active');
@@ -1901,19 +1928,16 @@
         // ============================================================
         function dawosRecalcPreco() {
             // 0. Empresa Vendedora Selecionada (DAWOS, CARCAT, GTA)
-            var savedComp = localStorage.getItem('xpace_selected_company') || 'DAWOS';
+            var sellingCompany = getSelectedCompany();
             var sellingCompanyEl = document.getElementById('selling-company');
-            var sellingCompany = (sellingCompanyEl && sellingCompanyEl.value) ? sellingCompanyEl.value.toUpperCase() : savedComp.toUpperCase();
-            if (sellingCompanyEl && !sellingCompanyEl.value) sellingCompanyEl.value = sellingCompany;
+            if (sellingCompanyEl) sellingCompanyEl.value = sellingCompany;
 
             // 1. Pega dimensões (aceita virgula ou ponto)
             var length = dawosParseFloat((document.getElementById('dim-length') || document.getElementById('length') || {}).value, 300);
             var width  = dawosParseFloat((document.getElementById('dim-width')  || document.getElementById('width')  || {}).value, 200);
             var height = dawosParseFloat((document.getElementById('dim-height') || document.getElementById('height') || {}).value, 150);
             
-            var savedBox = localStorage.getItem('xpace_selected_boxtype') || 'maleta';
-            var activeBoxCard = document.querySelector('.box-option-card.active');
-            var boxType = (activeBoxCard && activeBoxCard.getAttribute('data-value')) ? activeBoxCard.getAttribute('data-value') : ((document.getElementById('box-type') || {}).value || savedBox);
+            var boxType = getSelectedBoxType();
             var boxTypeInput = document.getElementById('box-type');
             if (boxTypeInput) boxTypeInput.value = boxType;
 
@@ -2494,8 +2518,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v108"></script>
-    <script src="app.js?v=20260729_v108"></script>
+    <script src="impressora_data.js?v=20260729_v109"></script>
+    <script src="app.js?v=20260729_v109"></script>
 </body>
 </html>
 

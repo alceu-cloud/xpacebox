@@ -1562,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let width = parseFloat(widthInput.value) || 0;
         const height = parseFloat(heightInput.value) || 0;
         const quantity = parseInt(quantityInput.value) || 100;
-        const boxType = boxTypeInput.value;
+        const boxType = (typeof getSelectedBoxType === 'function') ? getSelectedBoxType() : ((boxTypeInput && boxTypeInput.value) ? boxTypeInput.value : (localStorage.getItem('xpace_selected_boxtype') || 'maleta'));
 
         // Validação da Caixa Maleta: Comprimento deve ser maior ou igual a Largura
         if (boxType === 'maleta' && width > length && length > 0) {
