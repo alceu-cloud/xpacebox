@@ -1918,6 +1918,10 @@
             } else if (boxType === 'corte-vinco') {
                 chapaLarg = width + 100;
                 chapaComp = length + 100;
+            } else if (boxType === 'acessorio' || boxType === 'tabuleiro') {
+                // TABULEIRO / DIVISÓRIA: Largura × Comprimento direto sem adicionais
+                chapaLarg = width;
+                chapaComp = length;
             } else {
                 chapaLarg = width;
                 chapaComp = length;
@@ -2441,8 +2445,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v103"></script>
-    <script src="app.js?v=20260729_v103"></script>
+    <script src="impressora_data.js?v=20260729_v104"></script>
+    <script src="app.js?v=20260729_v104"></script>
 </body>
 </html>
 

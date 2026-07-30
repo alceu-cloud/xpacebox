@@ -218,11 +218,27 @@ document.addEventListener('DOMContentLoaded', () => {
             wave: 'BC',
             widthFormula: '(L/2)+6 + A+12 + (L/2)+6',
             lengthFormula: 'C+6 + L+6 + C+6 + L+6 + 35'
+        },
+        {
+            style: 'TAB-B',
+            desc: 'TABULEIRO / DIVISÓRIA - B',
+            category: 'acessorio',
+            wave: 'B',
+            widthFormula: 'L',
+            lengthFormula: 'C'
+        },
+        {
+            style: 'TAB-BC',
+            desc: 'TABULEIRO / DIVISÓRIA - BC',
+            category: 'acessorio',
+            wave: 'BC',
+            widthFormula: 'L',
+            lengthFormula: 'C'
         }
     ];
 
     let engineering = getStoredData('dawos_engineering', defaultEngineering);
-    if (!engineering || engineering.length === 0 || !engineering.some(e => e.style === 'MN-B')) {
+    if (!engineering || engineering.length === 0 || !engineering.some(e => e.style === 'MN-B') || !engineering.some(e => e.style === 'TAB-B')) {
         engineering = defaultEngineering;
         saveStoredData('dawos_engineering', defaultEngineering);
     }
