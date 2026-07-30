@@ -2157,7 +2157,7 @@
                 var pisC  = p.pisCofins !== undefined ? p.pisCofins : 3.65;
                 var ipiR  = p.ipiRate !== undefined ? p.ipiRate : 3.25;
                 S_despesas = (icmsS + pisC + ipiR + p.comissao + p.frete + p.outros) / 100;
-                custoBaseMat = custoSNotaMatDisplay; // G7: Custo MP Líquido da Coluna 9 (R$ 1,8247)
+                custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido abatido de IPI e ICMS Entrada (R$ 1,7489)
             } else {
                 // FÓRMULA DAWOS (Lucro Presumido):
                 // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
@@ -2565,8 +2565,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v122"></script>
-    <script src="app.js?v=20260729_v122"></script>
+    <script src="impressora_data.js?v=20260729_v123"></script>
+    <script src="app.js?v=20260729_v123"></script>
 </body>
 </html>
 
