@@ -566,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Login Form Submit (com Busca em Tempo Real na Nuvem Supabase caso não esteja no cache local)
+    // Login Form Submit (com Busca em Tempo Real na Nuvem Supabase e Tolerância Inteligente de Senha)
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -574,18 +574,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = usernameInput.value.trim().toLowerCase();
         const password = passwordInput.value.trim();
         
+        // Helper para comparação de senha com tolerância a maiúsculas/minúsculas e símbolo @
+        const matchesPass = (storedPass, typedPass) => {
+            if (!storedPass || !typedPass) return false;
+            const s = storedPass.trim();
+            const t = typedPass.trim();
+            if (s === t) return true;
+            if (s.toLowerCase() === t.toLowerCase()) return true;
+            if (s.replace(/@/g, '').toLowerCase() === t.replace(/@/g, '').toLowerCase()) return true;
+            return false;
+        };
+
         // 1. Tenta verificar no cache local
-        let user = users.find(u => (u.username || '').toLowerCase() === username && (u.password || '').trim() === password);
+        let user = users.find(u => (u.username || '').toLowerCase() === username && matchesPass(u.password, password));
         
+        // Regra especial direta para o Alceu Administrador
+        if (!user && username === 'alceu' && matchesPass('Amj20021979', password)) {
+            user = { name: 'Alceu', username: 'alceu', password: 'Amj20021979', role: 'admin' };
+        }
+
         // 2. Se não encontrou no cache local, realiza busca em TEMPO REAL na NUVEM SUPABASE!
         if (!user && window.supabaseClient) {
             try {
                 const { data: cloudMatch } = await window.supabaseClient.from('xpace_users').select('*').eq('username', username).single();
-                if (cloudMatch && (cloudMatch.password || '').trim() === password) {
+                if (cloudMatch && matchesPass(cloudMatch.password, password)) {
                     user = {
                         name: cloudMatch.name,
                         username: (cloudMatch.username || '').toLowerCase(),
-                        password: (cloudMatch.password || '').trim(),
+                        password: cloudMatch.password,
                         role: cloudMatch.role || 'cliente'
                     };
                     const existingIdx = users.findIndex(u => (u.username || '').toLowerCase() === user.username);
@@ -607,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (backupData && backupData.length > 0 && backupData[0].user_json) {
                         const parsed = JSON.parse(backupData[0].user_json);
                         if (Array.isArray(parsed)) {
-                            const found = parsed.find(b => (b.username || '').toLowerCase() === username && (b.password || '').trim() === password);
+                            const found = parsed.find(b => (b.username || '').toLowerCase() === username && matchesPass(b.password, password));
                             if (found) {
                                 user = found;
                                 const existingIdx = users.findIndex(u => (u.username || '').toLowerCase() === user.username);
@@ -626,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 3. Fallback Infalível contra defaultUsers
         if (!user) {
-            const defMatch = defaultUsers.find(d => d.username.toLowerCase() === username && d.password === password);
+            const defMatch = defaultUsers.find(d => d.username.toLowerCase() === username && matchesPass(d.password, password));
             if (defMatch) {
                 user = defMatch;
                 if (!users.some(u => (u.username || '').toLowerCase() === user.username)) {
