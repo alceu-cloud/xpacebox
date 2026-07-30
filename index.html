@@ -873,6 +873,10 @@
                                             <strong id="sim-b-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 1,1664</strong>
                                         </div>
                                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#7c3aed; font-weight:800;">🎯 Lote Mínimo p/ R$ <span class="mch-label-val">1.500</span>/h:</span>
+                                            <strong id="sim-b-lote-mch" style="color:#7c3aed; font-family:var(--font-mono); font-weight:800; font-size:0.95rem;">— unids</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
                                             <span style="color:#334155; font-weight:600;">Despesa de Vendas:</span>
                                             <strong id="sim-b-despesas-val" style="color:#d97706; font-weight:700; font-size:0.95rem;">25,97%</strong>
                                         </div>
@@ -2392,6 +2396,26 @@
                 elMchB.title = debugBInfo;
             }
 
+            // Cálculo do Lote Mínimo de Caixas para atingir a meta MCH (ex: R$ 1.500/h) no preço digitado no Simulador B
+            var mchTargetVal = p.mchPadrao || 1500;
+            document.querySelectorAll('.mch-label-val').forEach(function(el){ el.textContent = Math.round(mchTargetVal).toLocaleString('pt-BR'); });
+            
+            var runningCostPerBox = (G16 > 0) ? (mchTargetVal / G16) : 0;
+            var surplusPerBox = mcRsBVal - runningCostPerBox;
+            var setupCostTotal = mchTargetVal * (F17 / 60);
+
+            var elBLoteMch = document.getElementById('sim-b-lote-mch');
+            if (elBLoteMch) {
+                if (surplusPerBox > 0.0001 && setupCostTotal > 0) {
+                    var reqQty = Math.ceil(setupCostTotal / surplusPerBox);
+                    elBLoteMch.innerHTML = reqQty.toLocaleString('pt-BR') + ' unids';
+                    elBLoteMch.title = `Para vender a R$ ${precoB.toFixed(2)} e atingir a meta de R$ ${mchTargetVal}/h, você precisa produzir e vender pelo menos ${reqQty.toLocaleString('pt-BR')} caixas.`;
+                } else {
+                    elBLoteMch.textContent = '⚠️ Preço < R$ ' + Math.round(mchTargetVal) + '/h';
+                    elBLoteMch.title = `Neste preço de R$ ${precoB.toFixed(2)}, a margem por caixa é menor que a rodagem de R$ ${mchTargetVal}/h.`;
+                }
+            }
+
             // 4. Simulador C (Laranja — Informe a MC R$/Hora desejada):
             var simCInput = document.getElementById('sim-c-mch-input');
             if (simCInput && (simCInput.value === '' || simCInput.dataset.initialized !== '1')) {
@@ -2593,8 +2617,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v132"></script>
-    <script src="app.js?v=20260729_v132"></script>
+    <script src="impressora_data.js?v=20260729_v133"></script>
+    <script src="app.js?v=20260729_v133"></script>
 </body>
 </html>
 
