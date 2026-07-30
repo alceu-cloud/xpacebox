@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         {
             style: 'TAB-B',
-            desc: 'TABULEIRO / DIVISÓRIA - B',
+            desc: 'TABULEIRO - B',
             category: 'acessorio',
             wave: 'B',
             widthFormula: 'L',
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         {
             style: 'TAB-BC',
-            desc: 'TABULEIRO / DIVISÓRIA - BC',
+            desc: 'TABULEIRO - BC',
             category: 'acessorio',
             wave: 'BC',
             widthFormula: 'L',
@@ -241,6 +241,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!engineering || engineering.length === 0 || !engineering.some(e => e.style === 'MN-B') || !engineering.some(e => e.style === 'TAB-B')) {
         engineering = defaultEngineering;
         saveStoredData('dawos_engineering', defaultEngineering);
+    } else {
+        // Atualiza descrições existentes de TAB-B e TAB-BC para remover '/ DIVISÓRIA'
+        engineering.forEach(e => {
+            if (e.style === 'TAB-B') e.desc = 'TABULEIRO - B';
+            if (e.style === 'TAB-BC') e.desc = 'TABULEIRO - BC';
+        });
+        saveStoredData('dawos_engineering', engineering);
     }
 
     let currentUser = null;
