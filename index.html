@@ -91,14 +91,17 @@
                 </div>
                 <div class="form-group">
                     <label for="password">Senha</label>
-                    <input type="password" id="password" name="password" required placeholder="Digite sua senha" value="" autocomplete="new-password">
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                        <input type="password" id="password" name="password" required placeholder="Digite sua senha" value="" autocomplete="new-password" style="width: 100%; padding-right: 42px;">
+                        <button type="button" id="btn-toggle-password" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 1.15rem; padding: 4px; display: flex; align-items: center; justify-content: center; z-index: 10;" title="Ver/ocultar senha">👁️</button>
+                    </div>
                 </div>
                 <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer;">
                     <input type="checkbox" id="remember-me" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-laranja);">
                     <label for="remember-me" style="margin-bottom: 0; font-size: 0.8rem; color: var(--color-text-secondary); cursor: pointer;">Lembrar de mim neste dispositivo</label>
                 </div>
                 <div id="login-error" class="login-error-msg"></div>
-                <button type="submit" class="btn btn-primary btn-login">Entrar</button>
+                <button type="submit" id="btn-login-submit" class="btn btn-primary btn-login">Entrar</button>
             </form>
         </div>
     </div>
@@ -2590,8 +2593,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v129"></script>
-    <script src="app.js?v=20260729_v129"></script>
+    <script src="impressora_data.js?v=20260729_v130"></script>
+    <script src="app.js?v=20260729_v130"></script>
 </body>
 </html>
 

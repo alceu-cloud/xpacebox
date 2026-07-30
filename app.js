@@ -534,6 +534,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. AUTENTICAÇÃO E TRANSIÇÃO DA CORTINA DE SUBIDA
     // -------------------------------------------------------------
     
+    // Toggle de visibilidade da senha (Olhinho 👁️)
+    const btnTogglePassword = document.getElementById('btn-toggle-password');
+    if (btnTogglePassword && passwordInput) {
+        btnTogglePassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                btnTogglePassword.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                btnTogglePassword.textContent = '👁️';
+            }
+        });
+    }
+
+    // Atalho da Tecla ENTER nos inputs de Usuário e Senha
+    [usernameInput, passwordInput].forEach(inputEl => {
+        if (inputEl) {
+            inputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (typeof loginForm.requestSubmit === 'function') {
+                        loginForm.requestSubmit();
+                    } else {
+                        const submitBtn = document.getElementById('btn-login-submit');
+                        if (submitBtn) submitBtn.click();
+                    }
+                }
+            });
+        }
+    });
+
     // Login Form Submit (com Busca em Tempo Real na Nuvem Supabase caso não esteja no cache local)
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
