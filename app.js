@@ -31,8 +31,29 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { data: usersData } = await window.supabaseClient.from('xpace_users').select('*');
             if (usersData && usersData.length > 0) {
-                users = usersData;
+                let localUsers = getStoredData('dawos_users', defaultUsers) || [];
+                // Mescla sem apagar usuários locais recém-criados
+                usersData.forEach(cloudUser => {
+                    const idx = localUsers.findIndex(u => (u.username || '').toLowerCase() === (cloudUser.username || '').toLowerCase());
+                    if (idx >= 0) {
+                        localUsers[idx] = {
+                            name: cloudUser.name || localUsers[idx].name,
+                            username: (cloudUser.username || localUsers[idx].username).toLowerCase(),
+                            password: cloudUser.password || localUsers[idx].password,
+                            role: cloudUser.role || localUsers[idx].role
+                        };
+                    } else {
+                        localUsers.push({
+                            name: cloudUser.name,
+                            username: (cloudUser.username || '').toLowerCase(),
+                            password: cloudUser.password,
+                            role: cloudUser.role
+                        });
+                    }
+                });
+                users = localUsers;
                 saveStoredData('dawos_users', users);
+                if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
             }
 
             const { data: matsData } = await window.supabaseClient.from('xpace_materials').select('*');
@@ -429,15 +450,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = usernameInput.value.trim().toLowerCase();
         const password = passwordInput.value.trim();
         
-        // Verifica credenciais
-        const user = users.find(u => u.username === username && u.password === password);
+        // Verifica credenciais (tolerante a maiúsculas/minúsculas no usuário)
+        const user = users.find(u => (u.username || '').toLowerCase() === username && u.password === password);
         
         if (user) {
             loginError.textContent = '';
             currentUser = user;
             
-            // Lógica de "Lembrar de mim"
-            if (!rememberMeCheckbox || rememberMeCheckbox.checked) {
+            // Lógica de "Lembrar de mim": SALVA APENAS SE MARCAR EXPLICITAMENTE O CHECKBOX NESTE DISPOSITIVO
+            if (rememberMeCheckbox && rememberMeCheckbox.checked) {
                 localStorage.setItem('dawos_remembered_user', username);
                 localStorage.setItem('dawos_remembered_pass', password);
             } else {
@@ -515,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4000);
     }
 
-    // Função auxiliar para preencher credenciais lembradas
+    // Função auxiliar para preencher credenciais lembradas (Apenas se salvas LOCALMENTE neste PC)
     function fillRememberedCredentials() {
         if (!usernameInput || !passwordInput) return;
         const savedUser = localStorage.getItem('dawos_remembered_user');
@@ -525,7 +546,9 @@ document.addEventListener('DOMContentLoaded', () => {
             passwordInput.value = savedPass;
             if (rememberMeCheckbox) rememberMeCheckbox.checked = true;
         } else {
-            if (rememberMeCheckbox) rememberMeCheckbox.checked = true;
+            usernameInput.value = "";
+            passwordInput.value = "";
+            if (rememberMeCheckbox) rememberMeCheckbox.checked = false;
         }
     }
 
