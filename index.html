@@ -702,24 +702,30 @@
                                 </div>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; align-items:center;">
                                     
-                                    <!-- LADO ESQUERDO: Preço Unitário Sugerido + MC H -->
-                                    <div style="display:flex; flex-direction:column; gap:12px;">
-                                        <!-- Quadro Preço Unitário Sugerido -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 16px 20px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
-                                            <div style="font-size:0.85rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-weight:800;">Preço Unitário Sugerido</div>
-                                            <div id="pf-preco-padrao" style="font-family:var(--font-title); font-size:2.4rem; color:#16a34a; font-weight:bold; line-height:1;">R$ 3,94</div>
+                                    <!-- LADO ESQUERDO: Preço Padrão Pela MC% + Preço Sugerido Pela MC Hora + MC H + Preço R$/KG -->
+                                    <div style="display:flex; flex-direction:column; gap:10px;">
+                                        <!-- Quadro 1: Preço Padrão Pela MC% -->
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 12px 16px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                            <div style="font-size:0.75rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; font-weight:800; white-space:nowrap;">Preço Padrão Pela MC% (<span id="pf-mc-padrao-pct-badge">40%</span>)</div>
+                                            <div id="pf-preco-padrao" style="font-family:var(--font-title); font-size:1.8rem; color:#16a34a; font-weight:bold; line-height:1;">R$ 8,62</div>
+                                        </div>
+
+                                        <!-- Quadro 2: Preço Sugerido Pela MC Hora -->
+                                        <div style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border: 1.5px solid rgba(2, 132, 199, 0.35); border-radius: 12px; padding: 12px 16px; text-align: center; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.08);">
+                                            <div style="font-size:0.75rem; color:#0369a1; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; font-weight:800; white-space:nowrap;">Preço Sugerido Pela MC Hora (R$ <span id="pf-mch-target-badge">1.500</span>/h)</div>
+                                            <div id="pf-preco-mch-padrao" style="font-family:var(--font-title); font-size:1.8rem; color:#0284c7; font-weight:bold; line-height:1;">R$ 7,00</div>
                                         </div>
 
                                         <!-- Quadro MC H -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 10px 16px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08); display:flex; justify-content:space-between; align-items:center;">
-                                            <span style="font-size:0.85rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">⚡ MC H</span>
-                                            <strong id="pf-mch-padrao" style="font-family:var(--font-title); font-size:1.2rem; color:#0284c7; font-weight:800;">R$ 0,00/h</strong>
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 8px 16px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08); display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="font-size:0.82rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">⚡ MC H</span>
+                                            <strong id="pf-mch-padrao" style="font-family:var(--font-title); font-size:1.15rem; color:#0284c7; font-weight:800;">R$ 0,00/h</strong>
                                         </div>
 
                                         <!-- Quadro Preço R$/KG -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 10px 16px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08); display:flex; justify-content:space-between; align-items:center;">
-                                            <span style="font-size:0.85rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">📦 Preço R$/KG</span>
-                                            <strong id="pf-rskg-padrao" style="font-family:var(--font-title); font-size:1.2rem; color:#16a34a; font-weight:800;">R$ 0,00/kg</strong>
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 8px 16px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08); display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="font-size:0.82rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">📦 Preço R$/KG</span>
+                                            <strong id="pf-rskg-padrao" style="font-family:var(--font-title); font-size:1.15rem; color:#16a34a; font-weight:800;">R$ 0,00/kg</strong>
                                         </div>
                                     </div>
 
@@ -1292,16 +1298,29 @@
 
                                 <div style="display:flex; flex-wrap:wrap; gap:20px; margin-top:16px;">
 
-                                    <!-- MC% Padrão -->
-                                    <div style="flex:1; min-width:200px; background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.25); border-radius:12px; padding:18px;">
-                                        <div style="font-size:0.65rem; color:#4ade80; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px;">⭐ MC% Padrão</div>
-                                        <p class="input-tip" style="margin-bottom:10px;">Margem de contribuição padrão usada para calcular o preço sugerido automaticamente.</p>
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            <input type="number" id="param-mc-padrao" value="40" step="0.1" min="0" max="99" placeholder="40"
-                                                style="width:90px; font-size:1.3rem; font-weight:700; color:#4ade80; text-align:center; background:var(--bg-input); border:1px solid rgba(74,222,128,0.4); border-radius:8px; padding:8px;">
-                                            <span style="color:var(--color-text-muted); font-size:1rem;">%</span>
-                                        </div>
-                                    </div>
+                                     <!-- MC% Padrão e MC R$ Hora Padrão -->
+                                     <div style="flex:1; min-width:220px; background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.25); border-radius:12px; padding:18px; display:flex; flex-direction:column; align-items:center; text-align:center;">
+                                         <div style="font-size:0.75rem; color:#16a34a; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">⭐ MC% PADRÃO</div>
+                                         <p class="input-tip" style="margin-bottom:10px; font-size:0.75rem; text-align:center;">Margem de contribuição padrão usada para calcular o preço sugerido.</p>
+                                         
+                                         <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:16px;">
+                                             <input type="number" id="param-mc-padrao" value="40" step="0.1" min="0" max="99" placeholder="40"
+                                                 style="width:90px; font-size:1.3rem; font-weight:800; color:#16a34a; text-align:center; background:#ffffff; border:1.5px solid #16a34a; border-radius:8px; padding:6px 4px;">
+                                             <span style="color:#16a34a; font-size:1.1rem; font-weight:800;">%</span>
+                                         </div>
+
+                                         <div style="width:100%; border-top:1px dashed rgba(227,0,126,0.2); margin-bottom:14px;"></div>
+
+                                         <div style="font-size:0.75rem; color:#0284c7; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">⚡ MCR$ HORA PADRÃO</div>
+                                         <p class="input-tip" style="margin-bottom:10px; font-size:0.75rem; text-align:center;">Meta de retorno por hora para calcular o Preço Sugerido por MC Hora.</p>
+                                         
+                                         <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
+                                             <span style="color:#0284c7; font-size:0.95rem; font-weight:800;">R$</span>
+                                             <input type="number" id="param-mch-padrao" value="1500" step="10" min="0" placeholder="1500"
+                                                 style="width:105px; font-size:1.2rem; font-weight:800; color:#0284c7; text-align:center; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; padding:6px 4px;">
+                                             <span style="color:#0284c7; font-size:0.85rem; font-weight:800;">/h</span>
+                                         </div>
+                                     </div>
 
                                     <!-- Custos operacionais -->
                                     <div style="flex:2; min-width:300px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:12px; padding:18px;">
@@ -1640,6 +1659,7 @@
 
             var set = function(id, val) { var el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
             set('param-mc-padrao',  p.mcPadrao);
+            set('param-mch-padrao', p.mchPadrao !== undefined ? p.mchPadrao : 1500);
             set('param-comissao',   p.comissao);
             set('param-simples',    p.simples);
             set('param-frete',      p.frete);
@@ -1664,6 +1684,7 @@
             };
             var p = {
                 mcPadrao:  getV('param-mc-padrao', 40),
+                mchPadrao: getV('param-mch-padrao', 1500),
                 comissao:  getV('param-comissao', 2),
                 simples:   getV('param-simples', 5),
                 frete:     getV('param-frete', 2.27),
@@ -1679,6 +1700,7 @@
                 window.supabaseClient.from('xpace_pricing_params').upsert({
                     company_id: 'DAWOS',
                     mc_padrao: p.mcPadrao,
+                    mch_padrao: p.mchPadrao,
                     comissao: p.comissao,
                     simples: p.simples,
                     frete: p.frete,
@@ -1707,19 +1729,20 @@
         // Lê os params salvos do localStorage
         function dawosGetParams() {
             var raw = localStorage.getItem('dawos_pricing_params');
-            var def = { mcPadrao: 40, comissao: 2, simples: 5, frete: 2.27, outros: 1.7, icmsDawos: 12, demais: 8 };
+            var def = { mcPadrao: 40, mchPadrao: 1500, comissao: 2, simples: 5, frete: 2.27, outros: 1.7, icmsDawos: 12, demais: 8 };
             if (!raw) return def;
             try {
                 var p = JSON.parse(raw);
                 var n = function(v, d) { var x = parseFloat(v); return (!isNaN(x) && v !== '' && v !== null && v !== undefined) ? x : d; };
                 return {
-                    mcPadrao:  n(p.mcPadrao, 40),
-                    comissao:  n(p.comissao,  2),
-                    simples:   n(p.simples,   5),
-                    frete:     n(p.frete,  2.27),
-                    outros:    n(p.outros,  1.7),
+                    mcPadrao:  n(p.mcPadrao,  40),
+                    mchPadrao: n(p.mchPadrao, 1500),
+                    comissao:  n(p.comissao,   2),
+                    simples:   n(p.simples,    5),
+                    frete:     n(p.frete,   2.27),
+                    outros:    n(p.outros,   1.7),
                     icmsDawos: n(p.icmsDawos, 12),
-                    demais:    n(p.demais,    8)
+                    demais:    n(p.demais,     8)
                 };
             } catch(e) { return def; }
         }
@@ -2102,10 +2125,26 @@
             // Foto 1: MC HORA = (G11 * F14) * (60 / F19)
             // Onde (G11 * F14) é a Margem de Contribuição R$ Total do Pedido!
 
-            // 1. Preço Padrão Sugerido:
+            // 1. Preço Padrão Pela MC%:
             var mcRsPad = precoP ? calcMCRS(precoP) : 0;
             var mcTotalPad = (mcRsPad || 0) * F15;
             var mchPad = F19 > 0 ? (mcTotalPad * (60 / F19)) : 0;
+
+            // 2. Preço Sugerido Pela MC Hora (Fórmula Reversa c/ MCH Padrão)
+            var mchTarget = p.mchPadrao || 1500;
+            var mcRsTotalDesejado = (F19 > 0) ? (mchTarget * (F19 / 60)) : 0;
+            var mcRsUnitDesejado = qty > 0 ? (mcRsTotalDesejado / qty) : 0;
+            var precoLiquidoMCH = custoBaseMat + mcRsUnitDesejado;
+            var precoMCH = (1 - S_despesas) > 0 ? (precoLiquidoMCH / (1 - S_despesas)) : 0;
+
+            // Atualiza Badges e Valores dos Sub-cards de Preço Padrão Sugerido (Bloco 1)
+            var labelMcPct = document.getElementById('pf-mc-padrao-pct-badge');
+            var labelMchTarget = document.getElementById('pf-mch-target-badge');
+            if (labelMcPct) labelMcPct.textContent = p.mcPadrao + '%';
+            if (labelMchTarget) labelMchTarget.textContent = Math.round(mchTarget).toLocaleString('pt-BR');
+
+            var elPrecoMchPad = document.getElementById('pf-preco-mch-padrao');
+            if (elPrecoMchPad) elPrecoMchPad.textContent = precoMCH ? dawosFmtBRL(precoMCH) : '—';
 
             // 2. Simulador A:
             var mcRsAVal = mcRsA !== null ? mcRsA : 0;
@@ -2272,12 +2311,12 @@
                         el.addEventListener('blur', dawosRecalcPreco);
                     }
                 });
-                ['param-comissao', 'param-simples', 'param-frete', 'param-outros', 'param-icms-dawos', 'param-demais'].forEach(function(id) {
+                ['param-mc-padrao', 'param-mch-padrao', 'param-comissao', 'param-simples', 'param-frete', 'param-outros', 'param-icms-dawos', 'param-demais'].forEach(function(id) {
                     var el = document.getElementById(id);
                     if (el) {
-                        el.addEventListener('input', dawosUpdateTotalDespesasBadge);
-                        el.addEventListener('change', dawosUpdateTotalDespesasBadge);
-                        el.addEventListener('keyup', dawosUpdateTotalDespesasBadge);
+                        el.addEventListener('input', function() { dawosUpdateTotalDespesasBadge(); dawosRecalcPreco(); });
+                        el.addEventListener('change', function() { dawosUpdateTotalDespesasBadge(); dawosRecalcPreco(); });
+                        el.addEventListener('keyup', function() { dawosUpdateTotalDespesasBadge(); dawosRecalcPreco(); });
                     }
                 });
             }, 500);
@@ -2293,8 +2332,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v99"></script>
-    <script src="app.js?v=20260729_v99"></script>
+    <script src="impressora_data.js?v=20260729_v100"></script>
+    <script src="app.js?v=20260729_v100"></script>
 </body>
 </html>
 
