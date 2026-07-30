@@ -2152,12 +2152,12 @@
                 S_despesas = (p.simples + p.comissao + p.frete + p.outros) / 100;
                 custoBaseMat = custoMat; // usa Custo MP Bruto c/ IPI
             } else if (sellingCompany === 'GTA') {
-                // FÓRMULA OFICIAL GTA (Foto Excel: H5 ICMS Saída 12% + PIS/COFINS 3.65% + IPI 3.25% + H26 Comissão + H27 Frete + H31 Outros)
+                // FÓRMULA OFICIAL GTA (Foto Excel G8: (((H7 - (H7 * D63)) - G7) * F14) * (60 / F19))
                 var icmsS = p.icmsSaida !== undefined ? p.icmsSaida : 12;
                 var pisC  = p.pisCofins !== undefined ? p.pisCofins : 3.65;
                 var ipiR  = p.ipiRate !== undefined ? p.ipiRate : 3.25;
                 S_despesas = (icmsS + pisC + ipiR + p.comissao + p.frete + p.outros) / 100;
-                custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido sem IPI e ICMS
+                custoBaseMat = custoSNotaMatDisplay; // G7: Custo MP Líquido da Coluna 9 (R$ 1,8247)
             } else {
                 // FÓRMULA DAWOS (Lucro Presumido):
                 // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
@@ -2565,8 +2565,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v121"></script>
-    <script src="app.js?v=20260729_v121"></script>
+    <script src="impressora_data.js?v=20260729_v122"></script>
+    <script src="app.js?v=20260729_v122"></script>
 </body>
 </html>
 
