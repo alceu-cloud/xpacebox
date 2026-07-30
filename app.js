@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Formulário e inputs físicos
     const pricingForm = document.getElementById('pricing-form');
-    const boxOptionCards = document.querySelectorAll('.box-option-card');
+    const boxOptionCards = document.querySelectorAll('.box-option-card:not(.company-option-card)');
     const boxTypeInput = document.getElementById('box-type');
     const boxSubtypeInput = document.getElementById('box-subtype');
     const subOptionCards = document.querySelectorAll('.sub-option-card');
