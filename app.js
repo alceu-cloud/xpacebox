@@ -1516,6 +1516,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof updatePricingFormation === 'function') {
             updatePricingFormation();
         }
+        if (typeof dawosRecalcPreco === 'function') {
+            dawosRecalcPreco();
+        }
     }
 
     // Helpers de avaliação de fórmulas customizadas da Engenharia
