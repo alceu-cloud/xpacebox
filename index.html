@@ -1846,9 +1846,43 @@
             return 'R$ ' + parts.join(',');
         }
 
+        // Sincroniza UI de Empresa e Modelo de Caixa com o estado salvo
+        function syncSelectionsUI() {
+            var savedCompany = localStorage.getItem('xpace_selected_company') || 'DAWOS';
+            var companyInput = document.getElementById('selling-company');
+            if (companyInput) companyInput.value = savedCompany;
+            
+            document.querySelectorAll('.company-option-card').forEach(function(c) {
+                if ((c.getAttribute('data-company') || '').toUpperCase() === savedCompany.toUpperCase()) {
+                    c.classList.add('active');
+                } else {
+                    c.classList.remove('active');
+                }
+            });
+
+            var savedBoxType = localStorage.getItem('xpace_selected_boxtype') || 'maleta';
+            var boxTypeInput = document.getElementById('box-type');
+            if (boxTypeInput) boxTypeInput.value = savedBoxType;
+
+            document.querySelectorAll('.box-option-card').forEach(function(c) {
+                if (c.getAttribute('data-value') === savedBoxType) {
+                    c.classList.add('active');
+                } else {
+                    c.classList.remove('active');
+                }
+            });
+
+            document.querySelectorAll('.sub-options-grid').forEach(function(grid) {
+                grid.classList.remove('active');
+            });
+            var activeGrid = document.getElementById('sub-grid-' + savedBoxType);
+            if (activeGrid) activeGrid.classList.add('active');
+        }
+
         function dawosSelectCompany(el) {
             if (!el) return;
             var comp = el.getAttribute('data-company') || 'DAWOS';
+            localStorage.setItem('xpace_selected_company', comp);
             document.querySelectorAll('.company-option-card').forEach(function(c) { c.classList.remove('active'); });
             el.classList.add('active');
             var inputEl = document.getElementById('selling-company');
@@ -1867,15 +1901,21 @@
         // ============================================================
         function dawosRecalcPreco() {
             // 0. Empresa Vendedora Selecionada (DAWOS, CARCAT, GTA)
+            var savedComp = localStorage.getItem('xpace_selected_company') || 'DAWOS';
             var sellingCompanyEl = document.getElementById('selling-company');
-            var sellingCompany = (sellingCompanyEl && sellingCompanyEl.value) ? sellingCompanyEl.value.toUpperCase() : 'DAWOS';
+            var sellingCompany = (sellingCompanyEl && sellingCompanyEl.value) ? sellingCompanyEl.value.toUpperCase() : savedComp.toUpperCase();
+            if (sellingCompanyEl && !sellingCompanyEl.value) sellingCompanyEl.value = sellingCompany;
 
             // 1. Pega dimensões (aceita virgula ou ponto)
             var length = dawosParseFloat((document.getElementById('dim-length') || document.getElementById('length') || {}).value, 300);
             var width  = dawosParseFloat((document.getElementById('dim-width')  || document.getElementById('width')  || {}).value, 200);
             var height = dawosParseFloat((document.getElementById('dim-height') || document.getElementById('height') || {}).value, 150);
+            
+            var savedBox = localStorage.getItem('xpace_selected_boxtype') || 'maleta';
             var activeBoxCard = document.querySelector('.box-option-card.active');
-            var boxType = (activeBoxCard && activeBoxCard.getAttribute('data-value')) ? activeBoxCard.getAttribute('data-value') : ((document.getElementById('box-type') || {}).value || 'maleta');
+            var boxType = (activeBoxCard && activeBoxCard.getAttribute('data-value')) ? activeBoxCard.getAttribute('data-value') : ((document.getElementById('box-type') || {}).value || savedBox);
+            var boxTypeInput = document.getElementById('box-type');
+            if (boxTypeInput) boxTypeInput.value = boxType;
 
             // 2. Pega material selecionado e determina a onda (B vs BC) via banco de materiais
             var paperTypeEl = document.getElementById('paper-type');
@@ -2412,6 +2452,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Aguarda app.js calcular o custo primeiro (500ms)
             setTimeout(function() {
+                if (typeof syncSelectionsUI === 'function') syncSelectionsUI();
                 dawosLoadParamsIntoForm();
                 dawosRenderTemposAdmin();
                 dawosRecalcPreco();
@@ -2453,8 +2494,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v107"></script>
-    <script src="app.js?v=20260729_v107"></script>
+    <script src="impressora_data.js?v=20260729_v108"></script>
+    <script src="app.js?v=20260729_v108"></script>
 </body>
 </html>
 

@@ -1182,7 +1182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. INTERATIVIDADE DA CALCULADORA
     // -------------------------------------------------------------
 
-    // Troca de Abas
+    // Troca de Abas — mantendo estado e recalculando
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetId = btn.getAttribute('data-target');
@@ -1191,7 +1191,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tabContents.forEach(c => c.classList.remove('active'));
             
             btn.classList.add('active');
-            document.getElementById(targetId).classList.add('active');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) targetEl.classList.add('active');
+
+            // Garante ressincronização do modelo de caixa e empresa ao trocar de aba
+            if (typeof syncSelectionsUI === 'function') syncSelectionsUI();
+            updateSummaryData();
         });
     });
 
@@ -1202,7 +1207,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.classList.add('active');
             
             const value = card.getAttribute('data-value');
-            boxTypeInput.value = value;
+            if (boxTypeInput) boxTypeInput.value = value;
+            localStorage.setItem('xpace_selected_boxtype', value);
             
             // Alternar grids de sub-opções
             document.querySelectorAll('.sub-options-grid').forEach(grid => {
@@ -1218,7 +1224,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (firstSubCard) {
                     activeGrid.querySelectorAll('.sub-option-card').forEach(sc => sc.classList.remove('active'));
                     firstSubCard.classList.add('active');
-                    boxSubtypeInput.value = firstSubCard.getAttribute('data-subvalue');
+                    if (boxSubtypeInput) boxSubtypeInput.value = firstSubCard.getAttribute('data-subvalue');
+                    localStorage.setItem('xpace_selected_boxsubtype', firstSubCard.getAttribute('data-subvalue'));
                 }
             }
             
@@ -1241,7 +1248,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 parentGrid.querySelectorAll('.sub-option-card').forEach(sc => sc.classList.remove('active'));
             }
             subCard.classList.add('active');
-            boxSubtypeInput.value = subCard.getAttribute('data-subvalue');
+            const subVal = subCard.getAttribute('data-subvalue');
+            if (boxSubtypeInput) boxSubtypeInput.value = subVal;
+            localStorage.setItem('xpace_selected_boxsubtype', subVal);
             
             updateSubOptionSelection();
         });
@@ -1254,7 +1263,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.classList.add('active');
             
             const company = card.getAttribute('data-company');
-            sellingCompanyInput.value = company;
+            if (sellingCompanyInput) sellingCompanyInput.value = company;
+            localStorage.setItem('xpace_selected_company', company);
             
             updateSummaryData();
         });
