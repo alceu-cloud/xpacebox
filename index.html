@@ -898,6 +898,78 @@
                                 </div>
                             </div>
 
+                            <!-- BLOCO 4: SIMULADOR C (LARANJA/CORAL — Informe a MC R$/Hora desejada, veja o Preço e a Margem) -->
+                            <div style="background:rgba(234,88,12,0.05); border:1px solid rgba(234,88,12,0.25); border-radius:12px; padding:20px; margin-bottom:20px;">
+                                <div style="font-size:0.88rem; color:#ea580c; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:16px;">
+                                    ⚡ Simulador C — Informe a MC R$/Hora Desejada, veja o Preço e a Margem
+                                </div>
+                                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; align-items:center;">
+                                    
+                                    <!-- LADO ESQUERDO: Input MCH -> Seta -> Preço & Margem% + Preço R$/KG -->
+                                    <div style="display:flex; flex-direction:column; gap:12px;">
+                                        <!-- Quadro Input MCH -> Preço e MC% -->
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 10px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                            <div>
+                                                <label style="font-size:0.75rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase; white-space:nowrap;">MC R$/Hora Desejada</label>
+                                                <div style="display:flex; align-items:center; gap:4px;">
+                                                    <span style="color:#475569; font-weight:700; font-size:0.85rem;">R$</span>
+                                                    <input type="number" id="sim-c-mch-input" value="2400" placeholder="ex: 2400" step="10" min="0"
+                                                        oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
+                                                        onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
+                                                        onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
+                                                        style="width:95px; font-size:1.15rem; font-weight:700; color:#ea580c; text-align:center; background:#ffffff; border:1.5px solid #ea580c; border-radius:8px; padding:6px 4px;">
+                                                    <span style="color:#475569; font-weight:700; font-size:0.8rem;">/h</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div style="font-size:1.8rem; color:#be185d; margin:0 2px; font-weight:bold;">→</div>
+                                            
+                                            <div style="text-align:center;">
+                                                <div style="font-size:0.75rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
+                                                <div id="sim-c-preco" style="font-family:var(--font-title); font-size:1.8rem; color:#ea580c; font-weight:bold; line-height:1;">R$ 8,62</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Quadro Margem % Resultante -->
+                                        <div style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid rgba(234, 88, 12, 0.35); border-radius: 12px; padding: 10px 16px; text-align: center; box-shadow: 0 4px 15px rgba(234, 88, 12, 0.08); display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="font-size:0.85rem; color:#c2410c; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">🎯 Margem % Resultante</span>
+                                            <strong id="sim-c-mc-pct" style="font-family:var(--font-title); font-size:1.2rem; color:#ea580c; font-weight:800;">0,00%</strong>
+                                        </div>
+
+                                        <!-- Quadro Preço R$/KG -->
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 8px 16px; text-align: center; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08); display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="font-size:0.82rem; color:#be185d; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">📦 Preço R$/KG</span>
+                                            <strong id="sim-c-rskg" style="font-family:var(--font-title); font-size:1.15rem; color:#ea580c; font-weight:800;">R$ 0,00/kg</strong>
+                                        </div>
+                                    </div>
+
+                                    <!-- LADO DIREITO: Painel de Resultados Detalhados (MCR$, Despesas, Comissão, Total Pedido) -->
+                                    <div style="background: linear-gradient(135deg, #fff5f9 0%, #fdf2f8 100%); border: 1.5px solid rgba(227, 0, 126, 0.25); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.05);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#334155; font-weight:600;">MCR$ (unitário):</span>
+                                            <strong id="sim-c-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 0,0000</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#334155; font-weight:600;">Despesa de Vendas:</span>
+                                            <strong id="sim-c-despesas-val" style="color:#d97706; font-weight:700; font-size:0.95rem;">11,00%</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#334155; font-weight:600;">Comissão (%):</span>
+                                            <strong id="sim-c-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">2,00%</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#334155; font-weight:600;">Comissão a Receber (R$):</span>
+                                            <strong id="sim-c-comissao-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:0.95rem; margin-left:6px;">R$ 0,00</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; padding-top:4px; white-space:nowrap;">
+                                            <span style="color:#0f172a; font-weight:800;">Total do Pedido:</span>
+                                            <strong id="sim-c-total-pedido" style="color:#ea580c; font-size:1.1rem; font-family:var(--font-title); font-weight:800; margin-left:6px;">R$ 0,00</strong>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
                             <!-- Ações -->
                             <div class="summary-actions">
                                 <button type="button" class="btn btn-primary" id="btn-submit-order">
@@ -2177,6 +2249,43 @@
                 elMchB.title = debugBInfo;
             }
 
+            // 4. Simulador C (Laranja — Informe a MC R$/Hora desejada):
+            var simCInput = document.getElementById('sim-c-mch-input');
+            if (simCInput && (simCInput.value === '' || simCInput.dataset.initialized !== '1')) {
+                simCInput.value = p.mchPadrao || 1500;
+                simCInput.dataset.initialized = '1';
+            }
+
+            var targetMchC = simCInput ? dawosParseFloat(simCInput.value, 1500) : 1500;
+            var mcRsTotalC = (F19 > 0) ? (targetMchC * (F19 / 60)) : 0;
+            var mcRsUnitC = qty > 0 ? (mcRsTotalC / qty) : 0;
+            var precoLiquidoC = custoBaseMat + mcRsUnitC;
+            var precoC = (1 - S_despesas) > 0 ? (precoLiquidoC / (1 - S_despesas)) : 0;
+
+            var mcPctC = calcMCPct(precoC);
+            var mcRsC  = calcMCRS(precoC);
+            var totalC = precoC ? (precoC * qty) : 0;
+            var comissaoC = totalC * (p.comissao / 100);
+            var rskgC  = (pesoUnitKg > 0 && precoC > 0) ? (precoC / pesoUnitKg) : 0;
+
+            var elPrecoC       = document.getElementById('sim-c-preco');
+            var elMcPctC       = document.getElementById('sim-c-mc-pct');
+            var elMcRsC        = document.getElementById('sim-c-mc-rs');
+            var elDespesasC    = document.getElementById('sim-c-despesas-val');
+            var elComissaoPctC = document.getElementById('sim-c-comissao-pct');
+            var elComissaoRsC  = document.getElementById('sim-c-comissao-rs');
+            var elTotalC       = document.getElementById('sim-c-total-pedido');
+            var elRskgC        = document.getElementById('sim-c-rskg');
+
+            if (elPrecoC)       elPrecoC.textContent       = precoC ? dawosFmtBRL(precoC) : '—';
+            if (elMcPctC)       elMcPctC.textContent       = mcPctC !== null ? (mcPctC.toFixed(2).replace('.', ',') + '%') : '— %';
+            if (elMcRsC)        elMcRsC.textContent        = mcRsC !== null ? dawosFmtBRL4(mcRsC) : '—';
+            if (elDespesasC)    elDespesasC.textContent    = (S_despesas * 100).toFixed(2).replace('.', ',') + '%';
+            if (elComissaoPctC) elComissaoPctC.textContent = p.comissao.toFixed(2).replace('.', ',') + '%';
+            if (elComissaoRsC)  elComissaoRsC.textContent  = comissaoC ? dawosFmtBRL(comissaoC) : '—';
+            if (elTotalC)       elTotalC.textContent       = totalC ? dawosFmtBRL(totalC) : '—';
+            if (elRskgC)        elRskgC.textContent        = rskgC > 0 ? ('R$ ' + rskgC.toFixed(2).replace('.', ',') + '/kg') : 'R$ 0,00/kg';
+
             // 8. CÁLCULO PREÇO R$/KG (Preço de Venda Unitário ÷ Peso Real Unitário da Caixa em KG)
             var rskgPad = (pesoUnitKg > 0 && precoP > 0) ? (precoP / pesoUnitKg) : 0;
             var rskgA   = (pesoUnitKg > 0 && precoA > 0) ? (precoA / pesoUnitKg) : 0;
@@ -2302,7 +2411,7 @@
                 dawosRenderTemposAdmin();
                 dawosRecalcPreco();
                 // Garante listeners em TODOS os inputs de dimensões, materiais e simuladores
-                ['dim-length', 'dim-width', 'dim-height', 'length', 'width', 'height', 'material-supplier', 'paper-supplier', 'paper-class', 'paper-type', 'quantity', 'sim-a-margem', 'sim-b-preco'].forEach(function(id) {
+                ['dim-length', 'dim-width', 'dim-height', 'length', 'width', 'height', 'material-supplier', 'paper-supplier', 'paper-class', 'paper-type', 'quantity', 'sim-a-margem', 'sim-b-preco', 'sim-c-mch-input'].forEach(function(id) {
                     var el = document.getElementById(id);
                     if (el) {
                         el.addEventListener('input', dawosRecalcPreco);
@@ -2332,8 +2441,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v100"></script>
-    <script src="app.js?v=20260729_v100"></script>
+    <script src="impressora_data.js?v=20260729_v101"></script>
+    <script src="app.js?v=20260729_v101"></script>
 </body>
 </html>
 
