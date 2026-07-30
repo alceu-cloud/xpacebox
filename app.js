@@ -107,9 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
             users = localUsers;
             saveStoredData('dawos_users', users);
             if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
-        } catch(e) {
-            console.warn("Erro no syncSupabaseCloudData:", e);
-        }
 
             const { data: matsData } = await window.supabaseClient.from('xpace_materials').select('*');
             if (matsData && matsData.length > 0) {
