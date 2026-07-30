@@ -766,24 +766,24 @@
                                     <!-- LADO ESQUERDO: Input MC% -> Seta -> Preço Unitário + MC H -->
                                     <div style="display:flex; flex-direction:column; gap:12px;">
                                         <!-- Quadro Input -> Preço -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 10px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
-                                            <div>
-                                                <label style="font-size:0.75rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase; white-space:nowrap;">MC% Desejada</label>
-                                                <div style="display:flex; align-items:center; gap:4px;">
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 12px 14px; display:flex; align-items:center; justify-content:space-between; gap:8px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                            <div style="text-align:center;">
+                                                <label style="font-size:0.72rem; color:#be185d; font-weight:800; display:block; margin-bottom:4px; text-transform:uppercase;">MC% Desejada</label>
+                                                <div style="display:flex; align-items:center; justify-content:center; gap:3px;">
                                                     <input type="number" id="sim-a-margem" value="40" placeholder="ex: 35" step="0.1" min="0" max="99"
                                                         oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                        style="width:85px; font-size:1.15rem; font-weight:700; color:#0284c7; text-align:center; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; padding:6px 4px;">
-                                                    <span style="color:#475569; font-size:1rem; font-weight:700;">%</span>
+                                                        style="width:75px; font-size:1.1rem; font-weight:700; color:#0284c7; text-align:center; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; padding:5px 2px;">
+                                                    <span style="color:#475569; font-size:0.9rem; font-weight:700;">%</span>
                                                 </div>
                                             </div>
                                             
-                                            <div style="font-size:1.8rem; color:#be185d; margin:0 2px; font-weight:bold;">→</div>
+                                            <div style="font-size:1.4rem; color:#be185d; font-weight:bold; flex-shrink:0;">→</div>
                                             
-                                            <div style="text-align:center; white-space:nowrap;">
-                                                <div style="font-size:0.75rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
-                                                <div id="sim-a-preco" style="font-family:var(--font-title); font-size:1.6rem; color:#0284c7; font-weight:bold; line-height:1; white-space:nowrap;">R$ 3,94</div>
+                                            <div style="text-align:center;">
+                                                <div style="font-size:0.72rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
+                                                <div id="sim-a-preco" style="font-family:var(--font-title); font-size:1.5rem; color:#0284c7; font-weight:bold; line-height:1; white-space:nowrap;">R$ 3,94</div>
                                             </div>
                                         </div>
 
@@ -837,24 +837,24 @@
                                     <!-- LADO ESQUERDO: Input -> Seta -> Margem % + MC H -->
                                     <div style="display:flex; flex-direction:column; gap:12px;">
                                         <!-- Quadro Input -> Margem -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 10px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
-                                            <div>
-                                                <label style="font-size:0.75rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase; white-space:nowrap;">Preço Unitário (R$)</label>
-                                                <div style="display:flex; align-items:center; gap:4px;">
-                                                    <span style="color:#475569; font-weight:700; font-size:0.9rem;">R$</span>
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 12px 14px; display:flex; align-items:center; justify-content:space-between; gap:8px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                            <div style="text-align:center;">
+                                                <label style="font-size:0.72rem; color:#be185d; font-weight:800; display:block; margin-bottom:4px; text-transform:uppercase;">Preço Unitário</label>
+                                                <div style="display:flex; align-items:center; justify-content:center; gap:3px;">
+                                                    <span style="color:#475569; font-weight:700; font-size:0.8rem;">R$</span>
                                                     <input type="number" id="sim-b-preco" value="3.938" placeholder="ex: 4.50" step="0.01" min="0"
                                                         oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                        style="width:95px; font-size:1.15rem; font-weight:700; color:#7c3aed; text-align:center; background:#ffffff; border:1.5px solid #7c3aed; border-radius:8px; padding:6px 4px;">
+                                                        style="width:80px; font-size:1.1rem; font-weight:700; color:#7c3aed; text-align:center; background:#ffffff; border:1.5px solid #7c3aed; border-radius:8px; padding:5px 2px;">
                                                 </div>
                                             </div>
                                             
-                                            <div style="font-size:1.8rem; color:#be185d; margin:0 2px; font-weight:bold;">→</div>
+                                            <div style="font-size:1.4rem; color:#be185d; font-weight:bold; flex-shrink:0;">→</div>
                                             
-                                            <div style="text-align:center; white-space:nowrap;">
-                                                <div style="font-size:0.75rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Margem de Contribuição</div>
-                                                <div id="sim-b-mc-pct" style="font-family:var(--font-title); font-size:1.6rem; color:#7c3aed; font-weight:bold; line-height:1; white-space:nowrap;">40,01%</div>
+                                            <div style="text-align:center;">
+                                                <div style="font-size:0.72rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Margem MC%</div>
+                                                <div id="sim-b-mc-pct" style="font-family:var(--font-title); font-size:1.5rem; color:#7c3aed; font-weight:bold; line-height:1; white-space:nowrap;">40,01%</div>
                                             </div>
                                         </div>
 
@@ -908,24 +908,24 @@
                                     <!-- LADO ESQUERDO: Input MCH -> Seta -> Preço & Margem% + Preço R$/KG -->
                                     <div style="display:flex; flex-direction:column; gap:12px;">
                                         <!-- Quadro Input MCH -> Preço e MC% -->
-                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 14px 10px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
-                                            <div>
-                                                <label style="font-size:0.75rem; color:#be185d; font-weight:800; display:block; margin-bottom:6px; text-transform:uppercase; white-space:nowrap;">MC R$/Hora Desejada</label>
-                                                <div style="display:flex; align-items:center; gap:4px;">
-                                                    <span style="color:#475569; font-weight:700; font-size:0.85rem;">R$</span>
+                                        <div style="background: linear-gradient(135deg, #ffe0ed 0%, #ffd0e3 100%); border: 1.5px solid rgba(227, 0, 126, 0.3); border-radius: 12px; padding: 12px 14px; display:flex; align-items:center; justify-content:space-between; gap:8px; box-shadow: 0 4px 15px rgba(227, 0, 126, 0.08);">
+                                            <div style="text-align:center;">
+                                                <label style="font-size:0.72rem; color:#be185d; font-weight:800; display:block; margin-bottom:4px; text-transform:uppercase;">MC R$/Hora</label>
+                                                <div style="display:flex; align-items:center; justify-content:center; gap:3px;">
+                                                    <span style="color:#475569; font-weight:700; font-size:0.8rem;">R$</span>
                                                     <input type="number" id="sim-c-mch-input" value="2400" placeholder="ex: 2400" step="10" min="0"
                                                         oninput="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onkeyup="if(window.updatePricingFormation) window.updatePricingFormation();"
                                                         onchange="if(window.updatePricingFormation) window.updatePricingFormation();"
-                                                        style="width:95px; font-size:1.15rem; font-weight:700; color:#ea580c; text-align:center; background:#ffffff; border:1.5px solid #ea580c; border-radius:8px; padding:6px 4px;">
-                                                    <span style="color:#475569; font-weight:700; font-size:0.8rem;">/h</span>
+                                                        style="width:80px; font-size:1.1rem; font-weight:700; color:#ea580c; text-align:center; background:#ffffff; border:1.5px solid #ea580c; border-radius:8px; padding:5px 2px;">
+                                                    <span style="color:#475569; font-weight:700; font-size:0.75rem;">/h</span>
                                                 </div>
                                             </div>
                                             
-                                            <div style="font-size:1.8rem; color:#be185d; margin:0 2px; font-weight:bold;">→</div>
+                                            <div style="font-size:1.4rem; color:#be185d; font-weight:bold; flex-shrink:0;">→</div>
                                             
-                                            <div style="text-align:center; white-space:nowrap;">
-                                                <div style="font-size:0.75rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
+                                            <div style="text-align:center;">
+                                                <div style="font-size:0.72rem; color:#be185d; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Preço Unitário</div>
                                                 <div id="sim-c-preco" style="font-family:var(--font-title); font-size:1.5rem; color:#ea580c; font-weight:bold; line-height:1; white-space:nowrap;">R$ 8,62</div>
                                             </div>
                                         </div>
@@ -2441,8 +2441,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v102"></script>
-    <script src="app.js?v=20260729_v102"></script>
+    <script src="impressora_data.js?v=20260729_v103"></script>
+    <script src="app.js?v=20260729_v103"></script>
 </body>
 </html>
 
