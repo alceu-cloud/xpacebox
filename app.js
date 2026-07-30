@@ -311,6 +311,15 @@ document.addEventListener('DOMContentLoaded', () => {
             lengthFormula: 'C+6 + L+6 + C+6 + L+6 + 35'
         },
         {
+            style: 'CV-GERAL',
+            desc: 'CORTE E VINCO GERAL',
+            category: 'corte-vinco',
+            subvalue: 'Corte e Vinco Geral',
+            wave: 'B / BC',
+            widthFormula: 'L + 30',
+            lengthFormula: 'C + 30'
+        },
+        {
             style: 'TAB-B',
             desc: 'TABULEIRO - B',
             category: 'acessorio',
@@ -333,10 +342,21 @@ document.addEventListener('DOMContentLoaded', () => {
         engineering = defaultEngineering;
         saveStoredData('dawos_engineering', defaultEngineering);
     } else {
-        // Garante adição de MT-B e MT-BC em bancos existentes
+        // Garante adição de MT-B, MT-BC e CV-GERAL em bancos existentes
         if (!engineering.some(e => e.style === 'MT-B')) {
             engineering.push(defaultEngineering[2]);
             engineering.push(defaultEngineering[3]);
+        }
+        if (!engineering.some(e => e.style === 'CV-GERAL')) {
+            engineering.push({
+                style: 'CV-GERAL',
+                desc: 'CORTE E VINCO GERAL',
+                category: 'corte-vinco',
+                subvalue: 'Corte e Vinco Geral',
+                wave: 'B / BC',
+                widthFormula: 'L + 30',
+                lengthFormula: 'C + 30'
+            });
         }
         engineering.forEach(e => {
             if (e.style === 'TAB-B') e.desc = 'TABULEIRO - B';
