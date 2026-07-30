@@ -300,8 +300,9 @@
 
                             <!-- Sub-opções para Corte e Vinco -->
                             <div class="sub-options-grid" id="sub-grid-corte-vinco">
-                                <div style="font-size: 0.78rem; color: var(--color-text-secondary); background: rgba(255,255,255,0.6); border: 1px dashed rgba(217,119,36,0.3); border-radius: 10px; padding: 12px 16px; font-weight: 500;">
-                                    ℹ️ Modelos de Corte e Vinco serão ativados conforme o cadastro das engenharias específicas.
+                                <div class="sub-option-card active" data-subvalue="Corte e Vinco Geral">
+                                    <span class="sub-option-title">Corte e Vinco Geral</span>
+                                    <span class="sub-option-desc">Calcula pela Faca: (Largura + 30mm) × (Comprimento + 30mm)</span>
                                 </div>
                             </div>
 
@@ -1965,6 +1966,29 @@
             var boxTypeInput = document.getElementById('box-type');
             if (boxTypeInput) boxTypeInput.value = boxType;
 
+            var boxSubtype = (document.getElementById('box-subtype') || {}).value || localStorage.getItem('xpace_selected_boxsubtype') || '';
+            var isNoHeight = (boxType === 'corte-vinco' || boxType === 'acessorio' || boxType === 'tabuleiro' || boxSubtype === 'Tabuleiro' || boxSubtype === 'Corte e Vinco Geral');
+
+            var elHeightDim = document.getElementById('dim-height');
+            var elHeightForm = document.getElementById('height');
+            [elHeightDim, elHeightForm].forEach(function(el) {
+                if (el) {
+                    if (isNoHeight) {
+                        el.disabled = true;
+                        el.style.opacity = '0.4';
+                        el.style.cursor = 'not-allowed';
+                        var grp = el.closest('.form-group');
+                        if (grp) grp.style.opacity = '0.4';
+                    } else {
+                        el.disabled = false;
+                        el.style.opacity = '1';
+                        el.style.cursor = 'auto';
+                        var grp = el.closest('.form-group');
+                        if (grp) grp.style.opacity = '1';
+                    }
+                }
+            });
+
             // 2. Pega material selecionado e determina a onda (B vs BC) via banco de materiais
             var paperTypeEl = document.getElementById('paper-type');
             var paperClassEl = document.getElementById('paper-class');
@@ -2017,10 +2041,11 @@
                         chapaComp = length + 3 + width + 3 + length + 3 + width + 3 + 30;
                     }
                 }
-            } else if (boxType === 'corte-vinco') {
-                chapaLarg = width + 100;
-                chapaComp = length + 100;
-            } else if (boxType === 'acessorio' || boxType === 'tabuleiro') {
+            } else if (boxType === 'corte-vinco' || boxSubtype === 'Corte e Vinco Geral') {
+                // CORTE E VINCO GERAL: (Largura da Faca + 30mm) × (Comprimento da Faca + 30mm)
+                chapaLarg = width + 30;
+                chapaComp = length + 30;
+            } else if (boxType === 'acessorio' || boxType === 'tabuleiro' || boxSubtype === 'Tabuleiro') {
                 // TABULEIRO / DIVISÓRIA: Largura × Comprimento direto sem adicionais
                 chapaLarg = width;
                 chapaComp = length;
@@ -2565,8 +2590,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v125"></script>
-    <script src="app.js?v=20260729_v125"></script>
+    <script src="impressora_data.js?v=20260729_v126"></script>
+    <script src="app.js?v=20260729_v126"></script>
 </body>
 </html>
 
