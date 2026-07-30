@@ -2490,9 +2490,10 @@
                         el.addEventListener('blur', dawosRecalcPreco);
                     }
                 });
-                document.querySelectorAll('.box-option-card, .sub-option-card').forEach(function(card) {
+                document.querySelectorAll('.box-option-card, .sub-option-card, .company-option-card, .tab-btn').forEach(function(card) {
                     card.addEventListener('click', function() {
                         setTimeout(function() {
+                            if (typeof syncSelectionsUI === 'function') syncSelectionsUI();
                             if (typeof dawosRecalcPreco === 'function') dawosRecalcPreco();
                         }, 50);
                     });
@@ -2518,8 +2519,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v109"></script>
-    <script src="app.js?v=20260729_v109"></script>
+    <script src="impressora_data.js?v=20260729_v110"></script>
+    <script src="app.js?v=20260729_v110"></script>
 </body>
 </html>
 

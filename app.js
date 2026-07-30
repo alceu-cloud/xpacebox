@@ -1207,6 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.classList.add('active');
             
             const value = card.getAttribute('data-value');
+            window.xpaceSelectedBoxType = value;
             if (boxTypeInput) boxTypeInput.value = value;
             localStorage.setItem('xpace_selected_boxtype', value);
             
@@ -1259,27 +1260,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Seleção de Empresa Vendedora
     companyOptionCards.forEach(card => {
         card.addEventListener('click', () => {
-            companyOptionCards.forEach(c => c.classList.remove('active'));
-            card.classList.add('active');
-            
             const company = card.getAttribute('data-company');
-            if (sellingCompanyInput) sellingCompanyInput.value = company;
-            localStorage.setItem('xpace_selected_company', company);
-            
+            if (company) {
+                window.xpaceSelectedCompany = company.toUpperCase();
+                localStorage.setItem('xpace_selected_company', company.toUpperCase());
+                if (sellingCompanyInput) sellingCompanyInput.value = company.toUpperCase();
+            }
+            if (typeof syncSelectionsUI === 'function') syncSelectionsUI();
             updateSummaryData();
         });
     });
 
     function updateSubOptionSelection() {
-        const activeCategoryCard = document.querySelector('.box-option-card.active');
-        const activeSubCard = document.querySelector('.sub-options-grid.active .sub-option-card.active');
-        
-        if (activeCategoryCard && activeSubCard) {
-            const categoryName = activeCategoryCard.querySelector('.option-name').textContent;
-            const subName = activeSubCard.getAttribute('data-subvalue');
-            summaryBoxText.textContent = `${categoryName} (${subName})`;
-        }
-        
+        const savedBox = (typeof getSelectedBoxType === 'function') ? getSelectedBoxType() : (localStorage.getItem('xpace_selected_boxtype') || 'maleta');
+        const savedComp = (typeof getSelectedCompany === 'function') ? getSelectedCompany() : (localStorage.getItem('xpace_selected_company') || 'DAWOS');
+
+        if (typeof syncSelectionsUI === 'function') syncSelectionsUI();
+
+        let categoryName = 'Caixa Maleta';
+        if (savedBox === 'acessorio' || savedBox === 'tabuleiro') categoryName = 'Tabuleiro';
+        else if (savedBox === 'corte-vinco') categoryName = 'Corte & Vinco';
+
+        if (summaryBoxText) summaryBoxText.textContent = categoryName;
+        if (summaryCompanyText) summaryCompanyText.textContent = savedComp;
+        const pfLabel = document.getElementById('pf-company-label');
+        if (pfLabel) pfLabel.textContent = savedComp + ' Embalagens';
+
         updateSummaryData();
     }
 
