@@ -2227,7 +2227,7 @@
 
             // Simulador B: Informa Preço -> Dá a Margem
             var simB = document.getElementById('sim-b-preco');
-            var currentBoxKey = length + 'x' + width + 'x' + height + 'x' + paperCode;
+            var currentBoxKey = sellingCompany + 'x' + length + 'x' + width + 'x' + height + 'x' + paperCode + 'x' + boxSubtype + 'x' + qty;
             if (simB && (simB.dataset.boxKey !== currentBoxKey || simB.value === '' || simB.value === '3.86' || simB.value === '3.938')) {
                 if (precoP && precoP > 0) {
                     simB.value = precoP.toFixed(2);
@@ -2565,8 +2565,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v124"></script>
-    <script src="app.js?v=20260729_v124"></script>
+    <script src="impressora_data.js?v=20260729_v125"></script>
+    <script src="app.js?v=20260729_v125"></script>
 </body>
 </html>
 
