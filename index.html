@@ -296,25 +296,16 @@
                                     <span class="sub-option-title">Caixa 4 Abas - Transpasse Total</span>
                                     <span class="sub-option-desc">Abas cobrem todo o topo e todo o fundo</span>
                                 </div>
-                                <div class="sub-option-card" data-subvalue="Caixa 4 Abas Positivo">
-                                    <span class="sub-option-title">Caixa 4 Abas Positivo</span>
-                                    <span class="sub-option-desc">Caixa sem fundo (fechamento positivo)</span>
-                                </div>
                             </div>
 
                             <!-- Sub-opções para Corte e Vinco -->
                             <div class="sub-options-grid" id="sub-grid-corte-vinco">
-                                <div class="sub-option-card" data-subvalue="Corte e Vinco Plano">
-                                    <span class="sub-option-title">Corte e Vinco Plano</span>
-                                    <span class="sub-option-desc">Produzida em prensa plana</span>
-                                </div>
-                                <div class="sub-option-card" data-subvalue="Corte e Vinco Rotativo">
-                                    <span class="sub-option-title">Corte e Vinco Rotativo</span>
-                                    <span class="sub-option-desc">Produção em cilindros rotativos</span>
+                                <div style="font-size: 0.78rem; color: var(--color-text-secondary); background: rgba(255,255,255,0.6); border: 1px dashed rgba(217,119,36,0.3); border-radius: 10px; padding: 12px 16px; font-weight: 500;">
+                                    ℹ️ Modelos de Corte e Vinco serão ativados conforme o cadastro das engenharias específicas.
                                 </div>
                             </div>
 
-                            <!-- Sub-opções para Acessórios -->
+                            <!-- Sub-opções para Tabuleiro -->
                             <div class="sub-options-grid" id="sub-grid-acessorio">
                                 <div class="sub-option-card active" data-subvalue="Tabuleiro">
                                     <span class="sub-option-title">Tabuleiro</span>
@@ -2098,14 +2089,17 @@
             var elCustoMat = document.getElementById('pf-custo-mat');
             var elCustoSnota = document.getElementById('pf-custo-snota');
             if (sellingCompany === 'CARCAT') {
-                if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat) + ' <span style="font-size:0.62rem; background:#be185d; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE</span>';
+                if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat) + ' <span style="font-size:0.62rem; background:#be185d; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE CARCAT</span>';
                 if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay);
+            } else if (sellingCompany === 'GTA') {
+                if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat);
+                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay) + ' <span style="font-size:0.62rem; background:#0284c7; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE GTA</span>';
             } else {
                 if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat);
-                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay) + ' <span style="font-size:0.62rem; background:#6d28d9; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE</span>';
+                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay) + ' <span style="font-size:0.62rem; background:#6d28d9; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE DAWOS</span>';
             }
 
-            // 6. Parâmetros operacionais e precificação DAWOS
+            // 6. Parâmetros operacionais e precificação
             var p = dawosGetParams();
             var labelMc = document.getElementById('pf-mc-padrao-label');
             if (labelMc) labelMc.textContent = p.mcPadrao;
@@ -2120,14 +2114,18 @@
             var custoBaseMat = custoSNotaMat; // default Dawos
 
             if (sellingCompany === 'CARCAT') {
-                // FÓRMULA CARCAT:
-                // S_despesas = Imposto no Simples (5%) + Comissão (2%) + Frete (2%) + Outros (2%) = 11,00%
-                // (Na Carcat NÃO entra o Demais Custos de 8% nem o ICMS Dawos 6,97%!)
+                // FÓRMULA CARCAT (Cartonagem & Embalagens):
+                // S_despesas = Imposto no Simples (5%) + Comissão (2%) + Frete (2.27%) + Outros (1.7%) = 10,97%
                 S_despesas = (p.simples + p.comissao + p.frete + p.outros) / 100;
                 custoBaseMat = custoMat; // usa Custo MP Bruto c/ IPI
+            } else if (sellingCompany === 'GTA') {
+                // FÓRMULA GTA (Industrial & Logística):
+                // S_despesas = Imposto no Simples (5%) + Comissão (2%) + Frete (2.27%) + Outros (1.7%) = 10,97%
+                S_despesas = (p.simples + p.comissao + p.frete + p.outros) / 100;
+                custoBaseMat = custoSNotaMatDisplay || custoSNotaMat; // usa Custo MP Líquido abatido
             } else {
-                // FÓRMULA DAWOS (e GTA):
-                // S_despesas = Comissão (2%) + Frete (2%) + Outros (2%) + ICMS Dawos (6,97%) + Demais Custos (8%) = 25.97%
+                // FÓRMULA DAWOS (Lucro Presumido):
+                // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
                 S_despesas = (p.comissao + p.frete + p.outros + p.icmsDawos + p.demais) / 100;
                 custoBaseMat = custoSNotaMat; // usa Custo MP Líquido s/ Nota
             }
@@ -2532,8 +2530,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v119"></script>
-    <script src="app.js?v=20260729_v119"></script>
+    <script src="impressora_data.js?v=20260729_v120"></script>
+    <script src="app.js?v=20260729_v120"></script>
 </body>
 </html>
 
