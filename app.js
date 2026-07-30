@@ -145,7 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const defaultUsers = [
         { name: 'Alceu', username: 'alceu', password: 'Amj20021979', role: 'admin' },
-        { name: 'Renan', username: 'renan', password: 'Renan', role: 'cliente' }
+        { name: 'Renan', username: 'renan', password: 'Renan', role: 'cliente' },
+        { name: 'Samantha', username: 'samantha', password: 'samantha', role: 'cliente' }
     ];
 
     // Versão dos dados: mudar este número força o reset do localStorage com os novos dados
@@ -515,15 +516,62 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. AUTENTICAÇÃO E TRANSIÇÃO DA CORTINA DE SUBIDA
     // -------------------------------------------------------------
     
-    // Login Form Submit
-    loginForm.addEventListener('submit', (e) => {
+    // Login Form Submit (com Busca em Tempo Real na Nuvem Supabase caso não esteja no cache local)
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const username = usernameInput.value.trim().toLowerCase();
         const password = passwordInput.value.trim();
         
-        // Verifica credenciais (tolerante a maiúsculas/minúsculas no usuário)
-        const user = users.find(u => (u.username || '').toLowerCase() === username && u.password === password);
+        // 1. Tenta verificar no cache local
+        let user = users.find(u => (u.username || '').toLowerCase() === username && (u.password || '').trim() === password);
+        
+        // 2. Se não encontrou no cache local, realiza busca em TEMPO REAL na NUVEM SUPABASE!
+        if (!user && window.supabaseClient) {
+            try {
+                const { data: cloudMatch } = await window.supabaseClient.from('xpace_users').select('*').eq('username', username).single();
+                if (cloudMatch && (cloudMatch.password || '').trim() === password) {
+                    user = {
+                        name: cloudMatch.name,
+                        username: (cloudMatch.username || '').toLowerCase(),
+                        password: (cloudMatch.password || '').trim(),
+                        role: cloudMatch.role || 'cliente'
+                    };
+                    const existingIdx = users.findIndex(u => (u.username || '').toLowerCase() === user.username);
+                    if (existingIdx >= 0) {
+                        users[existingIdx] = user;
+                    } else {
+                        users.push(user);
+                    }
+                    saveStoredData('dawos_users', users);
+                }
+            } catch (errCloud) {
+                console.warn("Consulta direta Nuvem no login (tabela):", errCloud);
+            }
+
+            // Se ainda não encontrou, busca no backup de contingência DAWOS_USER_LIST
+            if (!user) {
+                try {
+                    const { data: backupData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_USER_LIST');
+                    if (backupData && backupData.length > 0 && backupData[0].user_json) {
+                        const parsed = JSON.parse(backupData[0].user_json);
+                        if (Array.isArray(parsed)) {
+                            const found = parsed.find(b => (b.username || '').toLowerCase() === username && (b.password || '').trim() === password);
+                            if (found) {
+                                user = found;
+                                const existingIdx = users.findIndex(u => (u.username || '').toLowerCase() === user.username);
+                                if (existingIdx >= 0) {
+                                    users[existingIdx] = user;
+                                } else {
+                                    users.push(user);
+                                }
+                                saveStoredData('dawos_users', users);
+                            }
+                        }
+                    }
+                } catch(eBackup){}
+            }
+        }
         
         if (user) {
             loginError.textContent = '';
