@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const defaultUsers = [
-        { name: 'Alceu', username: 'alceu', password: 'Amj20021979', role: 'admin' },
+        { name: 'Alceu', username: 'alceu', password: '@Amj20021979', role: 'admin' },
         { name: 'Renan', username: 'renan', password: 'Renan', role: 'cliente' },
         { name: 'Samantha', username: 'samantha', password: 'samantha', role: 'cliente' }
     ];
@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 userList.push(defU);
             } else {
                 if (defU.username.toLowerCase() === 'alceu') {
-                    userList[idx].password = defU.password;
+                    userList[idx].password = '@Amj20021979';
                     userList[idx].role = 'admin';
                 }
                 if (defU.username.toLowerCase() === 'samantha') {
@@ -589,8 +589,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let user = users.find(u => (u.username || '').toLowerCase() === username && matchesPass(u.password, password));
         
         // Regra especial direta para o Alceu Administrador
-        if (!user && username === 'alceu' && matchesPass('Amj20021979', password)) {
-            user = { name: 'Alceu', username: 'alceu', password: 'Amj20021979', role: 'admin' };
+        if (!user && username === 'alceu' && matchesPass('@Amj20021979', password)) {
+            user = { name: 'Alceu', username: 'alceu', password: '@Amj20021979', role: 'admin' };
         }
 
         // 2. Se não encontrou no cache local, realiza busca em TEMPO REAL na NUVEM SUPABASE!
