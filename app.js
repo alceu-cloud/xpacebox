@@ -616,14 +616,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const firstTab = tabBtns[0];
         if (firstTab) firstTab.click();
         
-        // Esconder containers do painel e mostrar login
+        // Esconder absolutamente todos os containers do painel e mostrar login fixo sem rolagem
         appContainer.classList.add('hidden');
         adminLandingScreen.classList.add('hidden');
         if (gerenteRestrictedScreen) gerenteRestrictedScreen.classList.add('hidden');
         loginScreen.classList.remove('hidden');
 
-        // Reset classes de modo
-        appContainer.className = 'app-container';
+        // Reset classes de modo e scroll
+        appContainer.className = 'app-container hidden';
+        window.scrollTo(0, 0);
     }
 
     if (btnLogout) btnLogout.addEventListener('click', executeLogout);

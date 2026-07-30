@@ -814,17 +814,21 @@ select {
    TELA DE LOGIN
    ========================================================================== */
 .login-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
     padding: 24px;
     background-color: var(--bg-main);
     background-image: 
-        radial-gradient(at 0% 0%, rgba(27, 54, 93, 0.3) 0px, transparent 50%),
+        radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.08) 0px, transparent 50%),
         radial-gradient(at 100% 100%, rgba(217, 119, 36, 0.15) 0px, transparent 50%);
-    position: relative;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 /* Decorações Laterais da Tela de Login (Múltiplas Caixas) */
