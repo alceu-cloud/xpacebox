@@ -1105,12 +1105,12 @@ document.addEventListener('DOMContentLoaded', () => {
         engineering.forEach((eng, index) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="font-family: var(--font-mono); font-size: 0.75rem;">${eng.style}</td>
-                <td><strong>${eng.desc}</strong></td>
-                <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--color-text-secondary);">${eng.category.toUpperCase()}</span></td>
-                <td><span class="badge" style="background: rgba(217, 119, 36, 0.1); color: var(--color-laranja-bright);">${eng.wave}</span></td>
-                <td style="font-family: var(--font-mono); font-size: 0.75rem;">${eng.widthFormula}</td>
-                <td style="font-family: var(--font-mono); font-size: 0.75rem;">${eng.lengthFormula}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; white-space: nowrap;">${eng.style}</td>
+                <td style="white-space: nowrap; font-size: 0.78rem;"><strong>${eng.desc}</strong></td>
+                <td style="white-space: nowrap;"><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--color-text-secondary);">${eng.category.toUpperCase()}</span></td>
+                <td style="white-space: nowrap;"><span class="badge" style="background: rgba(217, 119, 36, 0.1); color: var(--color-laranja-bright);">${eng.wave}</span></td>
+                <td style="font-family: var(--font-mono); font-size: 0.72rem; white-space: nowrap;">${eng.widthFormula}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.72rem; white-space: nowrap;">${eng.lengthFormula}</td>
                 <td style="text-align: right; white-space: nowrap;">
                     <button type="button" class="btn-admin-action btn-edit-engineering" data-index="${index}">EDITAR</button>
                     <button type="button" class="btn-admin-action btn-delete-engineering" data-index="${index}" style="background: #ff5252; margin-left: 6px;">EXCLUIR</button>
