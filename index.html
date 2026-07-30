@@ -1440,6 +1440,30 @@
                                                     <span style="color:var(--color-text-muted);">%</span>
                                                 </div>
                                             </div>
+                                            <div>
+                                                <label style="font-size:0.7rem; color:var(--color-text-muted); display:block; margin-bottom:5px;">ICMS Saída LP/LC (%)</label>
+                                                <div style="display:flex; align-items:center; gap:4px;">
+                                                    <input type="number" id="param-icms-saida" value="12" step="0.01" min="0" max="50" placeholder="12"
+                                                        style="width:80px; font-size:1rem; font-weight:700; color:#38bdf8; text-align:center; background:var(--bg-input); border:1px solid rgba(56,189,248,0.3); border-radius:6px; padding:6px;">
+                                                    <span style="color:var(--color-text-muted);">%</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style="font-size:0.7rem; color:var(--color-text-muted); display:block; margin-bottom:5px;">PIS / COFINS LP/LC (%)</label>
+                                                <div style="display:flex; align-items:center; gap:4px;">
+                                                    <input type="number" id="param-pis-cofins" value="3.65" step="0.01" min="0" max="50" placeholder="3.65"
+                                                        style="width:80px; font-size:1rem; font-weight:700; color:#eab308; text-align:center; background:var(--bg-input); border:1px solid rgba(234,179,8,0.3); border-radius:6px; padding:6px;">
+                                                    <span style="color:var(--color-text-muted);">%</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style="font-size:0.7rem; color:var(--color-text-muted); display:block; margin-bottom:5px;">IPI Saída/Entrada (%)</label>
+                                                <div style="display:flex; align-items:center; gap:4px;">
+                                                    <input type="number" id="param-ipi" value="3.25" step="0.01" min="0" max="50" placeholder="3.25"
+                                                        style="width:80px; font-size:1rem; font-weight:700; color:#a78bfa; text-align:center; background:var(--bg-input); border:1px solid rgba(167,139,250,0.3); border-radius:6px; padding:6px;">
+                                                    <span style="color:var(--color-text-muted);">%</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1716,7 +1740,7 @@
             }
 
             if (!p) {
-                p = { mcPadrao: 40, comissao: 2, simples: 5, frete: 2.27, outros: 1.7, icmsDawos: 12, demais: 8 };
+                p = { mcPadrao: 40, comissao: 2, simples: 5, frete: 2.27, outros: 1.7, icmsDawos: 12, demais: 8, icmsSaida: 12, pisCofins: 3.65, ipiRate: 3.25 };
                 localStorage.setItem('dawos_pricing_params', JSON.stringify(p));
             }
 
@@ -1729,6 +1753,9 @@
             set('param-outros',     p.outros);
             set('param-icms-dawos', p.icmsDawos);
             set('param-demais',     p.demais);
+            set('param-icms-saida', p.icmsSaida !== undefined ? p.icmsSaida : 12);
+            set('param-pis-cofins', p.pisCofins !== undefined ? p.pisCofins : 3.65);
+            set('param-ipi',        p.ipiRate !== undefined ? p.ipiRate : 3.25);
 
             var dbg = document.getElementById('params-debug');
             if (dbg) dbg.textContent = '✅ localStorage: ' + JSON.stringify(p);
@@ -1753,7 +1780,10 @@
                 frete:     getV('param-frete', 2.27),
                 outros:    getV('param-outros', 1.7),
                 icmsDawos: getV('param-icms-dawos', 12),
-                demais:    getV('param-demais', 8)
+                demais:    getV('param-demais', 8),
+                icmsSaida: getV('param-icms-saida', 12),
+                pisCofins: getV('param-pis-cofins', 3.65),
+                ipiRate:   getV('param-ipi', 3.25)
             };
             var json = JSON.stringify(p);
             localStorage.setItem('dawos_pricing_params', json);
@@ -1792,7 +1822,7 @@
         // Lê os params salvos do localStorage
         function dawosGetParams() {
             var raw = localStorage.getItem('dawos_pricing_params');
-            var def = { mcPadrao: 40, mchPadrao: 1500, comissao: 2, simples: 5, frete: 2.27, outros: 1.7, icmsDawos: 12, demais: 8 };
+            var def = { mcPadrao: 40, mchPadrao: 1500, comissao: 2, simples: 5, frete: 2.27, outros: 1.7, icmsDawos: 12, demais: 8, icmsSaida: 12, pisCofins: 3.65, ipiRate: 3.25 };
             if (!raw) return def;
             try {
                 var p = JSON.parse(raw);
@@ -1805,7 +1835,10 @@
                     frete:     n(p.frete,   2.27),
                     outros:    n(p.outros,   1.7),
                     icmsDawos: n(p.icmsDawos, 12),
-                    demais:    n(p.demais,     8)
+                    demais:    n(p.demais,     8),
+                    icmsSaida: n(p.icmsSaida, 12),
+                    pisCofins: n(p.pisCofins, 3.65),
+                    ipiRate:   n(p.ipiRate,   3.25)
                 };
             } catch(e) { return def; }
         }
@@ -2119,10 +2152,12 @@
                 S_despesas = (p.simples + p.comissao + p.frete + p.outros) / 100;
                 custoBaseMat = custoMat; // usa Custo MP Bruto c/ IPI
             } else if (sellingCompany === 'GTA') {
-                // FÓRMULA GTA (Industrial & Logística):
-                // S_despesas = Imposto no Simples (5%) + Comissão (2%) + Frete (2.27%) + Outros (1.7%) = 10,97%
-                S_despesas = (p.simples + p.comissao + p.frete + p.outros) / 100;
-                custoBaseMat = custoSNotaMatDisplay || custoSNotaMat; // usa Custo MP Líquido abatido
+                // FÓRMULA OFICIAL GTA (Foto Excel: H5 ICMS Saída 12% + PIS/COFINS 3.65% + IPI 3.25% + H26 Comissão + H27 Frete + H31 Outros)
+                var icmsS = p.icmsSaida !== undefined ? p.icmsSaida : 12;
+                var pisC  = p.pisCofins !== undefined ? p.pisCofins : 3.65;
+                var ipiR  = p.ipiRate !== undefined ? p.ipiRate : 3.25;
+                S_despesas = (icmsS + pisC + ipiR + p.comissao + p.frete + p.outros) / 100;
+                custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido sem IPI e ICMS
             } else {
                 // FÓRMULA DAWOS (Lucro Presumido):
                 // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
@@ -2530,8 +2565,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v120"></script>
-    <script src="app.js?v=20260729_v120"></script>
+    <script src="impressora_data.js?v=20260729_v121"></script>
+    <script src="app.js?v=20260729_v121"></script>
 </body>
 </html>
 
