@@ -2054,15 +2054,19 @@
                 }
             } else if (boxSubtype === 'Caixa Sedex' || boxSubtype === 'SEDEX') {
                 if (wave === 'BC') {
-                    // Foto 3: Largura Onda BC = ((((N4+3)+18+(N4+6))*2)+20)+(L4+48) [N4=Altura, L4=Comprimento]
-                    chapaLarg = ((((height + 3) + 18 + (height + 6)) * 2) + 20) + (length + 48);
-                    // Foto 4: Comprimento Onda BC = (N4+6)+(M4+6)+(N4+8)+(M4+13)+(N4+11) [N4=Altura, M4=Largura]
-                    chapaComp = (height + 6) + (width + 6) + (height + 8) + (width + 13) + (height + 11);
+                    // Foto 3: Largura Onda BC = ((((N4+3)+18+(N4+6))*2)+20)+(L4+48) + 30mm margem
+                    var netLargBC = ((((height + 3) + 18 + (height + 6)) * 2) + 20) + (length + 48);
+                    // Foto 4: Comprimento Onda BC = (N4+6)+(M4+6)+(N4+8)+(M4+13)+(N4+11) + 30mm margem
+                    var netCompBC = (height + 6) + (width + 6) + (height + 8) + (width + 13) + (height + 11);
+                    chapaLarg = netLargBC + 30; // 1022 + 30 = 1052 mm
+                    chapaComp = netCompBC + 30; // 894 + 30 = 924 mm
                 } else {
-                    // Foto 1: Largura Onda B = ((((N4+1)+8+(N4+3))*2)+12)+(L4+23) + 30 [N4=Altura, L4=Comprimento]
-                    chapaLarg = ((((height + 1) + 8 + (height + 3)) * 2) + 12) + (length + 23) + 30;
-                    // Foto 2: Comprimento Onda B = (N4+3)+(M4+3)+(N4+4)+(M4+5)+(N4+3) [N4=Altura, M4=Largura]
-                    chapaComp = (height + 3) + (width + 3) + (height + 4) + (width + 5) + (height + 3);
+                    // Foto 1: Largura Onda B = ((((N4+1)+8+(N4+3))*2)+12)+(L4+23) + 30mm margem
+                    var netLargB = ((((height + 1) + 8 + (height + 3)) * 2) + 12) + (length + 23);
+                    // Foto 2: Comprimento Onda B = (N4+3)+(M4+3)+(N4+4)+(M4+5)+(N4+3) + 30mm margem
+                    var netCompB = (height + 3) + (width + 3) + (height + 4) + (width + 5) + (height + 3);
+                    chapaLarg = netLargB + 30; // 959 + 30 = 989 mm
+                    chapaComp = netCompB + 30; // 868 + 30 = 898 mm
                 }
             } else if (boxType === 'corte-vinco' || boxSubtype === 'Corte e Vinco Geral') {
                 // CORTE E VINCO GERAL: (Largura da Faca + 30mm) × (Comprimento da Faca + 30mm)
@@ -2636,8 +2640,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v136"></script>
-    <script src="app.js?v=20260729_v136"></script>
+    <script src="impressora_data.js?v=20260729_v137"></script>
+    <script src="app.js?v=20260729_v137"></script>
 </body>
 </html>
 

@@ -344,8 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
             category: 'corte-vinco',
             subvalue: 'Caixa Sedex',
             wave: 'B',
-            widthFormula: '((((A+1)+8+(A+3))*2)+12)+(C+23)+30',
-            lengthFormula: '(A+3)+(L+3)+(A+4)+(L+5)+(A+3)'
+            widthFormula: '((((A+1)+8+(A+3))*2)+12)+(C+23) + 30',
+            lengthFormula: '(A+3)+(L+3)+(A+4)+(L+5)+(A+3) + 30'
         },
         {
             style: 'SEDEX-BC',
@@ -353,8 +353,8 @@ document.addEventListener('DOMContentLoaded', () => {
             category: 'corte-vinco',
             subvalue: 'Caixa Sedex',
             wave: 'BC',
-            widthFormula: '((((A+3)+18+(A+6))*2)+20)+(C+48)',
-            lengthFormula: '(A+6)+(L+6)+(A+8)+(L+13)+(A+11)'
+            widthFormula: '((((A+3)+18+(A+6))*2)+20)+(C+48) + 30',
+            lengthFormula: '(A+6)+(L+6)+(A+8)+(L+13)+(A+11) + 30'
         },
         {
             style: 'TAB-B',
