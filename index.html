@@ -1978,7 +1978,7 @@
             if (boxTypeInput) boxTypeInput.value = boxType;
 
             var boxSubtype = (document.getElementById('box-subtype') || {}).value || localStorage.getItem('xpace_selected_boxsubtype') || '';
-            var isNoHeight = (boxType === 'corte-vinco' || boxType === 'acessorio' || boxType === 'tabuleiro' || boxSubtype === 'Tabuleiro' || boxSubtype === 'Corte e Vinco Geral');
+            var isNoHeight = (boxSubtype === 'Corte e Vinco Geral' || boxSubtype === 'Tabuleiro' || boxType === 'acessorio' || boxType === 'tabuleiro');
 
             var elHeightDim = document.getElementById('dim-height');
             var elHeightForm = document.getElementById('height');
@@ -2636,8 +2636,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v135"></script>
-    <script src="app.js?v=20260729_v135"></script>
+    <script src="impressora_data.js?v=20260729_v136"></script>
+    <script src="app.js?v=20260729_v136"></script>
 </body>
 </html>
 
