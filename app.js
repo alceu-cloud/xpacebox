@@ -339,6 +339,24 @@ document.addEventListener('DOMContentLoaded', () => {
             lengthFormula: 'C + 30'
         },
         {
+            style: 'SEDEX-B',
+            desc: 'CAIXA SEDEX - B',
+            category: 'corte-vinco',
+            subvalue: 'Caixa Sedex',
+            wave: 'B',
+            widthFormula: '((((A+1)+8+(A+3))*2)+12)+(C+23)+30',
+            lengthFormula: '(A+3)+(L+3)+(A+4)+(L+5)+(A+3)'
+        },
+        {
+            style: 'SEDEX-BC',
+            desc: 'CAIXA SEDEX - BC',
+            category: 'corte-vinco',
+            subvalue: 'Caixa Sedex',
+            wave: 'BC',
+            widthFormula: '((((A+3)+18+(A+6))*2)+20)+(C+48)',
+            lengthFormula: '(A+6)+(L+6)+(A+8)+(L+13)+(A+11)'
+        },
+        {
             style: 'TAB-B',
             desc: 'TABULEIRO - B',
             category: 'acessorio',
@@ -361,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         engineering = defaultEngineering;
         saveStoredData('dawos_engineering', defaultEngineering);
     } else {
-        // Garante adição de MT-B, MT-BC e CV-GERAL em bancos existentes
+        // Garante adição de MT-B, MT-BC, CV-GERAL, SEDEX-B e SEDEX-BC em bancos existentes
         if (!engineering.some(e => e.style === 'MT-B')) {
             engineering.push(defaultEngineering[2]);
             engineering.push(defaultEngineering[3]);
@@ -375,6 +393,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 wave: 'B / BC',
                 widthFormula: 'L + 30',
                 lengthFormula: 'C + 30'
+            });
+        }
+        if (!engineering.some(e => e.style === 'SEDEX-B')) {
+            engineering.push({
+                style: 'SEDEX-B',
+                desc: 'CAIXA SEDEX - B',
+                category: 'corte-vinco',
+                subvalue: 'Caixa Sedex',
+                wave: 'B',
+                widthFormula: '((((A+1)+8+(A+3))*2)+12)+(C+23)+30',
+                lengthFormula: '(A+3)+(L+3)+(A+4)+(L+5)+(A+3)'
+            });
+        }
+        if (!engineering.some(e => e.style === 'SEDEX-BC')) {
+            engineering.push({
+                style: 'SEDEX-BC',
+                desc: 'CAIXA SEDEX - BC',
+                category: 'corte-vinco',
+                subvalue: 'Caixa Sedex',
+                wave: 'BC',
+                widthFormula: '((((A+3)+18+(A+6))*2)+20)+(C+48)',
+                lengthFormula: '(A+6)+(L+6)+(A+8)+(L+13)+(A+11)'
             });
         }
         engineering.forEach(e => {

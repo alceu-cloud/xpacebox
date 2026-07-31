@@ -307,6 +307,10 @@
                                     <span class="sub-option-title">Corte e Vinco Geral</span>
                                     <span class="sub-option-desc">Calcula pela Faca: (Largura + 30mm) × (Comprimento + 30mm)</span>
                                 </div>
+                                <div class="sub-option-card" data-subvalue="Caixa Sedex">
+                                    <span class="sub-option-title">Caixa Sedex</span>
+                                    <span class="sub-option-desc">Caixa modelo correios/sedex (auto-montável com trava)</span>
+                                </div>
                             </div>
 
                             <!-- Sub-opções para Tabuleiro -->
@@ -2048,6 +2052,18 @@
                         chapaComp = length + 3 + width + 3 + length + 3 + width + 3 + 30;
                     }
                 }
+            } else if (boxSubtype === 'Caixa Sedex' || boxSubtype === 'SEDEX') {
+                if (wave === 'BC') {
+                    // Foto 3: Largura Onda BC = ((((N4+3)+18+(N4+6))*2)+20)+(L4+48) [N4=Altura, L4=Comprimento]
+                    chapaLarg = ((((height + 3) + 18 + (height + 6)) * 2) + 20) + (length + 48);
+                    // Foto 4: Comprimento Onda BC = (N4+6)+(M4+6)+(N4+8)+(M4+13)+(N4+11) [N4=Altura, M4=Largura]
+                    chapaComp = (height + 6) + (width + 6) + (height + 8) + (width + 13) + (height + 11);
+                } else {
+                    // Foto 1: Largura Onda B = ((((N4+1)+8+(N4+3))*2)+12)+(L4+23) + 30 [N4=Altura, L4=Comprimento]
+                    chapaLarg = ((((height + 1) + 8 + (height + 3)) * 2) + 12) + (length + 23) + 30;
+                    // Foto 2: Comprimento Onda B = (N4+3)+(M4+3)+(N4+4)+(M4+5)+(N4+3) [N4=Altura, M4=Largura]
+                    chapaComp = (height + 3) + (width + 3) + (height + 4) + (width + 5) + (height + 3);
+                }
             } else if (boxType === 'corte-vinco' || boxSubtype === 'Corte e Vinco Geral') {
                 // CORTE E VINCO GERAL: (Largura da Faca + 30mm) × (Comprimento da Faca + 30mm)
                 chapaLarg = width + 30;
@@ -2620,8 +2636,8 @@
             console.log("⚡ Supabase Conectado com Sucesso ao XPACEBOX!");
         }
     </script>
-    <script src="impressora_data.js?v=20260729_v134"></script>
-    <script src="app.js?v=20260729_v134"></script>
+    <script src="impressora_data.js?v=20260729_v135"></script>
+    <script src="app.js?v=20260729_v135"></script>
 </body>
 </html>
 
