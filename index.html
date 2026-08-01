@@ -90,7 +90,7 @@
             <form id="login-form" onsubmit="event.preventDefault();">
                 <div class="form-group">
                     <label for="username">Usuário</label>
-                    <input type="text" id="username" name="username" required placeholder="Digite seu usuário" value="" autocomplete="off">
+                    <input type="text" id="username" name="username"  placeholder="Digite seu usuário" value="" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label for="password">Senha</label>
@@ -2750,7 +2750,7 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                     <div class="form-group" style="grid-column: span 2;">
                         <label for="client-nome-real">RazÃ£o Social (Nome Real) *</label>
-                        <input type="text" id="client-nome-real" required placeholder="Ex: Embalagens IndÃºstria Ltda">
+                        <input type="text" id="client-nome-real"  placeholder="Ex: Embalagens IndÃºstria Ltda">
                     </div>
                     <div class="form-group">
                         <label for="client-nome-fantasia">Nome Fantasia</label>
@@ -2771,7 +2771,7 @@
 
                     <div class="form-group">
                         <label for="client-documento">CNPJ ou CPF *</label>
-                        <input type="text" id="client-documento" required placeholder="00.000.000/0001-00">
+                        <input type="text" id="client-documento"  placeholder="00.000.000/0001-00">
                     </div>
                     <div class="form-group">
                         <label for="client-ie">InscriÃ§Ã£o Estadual (I.E.)</label>
@@ -2931,11 +2931,11 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                     <div class="form-group">
                         <label for="product-numero-ficha">NÃºmero da Ficha TÃ©cnica *</label>
-                        <input type="text" id="product-numero-ficha" required placeholder="Ex: FT-1001">
+                        <input type="text" id="product-numero-ficha"  placeholder="Ex: FT-1001">
                     </div>
                     <div class="form-group">
                         <label for="product-codigo-unico">CÃ³digo Ãšnico do Produto *</label>
-                        <input type="text" id="product-codigo-unico" required placeholder="Ex: PRD-5001">
+                        <input type="text" id="product-codigo-unico"  placeholder="Ex: PRD-5001">
                     </div>
                     <div class="form-group">
                         <label for="product-revisao">NÃºmero da RevisÃ£o</label>
@@ -2959,16 +2959,16 @@
 
                     <div class="form-group" style="grid-column: span 2;">
                         <label for="product-descricao">Unidade / ReferÃªncia (DescriÃ§Ã£o do Produto) *</label>
-                        <input type="text" id="product-descricao" required placeholder="Ex: Caixa de Frango 20kg Impressa 2 Cores">
+                        <input type="text" id="product-descricao"  placeholder="Ex: Caixa de Frango 20kg Impressa 2 Cores">
                     </div>
 
                     <div class="form-group">
                         <label for="product-comprimento">Comprimento (C) mm *</label>
-                        <input type="number" id="product-comprimento" required placeholder="300">
+                        <input type="number" id="product-comprimento"  placeholder="300">
                     </div>
                     <div class="form-group">
                         <label for="product-largura">Largura (L) mm *</label>
-                        <input type="number" id="product-largura" required placeholder="200">
+                        <input type="number" id="product-largura"  placeholder="200">
                     </div>
                     <div class="form-group">
                         <label for="product-altura">Altura (A) mm</label>
@@ -3021,24 +3021,44 @@
     </div>
 <script>
 function performDirectMasterLogin() {
+    var uInput = document.getElementById('username');
+    var uVal = uInput ? uInput.value.trim().toLowerCase() : '';
+    
     var loginScreen = document.getElementById('login-screen');
     var curtainOverlay = document.getElementById('curtain-overlay');
     var adminLanding = document.getElementById('admin-landing-screen');
     var appContainer = document.getElementById('app-container');
     var welcomeName = document.getElementById('welcome-user-name');
     var adminName = document.getElementById('admin-landing-name');
+    var headerStatus = document.getElementById('header-user-status');
 
-    if (welcomeName) welcomeName.textContent = 'Alceu';
-    if (adminName) adminName.textContent = 'Alceu';
+    var dispName = 'Alceu';
+    var isClient = false;
+
+    if (uVal === 'samantha') { dispName = 'Samantha'; isClient = true; }
+    else if (uVal === 'renan') { dispName = 'Renan'; isClient = true; }
+    else if (uVal === 'vendedor') { dispName = 'Vendedor'; isClient = true; }
+
+    if (welcomeName) welcomeName.textContent = dispName;
+    if (adminName) adminName.textContent = dispName;
+    if (headerStatus) headerStatus.textContent = 'LOGADO: ' + dispName;
 
     if (loginScreen) loginScreen.classList.add('hidden');
     if (curtainOverlay) curtainOverlay.classList.add('hidden');
 
-    if (adminLanding) {
-        adminLanding.classList.remove('hidden');
-    } else if (appContainer) {
-        appContainer.className = 'app-container mode-pricing';
-        appContainer.classList.remove('hidden');
+    if (isClient) {
+        if (adminLanding) adminLanding.classList.add('hidden');
+        if (appContainer) {
+            appContainer.className = 'app-container mode-pricing';
+            appContainer.classList.remove('hidden');
+        }
+    } else {
+        if (adminLanding) {
+            adminLanding.classList.remove('hidden');
+        } else if (appContainer) {
+            appContainer.className = 'app-container mode-pricing';
+            appContainer.classList.remove('hidden');
+        }
     }
 
     if (typeof window.switchModule === 'function') {
