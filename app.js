@@ -740,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
             adminElements.forEach(el => el.style.display = 'none');
         }
 
-        // Executar transição da cortina lateral (exibe a tela por 4 segundos completos)
+        // Executar transição da cortina lateral (exibe a tela instantaneamente)
         setTimeout(() => {
             curtainOverlay.classList.add('open'); // Painéis abrem lateralmente para esquerda e direita
             
@@ -772,7 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 curtainOverlay.classList.add('hidden');
             }, 1200);
             
-        }, 4000);
+        }, 300);
     }
 
     // Função auxiliar para preencher credenciais lembradas (Apenas se salvas LOCALMENTE neste PC)
