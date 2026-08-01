@@ -574,20 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. AUTENTICAÇÃO E TRANSIÇÃO DA CORTINA DE SUBIDA
     // -------------------------------------------------------------
     
-    // Toggle de visibilidade da senha (Olhinho 👁️)
-    const btnTogglePassword = document.getElementById('btn-toggle-password');
-    if (btnTogglePassword && passwordInput) {
-        btnTogglePassword.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                btnTogglePassword.textContent = '🙈';
-            } else {
-                passwordInput.type = 'password';
-                btnTogglePassword.textContent = '👁️';
-            }
-        });
-    }
+    // Toggle de visibilidade da senha (Olhinho 👁️) é controlado nativamente por togglePasswordVisibility(btn) em index.html
 
     // Atalho da Tecla ENTER nos inputs de Usuário e Senha
     [usernameInput, passwordInput].forEach(inputEl => {
