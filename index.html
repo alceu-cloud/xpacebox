@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -93,7 +93,7 @@
                     <label for="password">Senha</label>
                     <div style="position: relative; display: flex; align-items: center; width: 100%;">
                         <input type="password" id="password" name="password" placeholder="Digite sua senha" value="" autocomplete="new-password" style="width: 100%; padding-right: 42px;">
-                        <button type="button" id="btn-toggle-password" onclick="var p=document.getElementById('password');if(p){p.type=(p.type==='password'?'text':'password');}" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 1.15rem; padding: 4px; display: flex; align-items: center; justify-content: center; z-index: 10;" title="Ver/ocultar senha">👁️</button>
+                        <button type="button" id="btn-toggle-password" onclick="var p=document.getElementById('password');if(p){if(p.type==='password'){p.type='text';this.textContent='🙈';}else{p.type='password';this.textContent='👁️';}}" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 1.15rem; padding: 4px; display: flex; align-items: center; justify-content: center; z-index: 10;" title="Ver/ocultar senha">👁️</button>
                     </div>
                 </div>
                 <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer;">
@@ -128,18 +128,30 @@
             <h2>Olá, <span id="admin-landing-name">Alceu</span>!</h2>
             <p class="admin-landing-subtitle">Selecione o painel de trabalho desejado:</p>
             
-            <div class="panel-cards-grid">
+            <div class="panel-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                <div class="panel-card" id="card-goto-clients">
+                    <div class="panel-card-icon">👥</div>
+                    <h3>Cadastro de Clientes</h3>
+                    <p>Gestão completa de clientes, CNPJ/CPF, dados fiscais e consulta ViaCEP.</p>
+                    <span class="panel-card-btn" style="background: linear-gradient(135deg, #0284c7, #0369a1);">Acessar Clientes</span>
+                </div>
+                <div class="panel-card" id="card-goto-products">
+                    <div class="panel-card-icon">📦</div>
+                    <h3>Produtos (Engenharia)</h3>
+                    <p>Fichas Técnicas de Embalagens, modelos de caixas e transferência direta para cálculo.</p>
+                    <span class="panel-card-btn" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">Acessar Produtos</span>
+                </div>
+                <div class="panel-card" id="card-goto-pricing">
+                    <div class="panel-card-icon">📊</div>
+                    <h3>Formação de Preço</h3>
+                    <p>Calculadora inteligente para especificações físicas, materiais e orçamentos.</p>
+                    <span class="panel-card-btn">Acessar Calculadora</span>
+                </div>
                 <div class="panel-card" id="card-goto-admin">
                     <div class="panel-card-icon">⚙️</div>
                     <h3>Gerenciamento Geral</h3>
                     <p>Controle de logins, senhas e cadastro de novos usuários do sistema.</p>
-                    <span class="panel-card-btn">Acessar Painel</span>
-                </div>
-                <div class="panel-card" id="card-goto-pricing">
-                    <div class="panel-card-icon">📦</div>
-                    <h3>Formação de Preço</h3>
-                    <p>Calculadora inteligente para especificações físicas, materiais e orçamentos.</p>
-                    <span class="panel-card-btn">Acessar Calculadora</span>
+                    <span class="panel-card-btn" style="background: linear-gradient(135deg, #475569, #334155);">Acessar Painel</span>
                 </div>
             </div>
             
@@ -2641,7 +2653,7 @@
         }
     </script>
     <script src="impressora_data.js?v=20260729_v137"></script>
-    <script src="app.js?v=20260729_v137"></script>
+    <script src="app.js?v=155"></script>
     <script>
     function performDirectMasterLogin() {
         try {
