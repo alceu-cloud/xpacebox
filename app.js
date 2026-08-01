@@ -2254,10 +2254,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPaperCostTable();
     updatePricingFormation();
 
-});
 
 
-    // ==========================================
+    
+
+// ==========================================
     // XPACEBOX SAAS MULTI-MODULE ENGINE (v138)
     // ==========================================
     function initSaaSModules() {
@@ -2750,7 +2751,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (aInput) aInput.value = prod.altura;
 
             // Seleciona modelo de caixa nas opÃ§Ãµes
-            const boxCard = document.querySelector(.box-option-card[data-value=""]);
+            const boxCard = document.querySelector(`.box-option-card[data-value="${prod.modelo}"]`);
             if (boxCard) boxCard.click();
 
             // Mudar para o mÃ³dulo de Calculadora
@@ -2774,3 +2775,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializa os mÃ³dulos assim que a pÃ¡gina carregar
     initSaaSModules();
+
+});
