@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Web App DAWOS Embalagens - Lógica Interativa & Controle de Acessos
  * Recursos:
  * 1. Base de Usuários Atualizada (Alceu - Admin, Renan - Cliente)
@@ -2255,3 +2255,522 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePricingFormation();
 
 });
+
+
+    // ==========================================
+    // XPACEBOX SAAS MULTI-MODULE ENGINE (v138)
+    // ==========================================
+    function initSaaSModules() {
+        console.log("ðŸš€ Inicializando MÃ³dulos SaaS XPACEBOX...");
+
+        // --- 1. NAVEGAÃ‡ÃƒO DE MÃ“DULOS NO CABEÃ‡ALHO ---
+        const moduleNavBtns = document.querySelectorAll('.module-nav-btn');
+        const moduloClientes = document.getElementById('modulo-clientes');
+        const moduloProdutos = document.getElementById('modulo-produtos');
+        const configuratorSection = document.querySelector('.configurator-section');
+        const pricingSummarySection = document.querySelector('.pricing-summary-section');
+        const adminTab = document.getElementById('tab-admin');
+
+        function switchModule(moduleName) {
+            moduleNavBtns.forEach(btn => {
+                if (btn.getAttribute('data-module') === moduleName) {
+                    btn.classList.add('active');
+                    btn.style.opacity = '1';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.opacity = '0.7';
+                }
+            });
+
+            // Ocultar todas as seÃ§Ãµes primeiro
+            if (moduloClientes) moduloClientes.classList.add('hidden');
+            if (moduloProdutos) moduloProdutos.classList.add('hidden');
+            if (configuratorSection) configuratorSection.style.display = 'none';
+            if (pricingSummarySection) pricingSummarySection.style.display = 'none';
+            if (adminTab) adminTab.classList.remove('active');
+
+            if (moduleName === 'modulo-clientes') {
+                if (moduloClientes) moduloClientes.classList.remove('hidden');
+            } else if (moduleName === 'modulo-produtos') {
+                if (moduloProdutos) moduloProdutos.classList.remove('hidden');
+                renderProductsTable();
+                populateClientDropdownInProducts();
+            } else if (moduleName === 'modulo-calculadora') {
+                if (configuratorSection) configuratorSection.style.display = 'block';
+                if (pricingSummarySection) pricingSummarySection.style.display = 'block';
+            } else if (moduleName === 'modulo-admin') {
+                if (configuratorSection) configuratorSection.style.display = 'block';
+                if (pricingSummarySection) pricingSummarySection.style.display = 'block';
+                const adminBtn = document.querySelector('.tab-btn[data-target="tab-admin"]');
+                if (adminBtn) adminBtn.click();
+            }
+        }
+
+        moduleNavBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetMod = btn.getAttribute('data-module');
+                switchModule(targetMod);
+            });
+        });
+
+        // --- 2. GESTÃƒO DE CLIENTES (CRUD & VIACEP) ---
+        let clientsList = getStoredData('dawos_clients') || [
+            {
+                id: 'cli-1',
+                codigo_unico: 'CLI-001',
+                nome_real: 'Embalagens Brasil IndÃºstria e ComÃ©rcio Ltda',
+                nome_fantasia: 'Embalagens Brasil',
+                documento: '12.345.678/0001-90',
+                empresa_vendedora: 'DAWOS',
+                cidade: 'Curitiba',
+                uf: 'PR',
+                representante: 'Renan',
+                contato_nome: 'Carlos Eduardo',
+                contato_email: 'carlos@embalagensbrasil.com.br',
+                contato_telefone: '(41) 99888-7766'
+            }
+        ];
+
+        function saveClients() {
+            saveStoredData('dawos_clients', clientsList);
+            if (window.supabaseClient) {
+                window.supabaseClient.from('xpace_pricing_params').upsert({
+                    company_id: 'DAWOS_CLIENT_LIST',
+                    user_json: JSON.stringify(clientsList),
+                    updated_at: new Date().toISOString()
+                }).then(() => {}).catch(e => console.warn(e));
+            }
+        }
+
+        function renderClientsTable(filterText = '') {
+            const tbody = document.getElementById('clients-table-body');
+            if (!tbody) return;
+
+            const query = (filterText || '').toLowerCase().trim();
+            const filtered = clientsList.filter(c => 
+                (c.nome_real || '').toLowerCase().includes(query) ||
+                (c.nome_fantasia || '').toLowerCase().includes(query) ||
+                (c.documento || '').includes(query) ||
+                (c.codigo_unico || '').toLowerCase().includes(query)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = <tr><td colspan="8" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Nenhum cliente encontrado.</td></tr>;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(c => 
+                <tr style="border-bottom: 1px solid var(--color-border); hover: background 0.05;">
+                    <td style="padding: 12px; font-weight: 700; color: #0284c7;"></td>
+                    <td style="padding: 12px; font-weight: 600;"></td>
+                    <td style="padding: 12px; color: var(--color-text-secondary);"></td>
+                    <td style="padding: 12px;"></td>
+                    <td style="padding: 12px;"> / </td>
+                    <td style="padding: 12px;"><span class="badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 4px 8px; border-radius: 6px; font-weight: 600;"></span></td>
+                    <td style="padding: 12px; font-weight: 600;"></td>
+                    <td style="padding: 12px; text-align: right;">
+                        <button type="button" class="btn-edit-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 8px;" title="Editar">âœï¸</button>
+                        <button type="button" class="btn-delete-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">ðŸ—‘ï¸</button>
+                    </td>
+                </tr>
+            ).join('');
+
+            // Listeners de ediÃ§Ã£o e exclusÃ£o
+            tbody.querySelectorAll('.btn-edit-client').forEach(b => {
+                b.addEventListener('click', () => editClient(b.getAttribute('data-id')));
+            });
+            tbody.querySelectorAll('.btn-delete-client').forEach(b => {
+                b.addEventListener('click', () => deleteClient(b.getAttribute('data-id')));
+            });
+        }
+
+        // AUTOCOMPLETAR VIA CEP BRASIL
+        const cepInput = document.getElementById('client-cep');
+        if (cepInput) {
+            cepInput.addEventListener('blur', async () => {
+                const cep = cepInput.value.replace(/\D/g, '');
+                if (cep.length === 8) {
+                    try {
+                        const res = await fetch(https://viacep.com.br/ws//json/);
+                        const data = await res.json();
+                        if (!data.erro) {
+                            const end = document.getElementById('client-endereco');
+                            const bai = document.getElementById('client-bairro');
+                            const cid = document.getElementById('client-cidade');
+                            const uf  = document.getElementById('client-uf');
+                            const ibge= document.getElementById('client-codigo-ibge');
+
+                            if (end) end.value = data.logradouro || '';
+                            if (bai) bai.value = data.bairro || '';
+                            if (cid) cid.value = data.localidade || '';
+                            if (uf)  uf.value  = data.uf || '';
+                            if (ibge)ibge.value= data.ibge || '';
+                        }
+                    } catch(e) {
+                        console.warn("Erro ao consultar ViaCEP:", e);
+                    }
+                }
+            });
+        }
+
+        // Modal de Cliente
+        const modalClient = document.getElementById('modal-client');
+        const btnOpenClientModal = document.getElementById('btn-open-client-modal');
+        const btnCloseClientModal = document.getElementById('btn-close-client-modal');
+        const btnCancelClient = document.getElementById('btn-cancel-client');
+        const formClient = document.getElementById('form-client');
+        const clientSearchInput = document.getElementById('client-search-input');
+
+        if (btnOpenClientModal) {
+            btnOpenClientModal.addEventListener('click', () => {
+                if (formClient) formClient.reset();
+                document.getElementById('client-form-id').value = '';
+                document.getElementById('modal-client-title').textContent = 'ðŸ‘¤ Cadastrar Novo Cliente';
+                modalClient.classList.remove('hidden');
+            });
+        }
+
+        const closeClientModalHandler = () => {
+            if (modalClient) modalClient.classList.add('hidden');
+        };
+        if (btnCloseClientModal) btnCloseClientModal.addEventListener('click', closeClientModalHandler);
+        if (btnCancelClient) btnCancelClient.addEventListener('click', closeClientModalHandler);
+
+        if (formClient) {
+            formClient.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const existingId = document.getElementById('client-form-id').value;
+                const newClient = {
+                    id: existingId || ('cli-' + Date.now()),
+                    nome_real: document.getElementById('client-nome-real').value.trim(),
+                    nome_fantasia: document.getElementById('client-nome-fantasia').value.trim(),
+                    codigo_unico: document.getElementById('client-codigo-unico').value.trim() || ('CLI-' + (clientsList.length + 1)),
+                    empresa_vendedora: document.getElementById('client-empresa-vendedora').value,
+                    documento: document.getElementById('client-documento').value.trim(),
+                    ie: document.getElementById('client-ie').value.trim(),
+                    regime_tributario: document.getElementById('client-regime-tributario').value,
+                    perfil_fiscal: document.getElementById('client-perfil-fiscal').value,
+                    contato_nome: document.getElementById('client-contato-nome').value.trim(),
+                    contato_email: document.getElementById('client-contato-email').value.trim(),
+                    contato_telefone: document.getElementById('client-contato-telefone').value.trim(),
+                    telefone: document.getElementById('client-telefone').value.trim(),
+                    email_pedidos: document.getElementById('client-email-pedidos').value.trim(),
+                    email_nfe: document.getElementById('client-email-nfe').value.trim(),
+                    cep: document.getElementById('client-cep').value.trim(),
+                    endereco: document.getElementById('client-endereco').value.trim(),
+                    numero: document.getElementById('client-numero').value.trim(),
+                    bairro: document.getElementById('client-bairro').value.trim(),
+                    cidade: document.getElementById('client-cidade').value.trim(),
+                    uf: document.getElementById('client-uf').value.trim(),
+                    codigo_ibge: document.getElementById('client-codigo-ibge').value.trim(),
+                    origem: document.getElementById('client-origem').value,
+                    ramo: document.getElementById('client-ramo').value,
+                    representante: document.getElementById('client-representante').value,
+                    condicao_pgto: document.getElementById('client-condicao-pgto').value,
+                    frete: document.getElementById('client-frete').value,
+                    cfop: document.getElementById('client-cfop').value.trim(),
+                    icms: document.getElementById('client-icms').value,
+                    beneficio: document.getElementById('client-beneficio').value.trim()
+                };
+
+                if (existingId) {
+                    const idx = clientsList.findIndex(c => c.id === existingId);
+                    if (idx >= 0) clientsList[idx] = newClient;
+                } else {
+                    clientsList.push(newClient);
+                }
+
+                saveClients();
+                renderClientsTable();
+                closeClientModalHandler();
+            });
+        }
+
+        function editClient(id) {
+            const client = clientsList.find(c => c.id === id);
+            if (!client || !modalClient) return;
+
+            document.getElementById('client-form-id').value = client.id;
+            document.getElementById('modal-client-title').textContent = 'âœï¸ Editar Cliente: ' + (client.nome_fantasia || client.nome_real);
+            
+            document.getElementById('client-nome-real').value = client.nome_real || '';
+            document.getElementById('client-nome-fantasia').value = client.nome_fantasia || '';
+            document.getElementById('client-codigo-unico').value = client.codigo_unico || '';
+            document.getElementById('client-empresa-vendedora').value = client.empresa_vendedora || 'DAWOS';
+            document.getElementById('client-documento').value = client.documento || '';
+            document.getElementById('client-ie').value = client.ie || '';
+            document.getElementById('client-regime-tributario').value = client.regime_tributario || 'Simples Nacional';
+            document.getElementById('client-perfil-fiscal').value = client.perfil_fiscal || 'Contribuinte ICMS';
+            document.getElementById('client-contato-nome').value = client.contato_nome || '';
+            document.getElementById('client-contato-email').value = client.contato_email || '';
+            document.getElementById('client-contato-telefone').value = client.contato_telefone || '';
+            document.getElementById('client-telefone').value = client.telefone || '';
+            document.getElementById('client-email-pedidos').value = client.email_pedidos || '';
+            document.getElementById('client-email-nfe').value = client.email_nfe || '';
+            document.getElementById('client-cep').value = client.cep || '';
+            document.getElementById('client-endereco').value = client.endereco || '';
+            document.getElementById('client-numero').value = client.numero || '';
+            document.getElementById('client-bairro').value = client.bairro || '';
+            document.getElementById('client-cidade').value = client.cidade || '';
+            document.getElementById('client-uf').value = client.uf || '';
+            document.getElementById('client-codigo-ibge').value = client.codigo_ibge || '';
+            document.getElementById('client-origem').value = client.origem || 'IndicaÃ§Ã£o';
+            document.getElementById('client-ramo').value = client.ramo || 'AlimentÃ­cio';
+            document.getElementById('client-representante').value = client.representante || 'Venda Direta / FÃ¡brica';
+            document.getElementById('client-condicao-pgto').value = client.condicao_pgto || 'A Vista';
+            document.getElementById('client-frete').value = client.frete || 'CIF';
+            document.getElementById('client-cfop').value = client.cfop || '5.101';
+            document.getElementById('client-icms').value = client.icms || '12.00';
+            document.getElementById('client-beneficio').value = client.beneficio || '';
+
+            modalClient.classList.remove('hidden');
+        }
+
+        function deleteClient(id) {
+            if (confirm("Tem certeza que deseja excluir este cliente?")) {
+                clientsList = clientsList.filter(c => c.id !== id);
+                saveClients();
+                renderClientsTable();
+            }
+        }
+
+        if (clientSearchInput) {
+            clientSearchInput.addEventListener('input', (e) => renderClientsTable(e.target.value));
+        }
+
+        // --- 3. GESTÃƒO DE PRODUTOS / FICHAS TÃ‰CNICAS ---
+        let productsList = getStoredData('dawos_products') || [];
+
+        function saveProducts() {
+            saveStoredData('dawos_products', productsList);
+            if (window.supabaseClient) {
+                window.supabaseClient.from('xpace_pricing_params').upsert({
+                    company_id: 'DAWOS_PRODUCT_LIST',
+                    user_json: JSON.stringify(productsList),
+                    updated_at: new Date().toISOString()
+                }).then(() => {}).catch(e => console.warn(e));
+            }
+        }
+
+        function populateClientDropdownInProducts() {
+            const select = document.getElementById('product-cliente-id');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">-- Selecione um Cliente --</option>' +
+                clientsList.map(c => <option value=""> ()</option>).join('');
+        }
+
+        function renderProductsTable(filterText = '') {
+            const tbody = document.getElementById('products-table-body');
+            if (!tbody) return;
+
+            const query = (filterText || '').toLowerCase().trim();
+            const filtered = productsList.filter(p => 
+                (p.numero_ficha || '').toLowerCase().includes(query) ||
+                (p.codigo_unico || '').toLowerCase().includes(query) ||
+                (p.descricao || '').toLowerCase().includes(query)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Nenhuma Ficha TÃ©cnica cadastrada.</td></tr>;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(p => {
+                const clientObj = clientsList.find(c => c.id === p.cliente_id);
+                const clientName = clientObj ? (clientObj.nome_fantasia || clientObj.nome_real) : 'Geral';
+
+                return 
+                <tr style="border-bottom: 1px solid var(--color-border);">
+                    <td style="padding: 12px; font-weight: 700; color: #7c3aed;"></td>
+                    <td style="padding: 12px; font-weight: 600;"></td>
+                    <td style="padding: 12px;"><span class="badge" style="background: rgba(124, 58, 237, 0.1); color: #7c3aed; padding: 2px 6px; border-radius: 4px;"></span></td>
+                    <td style="padding: 12px; font-weight: 600;"></td>
+                    <td style="padding: 12px;"></td>
+                    <td style="padding: 12px;"> x  x  mm</td>
+                    <td style="padding: 12px; text-transform: uppercase;"></td>
+                    <td style="padding: 12px;"></td>
+                    <td style="padding: 12px; text-align: right;">
+                        <button type="button" class="btn-use-product-in-pricing" data-id="" style="background: rgba(227, 0, 126, 0.1); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); border-radius: 6px; padding: 4px 8px; font-weight: 700; cursor: pointer; margin-right: 6px;" title="Formar PreÃ§o com esta Ficha">ðŸ“¥ Formar PreÃ§o</button>
+                        <button type="button" class="btn-edit-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 6px;" title="Editar">âœï¸</button>
+                        <button type="button" class="btn-delete-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">ðŸ—‘ï¸</button>
+                    </td>
+                </tr>
+                ;
+            }).join('');
+
+            // Listeners de Formar PreÃ§o, Editar e Excluir
+            tbody.querySelectorAll('.btn-use-product-in-pricing').forEach(b => {
+                b.addEventListener('click', () => loadProductIntoPricing(b.getAttribute('data-id')));
+            });
+            tbody.querySelectorAll('.btn-edit-product').forEach(b => {
+                b.addEventListener('click', () => editProduct(b.getAttribute('data-id')));
+            });
+            tbody.querySelectorAll('.btn-delete-product').forEach(b => {
+                b.addEventListener('click', () => deleteProduct(b.getAttribute('data-id')));
+            });
+        }
+
+        // Modal de Ficha TÃ©cnica
+        const modalProduct = document.getElementById('modal-product');
+        const btnOpenProductModal = document.getElementById('btn-open-product-modal');
+        const btnCloseProductModal = document.getElementById('btn-close-product-modal');
+        const btnCancelProduct = document.getElementById('btn-cancel-product');
+        const formProduct = document.getElementById('form-product');
+        const productSearchInput = document.getElementById('product-search-input');
+        const btnTransferProductModal = document.getElementById('btn-transfer-product-modal');
+
+        if (btnOpenProductModal) {
+            btnOpenProductModal.addEventListener('click', () => {
+                populateClientDropdownInProducts();
+                if (formProduct) formProduct.reset();
+                document.getElementById('product-form-id').value = '';
+                document.getElementById('modal-product-title').textContent = 'ðŸ“¦ Cadastrar Ficha TÃ©cnica de Produto';
+                modalProduct.classList.remove('hidden');
+            });
+        }
+
+        const closeProductModalHandler = () => {
+            if (modalProduct) modalProduct.classList.add('hidden');
+        };
+        if (btnCloseProductModal) btnCloseProductModal.addEventListener('click', closeProductModalHandler);
+        if (btnCancelProduct) btnCancelProduct.addEventListener('click', closeProductModalHandler);
+
+        if (formProduct) {
+            formProduct.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const existingId = document.getElementById('product-form-id').value;
+                const newProd = {
+                    id: existingId || ('prd-' + Date.now()),
+                    numero_ficha: document.getElementById('product-numero-ficha').value.trim(),
+                    codigo_unico: document.getElementById('product-codigo-unico').value.trim(),
+                    revisao: document.getElementById('product-revisao').value.trim() || 'Rev 00',
+                    empresa_vendedora: document.getElementById('product-empresa-vendedora').value,
+                    cliente_id: document.getElementById('product-cliente-id').value,
+                    descricao: document.getElementById('product-descricao').value.trim(),
+                    comprimento: parseFloat(document.getElementById('product-comprimento').value) || 0,
+                    largura: parseFloat(document.getElementById('product-largura').value) || 0,
+                    altura: parseFloat(document.getElementById('product-altura').value) || 0,
+                    modelo: document.getElementById('product-modelo').value,
+                    faca: document.getElementById('product-faca').value.trim(),
+                    local_faca: document.getElementById('product-local-faca').value.trim(),
+                    cliche: document.getElementById('product-cliche').value.trim(),
+                    local_cliche: document.getElementById('product-local-cliche').value.trim(),
+                    cor_1: document.getElementById('product-cor-1').value.trim(),
+                    cor_2: document.getElementById('product-cor-2').value.trim()
+                };
+
+                if (existingId) {
+                    const idx = productsList.findIndex(p => p.id === existingId);
+                    if (idx >= 0) productsList[idx] = newProd;
+                } else {
+                    productsList.push(newProd);
+                }
+
+                saveProducts();
+                renderProductsTable();
+                closeProductModalHandler();
+            });
+        }
+
+        function editProduct(id) {
+            const prod = productsList.find(p => p.id === id);
+            if (!prod || !modalProduct) return;
+
+            populateClientDropdownInProducts();
+            document.getElementById('product-form-id').value = prod.id;
+            document.getElementById('modal-product-title').textContent = 'âœï¸ Editar Ficha TÃ©cnica: ' + prod.numero_ficha;
+            
+            document.getElementById('product-numero-ficha').value = prod.numero_ficha || '';
+            document.getElementById('product-codigo-unico').value = prod.codigo_unico || '';
+            document.getElementById('product-revisao').value = prod.revisao || 'Rev 00';
+            document.getElementById('product-empresa-vendedora').value = prod.empresa_vendedora || 'DAWOS';
+            document.getElementById('product-cliente-id').value = prod.cliente_id || '';
+            document.getElementById('product-descricao').value = prod.descricao || '';
+            document.getElementById('product-comprimento').value = prod.comprimento || '';
+            document.getElementById('product-largura').value = prod.largura || '';
+            document.getElementById('product-altura').value = prod.altura || '';
+            document.getElementById('product-modelo').value = prod.modelo || 'maleta';
+            document.getElementById('product-faca').value = prod.faca || '';
+            document.getElementById('product-local-faca').value = prod.local_faca || '';
+            document.getElementById('product-cliche').value = prod.cliche || '';
+            document.getElementById('product-local-cliche').value = prod.local_cliche || '';
+            document.getElementById('product-cor-1').value = prod.cor_1 || '';
+            document.getElementById('product-cor-2').value = prod.cor_2 || '';
+
+            modalProduct.classList.remove('hidden');
+        }
+
+        function deleteProduct(id) {
+            if (confirm("Tem certeza que deseja excluir esta Ficha TÃ©cnica?")) {
+                productsList = productsList.filter(p => p.id !== id);
+                saveProducts();
+                renderProductsTable();
+            }
+        }
+
+        if (btnTransferProductModal) {
+            btnTransferProductModal.addEventListener('click', () => {
+                if (productsList.length === 0) {
+                    alert("Cadastre pelo menos uma Ficha TÃ©cnica primeiro para realizar a transferÃªncia.");
+                    return;
+                }
+                const firstProd = productsList[0];
+                populateClientDropdownInProducts();
+                document.getElementById('product-form-id').value = '';
+                document.getElementById('modal-product-title').textContent = 'ðŸ” Clonar / Transferir Engenharia';
+                document.getElementById('product-numero-ficha').value = firstProd.numero_ficha + '-CLONE';
+                document.getElementById('product-codigo-unico').value = firstProd.codigo_unico + '-COPY';
+                document.getElementById('product-revisao').value = 'Rev 01';
+                document.getElementById('product-descricao').value = firstProd.descricao + ' (CÃ³pia)';
+                document.getElementById('product-comprimento').value = firstProd.comprimento;
+                document.getElementById('product-largura').value = firstProd.largura;
+                document.getElementById('product-altura').value = firstProd.altura;
+                document.getElementById('product-modelo').value = firstProd.modelo;
+                modalProduct.classList.remove('hidden');
+            });
+        }
+
+        if (productSearchInput) {
+            productSearchInput.addEventListener('input', (e) => renderProductsTable(e.target.value));
+        }
+
+        // FUNÃ‡ÃƒO DE INTEGRAÃ‡ÃƒO COM A FORMADORA DE PREÃ‡O (PUXAR ENGENHARIA)
+        function loadProductIntoPricing(id) {
+            const prod = productsList.find(p => p.id === id);
+            if (!prod) return;
+
+            // Preenche dimensÃµes
+            const cInput = document.getElementById('dim-length');
+            const lInput = document.getElementById('dim-width');
+            const aInput = document.getElementById('dim-height');
+
+            if (cInput) cInput.value = prod.comprimento;
+            if (lInput) lInput.value = prod.largura;
+            if (aInput) aInput.value = prod.altura;
+
+            // Seleciona modelo de caixa nas opÃ§Ãµes
+            const boxCard = document.querySelector(.box-option-card[data-value=""]);
+            if (boxCard) boxCard.click();
+
+            // Mudar para o mÃ³dulo de Calculadora
+            switchModule('modulo-calculadora');
+            
+            // Recalcular preÃ§o
+            if (typeof window.updatePricingFormation === 'function') {
+                window.updatePricingFormation();
+            }
+
+            alert(âœ… Ficha TÃ©cnica  () carregada com sucesso na Calculadora de PreÃ§os!);
+        }
+
+        // Renderizar tabelas iniciais
+        renderClientsTable();
+        renderProductsTable();
+        
+        // Expor para uso global
+        window.switchModule = switchModule;
+    }
+
+    // Inicializa os mÃ³dulos assim que a pÃ¡gina carregar
+    initSaaSModules();
