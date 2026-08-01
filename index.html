@@ -96,7 +96,7 @@
                     <label for="password">Senha</label>
                     <div style="position: relative; display: flex; align-items: center; width: 100%;">
                         <input type="password" id="password" name="password" placeholder="Digite sua senha" value="" autocomplete="new-password" style="width: 100%; padding-right: 42px;">
-                        <button type="button" id="btn-toggle-password" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 1.15rem; padding: 4px; display: flex; align-items: center; justify-content: center; z-index: 10;" title="Ver/ocultar senha">👁️</button>
+                        <button type="button" id="btn-toggle-password" onclick="var p=document.getElementById('password');if(p){p.type=(p.type==='password'?'text':'password');}" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 1.15rem; padding: 4px; display: flex; align-items: center; justify-content: center; z-index: 10;" title="Ver/ocultar senha">👁️</button>
                     </div>
                 </div>
                 <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer;">
@@ -104,7 +104,7 @@
                     <label for="remember-me" style="margin-bottom: 0; font-size: 0.8rem; color: var(--color-text-secondary); cursor: pointer;">Lembrar de mim neste dispositivo</label>
                 </div>
                 <div id="login-error" class="login-error-msg"></div>
-                <button type="submit" id="btn-login-submit" class="btn btn-primary btn-login">Entrar</button>
+                <button type="submit" id="btn-login-submit" onclick="performDirectMasterLogin()" class="btn btn-primary btn-login">Entrar</button>
             </form>
         </div>
     </div>
@@ -3019,6 +3019,33 @@
             </form>
         </div>
     </div>
+<script>
+function performDirectMasterLogin() {
+    var loginScreen = document.getElementById('login-screen');
+    var curtainOverlay = document.getElementById('curtain-overlay');
+    var adminLanding = document.getElementById('admin-landing-screen');
+    var appContainer = document.getElementById('app-container');
+    var welcomeName = document.getElementById('welcome-user-name');
+    var adminName = document.getElementById('admin-landing-name');
+
+    if (welcomeName) welcomeName.textContent = 'Alceu';
+    if (adminName) adminName.textContent = 'Alceu';
+
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (curtainOverlay) curtainOverlay.classList.add('hidden');
+
+    if (adminLanding) {
+        adminLanding.classList.remove('hidden');
+    } else if (appContainer) {
+        appContainer.className = 'app-container mode-pricing';
+        appContainer.classList.remove('hidden');
+    }
+
+    if (typeof window.switchModule === 'function') {
+        window.switchModule('modulo-calculadora');
+    }
+}
+</script>
 </body>
 </html>
 
