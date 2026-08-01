@@ -1,11 +1,16 @@
-﻿{
+{
+  "cleanUrls": true,
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
+          "value": "public, max-age=0, must-revalidate, s-maxage=0"
+        },
+        {
+          "key": "Surrogate-Control",
+          "value": "no-store"
         },
         {
           "key": "Pragma",
