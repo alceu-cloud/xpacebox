@@ -1,11 +1,11 @@
-﻿/**
- * Web App DAWOS Embalagens - Lógica Interativa & Controle de Acessos
+   /**
+ * Web App DAWOS Embalagens - L  gica Interativa & Controle de Acessos
  * Recursos:
- * 1. Base de Usuários Atualizada (Alceu - Admin, Renan - Cliente)
- * 2. Animação de subida de cortina (sem costura central)
- * 3. Tela de escolha administrativa (Gerenciamento Geral vs Formação de Preço)
- * 4. Compartilhamento / Cópia de link de convite
- * 5. Calculadora de orçamentos responsiva em tempo real
+ * 1. Base de Usu  rios Atualizada (Alceu - Admin, Renan - Cliente)
+ * 2. Anima    o de subida de cortina (sem costura central)
+ * 3. Tela de escolha administrativa (Gerenciamento Geral vs Forma    o de Pre  o)
+ * 4. Compartilhamento / C  pia de link de convite
+ * 5. Calculadora de or  amentos responsiva em tempo real
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(key, JSON.stringify(data));
     }
 
-    // Salva a lista de usuários em DUAL CLOUD (Tabela + Backup KV) para garantir 100% de acesso em qualquer PC no mundo
+    // Salva a lista de usu  rios em DUAL CLOUD (Tabela + Backup KV) para garantir 100% de acesso em qualquer PC no mundo
     async function saveUsersToCloud(usersList) {
         if (!window.supabaseClient) return;
         try {
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, { onConflict: 'username' });
             }
         } catch (e) {
-            console.warn("Aviso ao salvar usuário individual:", e);
+            console.warn("Aviso ao salvar usu  rio individual:", e);
         }
         try {
             await window.supabaseClient.from('xpace_pricing_params').upsert({
@@ -49,13 +49,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 user_json: JSON.stringify(usersList),
                 updated_at: new Date()
             }, { onConflict: 'company_id' });
-            console.log("☁️ Lista de Usuários sincronizada com sucesso na nuvem mundial!");
+            console.log("       Lista de Usu  rios sincronizada com sucesso na nuvem mundial!");
         } catch (e) {
-            console.warn("Aviso ao salvar backup de usuários na nuvem:", e);
+            console.warn("Aviso ao salvar backup de usu  rios na nuvem:", e);
         }
     }
 
-    // Sincronização em Nuvem Supabase para XPACEBOX
+    // Sincroniza    o em Nuvem Supabase para XPACEBOX
     async function syncSupabaseCloudData() {
         if (!window.supabaseClient) return;
         try {
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: 'Samantha', username: 'samantha', password: 'samantha', role: 'cliente' }
     ];
 
-    // Versão dos dados: mudar este número força o reset do localStorage com os novos dados
+    // Vers  o dos dados: mudar este n  mero for  a o reset do localStorage com os novos dados
     const DATA_VERSION = '2026-07-27-v15-CLEAN-PARAMS-RESET';
 
     const defaultSuppliers = ['COCELPA', 'EMPAR', 'FAPOLPA', 'KLABIN', 'NOVACKI', 'RIO BONITO', 'SOPASTA', 'TROMBINI', 'WESTROCK'];
@@ -179,69 +179,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const defaultMaterials = [
         // COCELPA
-        { code: 'KCBC80-BC',  name: 'KCBC80-BC',   paperType: 'ODKR-BC',    supplier: 'COCELPA',   grammage: '0,630 kg/m²', pressureRes: '8,00 kg/col', thickness: '', costIpi: 4.47 },
-        { code: 'CMB40-B',    name: 'CMB40-B',      paperType: 'OSRR-B',     supplier: 'COCELPA',   grammage: '0,325 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.36 },
-        { code: 'KCB40-B',    name: 'KCB40-B',      paperType: 'OSKR-B',     supplier: 'COCELPA',   grammage: '0,325 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.51 },
-        { code: 'KCB50-B',    name: 'KCB50-B',      paperType: 'OSKR-B',     supplier: 'COCELPA',   grammage: '0,365 kg/m²', pressureRes: '5,00 kg/col', thickness: '', costIpi: 2.74 },
-        { code: 'CMBC65-BC',  name: 'CMBC65-BC',    paperType: 'ODRR-BC',    supplier: 'COCELPA',   grammage: '0,555 kg/m²', pressureRes: '6,50 kg/col', thickness: '', costIpi: 3.92 },
+        { code: 'KCBC80-BC',  name: 'KCBC80-BC',   paperType: 'ODKR-BC',    supplier: 'COCELPA',   grammage: '0,630 kg/m  ', pressureRes: '8,00 kg/col', thickness: '', costIpi: 4.47 },
+        { code: 'CMB40-B',    name: 'CMB40-B',      paperType: 'OSRR-B',     supplier: 'COCELPA',   grammage: '0,325 kg/m  ', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.36 },
+        { code: 'KCB40-B',    name: 'KCB40-B',      paperType: 'OSKR-B',     supplier: 'COCELPA',   grammage: '0,325 kg/m  ', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.51 },
+        { code: 'KCB50-B',    name: 'KCB50-B',      paperType: 'OSKR-B',     supplier: 'COCELPA',   grammage: '0,365 kg/m  ', pressureRes: '5,00 kg/col', thickness: '', costIpi: 2.74 },
+        { code: 'CMBC65-BC',  name: 'CMBC65-BC',    paperType: 'ODRR-BC',    supplier: 'COCELPA',   grammage: '0,555 kg/m  ', pressureRes: '6,50 kg/col', thickness: '', costIpi: 3.92 },
         // EMPAR
-        { code: 'KB4',        name: 'KB4',           paperType: 'OSKK-B',     supplier: 'EMPAR',     grammage: '0,325 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.56 },
-        { code: 'KB5',        name: 'KB5',           paperType: 'OSKK-B',     supplier: 'EMPAR',     grammage: '0,320 kg/m²', pressureRes: '5,00 kg/col', thickness: '', costIpi: 2.77 },
-        { code: 'KB6',        name: 'KB6',           paperType: 'OSKK-B',     supplier: 'EMPAR',     grammage: '0,365 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.13 },
+        { code: 'KB4',        name: 'KB4',           paperType: 'OSKK-B',     supplier: 'EMPAR',     grammage: '0,325 kg/m  ', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.56 },
+        { code: 'KB5',        name: 'KB5',           paperType: 'OSKK-B',     supplier: 'EMPAR',     grammage: '0,320 kg/m  ', pressureRes: '5,00 kg/col', thickness: '', costIpi: 2.77 },
+        { code: 'KB6',        name: 'KB6',           paperType: 'OSKK-B',     supplier: 'EMPAR',     grammage: '0,365 kg/m  ', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.13 },
         // FAPOLPA
-        { code: 'FCM07',      name: 'FCM07',         paperType: 'ODTT-BC',    supplier: 'FAPOLPA',   grammage: '0,470 kg/m²', pressureRes: '6,80 kg/col', thickness: '', costIpi: 3.80 },
-        { code: 'FCM16',      name: 'FCM16',         paperType: 'OSRR-B',     supplier: 'FAPOLPA',   grammage: '0,320 kg/m²', pressureRes: '3,60 kg/col', thickness: '', costIpi: 2.78 },
-        { code: 'FCM05',      name: 'FCM05',         paperType: 'OSRT-T',     supplier: 'FAPOLPA',   grammage: '0,280 kg/m²', pressureRes: '3,80 kg/col', thickness: '', costIpi: 2.32 },
-        { code: 'FMM01B-T',   name: 'FMM01B-T',     paperType: 'OSTT-T',     supplier: 'FAPOLPA',   grammage: '0,270 kg/m²', pressureRes: '3,50 kg/col', thickness: '', costIpi: 1.90 },
+        { code: 'FCM07',      name: 'FCM07',         paperType: 'ODTT-BC',    supplier: 'FAPOLPA',   grammage: '0,470 kg/m  ', pressureRes: '6,80 kg/col', thickness: '', costIpi: 3.80 },
+        { code: 'FCM16',      name: 'FCM16',         paperType: 'OSRR-B',     supplier: 'FAPOLPA',   grammage: '0,320 kg/m  ', pressureRes: '3,60 kg/col', thickness: '', costIpi: 2.78 },
+        { code: 'FCM05',      name: 'FCM05',         paperType: 'OSRT-T',     supplier: 'FAPOLPA',   grammage: '0,280 kg/m  ', pressureRes: '3,80 kg/col', thickness: '', costIpi: 2.32 },
+        { code: 'FMM01B-T',   name: 'FMM01B-T',     paperType: 'OSTT-T',     supplier: 'FAPOLPA',   grammage: '0,270 kg/m  ', pressureRes: '3,50 kg/col', thickness: '', costIpi: 1.90 },
         // KLABIN
-        { code: '34B-KKK60',  name: '34B/KKK60 S/Resina', paperType: 'OSBM-B',  supplier: 'KLABIN',  grammage: '0,412 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.47 },
-        { code: '34B-KKK80',  name: '34B/KKK80 C/Res',    paperType: 'OSBKRES-B', supplier: 'KLABIN', grammage: '0,437 kg/m²', pressureRes: '7,00 kg/col', thickness: '', costIpi: 4.56 },
-        { code: '34B-KKK50',  name: '34B/KKK50',          paperType: 'OSKK-B',  supplier: 'KLABIN',  grammage: '0,329 kg/m²', pressureRes: '5,00 kg/col', thickness: '', costIpi: 2.79 },
-        { code: '34BC-KKKKK80', name: '34BC/KKKKK80',     paperType: 'ODKK-BC', supplier: 'KLABIN',  grammage: '0,550 kg/m²', pressureRes: '8,00 kg/col', thickness: '', costIpi: 4.60 },
-        { code: '34C-KKK60R', name: '34C/KKK60 RESINA',   paperType: 'OCKK-C',  supplier: 'KLABIN',  grammage: '0,500 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.53 },
-        { code: '34BC-KKKKK110', name: '34BC/KKKKK110',   paperType: 'ODKK-BC', supplier: 'KLABIN',  grammage: '0,600 kg/m²', pressureRes: '11,00 kg/col', thickness: '', costIpi: 5.60 },
+        { code: '34B-KKK60',  name: '34B/KKK60 S/Resina', paperType: 'OSBM-B',  supplier: 'KLABIN',  grammage: '0,412 kg/m  ', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.47 },
+        { code: '34B-KKK80',  name: '34B/KKK80 C/Res',    paperType: 'OSBKRES-B', supplier: 'KLABIN', grammage: '0,437 kg/m  ', pressureRes: '7,00 kg/col', thickness: '', costIpi: 4.56 },
+        { code: '34B-KKK50',  name: '34B/KKK50',          paperType: 'OSKK-B',  supplier: 'KLABIN',  grammage: '0,329 kg/m  ', pressureRes: '5,00 kg/col', thickness: '', costIpi: 2.79 },
+        { code: '34BC-KKKKK80', name: '34BC/KKKKK80',     paperType: 'ODKK-BC', supplier: 'KLABIN',  grammage: '0,550 kg/m  ', pressureRes: '8,00 kg/col', thickness: '', costIpi: 4.60 },
+        { code: '34C-KKK60R', name: '34C/KKK60 RESINA',   paperType: 'OCKK-C',  supplier: 'KLABIN',  grammage: '0,500 kg/m  ', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.53 },
+        { code: '34BC-KKKKK110', name: '34BC/KKKKK110',   paperType: 'ODKK-BC', supplier: 'KLABIN',  grammage: '0,600 kg/m  ', pressureRes: '11,00 kg/col', thickness: '', costIpi: 5.60 },
         // RIO BONITO
-        { code: 'CMC315-B',   name: 'CMC315-B',     paperType: 'OSRR-B',     supplier: 'RIO BONITO', grammage: '0,315 kg/m²', pressureRes: '3,50 kg/col', thickness: '', costIpi: 2.43 },
-        { code: 'CMC550-BC',  name: 'CMC550-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,550 kg/m²', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.35 },
-        { code: 'CMC355-B',   name: 'CMC355-B',     paperType: 'OSRK-B',     supplier: 'RIO BONITO', grammage: '0,355 kg/m²', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.00 },
-        { code: 'CMC435-C',   name: 'CMC435-C',     paperType: 'OCRR-C',     supplier: 'RIO BONITO', grammage: '0,435 kg/m²', pressureRes: '5,50 kg/col', thickness: '', costIpi: 3.69 },
-        { code: 'CMC635-BC',  name: 'CMC635-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,635 kg/m²', pressureRes: '8,00 kg/col', thickness: '', costIpi: 5.38 },
-        { code: 'CMC605-BC',  name: 'CMC605-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,605 kg/m²', pressureRes: '6,50 kg/col', thickness: '', costIpi: 5.12 },
-        { code: 'CMC705-BC',  name: 'CMC705-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,705 kg/m²', pressureRes: '10,00 kg/col', thickness: '', costIpi: 5.97 },
-        { code: 'KMC580-BC',  name: 'KMC580-BC',    paperType: 'ODKK-BC',    supplier: 'RIO BONITO', grammage: '0,580 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 4.58 },
+        { code: 'CMC315-B',   name: 'CMC315-B',     paperType: 'OSRR-B',     supplier: 'RIO BONITO', grammage: '0,315 kg/m  ', pressureRes: '3,50 kg/col', thickness: '', costIpi: 2.43 },
+        { code: 'CMC550-BC',  name: 'CMC550-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,550 kg/m  ', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.35 },
+        { code: 'CMC355-B',   name: 'CMC355-B',     paperType: 'OSRK-B',     supplier: 'RIO BONITO', grammage: '0,355 kg/m  ', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.00 },
+        { code: 'CMC435-C',   name: 'CMC435-C',     paperType: 'OCRR-C',     supplier: 'RIO BONITO', grammage: '0,435 kg/m  ', pressureRes: '5,50 kg/col', thickness: '', costIpi: 3.69 },
+        { code: 'CMC635-BC',  name: 'CMC635-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,635 kg/m  ', pressureRes: '8,00 kg/col', thickness: '', costIpi: 5.38 },
+        { code: 'CMC605-BC',  name: 'CMC605-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,605 kg/m  ', pressureRes: '6,50 kg/col', thickness: '', costIpi: 5.12 },
+        { code: 'CMC705-BC',  name: 'CMC705-BC',    paperType: 'ODRR-BC',    supplier: 'RIO BONITO', grammage: '0,705 kg/m  ', pressureRes: '10,00 kg/col', thickness: '', costIpi: 5.97 },
+        { code: 'KMC580-BC',  name: 'KMC580-BC',    paperType: 'ODKK-BC',    supplier: 'RIO BONITO', grammage: '0,580 kg/m  ', pressureRes: '6,00 kg/col', thickness: '', costIpi: 4.58 },
         // SOPASTA
-        { code: 'KE0B-B',    name: 'KE0B-B',        paperType: 'OSRR-B',     supplier: 'SOPASTA',   grammage: '0,344 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.42 },
-        { code: 'K1BB-BB',   name: 'K1BB-BB',        paperType: 'ODBB-BB',    supplier: 'SOPASTA',   grammage: '0,643 kg/m²', pressureRes: '7,50 kg/col', thickness: '', costIpi: 4.51 },
-        { code: 'RIKS3C',    name: 'RIKS3C RESINA',  paperType: 'OCRR-C',     supplier: 'SOPASTA',   grammage: '0,514 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.61 },
+        { code: 'KE0B-B',    name: 'KE0B-B',        paperType: 'OSRR-B',     supplier: 'SOPASTA',   grammage: '0,344 kg/m  ', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.42 },
+        { code: 'K1BB-BB',   name: 'K1BB-BB',        paperType: 'ODBB-BB',    supplier: 'SOPASTA',   grammage: '0,643 kg/m  ', pressureRes: '7,50 kg/col', thickness: '', costIpi: 4.51 },
+        { code: 'RIKS3C',    name: 'RIKS3C RESINA',  paperType: 'OCRR-C',     supplier: 'SOPASTA',   grammage: '0,514 kg/m  ', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.61 },
         // TROMBINI
-        { code: 'PO3060',    name: 'PO3060',          paperType: 'OSRR-B',    supplier: 'TROMBINI',  grammage: '0,358 kg/m²', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.93 },
-        { code: 'PO3200',    name: 'PO3200',          paperType: 'OSKK-B',    supplier: 'TROMBINI',  grammage: '0,388 kg/m²', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.33 },
-        { code: 'PO4050',    name: 'PO4050',          paperType: 'OSBM-B',    supplier: 'TROMBINI',  grammage: '0,403 kg/m²', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.82 },
-        { code: 'PO4190',    name: 'PO4190',          paperType: 'OSBKRES-B', supplier: 'TROMBINI',  grammage: '0,503 kg/m²', pressureRes: '7,00 kg/col', thickness: '', costIpi: 5.67 },
-        { code: 'PO5100',    name: 'PO5100',          paperType: 'OSKK-C',    supplier: 'TROMBINI',  grammage: '0,396 kg/m²', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.76 },
-        { code: 'PO5150',    name: 'PO5150',          paperType: 'OCKK',      supplier: 'TROMBINI',  grammage: '0,445 kg/m²', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.30 },
-        { code: 'PO7100',    name: 'PO7100',          paperType: 'ODRR-BC',   supplier: 'TROMBINI',  grammage: '0,619 kg/m²', pressureRes: '6,50 kg/col', thickness: '', costIpi: 4.84 },
-        { code: 'PO7150',    name: 'PO7150',          paperType: 'ODKK-BC',   supplier: 'TROMBINI',  grammage: '0,644 kg/m²', pressureRes: '7,00 kg/col', thickness: '', costIpi: 5.16 },
-        { code: 'PO7300R',   name: 'PO7300 Res.',     paperType: 'ODRRes-BC', supplier: 'TROMBINI',  grammage: '0,729 kg/m²', pressureRes: '8,50 kg/col', thickness: '', costIpi: 5.90 },
-        { code: 'PO7400',    name: 'PO7400',          paperType: 'ODKK-BC',   supplier: 'TROMBINI',  grammage: '0,818 kg/m²', pressureRes: '10,50 kg/col', thickness: '', costIpi: 6.06 },
-        { code: 'PO7600',    name: 'PO7600',          paperType: 'ODKK-BC',   supplier: 'TROMBINI',  grammage: '1,053 kg/m²', pressureRes: '13,00 kg/col', thickness: '', costIpi: 8.60 },
-        { code: 'POPR8050',  name: 'POPR8050',        paperType: 'ODBK-BC',   supplier: 'TROMBINI',  grammage: '0,690 kg/m²', pressureRes: '-', thickness: '', costIpi: 10.16 },
-        { code: 'POPR8150',  name: 'POPR8150',        paperType: 'ODBK-BC',   supplier: 'TROMBINI',  grammage: '0,779 kg/m²', pressureRes: '-', thickness: '', costIpi: 11.53 },
+        { code: 'PO3060',    name: 'PO3060',          paperType: 'OSRR-B',    supplier: 'TROMBINI',  grammage: '0,358 kg/m  ', pressureRes: '4,00 kg/col', thickness: '', costIpi: 2.93 },
+        { code: 'PO3200',    name: 'PO3200',          paperType: 'OSKK-B',    supplier: 'TROMBINI',  grammage: '0,388 kg/m  ', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.33 },
+        { code: 'PO4050',    name: 'PO4050',          paperType: 'OSBM-B',    supplier: 'TROMBINI',  grammage: '0,403 kg/m  ', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.82 },
+        { code: 'PO4190',    name: 'PO4190',          paperType: 'OSBKRES-B', supplier: 'TROMBINI',  grammage: '0,503 kg/m  ', pressureRes: '7,00 kg/col', thickness: '', costIpi: 5.67 },
+        { code: 'PO5100',    name: 'PO5100',          paperType: 'OSKK-C',    supplier: 'TROMBINI',  grammage: '0,396 kg/m  ', pressureRes: '4,50 kg/col', thickness: '', costIpi: 3.76 },
+        { code: 'PO5150',    name: 'PO5150',          paperType: 'OCKK',      supplier: 'TROMBINI',  grammage: '0,445 kg/m  ', pressureRes: '5,50 kg/col', thickness: '', costIpi: 4.30 },
+        { code: 'PO7100',    name: 'PO7100',          paperType: 'ODRR-BC',   supplier: 'TROMBINI',  grammage: '0,619 kg/m  ', pressureRes: '6,50 kg/col', thickness: '', costIpi: 4.84 },
+        { code: 'PO7150',    name: 'PO7150',          paperType: 'ODKK-BC',   supplier: 'TROMBINI',  grammage: '0,644 kg/m  ', pressureRes: '7,00 kg/col', thickness: '', costIpi: 5.16 },
+        { code: 'PO7300R',   name: 'PO7300 Res.',     paperType: 'ODRRes-BC', supplier: 'TROMBINI',  grammage: '0,729 kg/m  ', pressureRes: '8,50 kg/col', thickness: '', costIpi: 5.90 },
+        { code: 'PO7400',    name: 'PO7400',          paperType: 'ODKK-BC',   supplier: 'TROMBINI',  grammage: '0,818 kg/m  ', pressureRes: '10,50 kg/col', thickness: '', costIpi: 6.06 },
+        { code: 'PO7600',    name: 'PO7600',          paperType: 'ODKK-BC',   supplier: 'TROMBINI',  grammage: '1,053 kg/m  ', pressureRes: '13,00 kg/col', thickness: '', costIpi: 8.60 },
+        { code: 'POPR8050',  name: 'POPR8050',        paperType: 'ODBK-BC',   supplier: 'TROMBINI',  grammage: '0,690 kg/m  ', pressureRes: '-', thickness: '', costIpi: 10.16 },
+        { code: 'POPR8150',  name: 'POPR8150',        paperType: 'ODBK-BC',   supplier: 'TROMBINI',  grammage: '0,779 kg/m  ', pressureRes: '-', thickness: '', costIpi: 11.53 },
         // WESTROCK
-        { code: 'TTBC080',   name: 'TTBC080',         paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '0,598 kg/m²', pressureRes: '8,00 kg/col', thickness: '', costIpi: 5.41 },
-        { code: 'KL0C060',   name: 'KL0C060',         paperType: 'OSKK-C',    supplier: 'WESTROCK',  grammage: '0,422 kg/m²', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.82 },
-        { code: 'KBLC210',   name: 'KBLC210',         paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '1,400 kg/m²', pressureRes: '21,00 kg/col', thickness: '', costIpi: 13.17 },
-        { code: 'KLOC070',   name: 'KLOC070',         paperType: 'OSKK-C',    supplier: 'WESTROCK',  grammage: '0,462 kg/m²', pressureRes: '7,00 kg/col', thickness: '', costIpi: 4.18 },
-        { code: 'KLOC085',   name: 'KLOC085',         paperType: 'OSKK-C',    supplier: 'WESTROCK',  grammage: '0,558 kg/m²', pressureRes: '8,50 kg/col', thickness: '', costIpi: 4.95 },
-        { code: 'KLBC150F',  name: 'KLBC150F',        paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '0,925 kg/m²', pressureRes: '15,00 kg/col', thickness: '', costIpi: 8.32 },
-        { code: 'KLBC110',   name: 'KLBC110',         paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '0,712 kg/m²', pressureRes: '11,00 kg/col', thickness: '', costIpi: 6.39 },
+        { code: 'TTBC080',   name: 'TTBC080',         paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '0,598 kg/m  ', pressureRes: '8,00 kg/col', thickness: '', costIpi: 5.41 },
+        { code: 'KL0C060',   name: 'KL0C060',         paperType: 'OSKK-C',    supplier: 'WESTROCK',  grammage: '0,422 kg/m  ', pressureRes: '6,00 kg/col', thickness: '', costIpi: 3.82 },
+        { code: 'KBLC210',   name: 'KBLC210',         paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '1,400 kg/m  ', pressureRes: '21,00 kg/col', thickness: '', costIpi: 13.17 },
+        { code: 'KLOC070',   name: 'KLOC070',         paperType: 'OSKK-C',    supplier: 'WESTROCK',  grammage: '0,462 kg/m  ', pressureRes: '7,00 kg/col', thickness: '', costIpi: 4.18 },
+        { code: 'KLOC085',   name: 'KLOC085',         paperType: 'OSKK-C',    supplier: 'WESTROCK',  grammage: '0,558 kg/m  ', pressureRes: '8,50 kg/col', thickness: '', costIpi: 4.95 },
+        { code: 'KLBC150F',  name: 'KLBC150F',        paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '0,925 kg/m  ', pressureRes: '15,00 kg/col', thickness: '', costIpi: 8.32 },
+        { code: 'KLBC110',   name: 'KLBC110',         paperType: 'ODKK-BC',   supplier: 'WESTROCK',  grammage: '0,712 kg/m  ', pressureRes: '11,00 kg/col', thickness: '', costIpi: 6.39 },
         // NOVACKI
-        { code: 'NIK60',     name: 'NIK60',           paperType: 'OSRR-B',    supplier: 'NOVACKI',   grammage: '0,325 kg/m²', pressureRes: '3,50 kg/col', thickness: '', costIpi: 2.68 },
-        { code: 'NIK61',     name: 'NIK61',           paperType: 'OSRR-B',    supplier: 'NOVACKI',   grammage: '0,390 kg/m²', pressureRes: '5,00 kg/col', thickness: '', costIpi: 3.21 },
-        { code: 'NIK62',     name: 'NIK62',           paperType: 'OSRR-B',    supplier: 'NOVACKI',   grammage: '0,450 kg/m²', pressureRes: '5,50 kg/col', thickness: '', costIpi: 3.65 },
-        { code: 'NIK70',     name: 'NIK70',           paperType: 'ODRR-BB',   supplier: 'NOVACKI',   grammage: '0,555 kg/m²', pressureRes: '6,20 kg/col', thickness: '', costIpi: 4.53 },
-        { code: 'NIK68',     name: 'NIK68',           paperType: 'ODRR-BB',   supplier: 'NOVACKI',   grammage: '0,650 kg/m²', pressureRes: '7,50 kg/col', thickness: '', costIpi: 5.34 },
-        { code: 'NIK69',     name: 'NIK69',           paperType: 'ODRR-BB',   supplier: 'NOVACKI',   grammage: '0,785 kg/m²', pressureRes: '10,00 kg/col', thickness: '', costIpi: 6.54 }
+        { code: 'NIK60',     name: 'NIK60',           paperType: 'OSRR-B',    supplier: 'NOVACKI',   grammage: '0,325 kg/m  ', pressureRes: '3,50 kg/col', thickness: '', costIpi: 2.68 },
+        { code: 'NIK61',     name: 'NIK61',           paperType: 'OSRR-B',    supplier: 'NOVACKI',   grammage: '0,390 kg/m  ', pressureRes: '5,00 kg/col', thickness: '', costIpi: 3.21 },
+        { code: 'NIK62',     name: 'NIK62',           paperType: 'OSRR-B',    supplier: 'NOVACKI',   grammage: '0,450 kg/m  ', pressureRes: '5,50 kg/col', thickness: '', costIpi: 3.65 },
+        { code: 'NIK70',     name: 'NIK70',           paperType: 'ODRR-BB',   supplier: 'NOVACKI',   grammage: '0,555 kg/m  ', pressureRes: '6,20 kg/col', thickness: '', costIpi: 4.53 },
+        { code: 'NIK68',     name: 'NIK68',           paperType: 'ODRR-BB',   supplier: 'NOVACKI',   grammage: '0,650 kg/m  ', pressureRes: '7,50 kg/col', thickness: '', costIpi: 5.34 },
+        { code: 'NIK69',     name: 'NIK69',           paperType: 'ODRR-BB',   supplier: 'NOVACKI',   grammage: '0,785 kg/m  ', pressureRes: '10,00 kg/col', thickness: '', costIpi: 6.54 }
     ];
 
     function ensureUsersIntegrity(userList) {
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let materials = getStoredData('dawos_materials', defaultMaterials);
     window.dawosMaterials = materials;
 
-    // Auto-repara descrições vazias em paperClasses para eliminar linhas em branco nos dropdowns
+    // Auto-repara descri    es vazias em paperClasses para eliminar linhas em branco nos dropdowns
     let dirtyPC = false;
     paperClasses.forEach(pc => {
         if (!pc.desc || pc.desc.trim() === '') {
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         engineering = defaultEngineering;
         saveStoredData('dawos_engineering', defaultEngineering);
     } else {
-        // Garante adição de MT-B, MT-BC, CV-GERAL, SEDEX-B e SEDEX-BC em bancos existentes
+        // Garante adi    o de MT-B, MT-BC, CV-GERAL, SEDEX-B e SEDEX-BC em bancos existentes
         if (!engineering.some(e => e.style === 'MT-B')) {
             engineering.push(defaultEngineering[2]);
             engineering.push(defaultEngineering[3]);
@@ -460,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
-    // Formulário e inputs físicos
+    // Formul  rio e inputs f  sicos
     const pricingForm = document.getElementById('pricing-form');
     const boxOptionCards = document.querySelectorAll('.box-option-card:not(.company-option-card)');
     const boxTypeInput = document.getElementById('box-type');
@@ -477,11 +477,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const materialSupplierSelect = document.getElementById('material-supplier');
     const paperTypeSelect = document.getElementById('paper-type');
     
-    // Lote e Logística
+    // Lote e Log  stica
     const quantitySlider = document.getElementById('quantity-slider');
     const quantityInput = document.getElementById('quantity');
     
-    // Elementos do Resumo do Orçamento
+    // Elementos do Resumo do Or  amento
     const summaryBoxText = document.getElementById('summary-box-text');
     const summaryDimText = document.getElementById('summary-dim-text');
     const summaryMaterialText = document.getElementById('summary-material-text');
@@ -493,17 +493,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const sellingCompanyInput = document.getElementById('selling-company');
     const summaryCompanyText = document.getElementById('summary-company-text');
     
-    // Elementos da Área do Administrador
+    // Elementos da   rea do Administrador
     const adminCredentialsList = document.getElementById('admin-credentials-list');
     const adminMaterialsList = document.getElementById('admin-materials-list');
     const btnInviteLink = document.getElementById('btn-invite-link');
     
-    // Botões de ação da calculadora
+    // Bot  es de a    o da calculadora
     const btnSubmitOrder = document.getElementById('btn-submit-order');
     const btnPdfExport = document.getElementById('btn-pdf-export');
     const btnWhatsappShare = document.getElementById('btn-whatsapp-share');
 
-    // Mapeamento dos formulários de cadastro CRUD e abas internas do Admin
+    // Mapeamento dos formul  rios de cadastro CRUD e abas internas do Admin
     const adminMenuBtns = document.querySelectorAll('.admin-menu-btn');
     const adminSubSections = document.querySelectorAll('.admin-sub-section');
 
@@ -566,30 +566,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCancelEngineering = document.getElementById('btn-cancel-engineering');
     const adminEngineeringList = document.getElementById('admin-engineering-list');
 
-    // Elementos da Aba Dimensões (Área da chapa)
+    // Elementos da Aba Dimens  es (  rea da chapa)
     const calculatedSheetAreaText = document.getElementById('calculated-sheet-area');
     const calculatedSheetAreaMmText = document.getElementById('calculated-sheet-area-mm');
 
     // -------------------------------------------------------------
-    // 3. AUTENTICAÇÃO E TRANSIÇÃO DA CORTINA DE SUBIDA
+    // 3. AUTENTICA    O E TRANSI    O DA CORTINA DE SUBIDA
     // -------------------------------------------------------------
     
-    // Toggle de visibilidade da senha (Olhinho 👁️)
+    // Toggle de visibilidade da senha (Olhinho        )
     const btnTogglePassword = document.getElementById('btn-toggle-password');
     if (btnTogglePassword && passwordInput) {
         btnTogglePassword.addEventListener('click', (e) => {
             e.preventDefault();
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                btnTogglePassword.textContent = '🙈';
+                btnTogglePassword.textContent = '    ';
             } else {
                 passwordInput.type = 'password';
-                btnTogglePassword.textContent = '👁️';
+                btnTogglePassword.textContent = '       ';
             }
         });
     }
 
-    // Atalho da Tecla ENTER nos inputs de Usuário e Senha
+    // Atalho da Tecla ENTER nos inputs de Usu  rio e Senha
     [usernameInput, passwordInput].forEach(inputEl => {
         if (inputEl) {
             inputEl.addEventListener('keydown', (e) => {
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Login Form Submit (com Busca em Tempo Real na Nuvem Supabase e Tolerância Inteligente de Senha)
+    // Login Form Submit (com Busca em Tempo Real na Nuvem Supabase e Toler  ncia Inteligente de Senha)
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -614,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = usernameInput.value.trim().toLowerCase();
         const password = passwordInput.value.trim();
         
-        // Helper para comparação de senha com tolerância a maiúsculas/minúsculas e símbolo @
+        // Helper para compara    o de senha com toler  ncia a mai  sculas/min  sculas e s  mbolo @
         const matchesPass = (storedPass, typedPass) => {
             if (!storedPass || !typedPass) return false;
             const s = storedPass.trim();
@@ -633,7 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
             user = { name: 'Alceu', username: 'alceu', password: '@Amj20021979', role: 'admin' };
         }
 
-        // 2. Se não encontrou no cache local, realiza busca em TEMPO REAL na NUVEM SUPABASE!
+        // 2. Se n  o encontrou no cache local, realiza busca em TEMPO REAL na NUVEM SUPABASE!
         if (!user && window.supabaseClient) {
             try {
                 const { data: cloudMatch } = await window.supabaseClient.from('xpace_users').select('*').eq('username', username).single();
@@ -656,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn("Consulta direta Nuvem no login (tabela):", errCloud);
             }
 
-            // Se ainda não encontrou, busca no backup de contingência DAWOS_USER_LIST
+            // Se ainda n  o encontrou, busca no backup de conting  ncia DAWOS_USER_LIST
             if (!user) {
                 try {
                     const { data: backupData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_USER_LIST');
@@ -680,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 3. Fallback Infalível contra defaultUsers
+        // 3. Fallback Infal  vel contra defaultUsers
         if (!user) {
             const defMatch = defaultUsers.find(d => d.username.toLowerCase() === username && matchesPass(d.password, password));
             if (defMatch) {
@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loginError.textContent = '';
             currentUser = user;
             
-            // Lógica de "Lembrar de mim": SALVA APENAS SE MARCAR EXPLICITAMENTE O CHECKBOX NESTE DISPOSITIVO
+            // L  gica de "Lembrar de mim": SALVA APENAS SE MARCAR EXPLICITAMENTE O CHECKBOX NESTE DISPOSITIVO
             if (rememberMeCheckbox && rememberMeCheckbox.checked) {
                 localStorage.setItem('dawos_remembered_user', username);
                 localStorage.setItem('dawos_remembered_pass', password);
@@ -705,14 +705,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('dawos_remembered_pass');
             }
             
-            // Disparar animação da cortina de subida
+            // Disparar anima    o da cortina de subida
             triggerCurtainWelcome(user);
         } else {
-            loginError.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
+            loginError.textContent = '    USU  RIO OU SENHA INCORRETOS.';
         }
     });
 
-    // Animação da Cortina
+    // Anima    o da Cortina
     function triggerCurtainWelcome(user) {
         welcomeUserName.textContent = user.name;
         
@@ -740,23 +740,23 @@ document.addEventListener('DOMContentLoaded', () => {
             adminElements.forEach(el => el.style.display = 'none');
         }
 
-        // Executar transição da cortina lateral (exibe a tela por 4 segundos completos)
+        // Executar transi    o da cortina lateral (exibe a tela por 4 segundos completos)
         setTimeout(() => {
-            curtainOverlay.classList.add('open'); // Painéis abrem lateralmente para esquerda e direita
+            curtainOverlay.classList.add('open'); // Pain  is abrem lateralmente para esquerda e direita
             
             setTimeout(() => {
                 if (user.role === 'admin') {
                     // Direciona Administrador para tela de escolha
                     adminLandingScreen.classList.remove('hidden');
                 } else if (user.role === 'gerente') {
-                    // Direciona Gerente para tela de aviso de permissões pendentes
+                    // Direciona Gerente para tela de aviso de permiss  es pendentes
                     if (gerenteRestrictedScreen) {
                         const gName = document.getElementById('gerente-user-name');
                         if (gName) gName.textContent = user.name;
                         gerenteRestrictedScreen.classList.remove('hidden');
                     }
                 } else {
-                    // Direciona Representante ou Cliente direto para a calculadora de formação de preço
+                    // Direciona Representante ou Cliente direto para a calculadora de forma    o de pre  o
                     appContainer.className = 'app-container mode-pricing';
                     appContainer.classList.remove('hidden');
                     // Ativa a primeira aba
@@ -775,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4000);
     }
 
-    // Função auxiliar para preencher credenciais lembradas (Apenas se salvas LOCALMENTE neste PC)
+    // Fun    o auxiliar para preencher credenciais lembradas (Apenas se salvas LOCALMENTE neste PC)
     function fillRememberedCredentials() {
         if (!usernameInput || !passwordInput) return;
         const savedUser = localStorage.getItem('dawos_remembered_user');
@@ -796,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = null;
         loginError.textContent = '';
         
-        // Restaura credenciais lembradas no dispositivo (se salvas pelo usuário neste PC)
+        // Restaura credenciais lembradas no dispositivo (se salvas pelo usu  rio neste PC)
         fillRememberedCredentials();
         
         // Voltar abas para primeira
@@ -825,7 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // -------------------------------------------------------------
-    // 4. DIRECIONAMENTO DE PAINÉIS DO ADMIN (TELA DE SELEÇÃO)
+    // 4. DIRECIONAMENTO DE PAIN  IS DO ADMIN (TELA DE SELE    O)
     // -------------------------------------------------------------
     
     // Ir para Painel de Gerenciamento Geral
@@ -840,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
             adminTabBtn.click();
         }
 
-        // Esconder todos os formulários CRUD
+        // Esconder todos os formul  rios CRUD
         formUserContainer.classList.add('hidden');
         formSupplierContainer.classList.add('hidden');
         formPaperClassContainer.classList.add('hidden');
@@ -855,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAdminEngineering();
         renderPaperCostTable();
 
-        // Ativa a primeira aba interna (Usuários)
+        // Ativa a primeira aba interna (Usu  rios)
         const firstSubBtn = document.querySelector('.admin-menu-btn');
         if (firstSubBtn) {
             firstSubBtn.click();
@@ -864,7 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSummaryData();
     });
 
-    // Ir para Painel de Formação de Preço (Calculadora)
+    // Ir para Painel de Forma    o de Pre  o (Calculadora)
     cardGotoPricing.addEventListener('click', () => {
         adminLandingScreen.classList.add('hidden');
         appContainer.className = 'app-container mode-pricing';
@@ -879,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
             firstTab.click();
         }
         
-        // Inicializar com TROMBINI selecionado por padrão se existir
+        // Inicializar com TROMBINI selecionado por padr  o se existir
         if (materialSupplierSelect && suppliers.includes('TROMBINI')) {
             materialSupplierSelect.value = 'TROMBINI';
             materialSupplierSelect.dispatchEvent(new Event('change'));
@@ -917,7 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Helpers para formulários
+    // Helpers para formul  rios
     function showForm(formEl, titleEl, titleText) {
         formEl.classList.remove('hidden');
         if (titleEl) titleEl.textContent = titleText;
@@ -927,13 +927,13 @@ document.addEventListener('DOMContentLoaded', () => {
         formEl.classList.add('hidden');
     }
 
-    // 1. CRUD USUÁRIOS
+    // 1. CRUD USU  RIOS
     function renderAdminCredentials() {
         adminCredentialsList.innerHTML = '';
         const roleLabels = {
             admin: 'ADMINISTRADOR',
-            rep_junior: 'REP. JÚNIOR',
-            rep_senior: 'REP. SÊNIOR',
+            rep_junior: 'REP. J  NIOR',
+            rep_senior: 'REP. S  NIOR',
             rep_master: 'REP. MASTER',
             representante: 'REPRESENTANTE',
             gerente: 'GERENTE',
@@ -970,7 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnAddUser.addEventListener('click', () => {
-        showForm(formUserContainer, document.getElementById('form-user-title'), 'CADASTRAR NOVO USUÁRIO');
+        showForm(formUserContainer, document.getElementById('form-user-title'), 'CADASTRAR NOVO USU  RIO');
         inputUserIndex.value = '';
         inputUserName.value = '';
         inputUserUsername.value = '';
@@ -997,7 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (index === '') {
             // Incluir
             if (users.some(u => u.username === username)) {
-                alert('ESTE NOME DE USUÁRIO JÁ EXISTE.');
+                alert('ESTE NOME DE USU  RIO J   EXISTE.');
                 return;
             }
             users.push(newUser);
@@ -1005,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Editar
             const originalUser = users[index];
             if (originalUser.username !== username && users.some(u => u.username === username)) {
-                alert('ESTE NOME DE USUÁRIO JÁ EXISTE.');
+                alert('ESTE NOME DE USU  RIO J   EXISTE.');
                 return;
             }
             users[index] = newUser;
@@ -1015,16 +1015,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAdminCredentials();
         hideForm(formUserContainer);
 
-        // Sincroniza criação/edição em Dual Cloud para liberação imediata em qualquer PC
+        // Sincroniza cria    o/edi    o em Dual Cloud para libera    o imediata em qualquer PC
         await saveUsersToCloud(users);
-        alert(`✅ USUÁRIO "${newUser.name}" (${newUser.username}) SALVO E ATIVADO EM TODOS OS DISPOSITIVOS COM SUCESSO!`);
+        alert(`    USU  RIO "${newUser.name}" (${newUser.username}) SALVO E ATIVADO EM TODOS OS DISPOSITIVOS COM SUCESSO!`);
     });
 
     adminCredentialsList.addEventListener('click', async (e) => {
         const index = e.target.getAttribute('data-index');
         if (e.target.classList.contains('btn-edit-user')) {
             const user = users[index];
-            showForm(formUserContainer, document.getElementById('form-user-title'), 'EDITAR USUÁRIO');
+            showForm(formUserContainer, document.getElementById('form-user-title'), 'EDITAR USU  RIO');
             inputUserIndex.value = index;
             inputUserName.value = user.name;
             inputUserUsername.value = user.username;
@@ -1033,10 +1033,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (e.target.classList.contains('btn-delete-user')) {
             const targetUser = users[index];
             if (targetUser.username === 'alceu') {
-                alert('NÃO É POSSÍVEL EXCLUIR O ADMINISTRADOR PADRÃO DO SISTEMA.');
+                alert('N  O    POSS  VEL EXCLUIR O ADMINISTRADOR PADR  O DO SISTEMA.');
                 return;
             }
-            if (confirm(`DESEJA REALMENTE EXCLUIR O USUÁRIO "${targetUser.name}"?`)) {
+            if (confirm(`DESEJA REALMENTE EXCLUIR O USU  RIO "${targetUser.name}"?`)) {
                 users.splice(index, 1);
                 saveStoredData('dawos_users', users);
                 renderAdminCredentials();
@@ -1056,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.clipboard.writeText(inviteUrl)
             .then(() => {
                 const originalText = btnInviteLink.innerHTML;
-                btnInviteLink.innerHTML = '✔ COPIADO!';
+                btnInviteLink.innerHTML = '    COPIADO!';
                 btnInviteLink.style.borderColor = 'var(--color-success)';
                 btnInviteLink.style.color = 'var(--color-success)';
                 setTimeout(() => {
@@ -1105,14 +1105,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (index === '') {
             if (suppliers.includes(name)) {
-                alert('ESTE FORNECEDOR JÁ ESTÁ CADASTRADO.');
+                alert('ESTE FORNECEDOR J   EST   CADASTRADO.');
                 return;
             }
             suppliers.push(name);
         } else {
             const oldName = suppliers[index];
             if (oldName !== name && suppliers.includes(name)) {
-                alert('ESTE FORNECEDOR JÁ ESTÁ CADASTRADO.');
+                alert('ESTE FORNECEDOR J   EST   CADASTRADO.');
                 return;
             }
             suppliers[index] = name;
@@ -1137,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inputSupplierName.value = suppliers[index];
         } else if (e.target.classList.contains('btn-delete-supplier')) {
             const name = suppliers[index];
-            if (confirm(`DESEJA EXCLUIR O FORNECEDOR "${name}"? ISSO AFETARÁ TODOS OS MATERIAIS DELE.`)) {
+            if (confirm(`DESEJA EXCLUIR O FORNECEDOR "${name}"? ISSO AFETAR   TODOS OS MATERIAIS DELE.`)) {
                 suppliers.splice(index, 1);
                 // Remove materiais desse fornecedor
                 materials = materials.filter(m => m.supplier !== name);
@@ -1151,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 3. CRUD TIPOS DE PAPELÃO
+    // 3. CRUD TIPOS DE PAPEL  O
     function renderAdminPaperClasses() {
         adminPaperClassesList.innerHTML = '';
         paperClasses.forEach((pc, index) => {
@@ -1169,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnAddPaperClass.addEventListener('click', () => {
-        showForm(formPaperClassContainer, document.getElementById('form-paperclass-title'), 'CADASTRAR NOVO TIPO DE PAPELÃO');
+        showForm(formPaperClassContainer, document.getElementById('form-paperclass-title'), 'CADASTRAR NOVO TIPO DE PAPEL  O');
         inputPaperClassIndex.value = '';
         inputPaperClassCode.value = '';
         inputPaperClassDesc.value = '';
@@ -1183,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const desc = inputPaperClassDesc.value.trim().toUpperCase();
 
         if (!code || !desc) {
-            alert('PREENCHA O CÓDIGO E A DESCRIÇÃO DO TIPO DE PAPELÃO.');
+            alert('PREENCHA O C  DIGO E A DESCRI    O DO TIPO DE PAPEL  O.');
             return;
         }
 
@@ -1191,14 +1191,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (index === '') {
             if (paperClasses.some(p => p.code === code)) {
-                alert('ESTE TIPO DE PAPELÃO JÁ EXISTE.');
+                alert('ESTE TIPO DE PAPEL  O J   EXISTE.');
                 return;
             }
             paperClasses.push(newPC);
         } else {
             const oldCode = paperClasses[index].code;
             if (oldCode !== code && paperClasses.some(p => p.code === code)) {
-                alert('ESTE TIPO DE PAPELÃO JÁ EXISTE.');
+                alert('ESTE TIPO DE PAPEL  O J   EXISTE.');
                 return;
             }
             paperClasses[index] = newPC;
@@ -1219,13 +1219,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = e.target.getAttribute('data-index');
         if (e.target.classList.contains('btn-edit-paperclass')) {
             const pc = paperClasses[index];
-            showForm(formPaperClassContainer, document.getElementById('form-paperclass-title'), 'EDITAR TIPO DE PAPELÃO');
+            showForm(formPaperClassContainer, document.getElementById('form-paperclass-title'), 'EDITAR TIPO DE PAPEL  O');
             inputPaperClassIndex.value = index;
             inputPaperClassCode.value = pc.code;
             inputPaperClassDesc.value = pc.desc;
         } else if (e.target.classList.contains('btn-delete-paperclass')) {
             const code = paperClasses[index].code;
-            if (confirm(`DESEJA EXCLUIR O TIPO DE PAPELÃO "${code}"? ISSO REMOVERÁ TODOS OS MATERIAIS ESPECÍFICOS DELE.`)) {
+            if (confirm(`DESEJA EXCLUIR O TIPO DE PAPEL  O "${code}"? ISSO REMOVER   TODOS OS MATERIAIS ESPEC  FICOS DELE.`)) {
                 paperClasses.splice(index, 1);
                 materials = materials.filter(m => m.paperType !== code);
                 saveStoredData('dawos_materials', materials);
@@ -1238,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. CRUD MATERIAIS ESPECÍFICOS
+    // 4. CRUD MATERIAIS ESPEC  FICOS
     function populateAdminMaterialFormDropdowns() {
         inputMaterialSupplier.innerHTML = '<option value="" disabled selected>SELECIONE O FORNECEDOR</option>';
         suppliers.forEach(sup => {
@@ -1248,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inputMaterialSupplier.appendChild(opt);
         });
 
-        inputMaterialPaperClass.innerHTML = '<option value="" disabled selected>SELECIONE O TIPO DE PAPELÃO</option>';
+        inputMaterialPaperClass.innerHTML = '<option value="" disabled selected>SELECIONE O TIPO DE PAPEL  O</option>';
         paperClasses.forEach(pc => {
             const opt = document.createElement('option');
             opt.value = pc.code;
@@ -1259,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnAddMaterial.addEventListener('click', () => {
         populateAdminMaterialFormDropdowns();
-        showForm(formMaterialContainer, document.getElementById('form-material-title'), 'CADASTRAR NOVO MATERIAL ESPECÍFICO');
+        showForm(formMaterialContainer, document.getElementById('form-material-title'), 'CADASTRAR NOVO MATERIAL ESPEC  FICO');
         inputMaterialIndex.value = '';
         inputMaterialCode.value = '';
         inputMaterialName.value = '';
@@ -1285,14 +1285,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (index === '') {
             if (materials.some(m => m.code === code)) {
-                alert('ESTE CÓDIGO DE MATERIAL JÁ EXISTE.');
+                alert('ESTE C  DIGO DE MATERIAL J   EXISTE.');
                 return;
             }
             materials.push(newMat);
         } else {
             const oldCode = materials[index].code;
             if (oldCode !== code && materials.some(m => m.code === code)) {
-                alert('ESTE CÓDIGO DE MATERIAL JÁ EXISTE.');
+                alert('ESTE C  DIGO DE MATERIAL J   EXISTE.');
                 return;
             }
             materials[index] = newMat;
@@ -1309,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('btn-edit-material')) {
             populateAdminMaterialFormDropdowns();
             const mat = materials[index];
-            showForm(formMaterialContainer, document.getElementById('form-material-title'), 'EDITAR MATERIAL ESPECÍFICO');
+            showForm(formMaterialContainer, document.getElementById('form-material-title'), 'EDITAR MATERIAL ESPEC  FICO');
             inputMaterialIndex.value = index;
             inputMaterialCode.value = mat.code;
             inputMaterialName.value = mat.name;
@@ -1339,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${mat.supplier}</td>
                 <td style="font-size: 0.78rem; color: var(--color-text-secondary);">${mat.grammage || '-'}</td>
                 <td style="font-size: 0.78rem; color: var(--color-text-secondary);">${mat.pressureRes || '-'}</td>
-                <td><strong style="color: #4ade80;">R$ ${costIpi.toFixed(2)}</strong><br><span style="font-size:0.68rem; color:var(--color-text-muted);">PREÇO C/ IPI</span></td>
+                <td><strong style="color: #4ade80;">R$ ${costIpi.toFixed(2)}</strong><br><span style="font-size:0.68rem; color:var(--color-text-muted);">PRE  O C/ IPI</span></td>
                 <td style="text-align: right; white-space: nowrap;">
                     <button type="button" class="btn-admin-action btn-delete-material" data-index="${index}" style="background: #ff5252;">EXCLUIR</button>
                 </td>
@@ -1373,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnAddEngineering) {
         btnAddEngineering.addEventListener('click', () => {
-            showForm(formEngineeringContainer, formEngineeringTitle, 'CADASTRAR NOVA FÓRMULA DE ENGENHARIA');
+            showForm(formEngineeringContainer, formEngineeringTitle, 'CADASTRAR NOVA F  RMULA DE ENGENHARIA');
             inputEngineeringIndex.value = '';
             inputEngineeringStyle.value = '';
             inputEngineeringDesc.value = '';
@@ -1399,7 +1399,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const lengthFormula = inputEngineeringLength.value.trim();
 
             if (!style || !desc || !widthFormula || !lengthFormula) {
-                alert('POR FAVOR, PREENCHA TODOS OS CAMPOS DAS FÓRMULAS.');
+                alert('POR FAVOR, PREENCHA TODOS OS CAMPOS DAS F  RMULAS.');
                 return;
             }
 
@@ -1407,14 +1407,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (index === '') {
                 if (engineering.some(e => e.style === style)) {
-                    alert('ESTE ESTILO DE ENGENHARIA JÁ ESTÁ CADASTRADO.');
+                    alert('ESTE ESTILO DE ENGENHARIA J   EST   CADASTRADO.');
                     return;
                 }
                 engineering.push(newEng);
             } else {
                 const oldStyle = engineering[index].style;
                 if (oldStyle !== style && engineering.some(e => e.style === style)) {
-                    alert('ESTE ESTILO DE ENGENHARIA JÁ ESTÁ CADASTRADO.');
+                    alert('ESTE ESTILO DE ENGENHARIA J   EST   CADASTRADO.');
                     return;
                 }
                 engineering[index] = newEng;
@@ -1423,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveStoredData('dawos_engineering', engineering);
             renderAdminEngineering();
             hideForm(formEngineeringContainer);
-            updateSummaryData(); // Recalcula a área se estiver mudando fórmulas
+            updateSummaryData(); // Recalcula a   rea se estiver mudando f  rmulas
         });
     }
 
@@ -1432,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = e.target.getAttribute('data-index');
             if (e.target.classList.contains('btn-edit-engineering')) {
                 const eng = engineering[index];
-                showForm(formEngineeringContainer, formEngineeringTitle, 'EDITAR FÓRMULA DE ENGENHARIA');
+                showForm(formEngineeringContainer, formEngineeringTitle, 'EDITAR F  RMULA DE ENGENHARIA');
                 inputEngineeringIndex.value = index;
                 inputEngineeringStyle.value = eng.style;
                 inputEngineeringDesc.value = eng.desc;
@@ -1455,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. INTERATIVIDADE DA CALCULADORA
     // -------------------------------------------------------------
 
-    // Troca de Abas — mantendo estado e recalculando
+    // Troca de Abas     mantendo estado e recalculando
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetId = btn.getAttribute('data-target');
@@ -1467,13 +1467,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetEl = document.getElementById(targetId);
             if (targetEl) targetEl.classList.add('active');
 
-            // Garante ressincronização do modelo de caixa e empresa ao trocar de aba
+            // Garante ressincroniza    o do modelo de caixa e empresa ao trocar de aba
             if (typeof syncSelectionsUI === 'function') syncSelectionsUI();
             updateSummaryData();
         });
     });
 
-    // Seleção de Categoria de Embalagem
+    // Sele    o de Categoria de Embalagem
     boxOptionCards.forEach(card => {
         card.addEventListener('click', () => {
             boxOptionCards.forEach(c => c.classList.remove('active'));
@@ -1484,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (boxTypeInput) boxTypeInput.value = value;
             localStorage.setItem('xpace_selected_boxtype', value);
             
-            // Alternar grids de sub-opções
+            // Alternar grids de sub-op    es
             document.querySelectorAll('.sub-options-grid').forEach(grid => {
                 grid.classList.remove('active');
             });
@@ -1493,7 +1493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeGrid) {
                 activeGrid.classList.add('active');
                 
-                // Seleciona a primeira sub-opção desse grid automaticamente
+                // Seleciona a primeira sub-op    o desse grid automaticamente
                 const firstSubCard = activeGrid.querySelector('.sub-option-card');
                 if (firstSubCard) {
                     activeGrid.querySelectorAll('.sub-option-card').forEach(sc => sc.classList.remove('active'));
@@ -1503,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Alternar diagramas explicativos na aba de dimensões
+            // Alternar diagramas explicativos na aba de dimens  es
             document.querySelectorAll('.dim-diagram').forEach(diag => diag.classList.add('hidden'));
             const activeDiagram = document.getElementById(`dim-diagram-${value}`);
             if (activeDiagram) {
@@ -1514,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Seleção de Sub-opções de Embalagem
+    // Sele    o de Sub-op    es de Embalagem
     subOptionCards.forEach(subCard => {
         subCard.addEventListener('click', () => {
             const parentGrid = subCard.closest('.sub-options-grid');
@@ -1530,7 +1530,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Seleção de Empresa Vendedora
+    // Sele    o de Empresa Vendedora
     companyOptionCards.forEach(card => {
         card.addEventListener('click', () => {
             const company = card.getAttribute('data-company');
@@ -1564,13 +1564,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // Sincronização Slider -> Input Quantidade
+    // Sincroniza    o Slider -> Input Quantidade
     quantitySlider.addEventListener('input', (e) => {
         quantityInput.value = e.target.value;
         updateSummaryData();
     });
 
-    // Sincronização Input -> Slider Quantidade
+    // Sincroniza    o Input -> Slider Quantidade
     quantityInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value) || 0;
         if (val < 100) val = 100;
@@ -1601,7 +1601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 paperClassSelect.disabled = true;
             }
             if (paperTypeSelect) {
-                paperTypeSelect.innerHTML = '<option value="" disabled selected>AGUARDANDO TIPO DE PAPELÃO...</option>';
+                paperTypeSelect.innerHTML = '<option value="" disabled selected>AGUARDANDO TIPO DE PAPEL  O...</option>';
                 paperTypeSelect.disabled = true;
             }
         }
@@ -1613,7 +1613,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sup = materialSupplierSelect.value;
             if (!sup) return;
 
-            // Filtra os tipos de papelão que esse fornecedor realmente tem cadastrados (ignorando códigos vazios)
+            // Filtra os tipos de papel  o que esse fornecedor realmente tem cadastrados (ignorando c  digos vazios)
             const availablePaperClasses = [...new Set(
                 materials
                     .filter(m => m.supplier === sup && m.paperType && m.paperType.trim() !== '')
@@ -1621,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', () => {
             )];
 
             if (paperClassSelect) {
-                paperClassSelect.innerHTML = '<option value="" disabled selected>SELECIONE O TIPO DE PAPELÃO</option>';
+                paperClassSelect.innerHTML = '<option value="" disabled selected>SELECIONE O TIPO DE PAPEL  O</option>';
                 availablePaperClasses.forEach(pcCode => {
                     if (!pcCode || pcCode.trim() === '') return;
                     const pc = paperClasses.find(p => p.code === pcCode);
@@ -1635,7 +1635,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (paperTypeSelect) {
-                paperTypeSelect.innerHTML = '<option value="" disabled selected>AGUARDANDO TIPO DE PAPELÃO...</option>';
+                paperTypeSelect.innerHTML = '<option value="" disabled selected>AGUARDANDO TIPO DE PAPEL  O...</option>';
                 paperTypeSelect.disabled = true;
             }
 
@@ -1643,20 +1643,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Reatividade: Quando muda Tipo de Papelão na calculadora
+    // Reatividade: Quando muda Tipo de Papel  o na calculadora
     if (paperClassSelect) {
         paperClassSelect.addEventListener('change', () => {
             const sup = materialSupplierSelect.value;
             const pc = paperClassSelect.value;
             if (!sup || !pc) return;
 
-            // Filtra os materiais cadastrados desse fornecedor E desse tipo de papelão
+            // Filtra os materiais cadastrados desse fornecedor E desse tipo de papel  o
             const filtered = materials.filter(m => m.supplier === sup && m.paperType === pc);
 
             if (paperTypeSelect) {
                 paperTypeSelect.innerHTML = '';
                 if (filtered.length === 0) {
-                    paperTypeSelect.innerHTML = '<option value="" disabled selected>NENHUM MATERIAL ESPECÍFICO CADASTRADO</option>';
+                    paperTypeSelect.innerHTML = '<option value="" disabled selected>NENHUM MATERIAL ESPEC  FICO CADASTRADO</option>';
                     paperTypeSelect.disabled = true;
                     hideMaterialSpecsCard();
                 } else {
@@ -1664,7 +1664,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const opt = document.createElement('option');
                         const costIpi = mat.costIpi !== undefined ? mat.costIpi : (mat.cost || 0);
                         opt.value = mat.code;
-                        opt.textContent = `${mat.name} - (R$ ${costIpi.toFixed(2)}/M²)`;
+                        opt.textContent = `${mat.name} - (R$ ${costIpi.toFixed(2)}/M  )`;
                         if (idx === 0) opt.selected = true;
                         paperTypeSelect.appendChild(opt);
                     });
@@ -1678,7 +1678,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Reatividade: Quando muda o Material Específico na calculadora
+    // Reatividade: Quando muda o Material Espec  fico na calculadora
     if (paperTypeSelect) {
         paperTypeSelect.addEventListener('change', () => {
             updateMaterialSpecsCard();
@@ -1686,7 +1686,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Preenche os cards de especificações e alternativa mais barata
+    // Preenche os cards de especifica    es e alternativa mais barata
     function updateMaterialSpecsCard() {
         const specsCard = document.getElementById('material-specs-card');
         const altCard = document.getElementById('material-alt-card');
@@ -1709,7 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
         specsCard.classList.remove('hidden');
         specsCard.style.display = 'flex';
 
-        // Verifica alternativa mais barata (mesmo tipo de papelão, fornecedor diferente)
+        // Verifica alternativa mais barata (mesmo tipo de papel  o, fornecedor diferente)
         const alternatives = materials.filter(m =>
             m.paperType === mat.paperType &&
             m.supplier !== mat.supplier &&
@@ -1748,7 +1748,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (altCard) { altCard.classList.add('hidden'); altCard.style.display = 'none'; }
     }
 
-    // Tratar envio acidental do formulário ao apertar ENTER
+    // Tratar envio acidental do formul  rio ao apertar ENTER
     if (pricingForm) {
         pricingForm.addEventListener('submit', (e) => e.preventDefault());
         pricingForm.addEventListener('keydown', (e) => {
@@ -1760,7 +1760,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Escuta alterações nos inputs físicos para recalcular a área e o preço em tempo real
+    // Escuta altera    es nos inputs f  sicos para recalcular a   rea e o pre  o em tempo real
     [lengthInput, widthInput, heightInput, paperTypeSelect, paperClassSelect, materialSupplierSelect, quantityInput].forEach(input => {
         if (input) {
             input.addEventListener('input', updateSummaryData);
@@ -1770,14 +1770,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Atualiza os dados do card resumo e a área calculada
+    // Atualiza os dados do card resumo e a   rea calculada
     function updateSummaryData() {
         // Empresa Vendedora
         if (summaryCompanyText) {
             summaryCompanyText.textContent = sellingCompanyInput ? sellingCompanyInput.value : 'DAWOS';
         }
         
-        // Dimensões
+        // Dimens  es
         const length = lengthInput ? lengthInput.value || '0' : '0';
         const width = widthInput ? widthInput.value || '0' : '0';
         const height = heightInput ? heightInput.value || '0' : '0';
@@ -1786,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Material
-        let paperSelectedText = 'Não selecionado';
+        let paperSelectedText = 'N  o selecionado';
         if (paperTypeSelect && paperTypeSelect.selectedIndex !== -1) {
             paperSelectedText = paperTypeSelect.options[paperTypeSelect.selectedIndex].text.split('-')[0].trim();
         }
@@ -1800,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryQtyText.textContent = `${qtyFormatted} unids`;
         }
 
-        // Executar simulação de cálculos e atualização de área
+        // Executar simula    o de c  lculos e atualiza    o de   rea
         calculateMockPrice();
         if (typeof updatePricingFormation === 'function') {
             updatePricingFormation();
@@ -1810,7 +1810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Helpers de avaliação de fórmulas customizadas da Engenharia
+    // Helpers de avalia    o de f  rmulas customizadas da Engenharia
     function getWaveFromPaperClass(code) {
         if (!code) return 'B';
         const upper = code.toUpperCase();
@@ -1822,7 +1822,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function evaluateFormula(formulaStr, C, L, A) {
         if (!formulaStr) return 0;
-        // Substitui variáveis
+        // Substitui vari  veis
         let formatted = formulaStr
             .replace(/C/gi, C)
             .replace(/L/gi, L)
@@ -1830,12 +1830,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             return Function(`"use strict"; return (${formatted})`)();
         } catch (e) {
-            console.error("Erro ao avaliar fórmula da chapa:", formulaStr, e);
+            console.error("Erro ao avaliar f  rmula da chapa:", formulaStr, e);
             return 0;
         }
     }
 
-    // Cálculo Ilustrativo de Precificação Realista
+    // C  lculo Ilustrativo de Precifica    o Realista
     function calculateMockPrice() {
         let length = parseFloat(lengthInput.value) || 0;
         let width = parseFloat(widthInput.value) || 0;
@@ -1843,14 +1843,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const quantity = parseInt(quantityInput.value) || 100;
         const boxType = (typeof getSelectedBoxType === 'function') ? getSelectedBoxType() : ((boxTypeInput && boxTypeInput.value) ? boxTypeInput.value : (localStorage.getItem('xpace_selected_boxtype') || 'maleta'));
 
-        // Validação da Caixa Maleta: Comprimento deve ser maior ou igual a Largura
+        // Valida    o da Caixa Maleta: Comprimento deve ser maior ou igual a Largura
         if (boxType === 'maleta' && width > length && length > 0) {
-            alert("❌ ERRO DE VALIDAÇÃO:\n\nEM UMA CAIXA MALETA, A LARGURA NUNCA PODE SER MAIOR QUE O COMPRIMENTO!");
+            alert("    ERRO DE VALIDA    O:\n\nEM UMA CAIXA MALETA, A LARGURA NUNCA PODE SER MAIOR QUE O COMPRIMENTO!");
             width = length;
             if (widthInput) widthInput.value = length; // Ajusta na tela
         }
         
-        let materialCost = 3.0; // valor padrão
+        let materialCost = 3.0; // valor padr  o
         if (paperTypeSelect && paperTypeSelect.value) {
             const matchedMaterial = materials.find(m => m.code === paperTypeSelect.value);
             if (matchedMaterial) {
@@ -1875,7 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const boxSubtype = (document.getElementById('box-subtype') || {}).value || localStorage.getItem('xpace_selected_boxsubtype') || '';
 
-        // Busca fórmula correspondente na Engenharia (suporta sub-opções como Transpasse Total)
+        // Busca f  rmula correspondente na Engenharia (suporta sub-op    es como Transpasse Total)
         const matchedEng = engineering.find(e => 
             e.category.toLowerCase() === (boxType || '').toLowerCase() && 
             e.wave.toUpperCase() === (selectedWave || '').toUpperCase() &&
@@ -1887,7 +1887,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const chapaComp = evaluateFormula(matchedEng.lengthFormula, length, width, height);
             areaChapa = (chapaLarg * chapaComp) / 1000000;
         } else {
-            // Fallback para fórmulas originais
+            // Fallback para f  rmulas originais
             if (boxType === 'maleta') {
                 const chapaComp = ((length + width) * 2 + 50);
                 const chapaLarg = (width + height);
@@ -1895,17 +1895,17 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (boxType === 'corte-vinco') {
                 areaChapa = ((length + 100) * (width + 100)) / 1000000;
             } else {
-                areaChapa = (length * width) / 1000000; // acessório
+                areaChapa = (length * width) / 1000000; // acess  rio
             }
         }
 
-        // Atualizar campos de visualização da área
+        // Atualizar campos de visualiza    o da   rea
         if (calculatedSheetAreaText) {
-            calculatedSheetAreaText.textContent = `${areaChapa.toFixed(4).replace('.', ',')} M²`;
+            calculatedSheetAreaText.textContent = `${areaChapa.toFixed(4).replace('.', ',')} M  `;
         }
         if (calculatedSheetAreaMmText) {
             const areaMm = Math.round(areaChapa * 1000);
-            calculatedSheetAreaMmText.textContent = `${areaMm} MM²`;
+            calculatedSheetAreaMmText.textContent = `${areaMm} MM  `;
         }
         
         let thicknessMultiplier = 1.0;
@@ -1929,7 +1929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryTotalPrice.textContent = totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    // Inicialização do Formulário e Banco de Dados
+    // Inicializa    o do Formul  rio e Banco de Dados
     populateCalculatorDropdowns();
     if (materialSupplierSelect && suppliers.includes('TROMBINI')) {
         materialSupplierSelect.value = 'TROMBINI';
@@ -1941,18 +1941,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateSubOptionSelection();
 
-    // Inicialização do Lembrar-me
+    // Inicializa    o do Lembrar-me
     fillRememberedCredentials();
 
     // -------------------------------------------------------------
-    // 7. EVENTOS DOS BOTÕES DE AÇÃO (MOCKUP E ALERTAS)
+    // 7. EVENTOS DOS BOT  ES DE A    O (MOCKUP E ALERTAS)
     // -------------------------------------------------------------
     btnSubmitOrder.addEventListener('click', () => {
-        alert(`🎉 ORÇAMENTO DAWOS EMBALAGENS:\n\nOLÁ, ${currentUser.name}!\nSEU RASCUNHO DE PEDIDO FOI REGISTRADO COM SUCESSO NA SIMULAÇÃO COMERCIAL.`);
+        alert(`     OR  AMENTO DAWOS EMBALAGENS:\n\nOL  , ${currentUser.name}!\nSEU RASCUNHO DE PEDIDO FOI REGISTRADO COM SUCESSO NA SIMULA    O COMERCIAL.`);
     });
 
     btnPdfExport.addEventListener('click', () => {
-        alert('📄 RELATÓRIO PDF:\n\nGERANDO ESPELHO DE ORÇAMENTO TÉCNICO FORMATADO COM AS ESPECIFICAÇÕES FÍSICAS DA CAIXA...');
+        alert('     RELAT  RIO PDF:\n\nGERANDO ESPELHO DE OR  AMENTO T  CNICO FORMATADO COM AS ESPECIFICA    ES F  SICAS DA CAIXA...');
     });
 
     btnWhatsappShare.addEventListener('click', () => {
@@ -1962,15 +1962,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const qty = quantityInput.value;
         const box = summaryBoxText.textContent;
         
-        const message = encodeURIComponent(`OLÁ DAWOS EMBALAGENS! GOSTARIA DE UM ORÇAMENTO PARA:\n- MODELO: ${box}\n- DIMENSÕES: ${length}x${width}x${height} MM\n- QUANTIDADE: ${qty} UNIDADES`);
+        const message = encodeURIComponent(`OL   DAWOS EMBALAGENS! GOSTARIA DE UM OR  AMENTO PARA:\n- MODELO: ${box}\n- DIMENS  ES: ${length}x${width}x${height} MM\n- QUANTIDADE: ${qty} UNIDADES`);
         const whatsappUrl = `https://api.whatsapp.com/send?phone=5500000000000&text=${message}`;
         
         window.open(whatsappUrl, '_blank');
     });
 
-    // ─────────────────────────────────────────────────────────────────
-    // 7. CUSTO DE PAPEL — Tabela Calculada
-    // ─────────────────────────────────────────────────────────────────
+    //                                                                                                                                                                                                    
+    // 7. CUSTO DE PAPEL     Tabela Calculada
+    //                                                                                                                                                                                                    
     const papercostIpiInput      = document.getElementById('papercost-ipi');
     const papercostIcmsInput     = document.getElementById('papercost-icms');
     const papercostPisInput      = document.getElementById('papercost-piscofins');
@@ -1978,14 +1978,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRecalcPapercost     = document.getElementById('btn-recalc-papercost');
 
     function parseGrammage(grammageStr) {
-        // Ex: "0,644 kg/m²" → 0.644
+        // Ex: "0,644 kg/m  "     0.644
         if (!grammageStr) return null;
         const match = grammageStr.replace(',', '.').match(/[\d.]+/);
         return match ? parseFloat(match[0]) : null;
     }
 
     function fmt(val) {
-        // Formata número como moeda brasileira
+        // Formata n  mero como moeda brasileira
         return 'R$ ' + val.toFixed(4).replace('.', ',');
     }
 
@@ -2011,7 +2011,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sortedMaterials.forEach(mat => {
             const costComIpi = parseFloat(mat.costIpi !== undefined ? mat.costIpi : (mat.cost || 0)) || 0;
 
-            // Cálculos
+            // C  lculos
             const semIpi     = costComIpi * (1 - ipi);
             const noLP       = semIpi * (1 - icms);
             const pisVal     = semIpi * pis;
@@ -2033,7 +2033,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         letter-spacing: 0.1em;
                         padding: 8px 12px;
                         border-top: 1px solid rgba(217,119,36,0.25);
-                    ">🏭 ${mat.supplier}</td>
+                    ">     ${mat.supplier}</td>
                 `;
                 tbody.appendChild(trSep);
                 lastSupplier = mat.supplier;
@@ -2055,17 +2055,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (tbody.children.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--color-text-muted); padding:20px;">Nenhum material cadastrado com preço.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--color-text-muted); padding:20px;">Nenhum material cadastrado com pre  o.</td></tr>`;
         }
     }
 
-    // Recalcula ao clicar no botão ou mudar qualquer percentual
+    // Recalcula ao clicar no bot  o ou mudar qualquer percentual
     if (btnRecalcPapercost) btnRecalcPapercost.addEventListener('click', renderPaperCostTable);
     if (papercostIpiInput)  papercostIpiInput.addEventListener('input',  renderPaperCostTable);
     if (papercostIcmsInput) papercostIcmsInput.addEventListener('input',  renderPaperCostTable);
     if (papercostPisInput)  papercostPisInput.addEventListener('input',   renderPaperCostTable);
 
-    // Renderiza quando a aba Custo de Papel é aberta
+    // Renderiza quando a aba Custo de Papel    aberta
     document.querySelectorAll('.admin-menu-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.getAttribute('data-admin-target') === 'admin-section-papercost') {
@@ -2074,9 +2074,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ─────────────────────────────────────────────────────────────────
-    // 8. PARÂMETROS DE PRECIFICAÇÃO — Admin + localStorage
-    // ─────────────────────────────────────────────────────────────────
+    //                                                                                                                                                                                                    
+    // 8. PAR  METROS DE PRECIFICA    O     Admin + localStorage
+    //                                                                                                                                                                                                    
     const defaultPricingParams = {
         mcPadrao:   40,
         comissao:    2,
@@ -2120,16 +2120,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function savePricingParams(p) {
         localStorage.setItem('dawos_pricing_params', JSON.stringify(p));
-        // DIAGNÓSTICO: confirma o que foi salvo
+        // DIAGN  STICO: confirma o que foi salvo
         var verify = localStorage.getItem('dawos_pricing_params');
-        alert('SALVO NO LOCALSTORAGE:\n' + verify + '\n\nSe aparecer os valores corretos, o save está OK.');
+        alert('SALVO NO LOCALSTORAGE:\n' + verify + '\n\nSe aparecer os valores corretos, o save est   OK.');
     }
 
     // Preenche os inputs do admin com os valores salvos
     function loadParamsIntoForm() {
         var rawStored = localStorage.getItem('dawos_pricing_params');
         console.log('[DAWOS] RAW localStorage:', rawStored);
-        // Usa a função global definida no HTML (independente de inicialização)
+        // Usa a fun    o global definida no HTML (independente de inicializa    o)
         if (typeof dawosLoadParamsIntoForm === 'function') {
             dawosLoadParamsIntoForm();
         } else {
@@ -2145,7 +2145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Salva ao clicar no botão
+    // Salva ao clicar no bot  o
     const btnSaveParams = document.getElementById('btn-save-params');
     const paramsSavedMsg = document.getElementById('params-saved-msg');
     if (btnSaveParams) {
@@ -2186,17 +2186,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ─────────────────────────────────────────────────────────────────
-    // 9. FORMAÇÃO DE PREÇO — Cálculo reativo na aba Ver Preço
-    // ─────────────────────────────────────────────────────────────────
+    //                                                                                                                                                                                                    
+    // 9. FORMA    O DE PRE  O     C  lculo reativo na aba Ver Pre  o
+    //                                                                                                                                                                                                    
 
-    // Helpers de formatação
+    // Helpers de formata    o
     function fmtBRL(val) {
-        if (val === null || isNaN(val)) return '—';
+        if (val === null || isNaN(val)) return '   ';
         return 'R$ ' + val.toFixed(2).replace('.', ',');
     }
     function fmtPct(val) {
-        if (val === null || isNaN(val)) return '—';
+        if (val === null || isNaN(val)) return '   ';
         return val.toFixed(2).replace('.', ',') + '%';
     }
 
@@ -2216,20 +2216,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Expõe a função de atualização globalmente para disparos inline do HTML
+    // Exp  e a fun    o de atualiza    o globalmente para disparos inline do HTML
     window.updatePricingFormation = updatePricingFormation;
 
-    // Disparadores: qualquer mudança relevante → recalcula a formação de preço
+    // Disparadores: qualquer mudan  a relevante     recalcula a forma    o de pre  o
     const simAInput = document.getElementById('sim-a-margem');
     const simBInput = document.getElementById('sim-b-preco');
     if (simAInput) { simAInput.addEventListener('input', updatePricingFormation); simAInput.addEventListener('change', updatePricingFormation); }
     if (simBInput) { simBInput.addEventListener('input', updatePricingFormation); simBInput.addEventListener('change', updatePricingFormation); }
 
-    // Chama updatePricingFormation sempre que o material ou dimensões mudam
+    // Chama updatePricingFormation sempre que o material ou dimens  es mudam
     const origUpdateSummary = updateSummaryData;
     // Monkey-patch: injeta a chamada depois do calculateMockPrice
     const origCalculateMock = calculateMockPrice;
-    // Simplesmente adiciona listener na mudança de tab para Ver Preço
+    // Simplesmente adiciona listener na mudan  a de tab para Ver Pre  o
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.getAttribute('data-target') === 'tab-price-summary') {
@@ -2237,7 +2237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    // Também dispara nos inputs que afetam o custo
+    // Tamb  m dispara nos inputs que afetam o custo
     [paperTypeSelect, lengthInput, widthInput, heightInput, quantityInput].forEach(el => {
         if (el) el.addEventListener('change', updatePricingFormation);
     });
@@ -2262,9 +2262,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // XPACEBOX SAAS MULTI-MODULE ENGINE (v138)
     // ==========================================
     function initSaaSModules() {
-        console.log("ðŸš€ Inicializando MÃ³dulos SaaS XPACEBOX...");
+        console.log("          Inicializando M    dulos SaaS XPACEBOX...");
 
-        // --- 1. NAVEGAÃ‡ÃƒO DE MÃ“DULOS NO CABEÃ‡ALHO ---
+        // --- 1. NAVEGA         O DE M     DULOS NO CABE     ALHO ---
         const moduleNavBtns = document.querySelectorAll('.module-nav-btn');
         const moduloClientes = document.getElementById('modulo-clientes');
         const moduloProdutos = document.getElementById('modulo-produtos');
@@ -2283,7 +2283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Ocultar todas as seÃ§Ãµes primeiro
+            // Ocultar todas as se        es primeiro
             if (moduloClientes) moduloClientes.classList.add('hidden');
             if (moduloProdutos) moduloProdutos.classList.add('hidden');
             if (configuratorSection) configuratorSection.style.display = 'none';
@@ -2314,12 +2314,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // --- 2. GESTÃƒO DE CLIENTES (CRUD & VIACEP) ---
+        // --- 2. GEST    O DE CLIENTES (CRUD & VIACEP) ---
         let clientsList = getStoredData('dawos_clients') || [
             {
                 id: 'cli-1',
                 codigo_unico: 'CLI-001',
-                nome_real: 'Embalagens Brasil IndÃºstria e ComÃ©rcio Ltda',
+                nome_real: 'Embalagens Brasil Ind    stria e Com    rcio Ltda',
                 nome_fantasia: 'Embalagens Brasil',
                 documento: '12.345.678/0001-90',
                 empresa_vendedora: 'DAWOS',
@@ -2370,13 +2370,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 12px;"><span class="badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 4px 8px; border-radius: 6px; font-weight: 600;"></span></td>
                     <td style="padding: 12px; font-weight: 600;"></td>
                     <td style="padding: 12px; text-align: right;">
-                        <button type="button" class="btn-edit-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 8px;" title="Editar">âœï¸</button>
-                        <button type="button" class="btn-delete-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">ðŸ—‘ï¸</button>
+                        <button type="button" class="btn-edit-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 8px;" title="Editar">            </button>
+                        <button type="button" class="btn-delete-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">                </button>
                     </td>
                 </tr>
             ).join('');
 
-            // Listeners de ediÃ§Ã£o e exclusÃ£o
+            // Listeners de edi        o e exclus    o
             tbody.querySelectorAll('.btn-edit-client').forEach(b => {
                 b.addEventListener('click', () => editClient(b.getAttribute('data-id')));
             });
@@ -2426,7 +2426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnOpenClientModal.addEventListener('click', () => {
                 if (formClient) formClient.reset();
                 document.getElementById('client-form-id').value = '';
-                document.getElementById('modal-client-title').textContent = 'ðŸ‘¤ Cadastrar Novo Cliente';
+                document.getElementById('modal-client-title').textContent = '          Cadastrar Novo Cliente';
                 modalClient.classList.remove('hidden');
             });
         }
@@ -2492,7 +2492,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!client || !modalClient) return;
 
             document.getElementById('client-form-id').value = client.id;
-            document.getElementById('modal-client-title').textContent = 'âœï¸ Editar Cliente: ' + (client.nome_fantasia || client.nome_real);
+            document.getElementById('modal-client-title').textContent = '             Editar Cliente: ' + (client.nome_fantasia || client.nome_real);
             
             document.getElementById('client-nome-real').value = client.nome_real || '';
             document.getElementById('client-nome-fantasia').value = client.nome_fantasia || '';
@@ -2515,9 +2515,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('client-cidade').value = client.cidade || '';
             document.getElementById('client-uf').value = client.uf || '';
             document.getElementById('client-codigo-ibge').value = client.codigo_ibge || '';
-            document.getElementById('client-origem').value = client.origem || 'IndicaÃ§Ã£o';
-            document.getElementById('client-ramo').value = client.ramo || 'AlimentÃ­cio';
-            document.getElementById('client-representante').value = client.representante || 'Venda Direta / FÃ¡brica';
+            document.getElementById('client-origem').value = client.origem || 'Indica        o';
+            document.getElementById('client-ramo').value = client.ramo || 'Aliment    cio';
+            document.getElementById('client-representante').value = client.representante || 'Venda Direta / F    brica';
             document.getElementById('client-condicao-pgto').value = client.condicao_pgto || 'A Vista';
             document.getElementById('client-frete').value = client.frete || 'CIF';
             document.getElementById('client-cfop').value = client.cfop || '5.101';
@@ -2539,7 +2539,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clientSearchInput.addEventListener('input', (e) => renderClientsTable(e.target.value));
         }
 
-        // --- 3. GESTÃƒO DE PRODUTOS / FICHAS TÃ‰CNICAS ---
+        // --- 3. GEST    O DE PRODUTOS / FICHAS T     CNICAS ---
         let productsList = getStoredData('dawos_products') || [];
 
         function saveProducts() {
@@ -2573,7 +2573,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             if (filtered.length === 0) {
-                tbody.innerHTML = <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Nenhuma Ficha TÃ©cnica cadastrada.</td></tr>;
+                tbody.innerHTML = <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Nenhuma Ficha T    cnica cadastrada.</td></tr>;
                 return;
             }
 
@@ -2592,15 +2592,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 12px; text-transform: uppercase;"></td>
                     <td style="padding: 12px;"></td>
                     <td style="padding: 12px; text-align: right;">
-                        <button type="button" class="btn-use-product-in-pricing" data-id="" style="background: rgba(227, 0, 126, 0.1); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); border-radius: 6px; padding: 4px 8px; font-weight: 700; cursor: pointer; margin-right: 6px;" title="Formar PreÃ§o com esta Ficha">ðŸ“¥ Formar PreÃ§o</button>
-                        <button type="button" class="btn-edit-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 6px;" title="Editar">âœï¸</button>
-                        <button type="button" class="btn-delete-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">ðŸ—‘ï¸</button>
+                        <button type="button" class="btn-use-product-in-pricing" data-id="" style="background: rgba(227, 0, 126, 0.1); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); border-radius: 6px; padding: 4px 8px; font-weight: 700; cursor: pointer; margin-right: 6px;" title="Formar Pre    o com esta Ficha">          Formar Pre    o</button>
+                        <button type="button" class="btn-edit-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 6px;" title="Editar">            </button>
+                        <button type="button" class="btn-delete-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">                </button>
                     </td>
                 </tr>
                 ;
             }).join('');
 
-            // Listeners de Formar PreÃ§o, Editar e Excluir
+            // Listeners de Formar Pre    o, Editar e Excluir
             tbody.querySelectorAll('.btn-use-product-in-pricing').forEach(b => {
                 b.addEventListener('click', () => loadProductIntoPricing(b.getAttribute('data-id')));
             });
@@ -2612,7 +2612,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Modal de Ficha TÃ©cnica
+        // Modal de Ficha T    cnica
         const modalProduct = document.getElementById('modal-product');
         const btnOpenProductModal = document.getElementById('btn-open-product-modal');
         const btnCloseProductModal = document.getElementById('btn-close-product-modal');
@@ -2626,7 +2626,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 populateClientDropdownInProducts();
                 if (formProduct) formProduct.reset();
                 document.getElementById('product-form-id').value = '';
-                document.getElementById('modal-product-title').textContent = 'ðŸ“¦ Cadastrar Ficha TÃ©cnica de Produto';
+                document.getElementById('modal-product-title').textContent = '          Cadastrar Ficha T    cnica de Produto';
                 modalProduct.classList.remove('hidden');
             });
         }
@@ -2680,7 +2680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             populateClientDropdownInProducts();
             document.getElementById('product-form-id').value = prod.id;
-            document.getElementById('modal-product-title').textContent = 'âœï¸ Editar Ficha TÃ©cnica: ' + prod.numero_ficha;
+            document.getElementById('modal-product-title').textContent = '             Editar Ficha T    cnica: ' + prod.numero_ficha;
             
             document.getElementById('product-numero-ficha').value = prod.numero_ficha || '';
             document.getElementById('product-codigo-unico').value = prod.codigo_unico || '';
@@ -2703,7 +2703,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function deleteProduct(id) {
-            if (confirm("Tem certeza que deseja excluir esta Ficha TÃ©cnica?")) {
+            if (confirm("Tem certeza que deseja excluir esta Ficha T    cnica?")) {
                 productsList = productsList.filter(p => p.id !== id);
                 saveProducts();
                 renderProductsTable();
@@ -2713,17 +2713,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnTransferProductModal) {
             btnTransferProductModal.addEventListener('click', () => {
                 if (productsList.length === 0) {
-                    alert("Cadastre pelo menos uma Ficha TÃ©cnica primeiro para realizar a transferÃªncia.");
+                    alert("Cadastre pelo menos uma Ficha T    cnica primeiro para realizar a transfer    ncia.");
                     return;
                 }
                 const firstProd = productsList[0];
                 populateClientDropdownInProducts();
                 document.getElementById('product-form-id').value = '';
-                document.getElementById('modal-product-title').textContent = 'ðŸ” Clonar / Transferir Engenharia';
+                document.getElementById('modal-product-title').textContent = '          Clonar / Transferir Engenharia';
                 document.getElementById('product-numero-ficha').value = firstProd.numero_ficha + '-CLONE';
                 document.getElementById('product-codigo-unico').value = firstProd.codigo_unico + '-COPY';
                 document.getElementById('product-revisao').value = 'Rev 01';
-                document.getElementById('product-descricao').value = firstProd.descricao + ' (CÃ³pia)';
+                document.getElementById('product-descricao').value = firstProd.descricao + ' (C    pia)';
                 document.getElementById('product-comprimento').value = firstProd.comprimento;
                 document.getElementById('product-largura').value = firstProd.largura;
                 document.getElementById('product-altura').value = firstProd.altura;
@@ -2736,12 +2736,12 @@ document.addEventListener('DOMContentLoaded', () => {
             productSearchInput.addEventListener('input', (e) => renderProductsTable(e.target.value));
         }
 
-        // FUNÃ‡ÃƒO DE INTEGRAÃ‡ÃƒO COM A FORMADORA DE PREÃ‡O (PUXAR ENGENHARIA)
+        // FUN         O DE INTEGRA         O COM A FORMADORA DE PRE     O (PUXAR ENGENHARIA)
         function loadProductIntoPricing(id) {
             const prod = productsList.find(p => p.id === id);
             if (!prod) return;
 
-            // Preenche dimensÃµes
+            // Preenche dimens    es
             const cInput = document.getElementById('dim-length');
             const lInput = document.getElementById('dim-width');
             const aInput = document.getElementById('dim-height');
@@ -2750,19 +2750,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lInput) lInput.value = prod.largura;
             if (aInput) aInput.value = prod.altura;
 
-            // Seleciona modelo de caixa nas opÃ§Ãµes
+            // Seleciona modelo de caixa nas op        es
             const boxCard = document.querySelector(`.box-option-card[data-value="${prod.modelo}"]`);
             if (boxCard) boxCard.click();
 
-            // Mudar para o mÃ³dulo de Calculadora
+            // Mudar para o m    dulo de Calculadora
             switchModule('modulo-calculadora');
             
-            // Recalcular preÃ§o
+            // Recalcular pre    o
             if (typeof window.updatePricingFormation === 'function') {
                 window.updatePricingFormation();
             }
 
-            alert(âœ… Ficha TÃ©cnica  () carregada com sucesso na Calculadora de PreÃ§os!);
+            alert(        Ficha T    cnica  () carregada com sucesso na Calculadora de Pre    os!);
         }
 
         // Renderizar tabelas iniciais
@@ -2773,7 +2773,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.switchModule = switchModule;
     }
 
-    // Inicializa os mÃ³dulos assim que a pÃ¡gina carregar
+    // Inicializa os m    dulos assim que a p    gina carregar
     initSaaSModules();
 
 });
