@@ -2356,21 +2356,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            tbody.innerHTML = filtered.map(c => 
+            tbody.innerHTML = filtered.map(c => `
                 <tr style="border-bottom: 1px solid var(--color-border);">
-                    <td style="padding: 12px; font-weight: 700; color: #0284c7;"></td>
-                    <td style="padding: 12px; font-weight: 600;"></td>
-                    <td style="padding: 12px; color: var(--color-text-secondary);"></td>
-                    <td style="padding: 12px;"></td>
-                    <td style="padding: 12px;"> / </td>
-                    <td style="padding: 12px;"><span class="badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 4px 8px; border-radius: 6px; font-weight: 600;"></span></td>
-                    <td style="padding: 12px; font-weight: 600;"></td>
+                    <td style="padding: 12px; font-weight: 700; color: #0284c7;">${c.codigo_unico || "-"}</td>
+                    <td style="padding: 12px; font-weight: 600;">${c.nome_fantasia || c.nome_real}</td>
+                    <td style="padding: 12px; color: var(--color-text-secondary);">${c.nome_real || "-"}</td>
+                    <td style="padding: 12px;">${c.documento || "-"}</td>
+                    <td style="padding: 12px;">${c.contato_nome || "-"} / ${c.contato_telefone || c.telefone || "-"}</td>
+                    <td style="padding: 12px;"><span class="badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 4px 8px; border-radius: 6px; font-weight: 600;">${c.empresa_vendedora || "DAWOS"}</span></td>
+                    <td style="padding: 12px; font-weight: 600;">${c.cidade || "-"}/${c.uf || "-"}</td>
                     <td style="padding: 12px; text-align: right;">
-                        <button type="button" class="btn-edit-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 8px;" title="Editar">âœï¸</button>
-                        <button type="button" class="btn-delete-client" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">ðŸ—‘ï¸</button>
+                        <button type="button" class="btn-edit-client" data-id="${c.id}" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 8px;" title="Editar">Editar</button>
+                        <button type="button" class="btn-delete-client" data-id="${c.id}" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">Excluir</button>
                     </td>
                 </tr>
-            ).join('');
+            `).join('');
 
             tbody.querySelectorAll('.btn-edit-client').forEach(b => {
                 b.addEventListener('click', () => editClient(b.getAttribute('data-id')));
@@ -2387,7 +2387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cep = cepInput.value.replace(/\D/g, '');
                 if (cep.length === 8) {
                     try {
-                        const res = await fetch(https://viacep.com.br/ws//json/);
+                        const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
                         const data = await res.json();
                         if (!data.erro) {
                             const end = document.getElementById('client-endereco');
@@ -2553,7 +2553,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!select) return;
 
             select.innerHTML = '<option value="">-- Selecione um Cliente --</option>' +
-                clientsList.map(c => <option value=""> ()</option>).join('');
+                clientsList.map(c => `<option value="${c.id}">${c.nome_fantasia || c.nome_real} (${c.codigo_unico || '-'})</option>`).join('');
         }
 
         function renderProductsTable(filterText = '') {
@@ -2575,23 +2575,23 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = filtered.map(p => {
                 const clientObj = clientsList.find(c => c.id === p.cliente_id);
                 const clientName = clientObj ? (clientObj.nome_fantasia || clientObj.nome_real) : 'Geral';
-
-                return 
+                return `
                 <tr style="border-bottom: 1px solid var(--color-border);">
-                    <td style="padding: 12px; font-weight: 700; color: #7c3aed;"></td>
-                    <td style="padding: 12px; font-weight: 600;"></td>
-                    <td style="padding: 12px;"><span class="badge" style="background: rgba(124, 58, 237, 0.1); color: #7c3aed; padding: 2px 6px; border-radius: 4px;"></span></td>
-                    <td style="padding: 12px; font-weight: 600;"></td>
-                    <td style="padding: 12px;"></td>
-                    <td style="padding: 12px;"> x  x  mm</td>
-                    <td style="padding: 12px; text-transform: uppercase;"></td>
-                    <td style="padding: 12px;"></td>
+                    <td style="padding: 12px; font-weight: 700; color: #7c3aed;">${p.numero_ficha || "-"}</td>
+                    <td style="padding: 12px; font-weight: 600;">${p.codigo_unico || "-"}</td>
+                    <td style="padding: 12px;"><span class="badge" style="background: rgba(124, 58, 237, 0.1); color: #7c3aed; padding: 2px 6px; border-radius: 4px;">Rev. ${p.revisao || "00"}</span></td>
+                    <td style="padding: 12px; font-weight: 600;">${clientName}</td>
+                    <td style="padding: 12px;">${p.descricao || "-"}</td>
+                    <td style="padding: 12px;">${p.comprimento || 0} x ${p.largura || 0} x ${p.altura || 0} mm</td>
+                    <td style="padding: 12px; text-transform: uppercase;">${p.modelo_caixa || "-"}</td>
+                    <td style="padding: 12px;">${p.empresa_vendedora || "DAWOS"}</td>
                     <td style="padding: 12px; text-align: right;">
-                        <button type="button" class="btn-use-product-in-pricing" data-id="" style="background: rgba(227, 0, 126, 0.1); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); border-radius: 6px; padding: 4px 8px; font-weight: 700; cursor: pointer; margin-right: 6px;" title="Formar Preco com esta Ficha">ðŸ“¥ Formar PreÃ§o</button>
-                        <button type="button" class="btn-edit-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 6px;" title="Editar">âœï¸</button>
-                        <button type="button" class="btn-delete-product" data-id="" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">ðŸ—‘ï¸</button>
+                        <button type="button" class="btn-use-product-in-pricing" data-id="${p.id}" style="background: rgba(227, 0, 126, 0.1); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); border-radius: 6px; padding: 4px 8px; font-weight: 700; cursor: pointer; margin-right: 6px;" title="Formar Preco">Formar Preco</button>
+                        <button type="button" class="btn-edit-product" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 6px;" title="Editar">Editar</button>
+                        <button type="button" class="btn-delete-product" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Excluir">Excluir</button>
                     </td>
                 </tr>
+                `;
                 ;
             }).join('');
 
