@@ -2653,7 +2653,7 @@
         }
     </script>
     <script src="impressora_data.js?v=20260729_v137"></script>
-    <script src="app.js?v=157"></script>
+    <script src="app.js?v=158"></script>
     <script>
     function togglePasswordVisibility(btn) {
         var p = document.getElementById('password');
@@ -2710,6 +2710,108 @@
         }
     }
     </script>
+    <!-- Modal Cadastro de Cliente -->
+    <div id="modal-client" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15,23,42,0.85); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="modal-card card" style="max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; background: #1e293b; border-radius: 16px; border: 1px solid #334155; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); color: #f8fafc;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px;">
+                <h3 id="modal-client-title" style="font-family: var(--font-title); font-size: 1.3rem; font-weight: 700; color: #38bdf8;">👤 Cadastrar Novo Cliente</h3>
+                <button type="button" id="btn-close-client-modal" onclick="document.getElementById('modal-client').classList.add('hidden');" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #94a3b8;">&times;</button>
+            </div>
+            <form id="form-client">
+                <input type="hidden" id="client-form-id" value="">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Razão Social *</label><input type="text" id="client-nome-real" required placeholder="Razão Social completa" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Nome Fantasia *</label><input type="text" id="client-nome-fantasia" required placeholder="Nome Comercial / Fantasia" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Código Único</label><input type="text" id="client-codigo-unico" placeholder="Gerado autom. se vazio" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Empresa Vendedora</label><select id="client-empresa-vendedora" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="DAWOS">DAWOS Embalagens</option><option value="CARCAT">CARCAT Embalagens</option><option value="GTA">GTA Cartonagem</option></select></div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">CNPJ / CPF *</label><input type="text" id="client-documento" required placeholder="00.000.000/0001-00" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Inscrição Estadual (IE)</label><input type="text" id="client-ie" placeholder="Inscrição Estadual ou Isento" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Regime Tributário</label><select id="client-regime-tributario" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="Simples Nacional">Simples Nacional</option><option value="Lucro Presumido">Lucro Presumido</option><option value="Lucro Real">Lucro Real</option><option value="MEI">MEI</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Perfil Fiscal</label><select id="client-perfil-fiscal" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="Contribuinte ICMS">Contribuinte ICMS</option><option value="Nao Contribuinte">Não Contribuinte</option><option value="Isento">Isento</option></select></div>
+                </div>
+                <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #38bdf8; margin-bottom: 12px;">📍 Endereço & Autocompletar ViaCEP</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">CEP (Autocompleta)</label><input type="text" id="client-cep" placeholder="00000-000" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Logradouro / Endereço</label><input type="text" id="client-endereco" placeholder="Rua / Avenida" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Número</label><input type="text" id="client-numero" placeholder="Nº" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Bairro</label><input type="text" id="client-bairro" placeholder="Bairro" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Cidade</label><input type="text" id="client-cidade" placeholder="Cidade" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">UF</label><input type="text" id="client-uf" placeholder="UF" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Código IBGE</label><input type="text" id="client-codigo-ibge" placeholder="IBGE" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Nome do Contato</label><input type="text" id="client-contato-nome" placeholder="Nome do Responsável" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Email Contato</label><input type="email" id="client-contato-email" placeholder="contato@empresa.com" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Telefone / WhatsApp</label><input type="text" id="client-contato-telefone" placeholder="(00) 00000-0000" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Telefone Fixo</label><input type="text" id="client-telefone" placeholder="(00) 0000-0000" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Email Comercial / Pedidos</label><input type="email" id="client-email-pedidos" placeholder="pedidos@empresa.com" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Email NF-e / Financeiro</label><input type="email" id="client-email-nfe" placeholder="nfe@empresa.com" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Origem do Cliente</label><select id="client-origem" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="Indicacao">Indicação</option><option value="Prospeccao Directa">Prospecção Direta</option><option value="Site / Google">Site / Google</option><option value="Redes Sociais">Redes Sociais</option><option value="Feira / Evento">Feira / Evento</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Ramo de Atuação</label><select id="client-ramo" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="Alimenticio">Alimentício / Bebidas</option><option value="Farmaceutico">Farmacêutico / Cosméticos</option><option value="Eletronico">Eletrônico / Tecnologia</option><option value="Textil">Têxtil / Vestuário</option><option value="Automotivo">Automotivo / Peças</option><option value="Geral">Geral / Outros</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Representante Comercial</label><select id="client-representante" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="Venda Direta / Fabrica">Venda Direta / Fábrica</option><option value="Representante Interno">Representante Interno</option><option value="Agente Externo">Agente Externo</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Condição de Pagamento</label><select id="client-condicao-pgto" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="A Vista">À Vista (PIX / Depósito)</option><option value="Faturado 14 dias">Faturado 14 dias</option><option value="Faturado 28 dias">Faturado 28 dias</option><option value="Faturado 30/60 dias">Faturado 30/60 dias</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Tipo de Frete</label><select id="client-frete" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="CIF">CIF (Emitente paga)</option><option value="FOB">FOB (Destinatário paga)</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">CFOP Padrão</label><input type="text" id="client-cfop" value="5.101" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Alíquota ICMS (%)</label><input type="number" step="0.01" id="client-icms" value="12.00" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Benefício Fiscal</label><input type="text" id="client-beneficio" placeholder="CÓD Benefício Fiscal (opcional)" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #334155; padding-top: 20px;">
+                    <button type="button" id="btn-cancel-client" onclick="document.getElementById('modal-client').classList.add('hidden');" class="btn btn-secondary" style="padding: 10px 20px; background: #334155; color: #f8fafc;">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="padding: 10px 24px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff;">💾 Salvar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Cadastro de Produto (Ficha Técnica) -->
+    <div id="modal-product" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15,23,42,0.85); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="modal-card card" style="max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; background: #1e293b; border-radius: 16px; border: 1px solid #334155; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); color: #f8fafc;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px;">
+                <h3 id="modal-product-title" style="font-family: var(--font-title); font-size: 1.3rem; font-weight: 700; color: #a78bfa;">📦 Nova Ficha Técnica de Produto</h3>
+                <button type="button" id="btn-close-product-modal" onclick="document.getElementById('modal-product').classList.add('hidden');" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #94a3b8;">&times;</button>
+            </div>
+            <form id="form-product">
+                <input type="hidden" id="product-form-id" value="">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Nº Ficha Técnica</label><input type="text" id="product-numero-ficha" placeholder="Auto se vazio" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Código Único do Produto *</label><input type="text" id="product-codigo-unico" required placeholder="PROD-0001" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Revisão</label><input type="text" id="product-revisao" value="00" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Cliente Vinculado</label><select id="product-cliente-id" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="">-- Selecione um Cliente --</option></select></div>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Descrição / Especificação do Produto *</label>
+                    <input type="text" id="product-descricao" required placeholder="Caixa para calçados com impressão 2 cores DAWOS" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;">
+                </div>
+                <div style="background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #a78bfa; margin-bottom: 12px;">📏 Dimensões da Caixa (Internas em mm)</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Comprimento (C) mm *</label><input type="number" id="product-comprimento" required value="300" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Largura (L) mm *</label><input type="number" id="product-largura" required value="200" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Altura (A) mm *</label><input type="number" id="product-altura" required value="150" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Modelo da Caixa</label><select id="product-modelo-caixa" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="NORMAL-B">Caixa Normal (RSC) - Onda B</option><option value="NORMAL-BC">Caixa Normal (RSC) - Onda BC</option><option value="MALETA-B">Maleta - Onda B</option><option value="CORTE-VINCO">Corte e Vinco Personalizada</option></select></div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Empresa Vendedora</label><select id="product-empresa-vendedora" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="DAWOS">DAWOS Embalagens</option><option value="CARCAT">CARCAT Embalagens</option><option value="GTA">GTA Cartonagem</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Qualidade / Material Padrão</label><input type="text" id="product-qualidade-papel" value="K125/K125 Onda B" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Observações Técnicas</label><input type="text" id="product-observacoes" placeholder="Instruções de vinco, impressão, etc." style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 20px;">
+                    <button type="button" id="btn-transfer-product-modal" onclick="document.getElementById('modal-product').classList.add('hidden');document.getElementById('admin-landing-screen').classList.add('hidden');var a=document.getElementById('app-container');if(a){a.className='app-container mode-pricing';a.classList.remove('hidden');}" class="btn" style="background: rgba(227, 0, 126, 0.15); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); font-weight: 700; padding: 10px 16px; border-radius: 8px;">📥 Carregar na Formação de Preço</button>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" id="btn-cancel-product" onclick="document.getElementById('modal-product').classList.add('hidden');" class="btn btn-secondary" style="padding: 10px 20px; background: #334155; color: #f8fafc;">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;">💾 Salvar Ficha Técnica</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
 
