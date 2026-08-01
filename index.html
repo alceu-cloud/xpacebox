@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -179,6 +179,20 @@
                 <h1>Painel de Precificação Inteligente</h1>
                 <span class="header-subtitle">DAWOS Embalagens &bull; Controle e Orçamentos</span>
             </div>
+            <div id="main-module-nav" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: 20px;">
+                <button type="button" class="module-nav-btn" data-module="modulo-clientes" style="background: rgba(2, 132, 199, 0.15); color: #0284c7; border: 1.5px solid rgba(2, 132, 199, 0.4); border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.82rem;">
+                    ðŸ‘¥ <span>CADASTRO DE CLIENTES</span>
+                </button>
+                <button type="button" class="module-nav-btn" data-module="modulo-produtos" style="background: rgba(124, 58, 237, 0.15); color: #7c3aed; border: 1.5px solid rgba(124, 58, 237, 0.4); border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.82rem;">
+                    ðŸ“¦ <span>PRODUTOS (ENGENHARIA)</span>
+                </button>
+                <button type="button" class="module-nav-btn active" data-module="modulo-calculadora" style="background: rgba(227, 0, 126, 0.15); color: var(--color-rosa-vibrante); border: 1.5px solid rgba(227, 0, 126, 0.4); border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.82rem;">
+                    ðŸ“Š <span>FORMAÃ‡ÃƒO DE PREÃ‡O</span>
+                </button>
+                <button type="button" class="module-nav-btn admin-only" data-module="modulo-admin" style="display: none; background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1.5px solid rgba(22, 163, 74, 0.4); border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.82rem;">
+                    âš™ï¸ <span>GERENCIAMENTO GERAL</span>
+                </button>
+            </div>
             <div class="header-status-wrapper">
                 <button id="btn-back-to-landing" class="btn-back-to-landing admin-only" style="display: none;" title="Voltar para a Tela Inicial">🏠 Início</button>
                 <div class="header-status">
@@ -191,6 +205,83 @@
 
         <!-- Conteúdo Principal -->
         <main class="main-content">
+            <!-- MÃ“DULO DE CLIENTES -->
+            <section id="modulo-clientes" class="module-section card hidden" style="grid-column: span 12; padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 16px;">
+                    <div>
+                        <h2 style="font-family: var(--font-title); font-size: 1.4rem; color: #0284c7; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                            ðŸ‘¥ Cadastro e GestÃ£o de Clientes
+                        </h2>
+                        <p style="color: var(--color-text-secondary); font-size: 0.85rem;">Gerencie os clientes, endereÃ§os com ViaCEP e parametrizaÃ§Ãµes fiscais.</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="client-search-input" placeholder="ðŸ” Buscar por Nome ou CNPJ/CPF..." style="padding: 10px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--bg-input); color: var(--color-text-primary); width: 280px;">
+                        <button type="button" id="btn-open-client-modal" class="btn" style="background: #0284c7; color: white; border: none; padding: 10px 18px; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Novo Cliente</button>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                        <thead>
+                            <tr style="background: rgba(2, 132, 199, 0.08); border-bottom: 2px solid rgba(2, 132, 199, 0.2); color: var(--color-text-primary);">
+                                <th style="padding: 12px;">CÃ³digo</th>
+                                <th style="padding: 12px;">RazÃ£o Social / Nome Real</th>
+                                <th style="padding: 12px;">Nome Fantasia</th>
+                                <th style="padding: 12px;">CNPJ / CPF</th>
+                                <th style="padding: 12px;">Cidade / UF</th>
+                                <th style="padding: 12px;">Representante</th>
+                                <th style="padding: 12px;">Empresa</th>
+                                <th style="padding: 12px; text-align: right;">AÃ§Ãµes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-table-body">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Carregando clientes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- MÃ“DULO DE PRODUTOS / ENGENHARIA -->
+            <section id="modulo-produtos" class="module-section card hidden" style="grid-column: span 12; padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 16px;">
+                    <div>
+                        <h2 style="font-family: var(--font-title); font-size: 1.4rem; color: #7c3aed; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                            ðŸ“¦ Engenharia de Produtos & Fichas TÃ©cnicas
+                        </h2>
+                        <p style="color: var(--color-text-secondary); font-size: 0.85rem;">Cadastre especificaÃ§Ãµes tÃ©cnicas, modelos de caixa, facas e clichÃªs.</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="product-search-input" placeholder="ðŸ” Buscar por Ficha, CÃ³digo ou DescriÃ§Ã£o..." style="padding: 10px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--bg-input); color: var(--color-text-primary); width: 280px;">
+                        <button type="button" id="btn-transfer-product-modal" class="btn" style="background: rgba(124, 58, 237, 0.15); color: #7c3aed; border: 1px solid #7c3aed; padding: 10px 16px; font-weight: 700; border-radius: 8px; cursor: pointer;">ðŸ” TransferÃªncia de Engenharia</button>
+                        <button type="button" id="btn-open-product-modal" class="btn" style="background: #7c3aed; color: white; border: none; padding: 10px 18px; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Nova Ficha TÃ©cnica</button>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                        <thead>
+                            <tr style="background: rgba(124, 58, 237, 0.08); border-bottom: 2px solid rgba(124, 58, 237, 0.2); color: var(--color-text-primary);">
+                                <th style="padding: 12px;">NÂº Ficha</th>
+                                <th style="padding: 12px;">CÃ³digo Ãšnico</th>
+                                <th style="padding: 12px;">Rev.</th>
+                                <th style="padding: 12px;">DescriÃ§Ã£o / ReferÃªncia</th>
+                                <th style="padding: 12px;">Cliente</th>
+                                <th style="padding: 12px;">DimensÃµes (C x L x A)</th>
+                                <th style="padding: 12px;">Modelo</th>
+                                <th style="padding: 12px;">Material</th>
+                                <th style="padding: 12px; text-align: right;">AÃ§Ãµes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <tr>
+                                <td colspan="9" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Nenhuma Ficha TÃ©cnica cadastrada.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
             <!-- Coluna da Esquerda: Configurações do Orçamento -->
             <section class="configurator-section card">
                 <div class="card-header">
@@ -2642,6 +2733,289 @@
     </script>
     <script src="impressora_data.js?v=20260729_v137"></script>
     <script src="app.js?v=20260729_v137"></script>
+    <!-- MODAL DE CADASTRO DE CLIENTE -->
+    <div id="modal-client" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+        <div class="card" style="width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 24px; border: 1px solid var(--color-border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px;">
+                <h3 style="font-family: var(--font-title); font-size: 1.3rem; color: #0284c7;" id="modal-client-title">ðŸ‘¤ Cadastrar Novo Cliente</h3>
+                <button type="button" class="btn-close-modal" id="btn-close-client-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-text-muted);">&times;</button>
+            </div>
+
+            <form id="form-client" onsubmit="event.preventDefault();">
+                <input type="hidden" id="client-form-id" value="">
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="client-nome-real">RazÃ£o Social (Nome Real) *</label>
+                        <input type="text" id="client-nome-real" required placeholder="Ex: Embalagens IndÃºstria Ltda">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-nome-fantasia">Nome Fantasia</label>
+                        <input type="text" id="client-nome-fantasia" placeholder="Ex: Embalagens Silva">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-codigo-unico">CÃ³digo Ãšnico do Cliente</label>
+                        <input type="text" id="client-codigo-unico" placeholder="Ex: CLI-001">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-empresa-vendedora">Empresa que Vende *</label>
+                        <select id="client-empresa-vendedora">
+                            <option value="DAWOS">DAWOS Embalagens</option>
+                            <option value="CARCAT">CARCAT</option>
+                            <option value="GTA">GTA</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="client-documento">CNPJ ou CPF *</label>
+                        <input type="text" id="client-documento" required placeholder="00.000.000/0001-00">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-ie">InscriÃ§Ã£o Estadual (I.E.)</label>
+                        <input type="text" id="client-ie" placeholder="Isento ou NÂº I.E.">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-regime-tributario">Regime TributÃ¡rio</label>
+                        <select id="client-regime-tributario">
+                            <option value="Simples Nacional">Simples Nacional</option>
+                            <option value="Lucro Presumido">Lucro Presumido</option>
+                            <option value="Lucro Real">Lucro Real</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-perfil-fiscal">Perfil Fiscal</label>
+                        <select id="client-perfil-fiscal">
+                            <option value="Contribuinte ICMS">Contribuinte ICMS</option>
+                            <option value="Consumidor Final">Consumidor Final</option>
+                            <option value="Isento">Isento</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="client-contato-nome">Nome do Contato Principal</label>
+                        <input type="text" id="client-contato-nome" placeholder="Ex: JoÃ£o da Silva">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-contato-email">E-mail do Contato</label>
+                        <input type="email" id="client-contato-email" placeholder="joao@empresa.com.br">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-contato-telefone">Telefone do Contato</label>
+                        <input type="text" id="client-contato-telefone" placeholder="(41) 99999-8888">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="client-telefone">Telefone Principal Empresa</label>
+                        <input type="text" id="client-telefone" placeholder="(41) 3333-2222">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-email-pedidos">E-mail Recebimento Pedidos</label>
+                        <input type="email" id="client-email-pedidos" placeholder="pedidos@empresa.com.br">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-email-nfe">E-mail Envio NF-e</label>
+                        <input type="email" id="client-email-nfe" placeholder="nfe@empresa.com.br">
+                    </div>
+
+                    <!-- EndereÃ§o com Autocompletar ViaCEP -->
+                    <div class="form-group">
+                        <label for="client-cep">CEP (Autocompletar Correios) âš¡</label>
+                        <input type="text" id="client-cep" placeholder="00000-000" maxlength="9">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="client-endereco">EndereÃ§o / Logradouro</label>
+                        <input type="text" id="client-endereco" placeholder="Rua / Avenida...">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-numero">NÃºmero</label>
+                        <input type="text" id="client-numero" placeholder="123">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-bairro">Bairro</label>
+                        <input type="text" id="client-bairro" placeholder="Bairro">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-cidade">Cidade</label>
+                        <input type="text" id="client-cidade" placeholder="Cidade">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-uf">Estado (UF)</label>
+                        <input type="text" id="client-uf" placeholder="PR" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-codigo-ibge">CÃ³digo IBGE MunicÃ­pio</label>
+                        <input type="text" id="client-codigo-ibge" placeholder="4106902">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="client-origem">Origem do Cliente</label>
+                        <select id="client-origem">
+                            <option value="IndicaÃ§Ã£o">IndicaÃ§Ã£o</option>
+                            <option value="Vendedor">Vendedor Direct</option>
+                            <option value="Site / Google">Site / Google</option>
+                            <option value="Feira / Evento">Feira / Evento</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-ramo">Ramo de Atividade</label>
+                        <select id="client-ramo">
+                            <option value="AlimentÃ­cio">AlimentÃ­cio</option>
+                            <option value="Moveleiro">Moveleiro</option>
+                            <option value="FrigorÃ­fico">FrigorÃ­fico</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="CalÃ§ados">CalÃ§ados</option>
+                            <option value="Geral">Outros / Geral</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-representante">Representante Comercial</label>
+                        <select id="client-representante">
+                            <option value="Venda Direta / FÃ¡brica">Venda Direta / FÃ¡brica</option>
+                            <option value="Renan">Renan</option>
+                            <option value="Samantha">Samantha</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-condicao-pgto">CondiÃ§Ã£o de Pagamento</label>
+                        <select id="client-condicao-pgto">
+                            <option value="A Vista">A Vista</option>
+                            <option value="28 dias">28 dias</option>
+                            <option value="30 dias">30 dias</option>
+                            <option value="28/56 dias">28/56 dias</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-frete">Tipo de Frete</label>
+                        <select id="client-frete">
+                            <option value="CIF">CIF (Emitente paga)</option>
+                            <option value="FOB">FOB (DestinatÃ¡rio paga)</option>
+                            <option value="Retirada">Retirada na FÃ¡brica</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-cfop">CFOP de Venda</label>
+                        <input type="text" id="client-cfop" placeholder="5.101" value="5.101">
+                    </div>
+                    <div class="form-group">
+                        <label for="client-icms">AlÃ­quota ICMS (%)</label>
+                        <input type="number" id="client-icms" step="0.01" placeholder="12.00" value="12.00">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="client-beneficio">BenefÃ­cio EspecÃ­fico / ObservaÃ§Ãµes Fiscais</label>
+                        <input type="text" id="client-beneficio" placeholder="Ex: Regime Especial de ICMS ParÃ¡grafo 3Âº">
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; border-top: 1px solid var(--color-border); padding-top: 16px;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-client">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="background: #0284c7; border-color: #0284c7;">Salvar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE FICHA TÃ‰CNICA / PRODUTO -->
+    <div id="modal-product" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+        <div class="card" style="width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 24px; border: 1px solid var(--color-border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px;">
+                <h3 style="font-family: var(--font-title); font-size: 1.3rem; color: #7c3aed;" id="modal-product-title">ðŸ“¦ Cadastrar Ficha TÃ©cnica de Produto</h3>
+                <button type="button" class="btn-close-modal" id="btn-close-product-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-text-muted);">&times;</button>
+            </div>
+
+            <form id="form-product" onsubmit="event.preventDefault();">
+                <input type="hidden" id="product-form-id" value="">
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                    <div class="form-group">
+                        <label for="product-numero-ficha">NÃºmero da Ficha TÃ©cnica *</label>
+                        <input type="text" id="product-numero-ficha" required placeholder="Ex: FT-1001">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-codigo-unico">CÃ³digo Ãšnico do Produto *</label>
+                        <input type="text" id="product-codigo-unico" required placeholder="Ex: PRD-5001">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-revisao">NÃºmero da RevisÃ£o</label>
+                        <input type="text" id="product-revisao" value="Rev 00" placeholder="Rev 00">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-empresa-vendedora">Empresa Vendedora</label>
+                        <select id="product-empresa-vendedora">
+                            <option value="DAWOS">DAWOS Embalagens</option>
+                            <option value="CARCAT">CARCAT</option>
+                            <option value="GTA">GTA</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="product-cliente-id">Cliente Vinculado</label>
+                        <select id="product-cliente-id">
+                            <option value="">-- Selecione um Cliente --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="product-descricao">Unidade / ReferÃªncia (DescriÃ§Ã£o do Produto) *</label>
+                        <input type="text" id="product-descricao" required placeholder="Ex: Caixa de Frango 20kg Impressa 2 Cores">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product-comprimento">Comprimento (C) mm *</label>
+                        <input type="number" id="product-comprimento" required placeholder="300">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-largura">Largura (L) mm *</label>
+                        <input type="number" id="product-largura" required placeholder="200">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-altura">Altura (A) mm</label>
+                        <input type="number" id="product-altura" placeholder="150">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product-modelo">Modelo de Caixa</label>
+                        <select id="product-modelo">
+                            <option value="maleta">Maleta Normal</option>
+                            <option value="corte-vinco">Corte e Vinco Geral</option>
+                            <option value="sedex">Caixa Sedex</option>
+                            <option value="tabuleiro">Tabuleiro / Chapa Plana</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product-faca">NÃºmero da Faca</label>
+                        <input type="text" id="product-faca" placeholder="Ex: FC-305">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-local-faca">Local Armazenamento Faca</label>
+                        <input type="text" id="product-local-faca" placeholder="Ex: Prateleira B-04">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-cliche">NÃºmero do ClichÃª</label>
+                        <input type="text" id="product-cliche" placeholder="Ex: CL-880">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-local-cliche">Local Armazenamento ClichÃª</label>
+                        <input type="text" id="product-local-cliche" placeholder="Ex: Gaveta C-02">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product-cor-1">Cor 1 de ImpressÃ£o</label>
+                        <input type="text" id="product-cor-1" placeholder="Ex: Preto">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-cor-2">Cor 2 de ImpressÃ£o</label>
+                        <input type="text" id="product-cor-2" placeholder="Ex: Azul Pantone 286C">
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; border-top: 1px solid var(--color-border); padding-top: 16px;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-product">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;">Salvar Ficha TÃ©cnica</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
 
