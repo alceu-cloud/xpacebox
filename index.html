@@ -129,25 +129,25 @@
             <p class="admin-landing-subtitle">Selecione o painel de trabalho desejado:</p>
             
             <div class="panel-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-                <div class="panel-card" id="card-goto-clients">
+                <div class="panel-card" id="card-goto-clients" onclick="var m=document.getElementById('modal-client');if(m)m.classList.remove('hidden');" style="cursor: pointer;">
                     <div class="panel-card-icon">👥</div>
                     <h3>Cadastro de Clientes</h3>
                     <p>Gestão completa de clientes, CNPJ/CPF, dados fiscais e consulta ViaCEP.</p>
                     <span class="panel-card-btn" style="background: linear-gradient(135deg, #0284c7, #0369a1);">Acessar Clientes</span>
                 </div>
-                <div class="panel-card" id="card-goto-products">
+                <div class="panel-card" id="card-goto-products" onclick="var m=document.getElementById('modal-product');if(m)m.classList.remove('hidden');" style="cursor: pointer;">
                     <div class="panel-card-icon">📦</div>
                     <h3>Produtos (Engenharia)</h3>
                     <p>Fichas Técnicas de Embalagens, modelos de caixas e transferência direta para cálculo.</p>
                     <span class="panel-card-btn" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">Acessar Produtos</span>
                 </div>
-                <div class="panel-card" id="card-goto-pricing">
+                <div class="panel-card" id="card-goto-pricing" onclick="document.getElementById('admin-landing-screen').classList.add('hidden');var a=document.getElementById('app-container');if(a){a.className='app-container mode-pricing';a.classList.remove('hidden');}" style="cursor: pointer;">
                     <div class="panel-card-icon">📊</div>
                     <h3>Formação de Preço</h3>
                     <p>Calculadora inteligente para especificações físicas, materiais e orçamentos.</p>
                     <span class="panel-card-btn">Acessar Calculadora</span>
                 </div>
-                <div class="panel-card" id="card-goto-admin">
+                <div class="panel-card" id="card-goto-admin" onclick="document.getElementById('admin-landing-screen').classList.add('hidden');var a=document.getElementById('app-container');if(a){a.className='app-container mode-admin';a.classList.remove('hidden');}" style="cursor: pointer;">
                     <div class="panel-card-icon">⚙️</div>
                     <h3>Gerenciamento Geral</h3>
                     <p>Controle de logins, senhas e cadastro de novos usuários do sistema.</p>
@@ -2653,7 +2653,7 @@
         }
     </script>
     <script src="impressora_data.js?v=20260729_v137"></script>
-    <script src="app.js?v=156"></script>
+    <script src="app.js?v=157"></script>
     <script>
     function togglePasswordVisibility(btn) {
         var p = document.getElementById('password');
