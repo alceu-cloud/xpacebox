@@ -6,11 +6,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate, s-maxage=0"
-        },
-        {
-          "key": "Surrogate-Control",
-          "value": "no-store"
+          "value": "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0"
         },
         {
           "key": "Pragma",
@@ -19,6 +15,10 @@
         {
           "key": "Expires",
           "value": "0"
+        },
+        {
+          "key": "Surrogate-Control",
+          "value": "no-store"
         }
       ]
     }
