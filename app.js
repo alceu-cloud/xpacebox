@@ -1351,23 +1351,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         saveStoredData('dawos_materials', materials);
 
-        // ☁️ SINCRONIZA COM O SUPABASE (nuvem global - aparece em todos os PCs)
+        // ☁️ SINCRONIZA COM O SUPABASE - delete + insert (robusto, sem depender de constraints)
         if (window.supabaseClient) {
             try {
-                await window.supabaseClient.from('xpace_materials').upsert({
+                // Remove registro antigo com mesmo código (se existir)
+                await window.supabaseClient.from('xpace_materials').delete().eq('code', newMat.code);
+                // Insere o registro atualizado
+                const { error } = await window.supabaseClient.from('xpace_materials').insert({
                     code: newMat.code,
                     name: newMat.name,
                     paper_type: newMat.paperType,
                     supplier: newMat.supplier,
                     grammage: newMat.grammage || '',
                     pressure_res: newMat.pressureRes || '',
-                    cost_ipi: newMat.costIpi || newMat.cost || 0,
-                    company_id: 'DAWOS',
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'code' });
-                console.log('☁️ Material sincronizado na nuvem Supabase!');
+                    cost_ipi: newMat.costIpi || newMat.cost || 0
+                });
+                if (error) {
+                    console.error('❌ Erro Supabase ao salvar material:', error.message, error);
+                } else {
+                    console.log('☁️ Material sincronizado na nuvem Supabase!');
+                }
             } catch(e) {
-                console.warn('Aviso ao sincronizar material com Supabase:', e);
+                console.error('❌ Exceção ao sincronizar material com Supabase:', e);
             }
         }
 
