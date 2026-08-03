@@ -138,8 +138,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('dawos_pricing_params', JSON.stringify(p));
                 if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
             }
+
+            // ☁️ Lê Engineering da nuvem
+            const { data: engData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_ENGINEERING');
+            if (engData && engData.length > 0 && engData[0].user_json) {
+                try {
+                    const parsedEng = JSON.parse(engData[0].user_json);
+                    if (Array.isArray(parsedEng) && parsedEng.length > 0) {
+                        engineering = parsedEng;
+                        saveStoredData('dawos_engineering', engineering);
+                        if (typeof renderAdminEngineering === 'function') renderAdminEngineering();
+                    }
+                } catch(e) {}
+            }
+
+            // ☁️ Lê Suppliers da nuvem
+            const { data: suppData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_SUPPLIERS');
+            if (suppData && suppData.length > 0 && suppData[0].user_json) {
+                try {
+                    const parsedSupp = JSON.parse(suppData[0].user_json);
+                    if (Array.isArray(parsedSupp) && parsedSupp.length > 0) {
+                        suppliers = parsedSupp;
+                        saveStoredData('dawos_suppliers', suppliers);
+                        if (typeof populateCalculatorDropdowns === 'function') populateCalculatorDropdowns();
+                    }
+                } catch(e) {}
+            }
+
+            // ☁️ Lê PaperClasses da nuvem
+            const { data: pcData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_PAPERCLASSES');
+            if (pcData && pcData.length > 0 && pcData[0].user_json) {
+                try {
+                    const parsedPc = JSON.parse(pcData[0].user_json);
+                    if (Array.isArray(parsedPc) && parsedPc.length > 0) {
+                        paperClasses = parsedPc;
+                        saveStoredData('dawos_paperclasses', paperClasses);
+                    }
+                } catch(e) {}
+            }
+
         } catch(err) {
             console.warn("Supabase Sync:", err);
+        }
+    }
+
+    // ☁️ Salva qualquer lista JSON no Supabase via xpace_pricing_params
+    async function saveJsonToCloud(companyId, jsonData) {
+        if (!window.supabaseClient) return;
+        try {
+            await window.supabaseClient.from('xpace_pricing_params').upsert({
+                company_id: companyId,
+                mc_padrao: 0,
+                outros: 0,
+                user_json: JSON.stringify(jsonData),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'company_id' });
+        } catch(e) {
+            console.warn('Aviso ao salvar ' + companyId + ' na nuvem:', e);
         }
     }
 
@@ -1111,6 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveStoredData('dawos_suppliers', suppliers);
+        saveJsonToCloud('DAWOS_SUPPLIERS', suppliers);
         renderAdminSuppliers();
         populateCalculatorDropdowns();
         hideForm(formSupplierContainer);
@@ -1130,6 +1186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 materials = materials.filter(m => m.supplier !== name);
                 saveStoredData('dawos_materials', materials);
                 saveStoredData('dawos_suppliers', suppliers);
+                saveJsonToCloud('DAWOS_SUPPLIERS', suppliers);
                 
                 renderAdminSuppliers();
                 renderAdminMaterials();
@@ -1197,6 +1254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveStoredData('dawos_paperclasses', paperClasses);
+        saveJsonToCloud('DAWOS_PAPERCLASSES', paperClasses);
         renderAdminPaperClasses();
         populateCalculatorDropdowns();
         hideForm(formPaperClassContainer);
@@ -1217,6 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 materials = materials.filter(m => m.paperType !== code);
                 saveStoredData('dawos_materials', materials);
                 saveStoredData('dawos_paperclasses', paperClasses);
+                saveJsonToCloud('DAWOS_PAPERCLASSES', paperClasses);
                 
                 renderAdminPaperClasses();
                 renderAdminMaterials();
@@ -1443,6 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             saveStoredData('dawos_engineering', engineering);
+            saveJsonToCloud('DAWOS_ENGINEERING', engineering);
             renderAdminEngineering();
             hideForm(formEngineeringContainer);
             updateSummaryData(); // Recalcula a área se estiver mudando fórmulas
@@ -1466,6 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (confirm(`DESEJA REALMENTE EXCLUIR O ESTILO "${engineering[index].style}"?`)) {
                     engineering.splice(index, 1);
                     saveStoredData('dawos_engineering', engineering);
+                    saveJsonToCloud('DAWOS_ENGINEERING', engineering);
                     renderAdminEngineering();
                     updateSummaryData();
                 }
