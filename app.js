@@ -2559,3 +2559,44 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
         console.error("Erro na transferÃªncia:", e);
     }
 };
+
+
+// ============================================================================
+// DAWOS ERP - CASCATA DE CATEGORIAS E MODELOS DA ENGENHARIA (v161)
+// ============================================================================
+
+window.updateProductModelsCascading = function() {
+    const catSelect   = document.getElementById('product-categoria');
+    const modelSelect = document.getElementById('product-modelo-caixa');
+    if (!catSelect || !modelSelect) return;
+
+    const category = catSelect.value || "MALETA";
+
+    const modelMap = {
+        "MALETA": [
+            { value: "4-ABAS", label: "Caixa 4 Abas" },
+            { value: "4-ABAS-TRANSPASSE", label: "4 Abas Traspasse Total" }
+        ],
+        "CORTE-VINCO": [
+            { value: "CORTE-VINCO-GERAL", label: "Corte e Vinco Geral" },
+            { value: "CAIXA-SEDEX", label: "Caixa Sedex" }
+        ],
+        "TABULEIRO": [
+            { value: "TABULEIRO", label: "Tabuleiro" }
+        ]
+    };
+
+    const models = modelMap[category] || modelMap["MALETA"];
+
+    modelSelect.innerHTML = '';
+    models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.value;
+        opt.textContent = m.label;
+        modelSelect.appendChild(opt);
+    });
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.updateProductModelsCascading) window.updateProductModelsCascading();
+});
