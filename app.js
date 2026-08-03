@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Web App DAWOS Embalagens - Lógica Interativa & Controle de Acessos
  * Recursos:
  * 1. Base de Usuários Atualizada (Alceu - Admin, Renan - Cliente)
@@ -1255,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnCancelMaterial.addEventListener('click', () => hideForm(formMaterialContainer));
 
-    btnSaveMaterial.addEventListener('click', () => {
+    btnSaveMaterial.addEventListener('click', async () => {
         const index = inputMaterialIndex.value;
         const code = inputMaterialCode.value.trim().toUpperCase();
         const name = inputMaterialName.value.trim().toUpperCase();
@@ -1291,6 +1291,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveStoredData('dawos_materials', materials);
+
+        // ☁️ SINCRONIZA COM O SUPABASE (nuvem global - aparece em todos os PCs)
+        if (window.supabaseClient) {
+            try {
+                await window.supabaseClient.from('xpace_materials').upsert({
+                    code: newMat.code,
+                    name: newMat.name,
+                    paper_type: newMat.paperType,
+                    supplier: newMat.supplier,
+                    grammage: newMat.grammage || '',
+                    pressure_res: newMat.pressureRes || '',
+                    cost_ipi: newMat.costIpi || newMat.cost || 0,
+                    company_id: 'DAWOS',
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'code' });
+                console.log('☁️ Material sincronizado na nuvem Supabase!');
+            } catch(e) {
+                console.warn('Aviso ao sincronizar material com Supabase:', e);
+            }
+        }
+
         renderAdminMaterials();
         populateCalculatorDropdowns();
         hideForm(formMaterialContainer);
@@ -1312,8 +1333,15 @@ document.addEventListener('DOMContentLoaded', () => {
             inputMaterialCost.value = mat.costIpi !== undefined ? mat.costIpi : (mat.cost || 0);
         } else if (e.target.classList.contains('btn-delete-material')) {
             if (confirm(`DESEJA EXCLUIR O MATERIAL "${materials[index].name}"?`)) {
+                const deletedCode = materials[index].code;
                 materials.splice(index, 1);
                 saveStoredData('dawos_materials', materials);
+                // ☁️ Remove também do Supabase
+                if (window.supabaseClient) {
+                    window.supabaseClient.from('xpace_materials').delete().eq('code', deletedCode)
+                        .then(() => console.log('☁️ Material excluído da nuvem Supabase!'))
+                        .catch(e => console.warn('Aviso ao excluir do Supabase:', e));
+                }
                 renderAdminMaterials();
                 populateCalculatorDropdowns();
             }
