@@ -109,11 +109,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
 
             // ☁️ 1. Busca Materials do Backup em Nuvem JSON (xpace_pricing_params)
+            let hasCloudMaterials = false;
             const { data: matCloudData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_MATERIALS');
             if (matCloudData && matCloudData.length > 0 && matCloudData[0].user_json) {
                 try {
                     const parsedMat = JSON.parse(matCloudData[0].user_json);
                     if (Array.isArray(parsedMat) && parsedMat.length > 0) {
+                        hasCloudMaterials = true;
                         materials = parsedMat;
                         window.dawosMaterials = materials;
                         saveStoredData('dawos_materials', materials);
@@ -121,6 +123,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof populateCalculatorDropdowns === 'function') populateCalculatorDropdowns();
                     }
                 } catch(e) {}
+            }
+
+            // Se a nuvem não tem materiais mas a máquina local tem (ex: FBB02-B), envia automaticamente para o Supabase!
+            if (!hasCloudMaterials && materials && materials.length > 0) {
+                saveJsonToCloud('DAWOS_MATERIALS', materials);
+                console.log("☁️ Materiais locais enviados automaticamente para a nuvem Supabase!");
             }
 
             // ☁️ 2. Busca da Tabela xpace_materials (se existir)
@@ -238,6 +246,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.saveJsonToCloud = saveJsonToCloud;
     window.syncSupabaseCloudData = syncSupabaseCloudData;
+    window.pushAllLocalDataToCloud = function() {
+        if (!window.supabaseClient) return;
+        if (materials && materials.length > 0) saveJsonToCloud('DAWOS_MATERIALS', materials);
+        if (engineering && engineering.length > 0) saveJsonToCloud('DAWOS_ENGINEERING', engineering);
+        if (suppliers && suppliers.length > 0) saveJsonToCloud('DAWOS_SUPPLIERS', suppliers);
+        if (paperClasses && paperClasses.length > 0) saveJsonToCloud('DAWOS_PAPERCLASSES', paperClasses);
+        const t = localStorage.getItem('dawos_tempos_impressora');
+        if (t) { try { saveJsonToCloud('DAWOS_TEMPOS', JSON.parse(t)); } catch(e){} }
+        alert("☁️ Todos os cadastros locais foram sincronizados na nuvem Supabase com sucesso!");
+    };
 
     const defaultUsers = [
         { name: 'Alceu', username: 'alceu', password: '@Amj20021979', role: 'admin' },
