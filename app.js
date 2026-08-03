@@ -108,9 +108,25 @@ document.addEventListener('DOMContentLoaded', () => {
             saveStoredData('dawos_users', users);
             if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
 
+            // ☁️ 1. Busca Materials do Backup em Nuvem JSON (xpace_pricing_params)
+            const { data: matCloudData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_MATERIALS');
+            if (matCloudData && matCloudData.length > 0 && matCloudData[0].user_json) {
+                try {
+                    const parsedMat = JSON.parse(matCloudData[0].user_json);
+                    if (Array.isArray(parsedMat) && parsedMat.length > 0) {
+                        materials = parsedMat;
+                        window.dawosMaterials = materials;
+                        saveStoredData('dawos_materials', materials);
+                        if (typeof renderAdminMaterials === 'function') renderAdminMaterials();
+                        if (typeof populateCalculatorDropdowns === 'function') populateCalculatorDropdowns();
+                    }
+                } catch(e) {}
+            }
+
+            // ☁️ 2. Busca da Tabela xpace_materials (se existir)
             const { data: matsData } = await window.supabaseClient.from('xpace_materials').select('*');
             if (matsData && matsData.length > 0) {
-                materials = matsData.map(m => ({
+                const cloudMats = matsData.map(m => ({
                     code: m.code,
                     name: m.name,
                     paperType: m.paper_type,
@@ -120,8 +136,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     thickness: m.thickness || '',
                     costIpi: parseFloat(m.cost_ipi) || 0
                 }));
+                cloudMats.forEach(cm => {
+                    const idx = materials.findIndex(m => m.code === cm.code);
+                    if (idx >= 0) {
+                        materials[idx] = cm;
+                    } else {
+                        materials.push(cm);
+                    }
+                });
                 window.dawosMaterials = materials;
                 saveStoredData('dawos_materials', materials);
+                if (typeof renderAdminMaterials === 'function') renderAdminMaterials();
+                if (typeof populateCalculatorDropdowns === 'function') populateCalculatorDropdowns();
             }
 
             const { data: paramsData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS').single();
@@ -1350,6 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveStoredData('dawos_materials', materials);
+        saveJsonToCloud('DAWOS_MATERIALS', materials);
 
         // ☁️ SINCRONIZA COM O SUPABASE - delete + insert (robusto, sem depender de constraints)
         if (window.supabaseClient) {
@@ -1400,6 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const deletedCode = materials[index].code;
                 materials.splice(index, 1);
                 saveStoredData('dawos_materials', materials);
+                saveJsonToCloud('DAWOS_MATERIALS', materials);
                 // ☁️ Remove também do Supabase
                 if (window.supabaseClient) {
                     window.supabaseClient.from('xpace_materials').delete().eq('code', deletedCode)
@@ -2849,8 +2877,9 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
     }
 };
 
-// Executa automaticamente
+// Executa automaticamente ao iniciar
 setTimeout(function() {
     if (window.initProductPaperFiltersFromOfficialMaterials) window.initProductPaperFiltersFromOfficialMaterials();
+    syncSupabaseCloudData();
 }, 200);
 
