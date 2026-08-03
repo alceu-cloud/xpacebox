@@ -1268,7 +1268,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const newMat = { code, name, supplier, paperType, cost };
+        const grammageEl = document.getElementById('input-material-grammage');
+        const pressureEl = document.getElementById('input-material-pressure');
+        const grammage = grammageEl ? grammageEl.value.trim() : '';
+        const pressureRes = pressureEl ? pressureEl.value.trim() : '';
+
+        const newMat = { code, name, supplier, paperType, cost, costIpi: cost, grammage, pressureRes };
 
         if (index === '') {
             if (materials.some(m => m.code === code)) {
@@ -1298,11 +1303,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const mat = materials[index];
             showForm(formMaterialContainer, document.getElementById('form-material-title'), 'EDITAR MATERIAL ESPECÍFICO');
             inputMaterialIndex.value = index;
-            inputMaterialCode.value = mat.code;
-            inputMaterialName.value = mat.name;
-            inputMaterialSupplier.value = mat.supplier;
-            inputMaterialPaperClass.value = mat.paperType;
-            inputMaterialCost.value = mat.cost;
+            inputMaterialCode.value = mat.code || '';
+            inputMaterialName.value = mat.name || '';
+            inputMaterialSupplier.value = mat.supplier || '';
+            inputMaterialPaperClass.value = mat.paperType || '';
+            const gramEl = document.getElementById('input-material-grammage'); if (gramEl) gramEl.value = mat.grammage || '';
+            const pressEl = document.getElementById('input-material-pressure'); if (pressEl) pressEl.value = mat.pressureRes || '';
+            inputMaterialCost.value = mat.costIpi !== undefined ? mat.costIpi : (mat.cost || 0);
         } else if (e.target.classList.contains('btn-delete-material')) {
             if (confirm(`DESEJA EXCLUIR O MATERIAL "${materials[index].name}"?`)) {
                 materials.splice(index, 1);
