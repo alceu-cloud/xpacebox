@@ -2505,200 +2505,8 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
         const larg = document.getElementById('product-largura')?.value || 200;
         const alt  = document.getElementById('product-altura')?.value || 150;
         const emp  = document.getElementById('product-empresa-vendedora')?.value || "DAWOS";
-        const supp = document.getElementById('product-paper-supplier')?.value || "Klabin";
-        const type = document.getElementById('product-paper-type')?.value || "OSRR-B";
-        const qual = document.getElementById('product-paper-quality')?.value || "K125/K125 Onda B";
-
-        // Preenche Dimensões
-        const lIn = document.getElementById('dim-length');
-        const wIn = document.getElementById('dim-width');
-        const hIn = document.getElementById('dim-height');
-        if (lIn) lIn.value = comp;
-        if (wIn) wIn.value = larg;
-        if (hIn) hIn.value = alt;
-
-        // Preenche Empresa
-        const empSelect = document.getElementById('empresa-vendedora-select') || document.getElementById('company-select');
-        if (empSelect) empSelect.value = emp;
-
-        // Preenche Lote LogÃ­stica = 1000 un
-        const qIn = document.getElementById('quantity');
-        if (qIn) qIn.value = 1000;
-        const qSl = document.getElementById('quantity-slider');
-        if (qSl) qSl.value = 1000;
-
-        // Preenche Materiais
-        const pSupp = document.getElementById('paper-supplier') || document.getElementById('material-supplier');
-        if (pSupp) pSupp.value = supp;
-
-        const pType = document.getElementById('paper-type');
-        if (pType) pType.value = type;
-
-        const pClass = document.getElementById('paper-class');
-        if (pClass) pClass.value = qual;
-
-        // Fecha Modal e Alterna Tela para a Calculadora
-        const modalProd = document.getElementById('modal-product');
-        if (modalProd) modalProd.classList.add('hidden');
-
-        const landing = document.getElementById('admin-landing-screen');
-        if (landing) landing.classList.add('hidden');
-
-        const appContainer = document.getElementById('app-container');
-        if (appContainer) {
-            appContainer.className = 'app-container mode-pricing';
-            appContainer.classList.remove('hidden');
-        }
-
-        // Recalcula
-        if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
-        if (typeof window.updatePricingFormation === 'function') window.updatePricingFormation();
-
-        alert("✅… Ficha Técnica carregada com sucesso na Formação de Preço! Dimensões: " + comp + "x" + larg + "x" + alt + "mm (" + supp + " " + qual + ")");
-    } catch(e) {
-        console.error("Erro na transferÃªncia:", e);
-    }
-};
-
-
-// ============================================================================
-// DAWOS ERP - CASCATA DE CATEGORIAS E MODELOS DA ENGENHARIA (v161)
-// ============================================================================
-
-window.updateProductModelsCascading = function() {
-    const catSelect   = document.getElementById('product-categoria');
-    const modelSelect = document.getElementById('product-modelo-caixa');
-    if (!catSelect || !modelSelect) return;
-
-    const category = catSelect.value || "MALETA";
-
-    const modelMap = {
-        "MALETA": [
-            { value: "4-ABAS", label: "Caixa 4 Abas" },
-            { value: "4-ABAS-TRANSPASSE", label: "4 Abas Traspasse Total" }
-        ],
-        "CORTE-VINCO": [
-            { value: "CORTE-VINCO-GERAL", label: "Corte e Vinco Geral" },
-            { value: "CAIXA-SEDEX", label: "Caixa Sedex" }
-        ],
-        "TABULEIRO": [
-            { value: "TABULEIRO", label: "Tabuleiro" }
-        ]
-    };
-
-    const models = modelMap[category] || modelMap["MALETA"];
-
-    modelSelect.innerHTML = '';
-    models.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.value;
-        opt.textContent = m.label;
-        modelSelect.appendChild(opt);
-    });
-};
-
-document.addEventListener('DOMContentLoaded', function() {
-    if (window.updateProductModelsCascading) window.updateProductModelsCascading();
-});
-
-
-
-// ============================================================================
-// DAWOS ERP - INTEGRAÇÃO OFICIAL COM IMPRESSORA_DATA E FORMAÇÃO DE PREÇO (v162)
-// ============================================================================
-
-window.initProductPaperFiltersFromImpressoraData = function() {
-    const suppSelect = document.getElementById('product-paper-supplier');
-    const typeSelect = document.getElementById('product-paper-type');
-    const qualSelect = document.getElementById('product-paper-quality');
-
-    if (!suppSelect || !typeSelect || !qualSelect) return;
-
-    const data = (window.IMPRESSORA_DATA && Array.isArray(window.IMPRESSORA_DATA) && window.IMPRESSORA_DATA.length > 0)
-        ? window.IMPRESSORA_DATA
-        : [
-            { fornecedor: "Klabin", tipoPapelao: "OSRR-B", codigo: "P03060", gramatura: "0,358 KG/M²", precoComIpi: 2.93 },
-            { fornecedor: "Irani", tipoPapelao: "ODRR-BC", codigo: "P04080", gramatura: "0,520 KG/M²", precoComIpi: 4.12 }
-        ];
-
-    // Extrai fornecedores únicos oficiais
-    const suppliers = [...new Set(data.map(item => item.fornecedor))].filter(Boolean);
-    suppSelect.innerHTML = '';
-    suppliers.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s;
-        opt.textContent = s;
-        suppSelect.appendChild(opt);
-    });
-
-    function updateTypes() {
-        const selectedSupp = suppSelect.value;
-        const filtered = data.filter(item => item.fornecedor === selectedSupp);
-        const types = [...new Set(filtered.map(item => item.tipoPapelao))].filter(Boolean);
-
-        typeSelect.innerHTML = '';
-        types.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = t;
-            typeSelect.appendChild(opt);
-        });
-
-        updateQualities();
-    }
-
-    function updateQualities() {
-        const selectedSupp = suppSelect.value;
-        const selectedType = typeSelect.value;
-        const filtered = data.filter(item => item.fornecedor === selectedSupp && item.tipoPapelao === selectedType);
-        
-        qualSelect.innerHTML = '';
-        filtered.forEach(item => {
-            const opt = document.createElement('option');
-            const qualName = (item.codigo || "") + " - " + (item.gramatura || "") + " (R$ " + (item.precoComIpi || 0).toFixed(2) + "/m²)";
-            opt.value = item.codigo || qualName;
-            opt.textContent = qualName;
-            qualSelect.appendChild(opt);
-        });
-    }
-
-    suppSelect.addEventListener('change', updateTypes);
-    typeSelect.addEventListener('change', updateQualities);
-
-    if (suppliers.length > 0) updateTypes();
-};
-
-window.checkDimAlertOnBlur = function() {
-    const lenInput = document.getElementById('dim-length');
-    const widInput = document.getElementById('dim-width');
-    if (!lenInput || !widInput) return;
-
-    const c = parseFloat(lenInput.value) || 0;
-    const l = parseFloat(widInput.value) || 0;
-    if (c > 0 && l > 0 && c < l) {
-        let alertBox = document.getElementById('dim-warning-alert-toast');
-        if (!alertBox) {
-            alertBox = document.createElement('div');
-            alertBox.id = 'dim-warning-alert-toast';
-            alertBox.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 99999; background: #fff3cd; color: #856404; border: 1.5px solid #ffeeba; padding: 16px 22px; border-radius: 14px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 12px 30px rgba(0,0,0,0.25); max-width: 400px; transition: all 0.3s ease;';
-            document.body.appendChild(alertBox);
-        }
-        alertBox.innerHTML = '⚠️ <strong>Atenção às Medidas:</strong><br>O Comprimento (' + c + 'mm) está menor que a Largura (' + l + 'mm). Na indústria de embalagens de papelão ondulado, recomenda-se que o Comprimento seja a maior dimensão.';
-        alertBox.style.display = 'block';
-        setTimeout(function() {
-            if (alertBox) alertBox.style.display = 'none';
-        }, 7000);
-    }
-};
-
-window.executarTransferenciaProdutoParaCalculadora = function() {
-    try {
-        const comp = document.getElementById('product-comprimento')?.value || 300;
-        const larg = document.getElementById('product-largura')?.value || 200;
-        const alt  = document.getElementById('product-altura')?.value || 150;
-        const emp  = document.getElementById('product-empresa-vendedora')?.value || "DAWOS";
-        const supp = document.getElementById('product-paper-supplier')?.value || "Klabin";
-        const type = document.getElementById('product-paper-type')?.value || "OSRR-B";
+        const supp = document.getElementById('product-paper-supplier')?.value || "KLABIN";
+        const type = document.getElementById('product-paper-type')?.value || "";
         const qual = document.getElementById('product-paper-quality')?.value || "";
 
         // 1. Preenche Dimensões
@@ -2725,9 +2533,9 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
         const qSl = document.getElementById('quantity-slider');
         if (qSl) qSl.value = 1000;
 
-        // 4. Preenche Materiais em Cascata Disparando Eventos Oficiais
+        // 4. Preenche Materiais em Cascata Disparando Eventos Oficiais da Calculadora
         const pSupp = document.getElementById('paper-supplier') || document.getElementById('material-supplier');
-        if (pSupp) {
+        if (pSupp && supp) {
             pSupp.value = supp;
             pSupp.dispatchEvent(new Event('change'));
         }
@@ -2749,8 +2557,8 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
                 // Dispara o cálculo industrial
                 if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
                 if (typeof window.updatePricingFormation === 'function') window.updatePricingFormation();
-            }, 100);
-        }, 100);
+            }, 150);
+        }, 150);
 
         // Fecha Modal e Alterna Tela para a Calculadora
         const modalProd = document.getElementById('modal-product');
@@ -2765,15 +2573,8 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
             appContainer.classList.remove('hidden');
         }
 
-        alert("✅ Ficha Técnica carregada com sucesso na Formação de Preço! Dimensões: " + comp + "x" + larg + "x" + alt + "mm (" + supp + " " + type + ")");
+        alert("Ficha Tecnica carregada com sucesso na Formacao de Preco! Dimensao: " + comp + "x" + larg + "x" + alt + "mm - Fornecedor: " + supp + " - Tipo: " + type);
     } catch(e) {
-        console.error("Erro na transferência:", e);
+        console.error("Erro na transferencia:", e);
     }
 };
-
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(function() {
-        if (window.initProductPaperFiltersFromImpressoraData) window.initProductPaperFiltersFromImpressoraData();
-    }, 300);
-});
-
