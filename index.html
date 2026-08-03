@@ -182,7 +182,7 @@
                     <p>Gestão completa de clientes, CNPJ/CPF, dados fiscais e consulta ViaCEP.</p>
                     <span class="panel-card-btn" style="background: linear-gradient(135deg, #0284c7, #0369a1);">Acessar Clientes</span>
                 </div>
-                <div class="panel-card" id="card-goto-products" onclick="var m=document.getElementById('modal-product');if(m)m.classList.remove('hidden');" style="cursor: pointer;">
+                <div class="panel-card" id="card-goto-products" onclick="var m=document.getElementById('modal-product');if(m){m.classList.remove('hidden');if(window.initProductPaperFiltersFromOfficialMaterials)window.initProductPaperFiltersFromOfficialMaterials();}" style="cursor: pointer;">
                     <div class="panel-card-icon">📦</div>
                     <h3>Produtos (Engenharia)</h3>
                     <p>Fichas Técnicas de Embalagens, modelos de caixas e transferência direta para cálculo.</p>
@@ -2708,7 +2708,7 @@
         }
     </script>
     <script src="impressora_data.js?v=20260729_v137"></script>
-    <script src="app.js?v=163"></script>
+    <script src="app.js?v=164"></script>
     <script>
     function togglePasswordVisibility(btn) {
         var p = document.getElementById('password');

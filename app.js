@@ -2578,3 +2578,160 @@ window.executarTransferenciaProdutoParaCalculadora = function() {
         console.error("Erro na transferencia:", e);
     }
 };
+
+
+// ============================================================================
+// DAWOS ERP - POVOAMENTO INSTANTÂNEO DE FORNECEDORES E MATERIAIS OFICIAIS (v164)
+// ============================================================================
+
+window.initProductPaperFiltersFromOfficialMaterials = function() {
+    const suppSelect = document.getElementById('product-paper-supplier');
+    const typeSelect = document.getElementById('product-paper-type');
+    const qualSelect = document.getElementById('product-paper-quality');
+
+    if (!suppSelect || !typeSelect || !qualSelect) return;
+
+    // Puxa do cadastro oficial de materiais do sistema (dawosMaterials / defaultMaterials / IMPRESSORA_DATA)
+    const matList = (window.dawosMaterials && Array.isArray(window.dawosMaterials) && window.dawosMaterials.length > 0)
+        ? window.dawosMaterials
+        : (window.IMPRESSORA_DATA || []);
+
+    if (!matList || matList.length === 0) return;
+
+    // Extrai todos os fornecedores oficiais reais (COCELPA, EMPAR, FAPOLPA, KLABIN, RIO BONITO, SOPASTA, TROMBINI, WESTROCK, NOVACKI)
+    const suppliers = [...new Set(matList.map(m => m.supplier || m.fornecedor))].filter(Boolean);
+    
+    suppSelect.innerHTML = '';
+    suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        suppSelect.appendChild(opt);
+    });
+
+    function updateTypes() {
+        const selectedSupp = suppSelect.value;
+        const filtered = matList.filter(m => (m.supplier || m.fornecedor) === selectedSupp);
+        const types = [...new Set(filtered.map(m => m.paperType || m.tipoPapelao))].filter(Boolean);
+
+        typeSelect.innerHTML = '';
+        types.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            typeSelect.appendChild(opt);
+        });
+
+        updateQualities();
+    }
+
+    function updateQualities() {
+        const selectedSupp = suppSelect.value;
+        const selectedType = typeSelect.value;
+        const filtered = matList.filter(m => (m.supplier || m.fornecedor) === selectedSupp && (m.paperType || m.tipoPapelao) === selectedType);
+        
+        qualSelect.innerHTML = '';
+        filtered.forEach(m => {
+            const opt = document.createElement('option');
+            const code = m.code || m.codigo || "";
+            const name = m.name || m.gramatura || "";
+            const cost = m.costIpi || m.precoComIpi || 0;
+            const label = code + (name ? " (" + name + ")" : "") + (cost > 0 ? " - R$ " + cost.toFixed(2) + "/m²" : "");
+            opt.value = code;
+            opt.textContent = label;
+            qualSelect.appendChild(opt);
+        });
+    }
+
+    // Limpa listeners antigos atribuindo diretamente
+    suppSelect.onchange = updateTypes;
+    typeSelect.onchange = updateQualities;
+
+    if (suppliers.length > 0) updateTypes();
+};
+
+window.executarTransferenciaProdutoParaCalculadora = function() {
+    try {
+        const comp = document.getElementById('product-comprimento')?.value || 300;
+        const larg = document.getElementById('product-largura')?.value || 200;
+        const alt  = document.getElementById('product-altura')?.value || 150;
+        const emp  = document.getElementById('product-empresa-vendedora')?.value || "DAWOS";
+        const supp = document.getElementById('product-paper-supplier')?.value || "KLABIN";
+        const type = document.getElementById('product-paper-type')?.value || "";
+        const qual = document.getElementById('product-paper-quality')?.value || "";
+
+        // 1. Preenche Dimensões
+        const lIn = document.getElementById('dim-length');
+        const wIn = document.getElementById('dim-width');
+        const hIn = document.getElementById('dim-height');
+        if (lIn) lIn.value = comp;
+        if (wIn) wIn.value = larg;
+        if (hIn) hIn.value = alt;
+
+        // 2. Preenche Empresa Vendedora
+        const empSelect = document.getElementById('empresa-vendedora-select') || document.getElementById('company-select');
+        if (empSelect) {
+            empSelect.value = emp;
+            empSelect.dispatchEvent(new Event('change'));
+        }
+
+        // 3. Preenche Lote Logística = 1000 un
+        const qIn = document.getElementById('quantity');
+        if (qIn) {
+            qIn.value = 1000;
+            qIn.dispatchEvent(new Event('change'));
+        }
+        const qSl = document.getElementById('quantity-slider');
+        if (qSl) qSl.value = 1000;
+
+        // 4. Preenche Materiais em Cascata Disparando Eventos Oficiais da Calculadora
+        const pSupp = document.getElementById('paper-supplier') || document.getElementById('material-supplier');
+        if (pSupp && supp) {
+            pSupp.value = supp;
+            pSupp.dispatchEvent(new Event('change'));
+        }
+
+        setTimeout(function() {
+            const pType = document.getElementById('paper-type');
+            if (pType && type) {
+                pType.value = type;
+                pType.dispatchEvent(new Event('change'));
+            }
+
+            setTimeout(function() {
+                const pClass = document.getElementById('paper-class');
+                if (pClass && qual) {
+                    pClass.value = qual;
+                    pClass.dispatchEvent(new Event('change'));
+                }
+
+                // Dispara o cálculo industrial
+                if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
+                if (typeof window.updatePricingFormation === 'function') window.updatePricingFormation();
+            }, 150);
+        }, 150);
+
+        // Fecha Modal e Alterna Tela para a Calculadora
+        const modalProd = document.getElementById('modal-product');
+        if (modalProd) modalProd.classList.add('hidden');
+
+        const landing = document.getElementById('admin-landing-screen');
+        if (landing) landing.classList.add('hidden');
+
+        const appContainer = document.getElementById('app-container');
+        if (appContainer) {
+            appContainer.className = 'app-container mode-pricing';
+            appContainer.classList.remove('hidden');
+        }
+
+        alert("Ficha Tecnica carregada com sucesso na Formacao de Preco! Dimensao: " + comp + "x" + larg + "x" + alt + "mm - Fornecedor: " + supp + " - Tipo: " + type);
+    } catch(e) {
+        console.error("Erro na transferencia:", e);
+    }
+};
+
+// Executa automaticamente
+setTimeout(function() {
+    if (window.initProductPaperFiltersFromOfficialMaterials) window.initProductPaperFiltersFromOfficialMaterials();
+}, 200);
+
