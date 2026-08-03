@@ -648,6 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputUserUsername = document.getElementById('input-user-username');
     const inputUserPassword = document.getElementById('input-user-password');
     const inputUserRole = document.getElementById('input-user-role');
+    const inputUserCompany = document.getElementById('input-user-company');
 
     const inputSupplierIndex = document.getElementById('input-supplier-index');
     const inputSupplierName = document.getElementById('input-supplier-name');
@@ -806,12 +807,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('dawos_remembered_pass');
             }
             
-            // Disparar animação da cortina de subida
-            triggerCurtainWelcome(user);
+            // Ocultar login
+            if (loginScreen) loginScreen.classList.add('hidden');
+            
+            // Direciona o Admin Master para a Seleção de Empresa SaaS, ou Usuários para Boas-vindas
+            if (user.username.toLowerCase() === 'alceu') {
+                const companySelector = document.getElementById('admin-company-selector-screen');
+                if (companySelector) {
+                    companySelector.classList.remove('hidden');
+                } else {
+                    triggerCurtainWelcome(user);
+                }
+            } else {
+                triggerCurtainWelcome(user);
+            }
         } else {
             loginError.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
         }
     });
+
+    window.selectCompanyContext = function(companyId) {
+        const companySelector = document.getElementById('admin-company-selector-screen');
+        if (companySelector) companySelector.classList.add('hidden');
+        if (currentUser) {
+            triggerCurtainWelcome(currentUser);
+        } else {
+            const landing = document.getElementById('admin-landing-screen');
+            if (landing) landing.classList.remove('hidden');
+        }
+    };
 
     // Animação da Cortina
     function triggerCurtainWelcome(user) {
@@ -1087,13 +1111,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = inputUserUsername.value.trim().toLowerCase();
         const password = inputUserPassword.value.trim();
         const role = inputUserRole.value;
+        const company_id = (inputUserCompany && inputUserCompany.value) ? inputUserCompany.value : 'DAWOS';
 
         if (!name || !username || !password) {
             alert('POR FAVOR, PREENCHA TODOS OS CAMPOS.');
             return;
         }
 
-        const newUser = { name, username, password, role };
+        const newUser = { name, username, password, role, company_id };
 
         if (index === '') {
             // Incluir
