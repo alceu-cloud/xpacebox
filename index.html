@@ -8,6 +8,53 @@
     <meta name="description" content="Calculadora e painel de formação de preços inteligente e dinâmico para a DAWOS Embalagens. Gere orçamentos em segundos.">
     <!-- Link para o CSS de Estilos -->
     <link rel="stylesheet" href="style.css?v=20260729_v112">
+<style>
+/* Estilos ForÃ§ados de CentralizaÃ§Ã£o dos Cards do Landing Hub */
+.panel-cards-grid .panel-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    justify-content: space-between !important;
+    padding: 28px 20px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.06) !important;
+}
+.panel-cards-grid .panel-card-icon {
+    font-size: 2.8rem !important;
+    margin: 0 auto 14px auto !important;
+    text-align: center !important;
+    display: block !important;
+    width: 100% !important;
+}
+.panel-cards-grid .panel-card h3 {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: var(--color-text-primary) !important;
+    margin: 0 auto 10px auto !important;
+    text-align: center !important;
+    width: 100% !important;
+}
+.panel-cards-grid .panel-card p {
+    font-size: 0.85rem !important;
+    color: var(--color-text-muted) !important;
+    text-align: center !important;
+    line-height: 1.4 !important;
+    margin: 0 auto 20px auto !important;
+    width: 100% !important;
+}
+.panel-cards-grid .panel-card-btn {
+    width: 100% !important;
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    margin: 0 auto !important;
+}
+</style>
 </head>
 <body>
     <!-- Tela de Login -->
@@ -489,12 +536,12 @@
                             <div class="col-span-1" style="display: flex; flex-direction: column; gap: 16px;">
                                 <div class="form-group">
                                     <label for="dim-length">Comprimento (mm)</label>
-                                    <input type="number" id="dim-length" name="dim-length" value="300" min="50" max="2000" placeholder="Ex: 300">
+                                    <input type="number" id="dim-length" name="dim-length" value="300" min="50" max="2000" placeholder="Ex: 300" onblur="if(window.checkDimAlertOnBlur)window.checkDimAlertOnBlur();">
                                 </div>
 
                                 <div class="form-group">
                                     <label for="dim-width">Largura (mm)</label>
-                                    <input type="number" id="dim-width" name="dim-width" value="200" min="50" max="2000" placeholder="Ex: 200">
+                                    <input type="number" id="dim-width" name="dim-width" value="200" min="50" max="2000" placeholder="Ex: 200" onblur="if(window.checkDimAlertOnBlur)window.checkDimAlertOnBlur();">
                                 </div>
 
                                 <div class="form-group">
@@ -2661,7 +2708,7 @@
         }
     </script>
     <script src="impressora_data.js?v=20260729_v137"></script>
-    <script src="app.js?v=159"></script>
+    <script src="app.js?v=160"></script>
     <script>
     function togglePasswordVisibility(btn) {
         var p = document.getElementById('password');
@@ -2778,43 +2825,66 @@
     </div>
 
     <!-- Modal Cadastro de Produto (Ficha Técnica) -->
+        <!-- Modal Cadastro de Produto (Ficha TÃ©cnica v160) -->
     <div id="modal-product" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15,23,42,0.85); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
-        <div class="modal-card card" style="max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; background: #1e293b; border-radius: 16px; border: 1px solid #334155; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); color: #f8fafc;">
+        <div class="modal-card card" style="max-width: 920px; width: 100%; max-height: 90vh; overflow-y: auto; background: #1e293b; border-radius: 16px; border: 1px solid #334155; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); color: #f8fafc;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px;">
-                <h3 id="modal-product-title" style="font-family: var(--font-title); font-size: 1.3rem; font-weight: 700; color: #a78bfa;">📦 Nova Ficha Técnica de Produto</h3>
+                <h3 id="modal-product-title" style="font-family: var(--font-title); font-size: 1.3rem; font-weight: 700; color: #a78bfa;">ðŸ“¦ Nova Ficha TÃ©cnica de Produto</h3>
                 <button type="button" id="btn-close-product-modal" onclick="document.getElementById('modal-product').classList.add('hidden');" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #94a3b8;">&times;</button>
             </div>
             <form id="form-product">
                 <input type="hidden" id="product-form-id" value="">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
-                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Nº Ficha Técnica</label><input type="text" id="product-numero-ficha" placeholder="Auto se vazio" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Código Único do Produto *</label><input type="text" id="product-codigo-unico" required placeholder="PROD-0001" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Revisão</label><input type="text" id="product-revisao" value="00" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                
+                <!-- Linha 1: NÂº Ficha TÃ©cnica | RevisÃ£o | Cliente Vinculado | Empresa Vendedora -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">NÂº Ficha TÃ©cnica</label><input type="text" id="product-numero-ficha" placeholder="Gerado autom. se vazio" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">RevisÃ£o</label><input type="text" id="product-revisao" value="00" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
                     <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Cliente Vinculado</label><select id="product-cliente-id" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="">-- Selecione um Cliente --</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Empresa Vendedora</label><select id="product-empresa-vendedora" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="DAWOS">DAWOS Embalagens</option><option value="CARCAT">CARCAT Embalagens</option><option value="GTA">GTA Cartonagem</option></select></div>
                 </div>
+
+                <!-- Linha 2: DescriÃ§Ã£o do Produto -->
                 <div style="margin-bottom: 20px;">
-                    <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Descrição / Especificação do Produto *</label>
-                    <input type="text" id="product-descricao" required placeholder="Caixa para calçados com impressão 2 cores DAWOS" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">DescriÃ§Ã£o / EspecificaÃ§Ã£o do Produto *</label>
+                    <input type="text" id="product-descricao" required placeholder="Ex: Caixa para calÃ§ados com impressÃ£o 2 cores DAWOS" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;">
                 </div>
+
+                <!-- Linha 3: Categoria e Modelo de Caixa em Lista -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Categoria da Embalagem *</label><select id="product-categoria" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="NORMAL">Caixas Normais (RSC)</option><option value="MALETA">Maletas (HSC)</option><option value="CORTE-VINCO">Corte & Vinco Personalizada</option><option value="ACESSORIO">AcessÃ³rios & Encartes</option></select></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Modelo EspecÃ­fico da Caixa *</label><select id="product-modelo-caixa" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="NORMAL-B">Caixa Normal (RSC) - Onda B</option><option value="NORMAL-BC">Caixa Normal (RSC) - Onda BC</option><option value="MALETA-B">Maleta Especial - Onda B</option><option value="CORTE-VINCO-MALETA">Corte e Vinco Maleta</option></select></div>
+                </div>
+
+                <!-- Linha 4: DimensÃµes Internas (C x L x A mm) -->
                 <div style="background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #a78bfa; margin-bottom: 12px;">📏 Dimensões da Caixa (Internas em mm)</h4>
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #a78bfa; margin-bottom: 12px;">ðŸ“ DimensÃµes Internas da Caixa (mm)</h4>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
                         <div><label style="font-size: 0.8rem; color: #cbd5e1;">Comprimento (C) mm *</label><input type="number" id="product-comprimento" required value="300" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
                         <div><label style="font-size: 0.8rem; color: #cbd5e1;">Largura (L) mm *</label><input type="number" id="product-largura" required value="200" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
                         <div><label style="font-size: 0.8rem; color: #cbd5e1;">Altura (A) mm *</label><input type="number" id="product-altura" required value="150" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
-                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">Modelo da Caixa</label><select id="product-modelo-caixa" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="NORMAL-B">Caixa Normal (RSC) - Onda B</option><option value="NORMAL-BC">Caixa Normal (RSC) - Onda BC</option><option value="MALETA-B">Maleta - Onda B</option><option value="CORTE-VINCO">Corte e Vinco Personalizada</option></select></div>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Empresa Vendedora</label><select id="product-empresa-vendedora" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="DAWOS">DAWOS Embalagens</option><option value="CARCAT">CARCAT Embalagens</option><option value="GTA">GTA Cartonagem</option></select></div>
-                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Qualidade / Material Padrão</label><input type="text" id="product-qualidade-papel" value="K125/K125 Onda B" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
-                    <div><label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">Observações Técnicas</label><input type="text" id="product-observacoes" placeholder="Instruções de vinco, impressão, etc." style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"></div>
+
+                <!-- Linha 5: Os 3 Filtros de Papel / Material em Cascata -->
+                <div style="background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #38bdf8; margin-bottom: 12px;">ðŸ“„ EspecificaÃ§Ã£o do Material (3 Filtros em Cascata)</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">1. Fornecedor / Fabricante *</label><select id="product-paper-supplier" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="Klabin">Klabin</option><option value="Irani">Irani</option><option value="Papirus">Papirus</option><option value="Geral">Geral / Multimarca</option></select></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">2. Tipo de Onda / Estrutura *</label><select id="product-paper-type" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="OSRR-B">OSRR - Onda B (Simples)</option><option value="ODRR-BC">ODRR - Onda BC (Dupla)</option><option value="MICRO-E">Microonda - Onda E</option></select></div>
+                        <div><label style="font-size: 0.8rem; color: #cbd5e1;">3. Qualidade / Gramatura *</label><select id="product-paper-quality" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;"><option value="K125/K125 Onda B">K125/K125 Onda B</option><option value="K150/K150 Onda BC">K150/K150 Onda BC</option><option value="C120/C120 Onda B">C120/C120 Onda B</option></select></div>
+                    </div>
                 </div>
+
+                <div style="margin-bottom: 24px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1;">ObservaÃ§Ãµes TÃ©cnicas / ImpressÃ£o</label>
+                    <input type="text" id="product-observacoes" placeholder="InstruÃ§Ãµes de vinco, impressÃ£o 2 cores, paletizaÃ§Ã£o, etc." style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc;">
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 20px;">
-                    <button type="button" id="btn-transfer-product-modal" onclick="document.getElementById('modal-product').classList.add('hidden');document.getElementById('admin-landing-screen').classList.add('hidden');var a=document.getElementById('app-container');if(a){a.className='app-container mode-pricing';a.classList.remove('hidden');}" class="btn" style="background: rgba(227, 0, 126, 0.15); color: var(--color-rosa-vibrante); border: 1px solid var(--color-rosa-vibrante); font-weight: 700; padding: 10px 16px; border-radius: 8px;">📥 Carregar na Formação de Preço</button>
+                    <button type="button" id="btn-transfer-product-modal" onclick="if(window.executarTransferenciaProdutoParaCalculadora)window.executarTransferenciaProdutoParaCalculadora();" class="btn" style="background: linear-gradient(135deg, #e3007e, #be185d); color: #fff; font-weight: 700; padding: 12px 20px; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(227,0,126,0.3);">ðŸ“¥ Carregar na FormaÃ§Ã£o de PreÃ§o</button>
                     <div style="display: flex; gap: 12px;">
                         <button type="button" id="btn-cancel-product" onclick="document.getElementById('modal-product').classList.add('hidden');" class="btn btn-secondary" style="padding: 10px 20px; background: #334155; color: #f8fafc;">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;">💾 Salvar Ficha Técnica</button>
+                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;">ðŸ’¾ Salvar Ficha TÃ©cnica</button>
                     </div>
                 </div>
             </form>
@@ -2822,4 +2892,3 @@
     </div>
 </body>
 </html>
-

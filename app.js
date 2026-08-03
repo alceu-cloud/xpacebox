@@ -2468,3 +2468,94 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+
+// ============================================================================
+// DAWOS ERP - CORREÃ‡Ã•ES DEFINITIVAS GLOBALMENTE EXPOSTAS (v160)
+// ============================================================================
+
+// 1. Alerta Blur de Comprimento < Largura
+window.checkDimAlertOnBlur = function() {
+    const lenInput = document.getElementById('dim-length');
+    const widInput = document.getElementById('dim-width');
+    if (!lenInput || !widInput) return;
+
+    const c = parseFloat(lenInput.value) || 0;
+    const l = parseFloat(widInput.value) || 0;
+    if (c > 0 && l > 0 && c < l) {
+        let alertBox = document.getElementById('dim-warning-alert-toast');
+        if (!alertBox) {
+            alertBox = document.createElement('div');
+            alertBox.id = 'dim-warning-alert-toast';
+            alertBox.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 99999; background: #fff3cd; color: #856404; border: 1.5px solid #ffeeba; padding: 16px 22px; border-radius: 14px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 12px 30px rgba(0,0,0,0.25); max-width: 400px; transition: all 0.3s ease;';
+            document.body.appendChild(alertBox);
+        }
+        alertBox.innerHTML = 'âš ï¸ <strong>AtenÃ§Ã£o Ã s Medidas:</strong><br>O Comprimento (' + c + 'mm) estÃ¡ menor que a Largura (' + l + 'mm). Na indÃºstria de embalagens de papelÃ£o ondulado, recomenda-se que o Comprimento seja a maior dimensÃ£o.';
+        alertBox.style.display = 'block';
+        setTimeout(function() {
+            if (alertBox) alertBox.style.display = 'none';
+        }, 7000);
+    }
+};
+
+// 2. TransferÃªncia Direta da Ficha TÃ©cnica -> FormaÃ§Ã£o de PreÃ§o
+window.executarTransferenciaProdutoParaCalculadora = function() {
+    try {
+        const comp = document.getElementById('product-comprimento')?.value || 300;
+        const larg = document.getElementById('product-largura')?.value || 200;
+        const alt  = document.getElementById('product-altura')?.value || 150;
+        const emp  = document.getElementById('product-empresa-vendedora')?.value || "DAWOS";
+        const supp = document.getElementById('product-paper-supplier')?.value || "Klabin";
+        const type = document.getElementById('product-paper-type')?.value || "OSRR-B";
+        const qual = document.getElementById('product-paper-quality')?.value || "K125/K125 Onda B";
+
+        // Preenche DimensÃµes
+        const lIn = document.getElementById('dim-length');
+        const wIn = document.getElementById('dim-width');
+        const hIn = document.getElementById('dim-height');
+        if (lIn) lIn.value = comp;
+        if (wIn) wIn.value = larg;
+        if (hIn) hIn.value = alt;
+
+        // Preenche Empresa
+        const empSelect = document.getElementById('empresa-vendedora-select') || document.getElementById('company-select');
+        if (empSelect) empSelect.value = emp;
+
+        // Preenche Lote LogÃ­stica = 1000 un
+        const qIn = document.getElementById('quantity');
+        if (qIn) qIn.value = 1000;
+        const qSl = document.getElementById('quantity-slider');
+        if (qSl) qSl.value = 1000;
+
+        // Preenche Materiais
+        const pSupp = document.getElementById('paper-supplier') || document.getElementById('material-supplier');
+        if (pSupp) pSupp.value = supp;
+
+        const pType = document.getElementById('paper-type');
+        if (pType) pType.value = type;
+
+        const pClass = document.getElementById('paper-class');
+        if (pClass) pClass.value = qual;
+
+        // Fecha Modal e Alterna Tela para a Calculadora
+        const modalProd = document.getElementById('modal-product');
+        if (modalProd) modalProd.classList.add('hidden');
+
+        const landing = document.getElementById('admin-landing-screen');
+        if (landing) landing.classList.add('hidden');
+
+        const appContainer = document.getElementById('app-container');
+        if (appContainer) {
+            appContainer.className = 'app-container mode-pricing';
+            appContainer.classList.remove('hidden');
+        }
+
+        // Recalcula
+        if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
+        if (typeof window.updatePricingFormation === 'function') window.updatePricingFormation();
+
+        alert("âœ… Ficha TÃ©cnica carregada com sucesso na FormaÃ§Ã£o de PreÃ§o! DimensÃµes: " + comp + "x" + larg + "x" + alt + "mm (" + supp + " " + qual + ")");
+    } catch(e) {
+        console.error("Erro na transferÃªncia:", e);
+    }
+};
