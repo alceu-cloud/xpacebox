@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Web App DAWOS Embalagens - Lógica Interativa & Controle de Acessos
  * Recursos:
  * 1. Base de Usuários Atualizada (Alceu - Admin, Renan - Cliente)
@@ -2241,4 +2241,230 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPaperCostTable();
     updatePricingFormation();
 
+});
+
+
+// ============================================================================
+// DAWO ERP - MÃ“DULO ENGENHARIA & INTEGRAÃ‡ÃƒO FORMAÃ‡ÃƒO DE PREÃ‡O (v159)
+// ============================================================================
+
+window.dawosProductsList = window.dawosProductsList || [];
+
+// 1. Cascata dos 3 Filtros de Papel no Modal de Produtos
+function initProductPaperFilters() {
+    const suppSelect = document.getElementById('product-paper-supplier');
+    const typeSelect = document.getElementById('product-paper-type');
+    const qualSelect = document.getElementById('product-paper-quality');
+
+    if (!suppSelect || !typeSelect || !qualSelect) return;
+
+    const paperMap = {
+        "Klabin": {
+            "OSRR-B": ["K125/K125 Onda B", "K150/K150 Onda B", "K175/K175 Onda B", "K200/K200 Onda B"],
+            "ODRR-BC": ["K125/K125 Onda BC", "K150/K150 Onda BC", "K175/K175 Onda BC", "K200/K200 Onda BC"],
+            "MICRO-E": ["K125 Microonda E", "K150 Microonda E"]
+        },
+        "Irani": {
+            "OSRR-B": ["I120/I120 Onda B", "I140/I140 Onda B", "I180/I180 Onda B"],
+            "ODRR-BC": ["I120/I120 Onda BC", "I140/I140 Onda BC", "I180/I180 Onda BC"],
+            "MICRO-E": ["I120 Microonda E"]
+        },
+        "Papirus": {
+            "OSRR-B": ["P125/P125 Onda B", "P150/P150 Onda B"],
+            "ODRR-BC": ["P125/P125 Onda BC", "P150/P150 Onda BC"],
+            "MICRO-E": ["P125 Microonda E"]
+        },
+        "Geral": {
+            "OSRR-B": ["C120/C120 Onda B", "C150/C150 Onda B", "Testliner 125 Onda B"],
+            "ODRR-BC": ["C120/C120 Onda BC", "C150/C150 Onda BC", "Testliner 150 Onda BC"],
+            "MICRO-E": ["Microonda E PadrÃ£o"]
+        }
+    };
+
+    function updateTypes() {
+        const supp = suppSelect.value || "Klabin";
+        const typesObj = paperMap[supp] || paperMap["Klabin"];
+        typeSelect.innerHTML = '';
+        Object.keys(typesObj).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t === "OSRR-B" ? "OSRR - Onda B (Simples)" : (t === "ODRR-BC" ? "ODRR - Onda BC (Dupla)" : "Microonda - Onda E");
+            typeSelect.appendChild(opt);
+        });
+        updateQualities();
+    }
+
+    function updateQualities() {
+        const supp = suppSelect.value || "Klabin";
+        const type = typeSelect.value || "OSRR-B";
+        const typesObj = paperMap[supp] || paperMap["Klabin"];
+        const quals = typesObj[type] || (typesObj["OSRR-B"] ? typesObj["OSRR-B"] : ["Qualidade PadrÃ£o"]);
+        
+        qualSelect.innerHTML = '';
+        quals.forEach(q => {
+            const opt = document.createElement('option');
+            opt.value = q;
+            opt.textContent = q;
+            qualSelect.appendChild(opt);
+        });
+    }
+
+    suppSelect.addEventListener('change', updateTypes);
+    typeSelect.addEventListener('change', updateQualities);
+
+    updateTypes();
+}
+
+// 2. Alerta de Comprimento < Largura ao sair do campo (Blur)
+function initDimensionBlurAlert() {
+    const lenInput = document.getElementById('dim-length');
+    const widInput = document.getElementById('dim-width');
+    if (!lenInput || !widInput) return;
+
+    function checkDimensionsOnBlur() {
+        const c = parseFloat(lenInput.value) || 0;
+        const l = parseFloat(widInput.value) || 0;
+        if (c > 0 && l > 0 && c < l) {
+            console.warn("âš ï¸ Comprimento (" + c + "mm) Ã© menor que a Largura (" + l + "mm).");
+            let alertBox = document.getElementById('dim-warning-alert-toast');
+            if (!alertBox) {
+                alertBox = document.createElement('div');
+                alertBox.id = 'dim-warning-alert-toast';
+                alertBox.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 99999; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 14px 20px; border-radius: 12px; font-size: 0.88rem; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.15); max-width: 380px; transition: all 0.3s ease;';
+                document.body.appendChild(alertBox);
+            }
+            alertBox.innerHTML = 'âš ï¸ <strong>AtenÃ§Ã£o Ã s Medidas:</strong><br>O Comprimento (' + c + 'mm) estÃ¡ menor que a Largura (' + l + 'mm). Na indÃºstria de embalagens, recomenda-se que o Comprimento seja a maior dimensÃ£o.';
+            alertBox.style.display = 'block';
+            setTimeout(function() {
+                if (alertBox) alertBox.style.display = 'none';
+            }, 6000);
+        }
+    }
+
+    lenInput.addEventListener('blur', checkDimensionsOnBlur);
+    widInput.addEventListener('blur', checkDimensionsOnBlur);
+}
+
+// 3. Atualiza o dropdown da FormaÃ§Ã£o de PreÃ§o com as Fichas TÃ©cnicas Salvas
+function updatePricingEngenhariaDropdown() {
+    const select = document.getElementById('pricing-engenharia-select');
+    if (!select) return;
+
+    let saved = [];
+    try {
+        const raw = localStorage.getItem('dawos_products_db');
+        if (raw) saved = JSON.parse(raw);
+    } catch(e){}
+
+    if (!Array.isArray(saved) || saved.length === 0) {
+        saved = [
+            { id: "PROD-101", codigo: "PROD-101", desc: "Caixa Maleta K125/K125 Onda B", comp: 300, larg: 200, alt: 150, empresa: "DAWOS", modelo: "NORMAL-B", fornecedor: "Klabin", tipo: "OSRR-B", qualidade: "K125/K125 Onda B" },
+            { id: "PROD-102", codigo: "PROD-102", desc: "Caixa ReforÃ§ada K150 Onda BC", comp: 400, larg: 300, alt: 250, empresa: "CARCAT", modelo: "NORMAL-BC", fornecedor: "Klabin", tipo: "ODRR-BC", qualidade: "K150/K150 Onda BC" }
+        ];
+    }
+
+    window.dawosProductsList = saved;
+
+    select.innerHTML = '<option value="">-- Entrada Manual (Sem Ficha TÃ©cnica) --</option>';
+    saved.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id || p.codigo;
+        opt.textContent = (p.codigo ? p.codigo + " - " : "") + (p.desc || "Sem DescriÃ§Ã£o") + " (" + p.comp + "x" + p.larg + "x" + p.alt + "mm)";
+        select.appendChild(opt);
+    });
+}
+
+// 4. Carrega a Ficha TÃ©cnica Selecionada na FormaÃ§Ã£o de PreÃ§o
+window.carregarFichaSelecionadaNaCalculadora = function(prodId) {
+    if (!prodId) return;
+    const list = window.dawosProductsList || [];
+    const prod = list.find(p => p.id === prodId || p.codigo === prodId);
+    if (!prod) return;
+
+    // A. Empresa Vendedora
+    const empSelect = document.getElementById('empresa-vendedora-select') || document.getElementById('company-select');
+    if (empSelect && prod.empresa) empSelect.value = prod.empresa;
+
+    // B. DimensÃµes C, L, A mm
+    const lIn = document.getElementById('dim-length');
+    const wIn = document.getElementById('dim-width');
+    const hIn = document.getElementById('dim-height');
+    if (lIn && prod.comp) lIn.value = prod.comp;
+    if (wIn && prod.larg) wIn.value = prod.larg;
+    if (hIn && prod.alt)  hIn.value = prod.alt;
+
+    // C. Quantidade PadrÃ£o LogÃ­stica = 1000 un
+    const qIn = document.getElementById('quantity');
+    if (qIn) qIn.value = 1000;
+    const qSl = document.getElementById('quantity-slider');
+    if (qSl) qSl.value = 1000;
+
+    // D. Materiais: Fornecedor, Tipo e Qualidade
+    const pSupp = document.getElementById('paper-supplier') || document.getElementById('material-supplier');
+    if (pSupp && prod.fornecedor) pSupp.value = prod.fornecedor;
+
+    const pType = document.getElementById('paper-type');
+    if (pType && prod.tipo) pType.value = prod.tipo;
+
+    const pClass = document.getElementById('paper-class');
+    if (pClass && prod.qualidade) pClass.value = prod.qualidade;
+
+    // Dispara o cÃ¡lculo industrial
+    if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
+    if (typeof window.updatePricingFormation === 'function') window.updatePricingFormation();
+
+    console.log("âœ… Ficha TÃ©cnica " + prod.codigo + " carregada na FormaÃ§Ã£o de PreÃ§o com Sucesso!");
+};
+
+// 5. Clique do BotÃ£o "Carregar na FormaÃ§Ã£o de PreÃ§o" no Modal de Produtos
+document.addEventListener('DOMContentLoaded', function() {
+    initProductPaperFilters();
+    initDimensionBlurAlert();
+    updatePricingEngenhariaDropdown();
+
+    const btnTransfer = document.getElementById('btn-transfer-product-modal');
+    if (btnTransfer) {
+        btnTransfer.addEventListener('click', function() {
+            const comp = document.getElementById('product-comprimento')?.value || 300;
+            const larg = document.getElementById('product-largura')?.value || 200;
+            const alt  = document.getElementById('product-altura')?.value || 150;
+            const emp  = document.getElementById('product-empresa-vendedora')?.value || "DAWOS";
+            const supp = document.getElementById('product-paper-supplier')?.value || "Klabin";
+            const type = document.getElementById('product-paper-type')?.value || "OSRR-B";
+            const qual = document.getElementById('product-paper-quality')?.value || "K125/K125 Onda B";
+
+            // Injeta direto nos inputs da calculadora
+            const lIn = document.getElementById('dim-length');
+            const wIn = document.getElementById('dim-width');
+            const hIn = document.getElementById('dim-height');
+            if (lIn) lIn.value = comp;
+            if (wIn) wIn.value = larg;
+            if (hIn) hIn.value = alt;
+
+            const empSelect = document.getElementById('empresa-vendedora-select') || document.getElementById('company-select');
+            if (empSelect) empSelect.value = emp;
+
+            const qIn = document.getElementById('quantity');
+            if (qIn) qIn.value = 1000;
+
+            const pSupp = document.getElementById('paper-supplier') || document.getElementById('material-supplier');
+            if (pSupp) pSupp.value = supp;
+
+            const pType = document.getElementById('paper-type');
+            if (pType) pType.value = type;
+
+            const pClass = document.getElementById('paper-class');
+            if (pClass) pClass.value = qual;
+
+            // Recalcula e alterna tela
+            if (typeof window.dawosRecalcPreco === 'function') window.dawosRecalcPreco();
+        });
+    }
+
+    const pricingEngSelect = document.getElementById('pricing-engenharia-select');
+    if (pricingEngSelect) {
+        pricingEngSelect.addEventListener('change', function() {
+            window.carregarFichaSelecionadaNaCalculadora(this.value);
+        });
+    }
 });
