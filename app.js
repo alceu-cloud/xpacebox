@@ -203,6 +203,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch(e) {}
             }
 
+            // ☁️ Lê Tempos de Produção da nuvem
+            const { data: temposData } = await window.supabaseClient.from('xpace_pricing_params').select('*').eq('company_id', 'DAWOS_TEMPOS');
+            if (temposData && temposData.length > 0 && temposData[0].user_json) {
+                try {
+                    const parsedTempos = JSON.parse(temposData[0].user_json);
+                    if (Array.isArray(parsedTempos) && parsedTempos.length > 0) {
+                        localStorage.setItem('dawos_tempos_impressora', JSON.stringify(parsedTempos));
+                        if (typeof dawosRenderTemposAdmin === 'function') dawosRenderTemposAdmin();
+                    }
+                } catch(e) {}
+            }
+
         } catch(err) {
             console.warn("Supabase Sync:", err);
         }
@@ -219,10 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 user_json: JSON.stringify(jsonData),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'company_id' });
+            console.log(`☁️ Dados de ${companyId} sincronizados na nuvem Supabase!`);
         } catch(e) {
             console.warn('Aviso ao salvar ' + companyId + ' na nuvem:', e);
         }
     }
+    window.saveJsonToCloud = saveJsonToCloud;
+    window.syncSupabaseCloudData = syncSupabaseCloudData;
 
     const defaultUsers = [
         { name: 'Alceu', username: 'alceu', password: '@Amj20021979', role: 'admin' },
