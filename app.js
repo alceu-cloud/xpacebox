@@ -2043,20 +2043,27 @@ document.addEventListener('DOMContentLoaded', () => {
             (!e.subvalue || e.subvalue.toLowerCase() === boxSubtype.toLowerCase())
         );
         
+        let chapaLarg = 0;
+        let chapaComp = 0;
+        
         if (matchedEng) {
-            const chapaLarg = evaluateFormula(matchedEng.widthFormula, length, width, height);
-            const chapaComp = evaluateFormula(matchedEng.lengthFormula, length, width, height);
+            chapaLarg = evaluateFormula(matchedEng.widthFormula, length, width, height);
+            chapaComp = evaluateFormula(matchedEng.lengthFormula, length, width, height);
             areaChapa = (chapaLarg * chapaComp) / 1000000;
         } else {
             // Fallback para fórmulas originais
             if (boxType === 'maleta') {
-                const chapaComp = ((length + width) * 2 + 50);
-                const chapaLarg = (width + height);
+                chapaComp = ((length + width) * 2 + 50);
+                chapaLarg = (width + height);
                 areaChapa = (chapaComp * chapaLarg) / 1000000;
             } else if (boxType === 'corte-vinco') {
-                areaChapa = ((length + 100) * (width + 100)) / 1000000;
+                chapaComp = length + 100;
+                chapaLarg = width + 100;
+                areaChapa = (chapaComp * chapaLarg) / 1000000;
             } else {
-                areaChapa = (length * width) / 1000000; // acessório
+                chapaComp = length;
+                chapaLarg = width;
+                areaChapa = (chapaComp * chapaLarg) / 1000000; // acessório
             }
         }
 
@@ -2065,14 +2072,14 @@ document.addEventListener('DOMContentLoaded', () => {
             calculatedSheetAreaText.textContent = `${areaChapa.toFixed(4).replace('.', ',')} M²`;
         }
         if (calculatedSheetAreaMmText) {
-            const areaMm = Math.round(areaChapa * 1000);
-            calculatedSheetAreaMmText.textContent = `${areaMm} MM²`;
+            const areaMm = Math.round(areaChapa * 1000000);
+            calculatedSheetAreaMmText.textContent = `${areaMm.toLocaleString('pt-BR')} MM²`;
         }
 
         // Exibe dimensões calculadas da chapa (Comprimento x Largura mm)
         const sheetDimsEl = document.getElementById('calculated-sheet-dims');
-        if (sheetDimsEl && typeof chapaComp !== 'undefined' && typeof chapaLarg !== 'undefined') {
-            sheetDimsEl.textContent = `Chapa: ${Math.round(chapaComp)} mm x ${Math.round(chapaLarg)} mm`;
+        if (sheetDimsEl) {
+            sheetDimsEl.textContent = `CHAPA: ${Math.round(chapaComp)} MM X ${Math.round(chapaLarg)} MM`;
         }
         
         let thicknessMultiplier = 1.0;
