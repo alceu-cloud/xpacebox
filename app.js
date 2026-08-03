@@ -1427,7 +1427,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="font-size: 0.78rem; color: var(--color-text-secondary);">${mat.pressureRes || '-'}</td>
                 <td><strong style="color: #4ade80;">R$ ${costIpi.toFixed(2)}</strong><br><span style="font-size:0.68rem; color:var(--color-text-muted);">PREÇO C/ IPI</span></td>
                 <td style="text-align: right; white-space: nowrap;">
-                    <button type="button" class="btn-admin-action btn-delete-material" data-index="${index}" style="background: #ff5252;">EXCLUIR</button>
+                    <button type="button" class="btn-admin-action btn-edit-material" data-index="${index}">EDITAR</button>
+                    <button type="button" class="btn-admin-action btn-delete-material" data-index="${index}" style="background: #ff5252; margin-left: 6px;">EXCLUIR</button>
                 </td>
             `;
             adminMaterialsList.appendChild(tr);
