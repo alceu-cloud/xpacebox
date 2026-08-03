@@ -1809,13 +1809,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function evaluateFormula(formulaStr, C, L, A) {
         if (!formulaStr) return 0;
-        // Substitui variáveis
+        
+        // Garante arredondamento para cima (Math.ceil) em abas com L/2
+        // Ex: L = 55 -> 55/2 = 27.5 + 3 = 30.5 -> Arredonda para 31!
         let formatted = formulaStr
+            .replace(/\(L\/2\)\s*\+\s*(\d+)/gi, function(match, addVal) {
+                const flap = Math.ceil((L / 2) + parseFloat(addVal));
+                return flap.toString();
+            })
+            .replace(/\(L\/2\)/gi, function() {
+                return Math.ceil(L / 2).toString();
+            })
             .replace(/C/gi, C)
             .replace(/L/gi, L)
             .replace(/A/gi, A);
+            
         try {
-            return Function(`"use strict"; return (${formatted})`)();
+            const val = Function(`"use strict"; return (${formatted})`)();
+            return Math.ceil(val);
         } catch (e) {
             console.error("Erro ao avaliar fórmula da chapa:", formulaStr, e);
             return 0;
@@ -1893,6 +1904,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (calculatedSheetAreaMmText) {
             const areaMm = Math.round(areaChapa * 1000);
             calculatedSheetAreaMmText.textContent = `${areaMm} MM²`;
+        }
+
+        // Exibe dimensões calculadas da chapa (Comprimento x Largura mm)
+        const sheetDimsEl = document.getElementById('calculated-sheet-dims');
+        if (sheetDimsEl && typeof chapaComp !== 'undefined' && typeof chapaLarg !== 'undefined') {
+            sheetDimsEl.textContent = `Chapa: ${Math.round(chapaComp)} mm x ${Math.round(chapaLarg)} mm`;
         }
         
         let thicknessMultiplier = 1.0;
