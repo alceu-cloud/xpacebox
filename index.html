@@ -2,9 +2,9 @@
 <html lang="pt-BR">
 <head>
     <script>
-        // Auto-Invalidate Cache & Reload on New System Release (v174)
+        // Auto-Invalidate Cache & Reload on New System Release (v188)
         (function() {
-            var buildVer = "174";
+            var buildVer = "188";
             var localVer = localStorage.getItem("dawos_system_build_version");
             if (localVer !== buildVer) {
                 localStorage.setItem("dawos_system_build_version", buildVer);
@@ -17,6 +17,9 @@
     </script>
 
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAWOS Embalagens - Formação de Preço & Orçamento</title>
     <!-- Meta tags SEO -->
@@ -2803,46 +2806,43 @@
     function performDirectMasterLogin() {
         try {
             var uInput = document.getElementById('username');
+            var pInput = document.getElementById('password');
             var uVal = uInput ? uInput.value.trim().toLowerCase() : '';
-            
-            var loginScreen = document.getElementById('login-screen');
-            var curtainOverlay = document.getElementById('curtain-overlay');
-            var companySelector = document.getElementById('admin-company-selector-screen');
-            var adminLanding = document.getElementById('admin-landing-screen');
-            var appContainer = document.getElementById('app-container');
-            var welcomeName = document.getElementById('welcome-user-name');
-            var adminName = document.getElementById('admin-landing-name');
+            var pVal = pInput ? pInput.value.trim() : '';
+
+            var errDiv = document.getElementById('login-error');
+
+            if (!uVal || !pVal) {
+                if (errDiv) errDiv.textContent = '❌ POR FAVOR, PREENCHA USUÁRIO E SENHA.';
+                return;
+            }
 
             var dispName = 'Alceu';
-            var isClient = false;
+            var role = 'admin';
 
-            if (uVal === 'samantha') { dispName = 'Samantha'; isClient = true; }
-            else if (uVal === 'renan') { dispName = 'Renan'; isClient = true; }
+            if (uVal === 'samantha') { dispName = 'Samantha'; role = 'cliente'; }
+            else if (uVal === 'renan') { dispName = 'Renan'; role = 'cliente'; }
 
-            if (welcomeName) welcomeName.textContent = dispName;
-            if (adminName) adminName.textContent = dispName;
-
-            if (loginScreen) loginScreen.classList.add('hidden');
-
-            if (isClient) {
-                if (companySelector) companySelector.classList.add('hidden');
-                if (adminLanding) adminLanding.classList.add('hidden');
-                if (curtainOverlay) curtainOverlay.classList.remove('hidden');
-                setTimeout(function() {
-                    if (curtainOverlay) curtainOverlay.classList.add('open');
+            if (window.showScreen) {
+                if (role === 'admin') {
+                    window.showScreen('admin-company-selector-screen');
+                } else {
+                    var cName = document.getElementById('welcome-user-name');
+                    if (cName) cName.textContent = dispName;
+                    window.showScreen('curtain-overlay');
                     setTimeout(function() {
-                        if (appContainer) {
-                            appContainer.className = 'app-container mode-pricing';
-                            appContainer.classList.remove('hidden');
-                        }
-                    }, 600);
-                }, 1000);
-            } else {
-                if (companySelector) {
-                    companySelector.classList.remove('hidden');
-                } else if (adminLanding) {
-                    adminLanding.classList.remove('hidden');
+                        var c = document.getElementById('curtain-overlay');
+                        if (c) c.classList.add('open');
+                        setTimeout(function() {
+                            window.showScreen('app-container');
+                        }, 600);
+                    }, 1000);
                 }
+            } else {
+                var loginScreen = document.getElementById('login-screen');
+                if (loginScreen) loginScreen.classList.add('hidden');
+                var companySelector = document.getElementById('admin-company-selector-screen');
+                if (companySelector) companySelector.classList.remove('hidden');
             }
         } catch(e) {
             console.error("Master login fallback:", e);
