@@ -238,13 +238,13 @@
                     <p>Fichas Técnicas de Embalagens, modelos de caixas e transferência direta para cálculo.</p>
                     <span class="panel-card-btn" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">Acessar Produtos</span>
                 </div>
-                <div class="panel-card" id="card-goto-pricing" onclick="document.getElementById('admin-landing-screen').classList.add('hidden');var a=document.getElementById('app-container');if(a){a.className='app-container mode-pricing';a.classList.remove('hidden');}" style="cursor: pointer;">
+                <div class="panel-card" id="card-goto-pricing" onclick="if(window.showScreen)window.showScreen('app-container');" style="cursor: pointer;">
                     <div class="panel-card-icon">📊</div>
                     <h3>Formação de Preço</h3>
                     <p>Calculadora inteligente para especificações físicas, materiais e orçamentos.</p>
                     <span class="panel-card-btn">Acessar Calculadora</span>
                 </div>
-                <div class="panel-card" id="card-goto-admin" onclick="document.getElementById('admin-landing-screen').classList.add('hidden');var a=document.getElementById('app-container');if(a){a.className='app-container mode-admin';a.classList.remove('hidden');}" style="cursor: pointer;">
+                <div class="panel-card" id="card-goto-admin" onclick="if(window.showScreen)window.showScreen('app-container');var a=document.getElementById('app-container');if(a){a.className='app-container mode-admin';}" style="cursor: pointer;">
                     <div class="panel-card-icon">⚙️</div>
                     <h3>Gerenciamento Geral</h3>
                     <p>Controle de logins, senhas e cadastro de novos usuários do sistema.</p>
