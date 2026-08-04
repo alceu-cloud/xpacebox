@@ -2324,11 +2324,12 @@
                 return precoLiquido / denom;
             }
 
-            // MC R$ = (Preço * (1 - S_despesas)) - Custo_Liquido = Preço_Líquido * MC%
-            function calcMCRS(preco) {
-                if (!preco || preco <= 0) return null;
-                var precoLiquido = preco * (1 - S_despesas);
-                return precoLiquido - custoBaseMat;
+            // FÓRMULA OFICIAL DA FOTO DO EXCEL: =(F11-(F11*(H26+H27+H31+F4+8%))-G7)
+            function calcMCRS(F11) {
+                if (!F11 || F11 <= 0) return null;
+                var despesasRatio = (p.comissao + p.frete + p.outros + p.icmsDawos + p.demais) / 100;
+                var precoLiquido = F11 - (F11 * despesasRatio);
+                return precoLiquido - custoSNotaMat;
             }
 
             // Fórmula DAWOS: MC% = (MC_RS / Preço_Líquido) * 100
