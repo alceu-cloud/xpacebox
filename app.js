@@ -692,6 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Toggle de visibilidade da senha (Olhinho 👁️) é controlado nativamente por togglePasswordVisibility(btn) em index.html
 
     // Atalho da Tecla ENTER nos inputs de Usuário e Senha
+    // Atalho da Tecla ENTER nos inputs de Usuário e Senha
     [usernameInput, passwordInput].forEach(inputEl => {
         if (inputEl) {
             inputEl.addEventListener('keydown', (e) => {
@@ -707,6 +708,32 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    // Gerenciador Universal de Exibição de Telas sem Telas Brancas
+    function showScreen(targetId) {
+        const screens = [
+            'login-screen',
+            'curtain-overlay',
+            'admin-company-selector-screen',
+            'admin-landing-screen',
+            'app-container',
+            'gerente-restricted-screen'
+        ];
+        screens.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === targetId) {
+                    el.classList.remove('hidden');
+                    if (id === 'app-container') {
+                        el.className = 'app-container mode-pricing';
+                    }
+                } else if (id !== 'curtain-overlay') {
+                    el.classList.add('hidden');
+                }
+            }
+        });
+    }
+    window.showScreen = showScreen;
 
     // Helper universal para comparação flexível de senha
     const matchesPass = (storedPass, typedPass) => {
