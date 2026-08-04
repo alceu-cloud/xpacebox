@@ -1156,15 +1156,21 @@ select {
    TELA INICIAL DO ADMINISTRADOR (SELEÇÃO DE PAINÉIS)
    ========================================================================== */
 .admin-landing-wrapper {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    min-height: 100vh !important;
-    padding: 24px !important;
-    background-color: #0f172a !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px;
+    background-color: #0f172a;
     background-image: 
         radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(227, 0, 126, 0.15) 0px, transparent 50%) !important;
+        radial-gradient(at 100% 100%, rgba(227, 0, 126, 0.15) 0px, transparent 50%);
+}
+
+.admin-landing-wrapper.hidden,
+.login-wrapper.hidden,
+.app-container.hidden {
+    display: none !important;
 }
 
 .admin-landing-card {
