@@ -2,16 +2,14 @@
 <html lang="pt-BR">
 <head>
     <script>
-        // Auto-Invalidate Cache & Reload on New System Release (v192)
+        // Auto-Invalidate Cache & Reload on New System Release (v193)
         (function() {
-            var buildVer = "192";
-            var localVer = localStorage.getItem("dawos_system_build_version");
-            if (localVer !== buildVer) {
+            var buildVer = "193";
+            var targetQuery = "v=" + buildVer;
+            if (window.location.search.indexOf(targetQuery) === -1) {
                 localStorage.setItem("dawos_system_build_version", buildVer);
-                if (window.location.search.indexOf('v=') === -1) {
-                    var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?v=" + buildVer;
-                    window.location.replace(cleanUrl);
-                }
+                var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?v=" + buildVer;
+                window.location.replace(cleanUrl);
             }
         })();
     </script>
@@ -25,7 +23,7 @@
     <!-- Meta tags SEO -->
     <meta name="description" content="Calculadora e painel de formação de preços inteligente e dinâmico para a DAWOS Embalagens. Gere orçamentos em segundos.">
     <!-- Link para o CSS de Estilos -->
-    <link rel="stylesheet" href="style.css?v=20260729_v112">
+    <link rel="stylesheet" href="style.css?v=193_curtainhide">
 <style>
 /* Estilos ForÃ§ados de CentralizaÃ§Ã£o dos Cards do Landing Hub */
 .panel-cards-grid .panel-card {
