@@ -2266,7 +2266,7 @@
 
             var creditoIpi = custoMat * ipiVal;     // R$ 0,0352
             var creditoIcms = custoMat * icmsVal;   // R$ 0,1300
-            var custoSNotaMat = custoMat - creditoIpi - creditoIcms; // Custo MP Líquido s/ Nota (R$ 0,918)
+            var custoSNotaMat = (costIpi / 1.12) * areaM2; // Custo MP Líquido s/ ICMS Entrada (Puxa R$ 0,957)
 
             var elCustoMat = document.getElementById('pf-custo-mat');
             var elCustoSnota = document.getElementById('pf-custo-snota');
@@ -2309,12 +2309,9 @@
                 custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido
             } else {
                 // FÓRMULA DAWOS (Lucro Presumido Oficial):
-                // 1. Custo MP Líquido s/ Nota: R$ 0,918
-                // 2. Preço Líquido (Base 40% MC) = R$ 0,918 / 0.60 = R$ 1,53
-                // 3. Margem R$ = R$ 1,53 * 40% = R$ 0,612 (Exatamente R$ 0,612!)
-                // 4. Preço Final (30.957% Despesas) = R$ 1,53 / (1 - 0.30957) = R$ 2,216
-                S_despesas = 0.30957; // Taxa de despesas fiscais e comerciais DAWOS (30.957%)
-                custoBaseMat = custoSNotaMat; // Custo MP Líquido s/ Nota (R$ 0,918)
+                // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
+                S_despesas = (p.comissao + p.frete + p.outros + p.icmsDawos + p.demais) / 100; // Taxa de 25.97%
+                custoBaseMat = custoSNotaMat; // Custo MP Líquido s/ Nota (R$ 0,957)
             }
 
             // Fórmula DAWOS: Preço = (Custo_Liquido / (1 - MC%)) / (1 - S_despesas)
@@ -2455,9 +2452,9 @@
 
             // 7. CÁLCULO OFICIAL EXCEL (FOTOS 1, 2 e 3): MC HORA (R$/h)
             // F17 = Set-up em minutos (Tabela de Tempos)
-            var F17 = matchedTempo ? matchedTempo.setupMin : 19.15;
+            var F17 = matchedTempo ? matchedTempo.setupMin : 16.61;
             // G16 = Caixas por Hora (Tabela de Tempos)
-            var G16 = matchedTempo ? matchedTempo.prodHora : 1421;
+            var G16 = matchedTempo ? matchedTempo.prodHora : 1439;
             // F15 = Quantidade do Pedido
             var F15 = qty;
 
