@@ -1156,25 +1156,27 @@ select {
    TELA INICIAL DO ADMINISTRADOR (SELEÇÃO DE PAINÉIS)
    ========================================================================== */
 .admin-landing-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 24px;
-    background-color: var(--bg-main);
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 100vh !important;
+    padding: 24px !important;
+    background-color: #0f172a !important;
     background-image: 
-        radial-gradient(at 0% 0%, rgba(27, 54, 93, 0.3) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(217, 119, 36, 0.15) 0px, transparent 50%);
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(227, 0, 126, 0.15) 0px, transparent 50%) !important;
 }
 
 .admin-landing-card {
-    max-width: 800px;
-    width: 100%;
-    text-align: center;
-    border-color: rgba(27, 54, 93, 0.4);
-    box-shadow: var(--glow-navy), var(--card-shadow);
-    animation: fadeIn var(--transition-smooth);
-    padding: 48px;
+    max-width: 900px !important;
+    width: 100% !important;
+    text-align: center !important;
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+    border-radius: 24px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+    padding: 40px 28px !important;
 }
 
 .admin-landing-logo-container {
@@ -1189,17 +1191,17 @@ select {
 }
 
 .admin-landing-card h2 {
-    font-family: var(--font-title);
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-    color: var(--color-text-primary);
+    font-family: var(--font-title) !important;
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 8px !important;
+    color: #f8fafc !important;
 }
 
 .admin-landing-subtitle {
-    font-size: 0.95rem;
-    color: var(--color-text-secondary);
-    margin-bottom: 40px;
+    font-size: 0.95rem !important;
+    color: #94a3b8 !important;
+    margin-bottom: 30px !important;
 }
 
 .panel-cards-grid {
