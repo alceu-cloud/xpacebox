@@ -2266,7 +2266,7 @@
 
             var creditoIpi = custoMat * ipiVal;     // R$ 0,0671
             var creditoIcms = custoMat * icmsVal;   // R$ 0,2476
-            var custoSNotaMat = custoMat - creditoIpi - creditoIcms; // Custo MP Líquido abatido (R$ 1,7489)
+            var custoSNotaMat = (costIpi / 1.12) * areaM2; // Custo MP Líquido s/ ICMS Entrada (Puxa R$ 0,957)
 
             var elCustoMat = document.getElementById('pf-custo-mat');
             var elCustoSnota = document.getElementById('pf-custo-snota');
@@ -2278,7 +2278,7 @@
                 if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay) + ' <span style="font-size:0.62rem; background:#0284c7; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE GTA</span>';
             } else {
                 if (elCustoMat)   elCustoMat.innerHTML   = dawosFmtBRL(custoMat);
-                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMatDisplay) + ' <span style="font-size:0.62rem; background:#6d28d9; color:#fff; padding:1px 5px; border-radius:4px; font-weight:800; vertical-align:middle; display:inline-block; margin-left:2px;">BASE DAWOS</span>';
+                if (elCustoSnota) elCustoSnota.innerHTML = dawosFmtBRL(custoSNotaMat);
             }
 
             // 6. Parâmetros operacionais e precificação
@@ -2293,7 +2293,7 @@
             }
 
             var S_despesas = 0;
-            var custoBaseMat = custoSNotaMat; // default Dawos
+            var custoBaseMat = custoSNotaMat; // default Dawos sem custo de fabricação adicionado
 
             if (sellingCompany === 'CARCAT') {
                 // FÓRMULA CARCAT (Cartonagem & Embalagens):
@@ -2306,40 +2306,12 @@
                 var pisC  = p.pisCofins !== undefined ? p.pisCofins : 3.65;
                 var ipiR  = p.ipiRate !== undefined ? p.ipiRate : 3.25;
                 S_despesas = (icmsS + pisC + ipiR + p.comissao + p.frete + p.outros) / 100;
-                custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido abatido de IPI e ICMS Entrada (R$ 1,7489)
+                custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido
             } else {
                 // FÓRMULA DAWOS (Lucro Presumido):
                 // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
                 S_despesas = (p.comissao + p.frete + p.outros + p.icmsDawos + p.demais) / 100;
-
-                // Busca o Tempo de Produção (Caixas por Hora G16) para calcular o Custo de Fabricação
-                var temposList = dawosGetTempos();
-                var matchedTempo = null;
-                if (paperClassCode && paperCode) {
-                    for (var i = 0; i < temposList.length; i++) {
-                        var t = temposList[i];
-                        if (t.papel === paperClassCode && t.codigo === paperCode && pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
-                            matchedTempo = t;
-                            break;
-                        }
-                    }
-                }
-                if (!matchedTempo && paperClassCode) {
-                    for (var i = 0; i < temposList.length; i++) {
-                        var t = temposList[i];
-                        if (t.papel === paperClassCode && pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
-                            matchedTempo = t;
-                            break;
-                        }
-                    }
-                }
-                if (!matchedTempo && temposList.length > 0) matchedTempo = temposList[0];
-
-                var prodHoraSpeed = matchedTempo ? matchedTempo.prodHora : 1439;
-                var custoFabricacao = prodHoraSpeed > 0 ? (95.00 / prodHoraSpeed) : 0.066;
-
-                // Custo Direto = Custo MP Líquido s/ Nota + Custo de Fabricação por caixa
-                custoBaseMat = custoSNotaMat + custoFabricacao;
+                custoBaseMat = custoSNotaMat; // usa Custo MP Líquido s/ Nota (0,957)
             }
 
             // Fórmula DAWOS: Preço = Custo_Liquido / ((1 - S_despesas) * (1 - MC%))
