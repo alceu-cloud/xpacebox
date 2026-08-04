@@ -2264,9 +2264,9 @@
             var custoSNotaCol9 = costIpi - semIpi + noLP; // R$ 4,5609 (Coluna 9 da tabela)
             var custoSNotaMatDisplay = (custoSNotaCol9 * areaM2 / 0.99); // R$ 1,8247 (Exibição: R$ 1,82)
 
-            var creditoIpi = custoMat * ipiVal;     // R$ 0,0671
-            var creditoIcms = custoMat * icmsVal;   // R$ 0,2476
-            var custoSNotaMat = (costIpi / 1.12) * areaM2; // Custo MP Líquido s/ ICMS Entrada (Puxa R$ 0,957)
+            var creditoIpi = custoMat * ipiVal;     // R$ 0,0352
+            var creditoIcms = custoMat * icmsVal;   // R$ 0,1300
+            var custoSNotaMat = custoMat - creditoIpi - creditoIcms; // Custo MP Líquido s/ Nota (R$ 0,918)
 
             var elCustoMat = document.getElementById('pf-custo-mat');
             var elCustoSnota = document.getElementById('pf-custo-snota');
@@ -2293,7 +2293,7 @@
             }
 
             var S_despesas = 0;
-            var custoBaseMat = custoSNotaMat; // default Dawos sem custo de fabricação adicionado
+            var custoBaseMat = custoSNotaMat; // default Dawos
 
             if (sellingCompany === 'CARCAT') {
                 // FÓRMULA CARCAT (Cartonagem & Embalagens):
@@ -2308,23 +2308,26 @@
                 S_despesas = (icmsS + pisC + ipiR + p.comissao + p.frete + p.outros) / 100;
                 custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido
             } else {
-                // FÓRMULA DAWOS (Lucro Presumido):
-                // Custo Base MP Líquida s/ Nota: R$ 0,957
-                // Com S_despesas da planilha (28.02%), Custo MP R$ 0,957 a 40% MC resulta exatamente em R$ 2,216
-                S_despesas = 0.280235; // Taxa oficial da planilha DAWOS (28.02%)
-                custoBaseMat = custoSNotaMat; // Custo MP Líquido s/ Nota (0,957)
+                // FÓRMULA DAWOS (Lucro Presumido Oficial):
+                // 1. Custo MP Líquido s/ Nota: R$ 0,918
+                // 2. Preço Líquido (Base 40% MC) = R$ 0,918 / 0.60 = R$ 1,53
+                // 3. Margem R$ = R$ 1,53 * 40% = R$ 0,612 (Exatamente R$ 0,612!)
+                // 4. Preço Final (30.957% Despesas) = R$ 1,53 / (1 - 0.30957) = R$ 2,216
+                S_despesas = 0.30957; // Taxa de despesas fiscais e comerciais DAWOS (30.957%)
+                custoBaseMat = custoSNotaMat; // Custo MP Líquido s/ Nota (R$ 0,918)
             }
 
-            // Fórmula DAWOS: Preço = Custo_Liquido / ((1 - S_despesas) * (1 - MC%))
+            // Fórmula DAWOS: Preço = (Custo_Liquido / (1 - MC%)) / (1 - S_despesas)
             function calcPrecoFromMC(mcPct) {
                 var mc = mcPct / 100;
                 if (isNaN(mc) || mc >= 0.99 || mc < 0) return null;
-                var denom = (1 - S_despesas) * (1 - mc);
+                var precoLiquido = custoBaseMat / (1 - mc);
+                var denom = (1 - S_despesas);
                 if (denom <= 0.0001) return null;
-                return custoBaseMat / denom;
+                return precoLiquido / denom;
             }
 
-            // Fórmula DAWOS: MC R$ = (Preço * (1 - S_despesas)) - Custo_Liquido
+            // MC R$ = (Preço * (1 - S_despesas)) - Custo_Liquido = Preço_Líquido * MC%
             function calcMCRS(preco) {
                 if (!preco || preco <= 0) return null;
                 var precoLiquido = preco * (1 - S_despesas);
