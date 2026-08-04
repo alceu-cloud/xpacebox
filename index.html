@@ -819,6 +819,14 @@
                                             <span style="color:#334155; font-weight:600;">Custo MP (s/ Nota):</span>
                                             <strong id="pf-custo-snota" style="color:#6d28d9; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 1,82</strong>
                                         </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#334155; font-weight:600;">Margem R$ (unitária):</span>
+                                            <strong id="pf-mc-rs" style="color:#16a34a; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 0,6560</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px; white-space:nowrap;">
+                                            <span style="color:#334155; font-weight:600;">Preço Líquido (R$):</span>
+                                            <strong id="pf-preco-liquido" style="color:#0284c7; font-family:var(--font-mono); font-weight:700; font-size:0.95rem;">R$ 1,64</strong>
+                                        </div>
                                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.95rem; border-bottom:1px solid rgba(227,0,126,0.12); padding-bottom:8px;">
                                             <span style="color:#334155; font-weight:600;">Comissão (%):</span>
                                             <strong id="pf-comissao-pct" style="color:#0284c7; font-family:var(--font-mono); font-weight:700; font-size:1.05rem;">2,00%</strong>
@@ -2303,7 +2311,35 @@
                 // FÓRMULA DAWOS (Lucro Presumido):
                 // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
                 S_despesas = (p.comissao + p.frete + p.outros + p.icmsDawos + p.demais) / 100;
-                custoBaseMat = custoSNotaMat; // usa Custo MP Líquido s/ Nota
+
+                // Busca o Tempo de Produção (Caixas por Hora G16) para calcular o Custo de Fabricação
+                var temposList = dawosGetTempos();
+                var matchedTempo = null;
+                if (paperClassCode && paperCode) {
+                    for (var i = 0; i < temposList.length; i++) {
+                        var t = temposList[i];
+                        if (t.papel === paperClassCode && t.codigo === paperCode && pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
+                            matchedTempo = t;
+                            break;
+                        }
+                    }
+                }
+                if (!matchedTempo && paperClassCode) {
+                    for (var i = 0; i < temposList.length; i++) {
+                        var t = temposList[i];
+                        if (t.papel === paperClassCode && pesoLookupKg >= t.minWeight && pesoLookupKg <= (t.maxWeight + 0.009)) {
+                            matchedTempo = t;
+                            break;
+                        }
+                    }
+                }
+                if (!matchedTempo && temposList.length > 0) matchedTempo = temposList[0];
+
+                var prodHoraSpeed = matchedTempo ? matchedTempo.prodHora : 1439;
+                var custoFabricacao = prodHoraSpeed > 0 ? (95.00 / prodHoraSpeed) : 0.066;
+
+                // Custo Direto = Custo MP Líquido s/ Nota + Custo de Fabricação por caixa
+                custoBaseMat = custoSNotaMat + custoFabricacao;
             }
 
             // Fórmula DAWOS: Preço = Custo_Liquido / ((1 - S_despesas) * (1 - MC%))
@@ -2344,6 +2380,11 @@
             if (elTotalPad) elTotalPad.textContent = precoP ? dawosFmtBRL(totalP) : '—';
             if (elComissaoPctPad) elComissaoPctPad.textContent = p.comissao.toFixed(2).replace('.', ',') + '%';
             if (elComissaoRsPad)  elComissaoRsPad.textContent  = precoP ? dawosFmtBRL(comissaoP) : '—';
+
+            var elMcRsPad = document.getElementById('pf-mc-rs');
+            var elPrecoLiqPad = document.getElementById('pf-preco-liquido');
+            if (elMcRsPad) elMcRsPad.textContent = precoP ? dawosFmtBRL4(calcMCRS(precoP)) : '—';
+            if (elPrecoLiqPad) elPrecoLiqPad.textContent = precoP ? dawosFmtBRL(precoP * (1 - S_despesas)) : '—';
 
             // Simulador A: Informa Margem -> Dá o Preço
             var mcA = dawosParseFloat(simA ? simA.value : null, p.mcPadrao);
