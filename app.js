@@ -830,67 +830,31 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('admin-landing-screen');
     };
 
-    // Animação da Cortina
+    // Exibição Direta de Boas-Vindas sem Delays
     function triggerCurtainWelcome(user) {
-        welcomeUserName.textContent = user.name;
+        if (welcomeUserName) welcomeUserName.textContent = user.name;
+        if (headerUserStatus) headerUserStatus.textContent = `LOGADO: ${user.name}`;
+        if (adminLandingName) adminLandingName.textContent = user.name;
         
-        // Exibir cortina fechada
-        curtainOverlay.classList.remove('hidden');
-        curtainOverlay.classList.remove('open');
-        
-        // Ocultar login
-        loginScreen.classList.add('hidden');
-        
-        // Configurar dados nas respectivas telas
-        headerUserStatus.textContent = `LOGADO: ${user.name}`;
-        adminLandingName.textContent = user.name;
-        
-        // Gerenciamento de abas exclusivas de administrador na calculadora
         const adminElements = document.querySelectorAll('.admin-only');
-        
         if (user.role === 'admin') {
             adminElements.forEach(el => el.style.display = 'block');
-            renderAdminCredentials();
-            renderAdminSuppliers();
-            renderAdminPaperClasses();
-            renderAdminMaterials();
+            if (window.renderAdminCredentials) renderAdminCredentials();
+            if (window.renderAdminSuppliers) renderAdminSuppliers();
+            if (window.renderAdminPaperClasses) renderAdminPaperClasses();
+            if (window.renderAdminMaterials) renderAdminMaterials();
+            showScreen('admin-company-selector-screen');
+        } else if (user.role === 'gerente') {
+            const gName = document.getElementById('gerente-user-name');
+            if (gName) gName.textContent = user.name;
+            showScreen('gerente-restricted-screen');
         } else {
             adminElements.forEach(el => el.style.display = 'none');
+            showScreen('app-container');
+            if (typeof tabBtns !== 'undefined' && tabBtns && tabBtns[0]) tabBtns[0].click();
+            if (window.populateCalculatorDropdowns) populateCalculatorDropdowns();
+            if (window.updateSummaryData) updateSummaryData();
         }
-
-        // Executar transição da cortina lateral (exibe a tela por 4 segundos completos)
-        setTimeout(() => {
-            curtainOverlay.classList.add('open'); // Painéis abrem lateralmente para esquerda e direita
-            
-            setTimeout(() => {
-                if (user.role === 'admin') {
-                    // Direciona Administrador para tela de escolha
-                    adminLandingScreen.classList.remove('hidden');
-                } else if (user.role === 'gerente') {
-                    // Direciona Gerente para tela de aviso de permissões pendentes
-                    if (gerenteRestrictedScreen) {
-                        const gName = document.getElementById('gerente-user-name');
-                        if (gName) gName.textContent = user.name;
-                        gerenteRestrictedScreen.classList.remove('hidden');
-                    }
-                } else {
-                    // Direciona Representante ou Cliente direto para a calculadora de formação de preço
-                    appContainer.className = 'app-container mode-pricing';
-                    appContainer.classList.remove('hidden');
-                    // Ativa a primeira aba
-                    const firstTab = tabBtns[0];
-                    if (firstTab) firstTab.click();
-                    
-                    populateCalculatorDropdowns();
-                    updateSummaryData();
-                }
-            }, 600);
-            
-            setTimeout(() => {
-                curtainOverlay.classList.add('hidden');
-            }, 1200);
-            
-        }, 4000);
     }
 
     // Função auxiliar para preencher credenciais lembradas (Apenas se salvas LOCALMENTE neste PC)
