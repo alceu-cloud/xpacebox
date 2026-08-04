@@ -2767,39 +2767,51 @@
             var loginScreen = document.getElementById('login-screen');
             var curtainOverlay = document.getElementById('curtain-overlay');
             var adminLanding = document.getElementById('admin-landing-screen');
+            var companySelector = document.getElementById('admin-company-selector-screen');
             var appContainer = document.getElementById('app-container');
             var welcomeName = document.getElementById('welcome-user-name');
-            var adminName = document.getElementById('admin-landing-name');
+            var headerUser = document.getElementById('header-user-status');
 
             var dispName = 'Alceu';
-            var isClient = false;
-
-            if (uVal === 'samantha') { dispName = 'Samantha'; isClient = true; }
-            else if (uVal === 'renan') { dispName = 'Renan'; isClient = true; }
+            if (uVal === 'samantha') { dispName = 'Samantha'; }
+            else if (uVal === 'renan') { dispName = 'Renan'; }
 
             if (welcomeName) welcomeName.textContent = dispName;
-            if (adminName) adminName.textContent = dispName;
+            if (headerUser) headerUser.textContent = 'LOGADO: ' + dispName;
 
+            // Ocultar login e telas intermediarias
             if (loginScreen) loginScreen.classList.add('hidden');
-            if (curtainOverlay) curtainOverlay.classList.add('hidden');
+            if (adminLanding) adminLanding.classList.add('hidden');
+            if (companySelector) companySelector.classList.add('hidden');
 
-            if (isClient) {
-                if (adminLanding) adminLanding.classList.add('hidden');
+            // Abrir cortina e direcionar para a calculadora ERP DAWOS
+            if (curtainOverlay) {
+                curtainOverlay.classList.remove('hidden');
+                curtainOverlay.classList.remove('open');
+                setTimeout(function() {
+                    curtainOverlay.classList.add('open');
+                    setTimeout(function() {
+                        if (appContainer) {
+                            appContainer.className = 'app-container mode-pricing';
+                            appContainer.classList.remove('hidden');
+                            appContainer.style.display = 'block';
+                        }
+                    }, 500);
+                    setTimeout(function() {
+                        curtainOverlay.classList.add('hidden');
+                    }, 1000);
+                }, 800);
+            } else {
                 if (appContainer) {
                     appContainer.className = 'app-container mode-pricing';
                     appContainer.classList.remove('hidden');
-                }
-            } else {
-                if (adminLanding) {
-                    adminLanding.classList.remove('hidden');
-                } else if (appContainer) {
-                    appContainer.className = 'app-container mode-pricing';
-                    appContainer.classList.remove('hidden');
+                    appContainer.style.display = 'block';
                 }
             }
         } catch(e) {
             console.error("Master login fallback:", e);
         }
+        return false;
     }
     </script>
     <!-- Modal Cadastro de Cliente -->

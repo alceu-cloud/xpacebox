@@ -814,29 +814,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Animação da Cortina
+    // Animação da Cortina DAWOS (Login direto na Calculadora ERP)
     function triggerCurtainWelcome(user) {
-        welcomeUserName.textContent = user.name;
+        if (welcomeUserName) welcomeUserName.textContent = user.name;
         
         // Exibir cortina fechada
-        curtainOverlay.classList.remove('hidden');
-        curtainOverlay.classList.remove('open');
+        if (curtainOverlay) {
+            curtainOverlay.classList.remove('hidden');
+            curtainOverlay.classList.remove('open');
+        }
         
         // Ocultar login
-        loginScreen.classList.add('hidden');
+        if (loginScreen) loginScreen.classList.add('hidden');
         
         // Configurar dados nas respectivas telas
-        headerUserStatus.textContent = `LOGADO: ${user.name}`;
-        adminLandingName.textContent = user.name;
+        if (headerUserStatus) headerUserStatus.textContent = `LOGADO: ${user.name}`;
+        if (adminLandingName) adminLandingName.textContent = user.name;
         
         // Gerenciamento de abas exclusivas de administrador na calculadora
         const adminElements = document.querySelectorAll('.admin-only');
         
         if (user.role === 'admin') {
             adminElements.forEach(el => el.style.display = 'block');
-            renderAdminCredentials();
-            renderAdminSuppliers();
-            renderAdminPaperClasses();
-            renderAdminMaterials();
+            if (typeof renderAdminCredentials === 'function') renderAdminCredentials();
+            if (typeof renderAdminSuppliers === 'function') renderAdminSuppliers();
+            if (typeof renderAdminPaperClasses === 'function') renderAdminPaperClasses();
+            if (typeof renderAdminMaterials === 'function') renderAdminMaterials();
         } else {
             adminElements.forEach(el => el.style.display = 'none');
         }
