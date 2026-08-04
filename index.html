@@ -139,7 +139,7 @@
             </div>
             <h2 style="font-size: 1.35rem; color: #ffffff; text-align: center; font-weight: 800; margin-bottom: 4px;">Autenticação no Sistema</h2>
             <p class="login-subtitle" style="text-align: center; color: #94a3b8; font-size: 0.88rem; margin-bottom: 24px;">Entre com suas credenciais para acessar a plataforma</p>
-            <form id="login-form" onsubmit="event.preventDefault();">
+            <form id="login-form" onsubmit="event.preventDefault(); if(window.performDirectMasterLogin)window.performDirectMasterLogin(); return false;">
                 <div class="form-group" style="margin-bottom: 18px;">
                     <label for="username" style="color: #cbd5e1; font-weight: 700; font-size: 0.85rem; margin-bottom: 6px;">Usuário</label>
                     <input type="text" id="username" name="username" placeholder="Digite seu usuário" value="" autocomplete="off" style="background: rgba(30, 41, 59, 0.8); border: 1px solid #475569; color: #ffffff; padding: 12px 14px; border-radius: 10px; font-size: 0.95rem; width: 100%;">
@@ -156,7 +156,7 @@
                     <label for="remember-me" style="margin-bottom: 0; font-size: 0.82rem; color: #94a3b8; cursor: pointer;">Lembrar de mim neste dispositivo</label>
                 </div>
                 <div id="login-error" class="login-error-msg"></div>
-                <button type="submit" id="btn-login-submit" onclick="performDirectMasterLogin()" class="btn btn-primary btn-login" style="background: linear-gradient(135deg, #e3007e, #be185d); border: none; font-size: 1.05rem; font-weight: 800; padding: 14px; border-radius: 12px; box-shadow: 0 8px 20px rgba(227, 0, 126, 0.4); cursor: pointer; width: 100%; text-transform: uppercase; letter-spacing: 0.05em;">Entrar no Sistema</button>
+                <button type="button" id="btn-login-submit" onclick="if(window.performDirectMasterLogin)window.performDirectMasterLogin(); return false;" class="btn btn-primary btn-login" style="background: linear-gradient(135deg, #e3007e, #be185d); border: none; font-size: 1.05rem; font-weight: 800; padding: 14px; border-radius: 12px; box-shadow: 0 8px 20px rgba(227, 0, 126, 0.4); cursor: pointer; width: 100%; text-transform: uppercase; letter-spacing: 0.05em;">Entrar no Sistema</button>
             </form>
         </div>
 
