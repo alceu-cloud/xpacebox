@@ -2,16 +2,11 @@
 <html lang="pt-BR">
 <head>
     <script>
-        // Auto-Invalidate Cache & Reload on New System Release (v174)
+        // Manter a URL estritamente limpa no navegador (xpacebox.com.br) sem parametros ?v=
         (function() {
-            var buildVer = "174";
-            var localVer = localStorage.getItem("dawos_system_build_version");
-            if (localVer !== buildVer) {
-                localStorage.setItem("dawos_system_build_version", buildVer);
-                if (window.location.search.indexOf('v=') === -1) {
-                    var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?v=" + buildVer;
-                    window.location.replace(cleanUrl);
-                }
+            if (window.location.search && window.location.search.length > 0) {
+                var cleanPath = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState(null, "", cleanPath);
             }
         })();
     </script>
