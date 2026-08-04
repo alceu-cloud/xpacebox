@@ -2266,7 +2266,7 @@
 
             var creditoIpi = custoMat * ipiVal;     // R$ 0,0352
             var creditoIcms = custoMat * icmsVal;   // R$ 0,1300
-            var custoSNotaMat = (costIpi / 1.12) * areaM2; // Custo MP Líquido s/ ICMS Entrada (Puxa R$ 0,957)
+            var custoSNotaMat = custoMat - creditoIpi - creditoIcms; // Custo MP Líquido s/ Nota (R$ 0,918)
 
             var elCustoMat = document.getElementById('pf-custo-mat');
             var elCustoSnota = document.getElementById('pf-custo-snota');
