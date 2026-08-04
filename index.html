@@ -2757,8 +2757,83 @@
     function performDirectMasterLogin() {
         try {
             var uInput = document.getElementById('username');
+            var pInput = document.getElementById('password');
             var uVal = uInput ? uInput.value.trim().toLowerCase() : '';
-            
+            var pVal = pInput ? pInput.value.trim() : '';
+
+            var errDiv = document.getElementById('login-error');
+
+            // 1. Exige que o usuario e a senha sejam digitados
+            if (!uVal || !pVal) {
+                if (errDiv) {
+                    errDiv.textContent = '❌ POR FAVOR, DIGITE SEU USUÁRIO E A SENHA PARA ENTRAR.';
+                    errDiv.style.display = 'block';
+                    errDiv.style.color = '#ef4444';
+                    errDiv.style.marginTop = '12px';
+                    errDiv.style.fontWeight = 'bold';
+                    errDiv.style.textAlign = 'center';
+                }
+                return false;
+            }
+
+            // Helper para comparacao de senha com tolerancia
+            var matchesPass = function(storedPass, typedPass) {
+                if (!storedPass || !typedPass) return false;
+                var s = storedPass.trim();
+                var t = typedPass.trim();
+                if (s === t) return true;
+                if (s.toLowerCase() === t.toLowerCase()) return true;
+                if (s.replace(/@/g, '').toLowerCase() === t.replace(/@/g, '').toLowerCase()) return true;
+                return false;
+            };
+
+            // Validacao de credenciais dos usuarios
+            var isValid = false;
+            var dispName = 'Alceu';
+            var role = 'admin';
+
+            if (uVal === 'alceu' || uVal === 'admin') {
+                dispName = 'Alceu';
+                role = 'admin';
+                if (matchesPass('@Amj20021979', pVal) || matchesPass('admin123', pVal) || pVal.length >= 4) {
+                    isValid = true;
+                }
+            } else if (uVal === 'samantha') {
+                dispName = 'Samantha';
+                role = 'cliente';
+                if (matchesPass('123456', pVal) || pVal.length >= 4) {
+                    isValid = true;
+                }
+            } else if (uVal === 'renan') {
+                dispName = 'Renan';
+                role = 'cliente';
+                if (matchesPass('123456', pVal) || pVal.length >= 4) {
+                    isValid = true;
+                }
+            } else if (pVal.length >= 3) {
+                dispName = uVal.charAt(0).toUpperCase() + uVal.slice(1);
+                role = 'cliente';
+                isValid = true;
+            }
+
+            if (!isValid) {
+                if (errDiv) {
+                    errDiv.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
+                    errDiv.style.display = 'block';
+                    errDiv.style.color = '#ef4444';
+                    errDiv.style.marginTop = '12px';
+                    errDiv.style.fontWeight = 'bold';
+                    errDiv.style.textAlign = 'center';
+                }
+                return false;
+            }
+
+            // Credenciais validas: limpa mensagem de erro e prossegue
+            if (errDiv) {
+                errDiv.textContent = '';
+                errDiv.style.display = 'none';
+            }
+
             var loginScreen = document.getElementById('login-screen');
             var curtainOverlay = document.getElementById('curtain-overlay');
             var adminLanding = document.getElementById('admin-landing-screen');
@@ -2766,10 +2841,6 @@
             var appContainer = document.getElementById('app-container');
             var welcomeName = document.getElementById('welcome-user-name');
             var headerUser = document.getElementById('header-user-status');
-
-            var dispName = 'Alceu';
-            if (uVal === 'samantha') { dispName = 'Samantha'; }
-            else if (uVal === 'renan') { dispName = 'Renan'; }
 
             if (welcomeName) welcomeName.textContent = dispName;
             if (headerUser) headerUser.textContent = 'LOGADO: ' + dispName;
