@@ -727,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (id === 'app-container') {
                         el.className = 'app-container mode-pricing';
                     }
-                } else if (id !== 'curtain-overlay') {
+                } else {
                     el.classList.add('hidden');
                 }
             }
