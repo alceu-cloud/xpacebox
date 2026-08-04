@@ -766,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (user) {
-            loginError.textContent = '';
+            if (loginError) loginError.textContent = '';
             currentUser = user;
             
             if (rememberMeCheckbox && rememberMeCheckbox.checked) {
@@ -777,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('dawos_remembered_pass');
             }
             
-            headerUserStatus.textContent = `LOGADO: ${user.name}`;
+            if (headerUserStatus) headerUserStatus.textContent = `LOGADO: ${user.name}`;
             const adminName = document.getElementById('admin-landing-name');
             if (adminName) adminName.textContent = user.name;
 
@@ -786,13 +786,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showScreen('admin-company-selector-screen');
             } else {
                 showScreen('app-container');
-                const firstTab = tabBtns[0];
-                if (firstTab) firstTab.click();
-                if (window.populateCalculatorDropdowns) populateCalculatorDropdowns();
-                if (window.updateSummaryData) updateSummaryData();
+                if (typeof tabBtns !== 'undefined' && tabBtns && tabBtns[0]) tabBtns[0].click();
+                if (typeof populateCalculatorDropdowns === 'function') populateCalculatorDropdowns();
+                if (typeof updateSummaryData === 'function') updateSummaryData();
             }
         } else {
-            loginError.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
+            if (loginError) loginError.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
         }
     });
 

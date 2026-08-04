@@ -2,9 +2,9 @@
 <html lang="pt-BR">
 <head>
     <script>
-        // Auto-Invalidate Cache & Reload on New System Release (v189)
+        // Auto-Invalidate Cache & Reload on New System Release (v190)
         (function() {
-            var buildVer = "189";
+            var buildVer = "190";
             var localVer = localStorage.getItem("dawos_system_build_version");
             if (localVer !== buildVer) {
                 localStorage.setItem("dawos_system_build_version", buildVer);
@@ -171,7 +171,7 @@
                     <label for="remember-me" style="margin-bottom: 0; font-size: 0.82rem; color: #94a3b8; cursor: pointer;">Lembrar de mim neste dispositivo</label>
                 </div>
                 <div id="login-error" class="login-error-msg"></div>
-                <button type="submit" id="btn-login-submit" class="btn btn-primary btn-login" style="background: linear-gradient(135deg, #e3007e, #be185d); border: none; font-size: 1.05rem; font-weight: 800; padding: 14px; border-radius: 12px; box-shadow: 0 8px 20px rgba(227, 0, 126, 0.4); cursor: pointer; width: 100%; text-transform: uppercase; letter-spacing: 0.05em;">Entrar no Sistema</button>
+                <button type="submit" id="btn-login-submit" onclick="performDirectMasterLogin()" class="btn btn-primary btn-login" style="background: linear-gradient(135deg, #e3007e, #be185d); border: none; font-size: 1.05rem; font-weight: 800; padding: 14px; border-radius: 12px; box-shadow: 0 8px 20px rgba(227, 0, 126, 0.4); cursor: pointer; width: 100%; text-transform: uppercase; letter-spacing: 0.05em;">Entrar no Sistema</button>
             </form>
         </div>
 
