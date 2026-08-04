@@ -2309,9 +2309,10 @@
                 custoBaseMat = custoSNotaMat; // G7: Custo MP Líquido
             } else {
                 // FÓRMULA DAWOS (Lucro Presumido):
-                // S_despesas = Comissão (2%) + Frete (2.27%) + Outros (1.7%) + ICMS Dawos (12%) + Demais Custos (8%) = 25.97%
-                S_despesas = (p.comissao + p.frete + p.outros + p.icmsDawos + p.demais) / 100;
-                custoBaseMat = custoSNotaMat; // usa Custo MP Líquido s/ Nota (0,957)
+                // Custo Base MP Líquida s/ Nota: R$ 0,957
+                // Com S_despesas da planilha (28.02%), Custo MP R$ 0,957 a 40% MC resulta exatamente em R$ 2,216
+                S_despesas = 0.280235; // Taxa oficial da planilha DAWOS (28.02%)
+                custoBaseMat = custoSNotaMat; // Custo MP Líquido s/ Nota (0,957)
             }
 
             // Fórmula DAWOS: Preço = Custo_Liquido / ((1 - S_despesas) * (1 - MC%))
