@@ -829,11 +829,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.selectCompanyContext = function(companyId) {
         const companySelector = document.getElementById('admin-company-selector-screen');
         if (companySelector) companySelector.classList.add('hidden');
-        if (currentUser) {
+        
+        const landing = document.getElementById('admin-landing-screen');
+        const adminName = document.getElementById('admin-landing-name');
+        if (adminName && currentUser) adminName.textContent = currentUser.name || 'Alceu';
+
+        if (landing) {
+            landing.classList.remove('hidden');
+        } else if (currentUser) {
             triggerCurtainWelcome(currentUser);
-        } else {
-            const landing = document.getElementById('admin-landing-screen');
-            if (landing) landing.classList.remove('hidden');
         }
     };
 
