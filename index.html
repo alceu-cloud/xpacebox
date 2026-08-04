@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <script>
-        // Auto-Invalidate Cache & Reload on New System Release (v193)
-        (function() {
-            var buildVer = "193";
-            var targetQuery = "v=" + buildVer;
-            if (window.location.search.indexOf(targetQuery) === -1) {
-                localStorage.setItem("dawos_system_build_version", buildVer);
-                var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?v=" + buildVer;
-                window.location.replace(cleanUrl);
-            }
-        })();
-    </script>
-
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -2825,22 +2812,18 @@
                 if (role === 'admin') {
                     window.showScreen('admin-company-selector-screen');
                 } else {
-                    var cName = document.getElementById('welcome-user-name');
-                    if (cName) cName.textContent = dispName;
-                    window.showScreen('curtain-overlay');
-                    setTimeout(function() {
-                        var c = document.getElementById('curtain-overlay');
-                        if (c) c.classList.add('open');
-                        setTimeout(function() {
-                            window.showScreen('app-container');
-                        }, 600);
-                    }, 1000);
+                    window.showScreen('app-container');
                 }
             } else {
                 var loginScreen = document.getElementById('login-screen');
-                if (loginScreen) loginScreen.classList.add('hidden');
+                if (loginScreen) { loginScreen.classList.add('hidden'); loginScreen.style.display = 'none'; }
                 var companySelector = document.getElementById('admin-company-selector-screen');
-                if (companySelector) companySelector.classList.remove('hidden');
+                var appContainer = document.getElementById('app-container');
+                if (role === 'admin') {
+                    if (companySelector) { companySelector.classList.remove('hidden'); companySelector.style.display = 'flex'; }
+                } else {
+                    if (appContainer) { appContainer.classList.remove('hidden'); appContainer.style.display = 'block'; }
+                }
             }
         } catch(e) {
             console.error("Master login fallback:", e);

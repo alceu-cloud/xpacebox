@@ -724,11 +724,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) {
                 if (id === targetId) {
                     el.classList.remove('hidden');
+                    el.style.display = (id === 'app-container') ? 'block' : 'flex';
                     if (id === 'app-container') {
                         el.className = 'app-container mode-pricing';
                     }
                 } else {
                     el.classList.add('hidden');
+                    el.style.display = 'none';
                 }
             }
         });
