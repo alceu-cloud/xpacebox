@@ -779,37 +779,30 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } catch(eBackup){}
-        const password = passwordInput.value;
-        
-        let user = users.find(u => (u.username || '').toLowerCase() === username && u.password === password);
-        
-        if (!user && (username === 'alceu' || username === 'admin')) {
-            if (password === '@Amj20021979' || password === 'admin' || password === '123456') {
-                user = { name: 'Alceu', username: 'alceu', role: 'admin' };
             }
         }
         
         if (user) {
-            loginError.textContent = '';
-            currentUser = user;
-            
-            if (rememberMeCheckbox && rememberMeCheckbox.checked) {
-                localStorage.setItem('dawos_remembered_user', username);
-                localStorage.setItem('dawos_remembered_pass', password);
+                loginError.textContent = '';
+                currentUser = user;
+                
+                if (rememberMeCheckbox && rememberMeCheckbox.checked) {
+                    localStorage.setItem('dawos_remembered_user', username);
+                    localStorage.setItem('dawos_remembered_pass', password);
+                } else {
+                    localStorage.removeItem('dawos_remembered_user');
+                    localStorage.removeItem('dawos_remembered_pass');
+                }
+                
+                if (user.username.toLowerCase() === 'alceu' || user.role === 'admin') {
+                    showScreen('admin-company-selector-screen');
+                } else {
+                    triggerCurtainWelcome(user);
+                }
             } else {
-                localStorage.removeItem('dawos_remembered_user');
-                localStorage.removeItem('dawos_remembered_pass');
+                loginError.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
             }
-            
-            if (user.username.toLowerCase() === 'alceu' || user.role === 'admin') {
-                showScreen('admin-company-selector-screen');
-            } else {
-                triggerCurtainWelcome(user);
-            }
-        } else {
-            loginError.textContent = '❌ USUÁRIO OU SENHA INCORRETOS.';
-        }
-    });
+        });
 
     window.selectCompanyContext = function(companyId) {
         const adminName = document.getElementById('admin-landing-name');
