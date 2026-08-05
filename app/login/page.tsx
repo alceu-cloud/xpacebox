@@ -1,31 +1,110 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../lib/supabase";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+type Profile = {
+  platform_role: string;
+  active: boolean;
+};
 
-  async function handleLogin() {
-    setLoading(true);
-    setMessage("");
+type Membership = {
+  company_id: string;
+  companies: {
+    slug: string;
+    active: boolean;
+  } | null;
+};
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+export default function HomePage() {
+  const router = useRouter();
+  const [message, setMessage] = useState("Verificando seu acesso...");
 
-    if (error) {
-      setMessage("E-mail ou senha inválidos.");
-      setLoading(false);
+  useEffect(() => {
+    direcionarUsuario();
+  }, []);
+
+  async function direcionarUsuario() {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      router.replace("/login");
       return;
     }
 
-    setMessage("Login realizado com sucesso.");
-    window.location.href = "/";
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("platform_role, active")
+      .eq("id", user.id)
+      .single<Profile>();
+
+    if (profileError || !profile) {
+      setMessage("Perfil do usuário não encontrado.");
+      return;
+    }
+
+    if (!profile.active) {
+      await supabase.auth.signOut();
+      setMessage("Seu acesso está desativado.");
+      return;
+    }
+
+    if (profile.platform_role === "platform_owner") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    const { data: memberships, error: membershipsError } =
+      await supabase
+        .from("company_members")
+        .select(
+          `
+          company_id,
+          companies (
+            slug,
+            active
+          )
+        `
+        )
+        .eq("profile_id", user.id)
+        .eq("active", true)
+        .returns<Membership[]>();
+
+    if (membershipsError) {
+      console.error(membershipsError);
+      setMessage("Erro ao localizar a empresa do usuário.");
+      return;
+    }
+
+    const empresasAtivas =
+      memberships?.filter(
+        (membership) =>
+          membership.companies &&
+          membership.companies.active === true
+      ) ?? [];
+
+    if (empresasAtivas.length === 0) {
+      setMessage("Nenhuma empresa está vinculada ao seu usuário.");
+      return;
+    }
+
+    if (empresasAtivas.length === 1) {
+      const slug = empresasAtivas[0].companies?.slug;
+
+      if (!slug) {
+        setMessage("A empresa vinculada não possui endereço válido.");
+        return;
+      }
+
+      router.replace(`/empresa/${slug}`);
+      return;
+    }
+
+    router.replace("/dashboard");
   }
 
   return (
@@ -33,62 +112,16 @@ export default function LoginPage() {
       style={{
         minHeight: "100vh",
         display: "flex",
-        justifyContent: "center",
         alignItems: "center",
+        justifyContent: "center",
         background: "#0f172a",
+        color: "#ffffff",
+        fontFamily: "Arial, sans-serif",
       }}
     >
-      <div
-        style={{
-          width: 380,
-          background: "#fff",
-          padding: 30,
-          borderRadius: 12,
-        }}
-      >
-        <h1 style={{ marginBottom: 20 }}>XPACEBOX</h1>
-
-        <input
-          type="email"
-          placeholder="E-mail"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 12,
-            marginBottom: 10,
-          }}
-        />
-
-        <input
-          type="password"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 12,
-            marginBottom: 20,
-          }}
-        />
-
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: 12,
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
-
-        {message && (
-          <p style={{ marginTop: 15 }}>
-            {message}
-          </p>
-        )}
+      <div style={{ textAlign: "center" }}>
+        <h1>XPACEBOX</h1>
+        <p>{message}</p>
       </div>
     </main>
   );
