@@ -1,0 +1,40 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #05060d;
+  font-size: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+}
+
+.login-input {
+  background: #16141f !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  color-scheme: dark;
+}
+
+.login-input::placeholder {
+  color: #6b7280 !important;
+  opacity: 1;
+}
+
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus,
+.login-input:-webkit-autofill:active {
+  background: #16141f !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #16141f inset !important;
+  box-shadow: 0 0 0 1000px #16141f inset !important;
+  transition: background-color 9999s ease-out;
+}

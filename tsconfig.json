@@ -1,4 +1,4 @@
-{
+  {
   "compilerOptions": {
     "target": "ES2022",
     "lib": [
@@ -21,7 +21,12 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
   },
   "include": [
     "**/*.ts",
