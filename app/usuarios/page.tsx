@@ -11,8 +11,13 @@ import UserForm from "@/components/usuarios/UserForm";
 
 import {
   carregarUsuarios,
-  excluirUsuario as excluirUsuarioBanco,
+  carregarEmpresas,
+  excluirUsuario,
+  criarUsuario,
+  atualizarUsuario,
 } from "@/lib/usuarios";
+
+import { supabase } from "@/lib/supabase";
 
 
 type User = {
@@ -20,288 +25,695 @@ type User = {
   full_name: string | null;
   platform_role: string;
   active: boolean;
+
+  company_members?: {
+    company_id: string;
+    company_role: string;
+
+    companies?: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+
+  }[];
+
 };
 
 
-const empresas = [
-  {
-    id: "xpace",
-    name: "XPACE",
-  },
-];
+type Company = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 
 
 export default function UsuariosPage() {
+
+
   const router = useRouter();
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [modal, setModal] = useState(false);
 
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [empresa, setEmpresa] = useState("");
-  const [cargo, setCargo] = useState("company_user");
+
+  const [users, setUsers] =
+    useState<User[]>([]);
+
+
+
+  const [empresas, setEmpresas] =
+    useState<Company[]>([]);
+
+
+
+
+  const [modalAberto, setModalAberto] =
+    useState(false);
+
+
+
+  const [salvando, setSalvando] =
+    useState(false);
+
+
+
+  const [modoEdicao, setModoEdicao] =
+    useState(false);
+
+
+
+  const [usuarioEditando, setUsuarioEditando] =
+    useState<User | null>(null);
+
+
+
+
+  const [nome, setNome] =
+    useState("");
+
+
+
+  const [email, setEmail] =
+    useState("");
+
+
+
+  const [empresa, setEmpresa] =
+    useState("");
+
+
+
+  const [cargo, setCargo] =
+    useState("company_user");
+
+
+
 
 
   useEffect(() => {
-    carregar();
+
+    carregarLista();
+
+    carregarListaEmpresas();
+
   }, []);
 
 
-  async function carregar() {
-    try {
-      const dados = await carregarUsuarios();
-      setUsers(dados);
-    } catch (error) {
-      console.error(
-        "Erro ao carregar usuários:",
-        error
-      );
-    }
+
+
+
+  async function carregarLista() {
+
+    const dados =
+      await carregarUsuarios();
+
+
+    setUsers(dados);
+
   }
 
 
-  async function excluirUsuario(user: User) {
+
+
+
+  async function carregarListaEmpresas() {
+
+    const dados =
+      await carregarEmpresas();
+
+
+    setEmpresas(dados);
+
+  }
+
+
+
+
+
+  function abrirNovo() {
+
+
+    setModoEdicao(false);
+
+    setUsuarioEditando(null);
+
+
+
+    setNome("");
+
+    setEmail("");
+
+    setEmpresa("");
+
+    setCargo("company_user");
+
+
+
+    setModalAberto(true);
+
+
+  }
+
+
+
+
+
+  function abrirEditar(user: User) {
+
+
+    console.log(
+      "EDITANDO COMPLETO:",
+      user
+    );
+
+
+
+    setModoEdicao(true);
+
+
+    setUsuarioEditando(user);
+
+
+
+    setNome(
+      user.full_name ?? ""
+    );
+
+
+
+    setCargo(
+      user.platform_role
+    );
+
+
+
+    setEmpresa(
+      user.company_members?.[0]?.company_id ?? ""
+    );
+
+
+
+    setModalAberto(true);
+
+
+  }
+
+
+
+
+
+  async function remover(user: User) {
+
+
     const confirmar = confirm(
       `Deseja excluir ${user.full_name}?`
     );
 
+
     if (!confirmar) return;
 
 
+
+    await excluirUsuario(
+      user.id
+    );
+
+
+    await carregarLista();
+
+
+  }
+    async function salvar() {
+
+
+    console.log("SALVAR USUARIO:", {
+      modoEdicao,
+      usuarioEditando,
+      nome,
+      email,
+      empresa,
+      cargo,
+    });
+
+
+
     try {
-      await excluirUsuarioBanco(user.id);
 
-      setUsers((lista) =>
-        lista.filter(
-          (item) => item.id !== user.id
-        )
-      );
 
-      alert(
-        "Usuário excluído com sucesso!"
-      );
+      setSalvando(true);
+
+
+
+      if (modoEdicao && usuarioEditando) {
+
+
+
+        await atualizarUsuario(
+          usuarioEditando.id,
+          nome,
+          cargo
+        );
+
+
+
+      } else {
+
+
+
+        const {
+          data: {
+            session,
+          },
+        } = await supabase.auth.getSession();
+
+
+
+        if (!session?.access_token) {
+
+
+          alert(
+            "Sessão expirada"
+          );
+
+
+          return;
+
+
+        }
+
+
+
+
+        await criarUsuario(
+          session.access_token,
+          nome,
+          email,
+          empresa,
+          cargo
+        );
+
+
+
+      }
+
+
+
+
+      await carregarLista();
+
+
+
+      fecharModal();
+
+
+
 
     } catch (error) {
 
+
       console.error(
-        "Erro ao excluir usuário:",
+        "ERRO AO SALVAR:",
         error
       );
 
+
+
       alert(
-        "Erro ao excluir usuário"
+        "Erro ao salvar usuário"
       );
+
+
+    } finally {
+
+
+      setSalvando(false);
+
+
     }
+
+
   }
 
 
-  function editarUsuario(user: User) {
-    setNome(user.full_name ?? "");
-    setCargo(user.platform_role);
-    setModal(true);
+
+
+
+  function fecharModal() {
+
+
+    setModalAberto(false);
+
+
+    setModoEdicao(false);
+
+
+    setUsuarioEditando(null);
+
+
+
+    setNome("");
+
+    setEmail("");
+
+    setEmpresa("");
+
+    setCargo("company_user");
+
+
   }
+
+
+
+
 
 
   return (
+
     <LoginBackground>
+
 
       <section style={panelStyle}>
 
+
         <header style={headerStyle}>
 
-          <div>
-            <Image
-              src="/logo-xpacebox.png"
-              alt="XPACEBOX"
-              width={360}
-              height={180}
-              priority
-              style={{
-                width: "330px",
-                maxWidth: "100%",
-                height: "auto",
-              }}
-            />
 
-            <p style={welcomeStyle}>
-              ADMINISTRAÇÃO DA PLATAFORMA
-            </p>
-          </div>
+          <Image
+
+            src="/logo-xpacebox.png"
+
+            alt="XPACEBOX"
+
+            width={360}
+
+            height={180}
+
+            priority
+
+            style={{
+              width:"330px",
+              maxWidth:"100%",
+              height:"auto",
+            }}
+
+          />
+
 
 
           <button
-            onClick={() => router.push("/")}
+
+            onClick={() =>
+              router.push("/")
+            }
+
             style={logoutButtonStyle}
+
           >
+
             ← VOLTAR À CENTRAL
+
           </button>
+
+
 
         </header>
-                <div style={dividerStyle} />
 
 
-        <section style={sectionStyle}>
-
-          <span style={eyebrowStyle}>
-            ADMINISTRAÇÃO
-          </span>
 
 
-          <h1 style={titleStyle}>
-            USUÁRIOS
-          </h1>
+
+        <div style={dividerStyle} />
 
 
-          <p style={descriptionStyle}>
-            CADASTRE E GERENCIE OS ACESSOS DA PLATAFORMA.
-          </p>
 
 
-          <button
-            onClick={() => setModal(true)}
-            style={actionButtonStyle}
-          >
-            + NOVO USUÁRIO
-          </button>
+
+        <span style={eyebrowStyle}>
+
+          ADMINISTRAÇÃO
+
+        </span>
 
 
-          <div style={cardsAreaStyle}>
-
-            <UserList
-              users={users}
-              onEditar={editarUsuario}
-              onExcluir={excluirUsuario}
-            />
-
-          </div>
 
 
-        </section>
+
+        <h1 style={titleStyle}>
+
+          USUÁRIOS
+
+        </h1>
+
+
+
+
+
+        <p style={descriptionStyle}>
+
+          CADASTRE E GERENCIE OS ACESSOS DA PLATAFORMA.
+
+        </p>
+
+
+
+
+
+        <button
+
+          onClick={abrirNovo}
+
+          style={actionButtonStyle}
+
+        >
+
+          + NOVO USUÁRIO
+
+        </button>
+
+
+
+
+
+        <div style={cardsAreaStyle}>
+
+
+          <UserList
+
+            users={users}
+
+            onEditar={abrirEditar}
+
+            onExcluir={remover}
+
+          />
+
+
+        </div>
 
 
       </section>
+            <UserModal
 
+        open={modalAberto}
 
-      <UserModal
-        open={modal}
-        onClose={() => setModal(false)}
-        onSave={() => setModal(false)}
-        saving={false}
+        onClose={fecharModal}
+
+        onSave={salvar}
+
+        saving={salvando}
+
+        modoEdicao={modoEdicao}
+
       >
 
+
         <UserForm
+
           nome={nome}
+
           setNome={setNome}
+
           email={email}
+
           setEmail={setEmail}
+
           empresa={empresa}
+
           setEmpresa={setEmpresa}
+
           cargo={cargo}
+
           setCargo={setCargo}
+
           companies={empresas}
+
         />
+
 
       </UserModal>
 
 
     </LoginBackground>
+
   );
+
+
 }
 
 
+
+
+
 const panelStyle = {
-  width: "100%",
-  maxWidth: 1180,
-  margin: "-80px auto 0",
-  padding: "42px 48px",
-  borderRadius: 30,
-  background: "rgba(7,7,17,.9)",
-  border: "1px solid rgba(255,255,255,.08)",
-  boxShadow: "0 30px 90px rgba(0,0,0,.48)",
-  backdropFilter: "blur(24px)",
+
+  width:"100%",
+
+  maxWidth:1180,
+
+  margin:"-80px auto 0",
+
+  padding:"42px 48px",
+
+  borderRadius:30,
+
+  background:"rgba(7,7,17,.9)",
+
+  border:"1px solid rgba(255,255,255,.08)",
+
+  boxShadow:"0 30px 90px rgba(0,0,0,.48)",
+
+  backdropFilter:"blur(24px)",
+
 };
+
+
 
 
 const headerStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 24,
+
+  display:"flex",
+
+  alignItems:"center",
+
+  justifyContent:"space-between",
+
+  gap:24,
+
 };
 
 
-const welcomeStyle = {
-  margin: "-12px 0 0",
-  color: "#d1d5db",
-  fontSize: 13,
-  fontWeight: 700,
-  letterSpacing: "2px",
-};
 
 
 const logoutButtonStyle = {
-  padding: "12px 22px",
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,.16)",
-  background: "rgba(255,255,255,.05)",
-  color: "#ffffff",
-  fontWeight: 800,
-  letterSpacing: "1px",
-  cursor: "pointer",
+
+  padding:"12px 22px",
+
+  borderRadius:12,
+
+  border:"1px solid rgba(255,255,255,.16)",
+
+  background:"rgba(255,255,255,.05)",
+
+  color:"#fff",
+
+  fontWeight:800,
+
+  cursor:"pointer",
+
 };
+
+
 
 
 const dividerStyle = {
-  height: 1,
-  margin: "30px 0 36px",
+
+  height:1,
+
+  margin:"30px 0 36px",
+
   background:
     "linear-gradient(90deg,transparent,#7c3aed,#db2777,#f97316,transparent)",
-  opacity: 0.7,
+
 };
 
 
-const sectionStyle = {
-  marginTop: 34,
-};
 
 
 const eyebrowStyle = {
-  display: "block",
-  marginBottom: 8,
-  color: "#c084fc",
-  fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: "3px",
+
+  display:"block",
+
+  marginBottom:8,
+
+  color:"#c084fc",
+
+  fontSize:12,
+
+  fontWeight:800,
+
+  letterSpacing:"3px",
+
 };
+
+
 
 
 const titleStyle = {
-  margin: 0,
-  color: "#ffffff",
-  fontSize: 36,
+
+  margin:0,
+
+  color:"#fff",
+
+  fontSize:36,
+
 };
+
+
 
 
 const descriptionStyle = {
-  margin: "10px 0 25px",
-  color: "#9ca3af",
-  fontSize: 13,
+
+  margin:"10px 0 25px",
+
+  color:"#9ca3af",
+
+  fontSize:13,
+
+  letterSpacing:"1px",
+
 };
+
+
+
+
 const actionButtonStyle = {
-  padding: "14px 24px",
-  borderRadius: 14,
-  border: "none",
-  cursor: "pointer",
-  color: "#ffffff",
-  fontWeight: 800,
+
+  padding:"14px 24px",
+
+  borderRadius:14,
+
+  border:"none",
+
+  cursor:"pointer",
+
+  color:"#fff",
+
+  fontWeight:800,
+
   background:
     "linear-gradient(90deg,#7c3aed,#db2777,#f97316)",
+
 };
+
+
 
 
 const cardsAreaStyle = {
-  marginTop: 30,
-  display: "grid",
-  gap: 18,
+
+  marginTop:30,
+
+  display:"grid",
+
+  gap:18,
+
 };
