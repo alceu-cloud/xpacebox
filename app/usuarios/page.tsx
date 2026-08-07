@@ -34,7 +34,7 @@ type User = {
       id: string;
       name: string;
       slug: string;
-    };
+    }[];
 
   }[];
 
