@@ -5,6 +5,9 @@ type UserFormProps = {
   email: string;
   setEmail: (v: string) => void;
 
+  senha: string;
+  setSenha: (v: string) => void;
+
   empresa: string;
   setEmpresa: (v: string) => void;
 
@@ -46,6 +49,8 @@ export default function UserForm({
   setNome,
   email,
   setEmail,
+  senha,
+  setSenha,
   empresa,
   setEmpresa,
   cargo,
@@ -87,6 +92,22 @@ export default function UserForm({
           style={inputStyle}
         />
       </label>
+
+      <label style={labelStyle}>
+  Senha inicial
+
+        <input
+          type="password"
+          value={senha}
+          onChange={(e) =>
+            setSenha(e.target.value)
+  }
+          placeholder="Digite a senha"
+          autoComplete="new-password"
+          style={inputStyle}
+/>
+
+</label>
 
 
       <label style={labelStyle}>

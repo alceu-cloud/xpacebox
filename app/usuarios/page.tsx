@@ -12,6 +12,7 @@ import UserForm from "@/components/usuarios/UserForm";
 import {
   carregarUsuarios,
   carregarEmpresas,
+  carregarUsuarioEmails,
   excluirUsuario,
   criarUsuario,
   atualizarUsuario,
@@ -20,31 +21,42 @@ import {
 import { supabase } from "@/lib/supabase";
 
 
-type User = {
-  id: string;
-  full_name: string | null;
-  platform_role: string;
-  active: boolean;
-
-  company_members?: {
-    company_id: string;
-    company_role: string;
-
-    companies?: {
-      id: string;
-      name: string;
-      slug: string;
-    }[];
-
-  }[];
-
-};
-
-
 type Company = {
   id: string;
   name: string;
   slug: string;
+};
+
+
+type User = {
+  id: string;
+
+  full_name: string | null;
+
+  platform_role: string;
+
+  active: boolean;
+
+
+  company_members?: {
+
+    company_id: string;
+
+    company_role: string;
+
+
+    companies?: {
+
+      id: string;
+
+      name: string;
+
+      slug: string;
+
+    }[];
+
+  }[];
+
 };
 
 
@@ -63,6 +75,11 @@ export default function UsuariosPage() {
 
   const [empresas, setEmpresas] =
     useState<Company[]>([]);
+
+
+
+  const [emails, setEmails] =
+    useState<any[]>([]);
 
 
 
@@ -106,48 +123,65 @@ export default function UsuariosPage() {
   const [cargo, setCargo] =
     useState("company_user");
 
-
-
+  const [senha, setSenha] = 
+    useState("");
 
 
   useEffect(() => {
 
+
     carregarLista();
 
     carregarListaEmpresas();
+
+    carregarListaEmails();
+
 
   }, []);
 
 
 
 
-
   async function carregarLista() {
+
 
     const dados =
       await carregarUsuarios();
 
 
+
     setUsers(dados);
 
-  }
 
+  }
 
 
 
 
   async function carregarListaEmpresas() {
 
+
     const dados =
       await carregarEmpresas();
 
 
+
     setEmpresas(dados);
 
+
   }
+    async function carregarListaEmails() {
+
+
+    const dados =
+      await carregarUsuarioEmails();
 
 
 
+    setEmails(dados);
+
+
+  }
 
 
   function abrirNovo() {
@@ -157,25 +191,20 @@ export default function UsuariosPage() {
 
     setUsuarioEditando(null);
 
-
-
     setNome("");
 
     setEmail("");
+
+    setSenha("");
 
     setEmpresa("");
 
     setCargo("company_user");
 
-
-
     setModalAberto(true);
 
 
   }
-
-
-
 
 
   function abrirEditar(user: User) {
@@ -201,11 +230,20 @@ export default function UsuariosPage() {
 
 
 
+    setEmail(
+      emails.find(
+        (item) =>
+          item.id === user.id
+      )?.email ?? ""
+    );
+
+
+
     setCargo(
       user.platform_role
     );
 
-
+    setSenha("");
 
     setEmpresa(
       user.company_members?.[0]?.company_id ?? ""
@@ -222,56 +260,44 @@ export default function UsuariosPage() {
 
 
 
-  async function remover(user: User) {
 
-
-    const confirmar = confirm(
-      `Deseja excluir ${user.full_name}?`
-    );
-
-
-    if (!confirmar) return;
-
-
-
-    await excluirUsuario(
-      user.id
-    );
-
-
-    await carregarLista();
-
-
-  }
-    async function salvar() {
-
-
-    console.log("SALVAR USUARIO:", {
-      modoEdicao,
-      usuarioEditando,
-      nome,
-      email,
-      empresa,
-      cargo,
-    });
-
+  async function salvar() {
 
 
     try {
+
+
+      console.log(
+        "SALVAR USUARIO:",
+        {
+          modoEdicao,
+          usuarioEditando,
+          nome,
+          email,
+          empresa,
+          cargo,
+        }
+      );
+
 
 
       setSalvando(true);
 
 
 
-      if (modoEdicao && usuarioEditando) {
 
+      if (
+        modoEdicao &&
+        usuarioEditando
+      ) {
 
 
         await atualizarUsuario(
           usuarioEditando.id,
           nome,
-          cargo
+          email,
+          cargo,
+          "@amj20021979"
         );
 
 
@@ -281,26 +307,21 @@ export default function UsuariosPage() {
 
 
         const {
-          data: {
-            session,
-          },
-        } = await supabase.auth.getSession();
+          data:{
+            session
+          }
+        } =
+          await supabase.auth.getSession();
 
 
 
-        if (!session?.access_token) {
+        if(!session?.access_token){
 
-
-          alert(
+          throw new Error(
             "Sessão expirada"
           );
 
-
-          return;
-
-
         }
-
 
 
 
@@ -308,10 +329,10 @@ export default function UsuariosPage() {
           session.access_token,
           nome,
           email,
+          senha,
           empresa,
           cargo
         );
-
 
 
       }
@@ -322,13 +343,11 @@ export default function UsuariosPage() {
       await carregarLista();
 
 
-
       fecharModal();
 
 
 
-
-    } catch (error) {
+    } catch(error) {
 
 
       console.error(
@@ -339,8 +358,11 @@ export default function UsuariosPage() {
 
 
       alert(
-        "Erro ao salvar usuário"
+        error instanceof Error
+          ? error.message
+          : "Erro ao salvar usuário"
       );
+
 
 
     } finally {
@@ -353,6 +375,36 @@ export default function UsuariosPage() {
 
 
   }
+
+
+
+
+
+
+  async function remover(user: User) {
+
+
+    const confirmar =
+      confirm(
+        `Deseja excluir ${user.full_name}?`
+      );
+
+
+    if(!confirmar) return;
+
+
+
+    await excluirUsuario(
+      user.id
+    );
+
+
+
+    await carregarLista();
+
+
+  }
+
 
 
 
@@ -375,19 +427,15 @@ export default function UsuariosPage() {
 
     setEmail("");
 
+    setSenha("");
+
     setEmpresa("");
 
     setCargo("company_user");
 
 
   }
-
-
-
-
-
-
-  return (
+    return (
 
     <LoginBackground>
 
@@ -435,9 +483,7 @@ export default function UsuariosPage() {
           </button>
 
 
-
         </header>
-
 
 
 
@@ -447,33 +493,23 @@ export default function UsuariosPage() {
 
 
 
-
         <span style={eyebrowStyle}>
-
           ADMINISTRAÇÃO
-
         </span>
 
 
 
 
-
         <h1 style={titleStyle}>
-
           USUÁRIOS
-
         </h1>
 
 
 
 
-
         <p style={descriptionStyle}>
-
           CADASTRE E GERENCIE OS ACESSOS DA PLATAFORMA.
-
         </p>
-
 
 
 
@@ -511,8 +547,15 @@ export default function UsuariosPage() {
         </div>
 
 
+
+
       </section>
-            <UserModal
+
+
+
+
+
+      <UserModal
 
         open={modalAberto}
 
@@ -527,6 +570,7 @@ export default function UsuariosPage() {
       >
 
 
+
         <UserForm
 
           nome={nome}
@@ -536,6 +580,10 @@ export default function UsuariosPage() {
           email={email}
 
           setEmail={setEmail}
+
+          senha={senha}
+
+          setSenha={setSenha}
 
           empresa={empresa}
 
@@ -553,12 +601,13 @@ export default function UsuariosPage() {
       </UserModal>
 
 
+
     </LoginBackground>
 
   );
 
-
 }
+
 
 
 
@@ -589,6 +638,7 @@ const panelStyle = {
 
 
 
+
 const headerStyle = {
 
   display:"flex",
@@ -600,6 +650,7 @@ const headerStyle = {
   gap:24,
 
 };
+
 
 
 
@@ -625,6 +676,7 @@ const logoutButtonStyle = {
 
 
 
+
 const dividerStyle = {
 
   height:1,
@@ -635,6 +687,7 @@ const dividerStyle = {
     "linear-gradient(90deg,transparent,#7c3aed,#db2777,#f97316,transparent)",
 
 };
+
 
 
 
@@ -658,6 +711,7 @@ const eyebrowStyle = {
 
 
 
+
 const titleStyle = {
 
   margin:0,
@@ -671,6 +725,7 @@ const titleStyle = {
 
 
 
+
 const descriptionStyle = {
 
   margin:"10px 0 25px",
@@ -679,9 +734,8 @@ const descriptionStyle = {
 
   fontSize:13,
 
-  letterSpacing:"1px",
-
 };
+
 
 
 
@@ -704,6 +758,7 @@ const actionButtonStyle = {
     "linear-gradient(90deg,#7c3aed,#db2777,#f97316)",
 
 };
+
 
 
 

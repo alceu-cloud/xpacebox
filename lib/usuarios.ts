@@ -1,29 +1,38 @@
 import { supabase } from "./supabase";
 
 
+
 export async function carregarUsuarios() {
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`
-      id,
-      full_name,
-      platform_role,
-      active,
-      company_members (
-        company_id,
-        company_role,
-        companies (
-          id,
-          name,
-          slug
+  const { data, error } =
+    await supabase
+      .from("profiles")
+      .select(`
+        id,
+        full_name,
+        email,
+        platform_role,
+        active,
+
+        company_members (
+
+          company_id,
+
+          company_role,
+
+          companies (
+            id,
+            name,
+            slug
+          )
+
         )
-      )
-    `)
-    .order("full_name");
+
+      `)
+      .order("full_name");
 
 
-  if (error) {
+  if(error){
 
     console.error(
       "ERRO AO CARREGAR USUÁRIOS:",
@@ -48,16 +57,25 @@ export async function carregarUsuarios() {
 
 
 
-export async function carregarEmpresas() {
 
-  const { data, error } = await supabase
-    .from("companies")
-    .select("id, name, slug")
-    .eq("active", true)
-    .order("name");
+export async function carregarEmpresas(){
+
+  const { data, error } =
+    await supabase
+      .from("companies")
+      .select(`
+        id,
+        name,
+        slug
+      `)
+      .eq(
+        "active",
+        true
+      )
+      .order("name");
 
 
-  if (error) {
+  if(error){
 
     throw error;
 
@@ -72,13 +90,14 @@ export async function carregarEmpresas() {
 
 
 
-export async function obterUsuarioLogado() {
+export async function obterUsuarioLogado(){
 
   const {
-    data: {
+    data:{
       user
-    },
-  } = await supabase.auth.getUser();
+    }
+  } =
+    await supabase.auth.getUser();
 
 
   return user;
@@ -90,50 +109,53 @@ export async function obterUsuarioLogado() {
 
 
 export async function criarUsuario(
-  accessToken: string,
-  nome: string,
-  email: string,
-  empresa: string,
-  cargo: string
-) {
+  accessToken:string,
+  nome:string,
+  email:string,
+  senha:string,
+  empresa:string,
+  cargo:string
+){
+
+  const response =
+    await fetch(
+      "/api/usuarios/criar",
+      {
+
+        method:"POST",
+
+        headers:{
+
+          "Content-Type":
+            "application/json",
+
+          Authorization:
+            `Bearer ${accessToken}`
+
+        },
 
 
-  const response = await fetch(
-    "/api/usuarios/criar",
-    {
+        body:JSON.stringify({
 
-      method: "POST",
+          nome,
+          email,
+          senha,
+          empresa,
+          cargo
 
-      headers: {
-        "Content-Type": "application/json",
-        Authorization:
-          `Bearer ${accessToken}`,
-      },
+        })
 
-      body: JSON.stringify({
+      }
+    );
 
-        nome,
-        email,
-        empresa,
-        cargo,
-
-      }),
-
-    }
-  );
 
 
   const resultado =
     await response.json();
 
 
-  console.log(
-    "CRIAR USUÁRIO:",
-    resultado
-  );
 
-
-  if (!resultado.success) {
+  if(!resultado.success){
 
     throw new Error(
       resultado.message ||
@@ -151,48 +173,91 @@ export async function criarUsuario(
 
 
 
-
 export async function atualizarUsuario(
-  id: string,
-  nome: string,
-  cargo: string
-) {
+  id:string,
+  nome:string,
+  email:string,
+  cargo:string,
+  senha?:string
+){
+
+  const response =
+    await fetch(
+      "/api/usuarios/atualizar",
+      {
+
+        method:"POST",
+
+        headers:{
+
+          "Content-Type":
+            "application/json"
+
+        },
 
 
-  const { data, error } =
-    await supabase
-      .from("profiles")
-      .update({
+        body:JSON.stringify({
 
-        full_name: nome,
-        platform_role: cargo,
+          id,
+          nome,
+          email,
+          cargo,
+          senha
 
-      })
-      .eq("id", id)
-      .select();
+        })
 
-
-
-  console.log(
-    "UPDATE USUÁRIO:",
-    {
-      id,
-      data,
-      error,
-    }
-  );
+      }
+    );
 
 
 
-  if (error) {
+  const resultado =
+    await response.json();
 
-    throw error;
+
+
+  if(!resultado.success){
+
+    throw new Error(
+      resultado.message ||
+      "Erro ao atualizar usuário"
+    );
 
   }
 
 
+  return resultado;
 
-  return data;
+}
+
+
+
+
+
+export async function carregarUsuarioEmails(){
+
+  const response =
+    await fetch(
+      "/api/usuarios/emails"
+    );
+
+
+  const resultado =
+    await response.json();
+
+
+
+  if(!resultado.success){
+
+    throw new Error(
+      resultado.message ||
+      "Erro ao buscar emails"
+    );
+
+  }
+
+
+  return resultado.usuarios ?? [];
 
 }
 
@@ -201,26 +266,57 @@ export async function atualizarUsuario(
 
 
 export async function excluirUsuario(
-  id: string
-) {
+  id:string
+){
+
+  const response =
+    await fetch(
+      "/api/usuarios/excluir",
+      {
+
+        method:"POST",
+
+        headers:{
+
+          "Content-Type":
+            "application/json"
+
+        },
 
 
-  const { data, error } =
-    await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", id)
-      .select();
+        body:JSON.stringify({
+
+          id
+
+        })
+
+      }
+    );
 
 
 
-  if (error) {
+  const resultado =
+    await response.json();
 
-    throw error;
+
+
+  console.log(
+    "EXCLUIR USUÁRIO:",
+    resultado
+  );
+
+
+
+  if(!resultado.success){
+
+    throw new Error(
+      resultado.message ||
+      "Erro ao excluir usuário"
+    );
 
   }
 
 
-  return data;
+  return resultado;
 
 }
