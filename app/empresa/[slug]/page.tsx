@@ -942,6 +942,7 @@ function PriceSummaryStep({
   const [targetMcPercent, setTargetMcPercent] = useState(pricingParams.mcDefault);
   const [targetMch, setTargetMch] = useState(pricingParams.mcrHour);
   const [ignoreSetup, setIgnoreSetup] = useState(false);
+  const [ignoreAdditionalCosts, setIgnoreAdditionalCosts] = useState(false);
   const [manualBoxesPerHour, setManualBoxesPerHour] = useState(0);
   const analysis = calculatePriceAnalysis({
     sellerCompany,
@@ -953,6 +954,7 @@ function PriceSummaryStep({
     pricingParams,
     productionTimes,
     ignoreSetup,
+    ignoreAdditionalCosts,
     manualBoxesPerHour,
   });
   const simulatorA = calculatePriceResult(simulatorPrice, analysis);
@@ -1039,19 +1041,39 @@ function PriceSummaryStep({
             </strong>
           </div>
 
-          <label style={zeroSetupToggleStyle}>
-            <input
-              type="checkbox"
-              checked={ignoreSetup}
-              onChange={(event) => setIgnoreSetup(event.target.checked)}
-              style={zeroSetupCheckboxStyle}
-            />
-            <span>ZERAR SET-UP</span>
-          </label>
+          <div style={productionToggleRowStyle}>
+            <label style={compactProductionToggleStyle}>
+              <input
+                type="checkbox"
+                checked={ignoreSetup}
+                onChange={(event) => setIgnoreSetup(event.target.checked)}
+                style={zeroSetupCheckboxStyle}
+              />
+              <span>ZERAR SET-UP</span>
+            </label>
+
+            {sellerCompany.key === "dawos" && (
+              <label style={compactProductionToggleStyle}>
+                <input
+                  type="checkbox"
+                  checked={ignoreAdditionalCosts}
+                  onChange={(event) => setIgnoreAdditionalCosts(event.target.checked)}
+                  style={additionalCostsCheckboxStyle}
+                />
+                <span>NAO CONSIDERAR DC</span>
+              </label>
+            )}
+          </div>
 
           {ignoreSetup && (
             <span style={configuredSetupNoteStyle}>
               VALOR DA TABELA: {formatNumber(analysis.configuredSetupMinutes, 2)} MIN
+            </span>
+          )}
+
+          {analysis.additionalCostsIgnored && (
+            <span style={configuredAdditionalCostsNoteStyle}>
+              DEMAIS CUSTOS DESCONSIDERADOS: {formatNumber(analysis.configuredAdditionalCosts, 2)}%
             </span>
           )}
 
@@ -1970,8 +1992,19 @@ const zeroSetupToggleStyle = {
   letterSpacing: 1,
   cursor: "pointer",
 };
+const productionToggleRowStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", alignItems: "center", gap: 12 };
+const compactProductionToggleStyle = {
+  ...zeroSetupToggleStyle,
+  width: "100%",
+  gap: 7,
+  fontSize: 12,
+  letterSpacing: 0.4,
+  whiteSpace: "nowrap" as const,
+};
 const zeroSetupCheckboxStyle = { width: 23, height: 23, margin: 0, accentColor: "#e6007e", cursor: "pointer" };
+const additionalCostsCheckboxStyle = { ...zeroSetupCheckboxStyle, accentColor: "#6f32d2" };
 const configuredSetupNoteStyle = { marginTop: -10, color: "#9b59d0", fontSize: 13, fontWeight: 900, letterSpacing: 1 };
+const configuredAdditionalCostsNoteStyle = { ...configuredSetupNoteStyle, color: "#6f32d2" };
 const productionDividerStyle = { height: 1, background: "rgba(230,0,126,.12)" };
 const priceStandardPanelStyle = {
   borderRadius: 20,

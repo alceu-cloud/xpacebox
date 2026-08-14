@@ -26,6 +26,7 @@ type PriceAnalysisInput = {
   pricingParams: PricingParams;
   productionTimes: ProductionTime[];
   ignoreSetup?: boolean;
+  ignoreAdditionalCosts?: boolean;
   manualBoxesPerHour?: number;
 };
 
@@ -39,6 +40,7 @@ export function calculatePriceAnalysis({
   pricingParams,
   productionTimes,
   ignoreSetup = false,
+  ignoreAdditionalCosts = false,
   manualBoxesPerHour = 0,
 }: PriceAnalysisInput) {
   const params = { ...pricingParams };
@@ -56,7 +58,12 @@ export function calculatePriceAnalysis({
     ? materialCostWithIpi
     : materialCostNoInvoice;
   const pricingMaterialCostLabel = sellerCompany.key === "carcat" ? "C/ IPI" : "S/ NOTA";
-  const expensesPercent = getExpensesPercent(sellerCompany.key, params);
+  const shouldIgnoreAdditionalCosts = sellerCompany.key === "dawos" && ignoreAdditionalCosts;
+  const expensesPercent = getExpensesPercent(
+    sellerCompany.key,
+    params,
+    shouldIgnoreAdditionalCosts
+  );
   const expensesRate = expensesPercent / 100;
   const mcRate = params.mcDefault / 100;
   const standardPrice = calculatePriceForMargin(pricingMaterialCost, mcRate, expensesRate);
@@ -96,6 +103,8 @@ export function calculatePriceAnalysis({
     mcrHour: params.mcrHour,
     commissionPercent: params.commission,
     expensesPercent,
+    additionalCostsIgnored: shouldIgnoreAdditionalCosts,
+    configuredAdditionalCosts: params.additionalCosts,
     materialCostWithIpi,
     materialCostNoInvoice,
     pricingMaterialCost,
@@ -219,7 +228,11 @@ function calculatePriceForMargin(materialCost: number, mcRate: number, expensesR
     : 0;
 }
 
-function getExpensesPercent(company: SellerCompanyKey, params: PricingParams) {
+function getExpensesPercent(
+  company: SellerCompanyKey,
+  params: PricingParams,
+  ignoreAdditionalCosts = false
+) {
   if (company === "carcat") {
     return params.simplesTax + params.commission + params.freight + params.otherCosts;
   }
@@ -228,7 +241,8 @@ function getExpensesPercent(company: SellerCompanyKey, params: PricingParams) {
     return params.outputIcms + params.outputPisCofins + params.outputIpi + params.commission + params.freight + params.otherCosts;
   }
 
-  return params.commission + params.freight + params.otherCosts + params.clientIcms + params.additionalCosts;
+  const additionalCosts = ignoreAdditionalCosts ? 0 : params.additionalCosts;
+  return params.commission + params.freight + params.otherCosts + params.clientIcms + additionalCosts;
 }
 
 function calculateNoInvoiceMaterialCost(costWithIpi: number, ipiPercent: number, icmsPercent: number) {
