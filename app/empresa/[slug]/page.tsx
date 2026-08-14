@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
+import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa from "@/components/gerenciador/GerenciadorEmpresa";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
@@ -212,6 +213,8 @@ export default function EmpresaPage() {
             onPricingGoalsByCompanyChange={setPricingGoalsByCompany}
             onProductionTimesChange={setProductionTimes}
           />
+        ) : moduloAtivo === "clientes" ? (
+          <ClientesEmpresa slug={slug} />
         ) : moduloAtivo === "formacao-preco" ? (
           <PricingPreview
             suppliers={suppliers}
