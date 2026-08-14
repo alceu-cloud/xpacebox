@@ -272,6 +272,7 @@ function PricingPreview({
   const [dimensions, setDimensions] = useState({ length: "", width: "", height: "" });
   const [lotQuantity, setLotQuantity] = useState(1000);
   const [sellerCompanyKey, setSellerCompanyKey] = useState<SellerCompanyKey>("dawos");
+  const [simulatedMaterialId, setSimulatedMaterialId] = useState<string | null>(null);
 
   const supplier = suppliers.find((item) => item.id === supplierId) ?? suppliers[0];
   const materialsBySupplier = materials.filter((material) => material.supplier === supplier?.name);
@@ -283,13 +284,18 @@ function PricingPreview({
   const materialsByPaperType = materialsBySupplier.filter((material) => material.paperType === selectedPaperType?.code);
   const selectedMaterialId = materialId || materialsByPaperType[0]?.id || "";
   const selectedMaterial = materialsByPaperType.find((material) => material.id === selectedMaterialId) ?? materialsByPaperType[0];
+  const simulatedMaterial = simulatedMaterialId
+    ? materials.find((material) => material.id === simulatedMaterialId)
+    : undefined;
+  const pricingMaterial = simulatedMaterial ?? selectedMaterial;
   const cheapestAlternatives = selectedMaterial
     ? materials
         .filter((material) => material.paperType === selectedMaterial.paperType && material.costIpi < selectedMaterial.costIpi)
         .sort((a, b) => a.costIpi - b.costIpi)
         .slice(0, 3)
     : [];
-  const wave = selectedMaterial?.paperType.includes("BC") || selectedMaterial?.paperType.includes("BB") ? "BC" : "B";
+  const economicAlternative = cheapestAlternatives[0];
+  const wave = pricingMaterial?.paperType.includes("BC") || pricingMaterial?.paperType.includes("BB") ? "BC" : "B";
   const currentModels = modelOptions[category];
   const selectedModel = currentModels.find((model) => model.key === modelKey) ?? currentModels[0];
   const selectedFormula = findFormulaForModel(engineeringFormulas, selectedModel.formulaId, wave);
@@ -302,7 +308,7 @@ function PricingPreview({
   const sheetWidth = evaluateFormula(selectedFormula.widthFormula, numericDimensions);
   const sheetLength = evaluateFormula(selectedFormula.lengthFormula, numericDimensions);
   const sheetArea = sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
-  const boxWeight = selectedMaterial ? sheetArea * parseDecimal(selectedMaterial.grammage) : 0;
+  const boxWeight = pricingMaterial ? sheetArea * parseDecimal(pricingMaterial.grammage) : 0;
   const maletaInvalid = category === "maleta" && numericDimensions.C > 0 && numericDimensions.L > 0 && numericDimensions.C < numericDimensions.L;
 
   function chooseCategory(nextCategory: BoxCategory) {
@@ -319,6 +325,7 @@ function PricingPreview({
     setSupplierId(nextSupplierId);
     setPaperTypeId(nextPaperType?.id ?? "");
     setMaterialId(nextMaterial?.id ?? "");
+    setSimulatedMaterialId(null);
   }
 
   function choosePaperType(nextPaperTypeId: string) {
@@ -327,6 +334,12 @@ function PricingPreview({
 
     setPaperTypeId(nextPaperTypeId);
     setMaterialId(nextMaterial?.id ?? "");
+    setSimulatedMaterialId(null);
+  }
+
+  function chooseMaterial(nextMaterialId: string) {
+    setMaterialId(nextMaterialId);
+    setSimulatedMaterialId(null);
   }
 
   return (
@@ -360,7 +373,7 @@ function PricingPreview({
           allPaperTypes={paperTypes}
           onSupplierChange={chooseSupplier}
           onPaperTypeChange={choosePaperType}
-          onMaterialChange={setMaterialId}
+          onMaterialChange={chooseMaterial}
         />
       )}
 
@@ -443,7 +456,7 @@ function PricingPreview({
             <FormulaResult
               label="PESO DA CAIXA"
               value={boxWeight ? `${formatNumber(boxWeight, 3)} KG` : "-"}
-              secondaryValue={boxWeight && selectedMaterial ? `${selectedMaterial.grammage} X AREA` : undefined}
+              secondaryValue={boxWeight && pricingMaterial ? `${pricingMaterial.grammage} X AREA` : undefined}
               accent
             />
           </div>
@@ -463,7 +476,12 @@ function PricingPreview({
           sellerCompany={selectedSellerCompany}
           selectedModel={selectedModel}
           selectedFormula={selectedFormula}
-          selectedMaterial={selectedMaterial}
+          selectedMaterial={pricingMaterial}
+          originalMaterial={selectedMaterial}
+          economicAlternative={economicAlternative}
+          economicSimulationActive={Boolean(simulatedMaterial)}
+          onSimulateEconomicMaterial={() => economicAlternative && setSimulatedMaterialId(economicAlternative.id)}
+          onRestoreOriginalMaterial={() => setSimulatedMaterialId(null)}
           dimensions={numericDimensions}
           sheetArea={sheetArea}
           sheetWidth={sheetWidth}
@@ -914,6 +932,11 @@ function PriceSummaryStep({
   selectedModel,
   selectedFormula,
   selectedMaterial,
+  originalMaterial,
+  economicAlternative,
+  economicSimulationActive,
+  onSimulateEconomicMaterial,
+  onRestoreOriginalMaterial,
   dimensions,
   sheetArea,
   sheetWidth,
@@ -928,6 +951,11 @@ function PriceSummaryStep({
   selectedModel: (typeof modelOptions)[BoxCategory][number];
   selectedFormula: (typeof initialEngineeringFormulas)[number];
   selectedMaterial?: (typeof initialMaterials)[number];
+  originalMaterial?: (typeof initialMaterials)[number];
+  economicAlternative?: (typeof initialMaterials)[number];
+  economicSimulationActive: boolean;
+  onSimulateEconomicMaterial: () => void;
+  onRestoreOriginalMaterial: () => void;
   dimensions: { C: number; L: number; A: number };
   sheetArea: number;
   sheetWidth: number;
@@ -944,6 +972,10 @@ function PriceSummaryStep({
   const [ignoreSetup, setIgnoreSetup] = useState(false);
   const [ignoreAdditionalCosts, setIgnoreAdditionalCosts] = useState(false);
   const [manualBoxesPerHour, setManualBoxesPerHour] = useState(0);
+  useEffect(() => {
+    setManualBoxesPerHour(0);
+  }, [selectedMaterial?.id]);
+
   const analysis = calculatePriceAnalysis({
     sellerCompany,
     selectedMaterial,
@@ -1096,6 +1128,17 @@ function PriceSummaryStep({
             </strong>
           </div>
         </aside>
+
+        {(economicAlternative || economicSimulationActive) && originalMaterial && (
+          <EconomicMaterialCard
+            originalMaterial={originalMaterial}
+            activeMaterial={selectedMaterial}
+            alternativeMaterial={economicAlternative}
+            active={economicSimulationActive}
+            onSimulate={onSimulateEconomicMaterial}
+            onRestore={onRestoreOriginalMaterial}
+          />
+        )}
       </div>
 
       <div style={priceStandardPanelStyle}>
@@ -1266,6 +1309,61 @@ function PriceInfoRow({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function EconomicMaterialCard({
+  originalMaterial,
+  activeMaterial,
+  alternativeMaterial,
+  active,
+  onSimulate,
+  onRestore,
+}: {
+  originalMaterial: (typeof initialMaterials)[number];
+  activeMaterial?: (typeof initialMaterials)[number];
+  alternativeMaterial?: (typeof initialMaterials)[number];
+  active: boolean;
+  onSimulate: () => void;
+  onRestore: () => void;
+}) {
+  const material = active ? activeMaterial : alternativeMaterial;
+  if (!material) return null;
+
+  const economy = Math.max(originalMaterial.costIpi - material.costIpi, 0);
+
+  return (
+    <section style={{ ...economicMaterialCardStyle, ...(active ? economicMaterialCardActiveStyle : {}) }}>
+      <div style={economicMaterialHeaderStyle}>
+        <span style={economicMaterialEyebrowStyle}>
+          {active ? "SIMULACAO ECONOMICA ATIVA" : "ALTERNATIVA MAIS ECONOMICA"}
+        </span>
+        <strong style={economicMaterialCodeStyle}>{material.code}</strong>
+      </div>
+
+      <div style={economicMaterialMetricsStyle}>
+        <span style={economicMaterialMetricStyle}>
+          <small style={economicMaterialLabelStyle}>FORNECEDOR</small>
+          <strong>{material.supplier}</strong>
+        </span>
+        <span style={economicMaterialMetricStyle}>
+          <small style={economicMaterialLabelStyle}>PRECO C/ IPI</small>
+          <strong style={{ color: "#00a651" }}>{formatCurrency(material.costIpi)}/M2</strong>
+        </span>
+        <span style={economicMaterialMetricStyle}>
+          <small style={economicMaterialLabelStyle}>ECONOMIA</small>
+          <strong style={{ color: "#e68019" }}>{formatCurrency(economy)}/M2</strong>
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={active ? onRestore : onSimulate}
+        style={{ ...economicMaterialButtonStyle, ...(active ? economicMaterialRestoreButtonStyle : {}) }}
+      >
+        {active ? "VOLTAR AO MATERIAL ORIGINAL" : "SIMULAR COM ESTE MATERIAL"}
+      </button>
+    </section>
   );
 }
 
@@ -1925,6 +2023,41 @@ const priceOverviewStyle = {
   borderTop: "1px solid rgba(52,64,84,.10)",
 };
 const priceOverviewMainStyle = { display: "grid", gap: 14, alignContent: "start" };
+const economicMaterialCardStyle = {
+  gridColumn: "1 / -1",
+  marginTop: 6,
+  padding: 18,
+  borderRadius: 14,
+  border: "1px solid rgba(230,0,126,.24)",
+  background: "linear-gradient(135deg,rgba(255,247,252,.98),rgba(255,255,255,.96))",
+  display: "grid",
+  gridTemplateColumns: "minmax(190px,.8fr) minmax(360px,1.4fr) minmax(220px,.7fr)",
+  alignItems: "center",
+  gap: 18,
+};
+const economicMaterialCardActiveStyle = {
+  border: "1px solid rgba(0,166,81,.30)",
+  background: "linear-gradient(135deg,rgba(240,253,244,.98),rgba(255,255,255,.96))",
+};
+const economicMaterialHeaderStyle = { display: "grid", gap: 7 };
+const economicMaterialEyebrowStyle = { color: "#e6007e", fontSize: 12, fontWeight: 900, letterSpacing: 1.3 };
+const economicMaterialCodeStyle = { color: "#6f32d2", fontSize: 21, fontWeight: 900 };
+const economicMaterialMetricsStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 };
+const economicMaterialMetricStyle = { display: "grid", gap: 5, color: "#141827", fontSize: 16, fontWeight: 900 };
+const economicMaterialLabelStyle = { color: "#667085", fontSize: 11, fontWeight: 900, letterSpacing: 1 };
+const economicMaterialButtonStyle = {
+  minHeight: 46,
+  padding: "10px 16px",
+  borderRadius: 10,
+  border: "none",
+  background: "linear-gradient(100deg,#8b2ee8,#e6007e,#ff4b2b)",
+  color: "#fff",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 10px 22px rgba(230,0,126,.16)",
+};
+const economicMaterialRestoreButtonStyle = { background: "#fff", color: "#6f32d2", border: "1px solid rgba(111,50,210,.28)", boxShadow: "none" };
 const priceInfoRowStyle = {
   display: "grid",
   gridTemplateColumns: "minmax(250px,.8fr) 1fr",
