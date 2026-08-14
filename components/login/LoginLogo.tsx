@@ -9,43 +9,43 @@ export default function LoginLogo() {
       }}
     >
       <Image
-        src="/logo-xpacebox.png"
+        src="/xpacebox-logo-light.svg"
         alt="XPACEBOX"
         width={900}
-        height={450}
+        height={220}
         priority
+        className="xb-logo"
         style={{
-        width: "700px",
-        maxWidth: "100%",
-        height: "auto",
-        margin: "0 auto",
-        display: "block",
+          width: "700px",
+          maxWidth: "100%",
+          height: "auto",
+          margin: "0 auto",
         }}
       />
 
       <h2
         style={{
-          marginTop: 0,
+          marginTop: 8,
           marginBottom: 8,
-          color: "#FFFFFF",
-          fontSize: 28,
+          color: "#141827",
+          fontSize: 42,
           fontWeight: 800,
           textTransform: "uppercase",
-          letterSpacing: "1px",
         }}
       >
-        BEM-VINDO DE VOLTA!
+        Bem-vindo de volta
       </h2>
 
       <div
         style={{
-          color: "#9CA3AF",
+          color: "#667085",
           textTransform: "uppercase",
           letterSpacing: "1px",
-          fontSize: 15,
+          fontSize: 18,
+          fontWeight: 700,
         }}
       >
-        FAÇA LOGIN PARA ACESSAR SUA CONTA
+        Acesse sua central XPACEBOX
       </div>
     </div>
   );

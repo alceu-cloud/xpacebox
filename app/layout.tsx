@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "XPACEBOX",
-  description: "Plataforma Inteligente para Gestão",
+  description: "Plataforma inteligente para gestao multiempresa.",
 };
 
 export default function RootLayout({
@@ -12,16 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body
-        style={{
-          margin: 0,
-          padding: 0,
-          background: "#05060d",
-          overflowX: "hidden",
-        }}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

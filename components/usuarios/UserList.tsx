@@ -16,32 +16,21 @@ type Props = {
 function traduzPerfil(perfil: string) {
   switch (perfil) {
     case "platform_owner":
-      return "Administrador";
-
+      return "ADMINISTRADOR";
     case "company_manager":
-      return "Gerente";
-
+      return "GERENTE";
     default:
-      return "Usuário";
+      return "USUARIO";
   }
 }
 
-export default function UserList({
-  users,
-  onEditar,
-  onExcluir,
-}: Props) {
+export default function UserList({ users, onEditar, onExcluir }: Props) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gap: 18,
-      }}
-    >
+    <div style={{ display: "grid", gap: 20 }}>
       {users.map((user) => (
         <UserCard
           key={user.id}
-          nome={user.full_name ?? "Sem nome"}
+          nome={user.full_name ?? "SEM NOME"}
           perfil={traduzPerfil(user.platform_role)}
           ativo={user.active}
           onEditar={() => onEditar(user)}

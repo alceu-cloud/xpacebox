@@ -1,55 +1,61 @@
-import Card from "@/components/ui/Card";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+
+import GerenciadorEmpresa from "@/components/gerenciador/GerenciadorEmpresa";
+import { supabase } from "@/lib/supabase";
 
 export default function GerenciadorPage() {
-  return (
-    <>
-      <h1
-        style={{
-          fontSize: 32,
-          fontWeight: 700,
-          marginBottom: 8,
-        }}
-      >
-        Gerenciador
-      </h1>
+  const router = useRouter();
+  const params = useParams();
+  const slug = String(params.slug ?? "");
+  const [autorizado, setAutorizado] = useState(false);
+  const [verificando, setVerificando] = useState(true);
 
-      <p
-        style={{
-          color: "#6b7280",
-          marginBottom: 30,
-        }}
-      >
-        Bem-vindo ao painel administrativo da empresa.
-      </p>
+  useEffect(() => {
+    async function verificarAcesso() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(260px,1fr))",
-          gap: 20,
-        }}
-      >
-        <Card
-          titulo="👥 Clientes"
-          descricao="Gerenciar clientes cadastrados."
-        />
+      if (!session) {
+        router.replace("/login");
+        return;
+      }
 
-        <Card
-          titulo="📦 Produtos"
-          descricao="Cadastro de produtos."
-        />
+      const { data: perfil } = await supabase
+        .from("profiles")
+        .select("platform_role")
+        .eq("id", session.user.id)
+        .single();
 
-        <Card
-          titulo="💰 Financeiro"
-          descricao="Indicadores financeiros."
-        />
+      if (perfil?.platform_role === "platform_owner" || perfil?.platform_role === "company_manager") {
+        setAutorizado(true);
+        setVerificando(false);
+        return;
+      }
 
-        <Card
-          titulo="📊 Relatórios"
-          descricao="Visualizar relatórios."
-        />
-      </div>
-    </>
-  );
+      router.replace(`/empresa/${slug}`);
+    }
+
+    verificarAcesso();
+  }, [router, slug]);
+
+  if (verificando) {
+    return <div style={loadingStyle}>VERIFICANDO ACESSO...</div>;
+  }
+
+  if (!autorizado) return null;
+
+  return <GerenciadorEmpresa />;
 }
+
+const loadingStyle = {
+  minHeight: 240,
+  display: "grid",
+  placeItems: "center",
+  color: "#667085",
+  fontSize: 18,
+  fontWeight: 900,
+};

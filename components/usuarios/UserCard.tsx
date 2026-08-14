@@ -16,87 +16,103 @@ export default function UserCard({
   onExcluir,
 }: UserCardProps) {
   return (
-    <div
-      style={{
-        background: "rgba(15,12,28,.82)",
-        border: "1px solid rgba(255,255,255,.08)",
-        borderRadius: 20,
-        padding: 24,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 20,
-        boxShadow: "0 18px 40px rgba(0,0,0,.25)",
-      }}
-    >
-      <div>
-        <h3
-          style={{
-            margin: 0,
-            color: "#fff",
-            fontSize: 22,
-          }}
-        >
-          {nome}
-        </h3>
-
-        <p style={{ color: "#9ca3af", margin: "8px 0" }}>
-          {perfil}
-        </p>
-
-        {empresa && (
-          <p style={{ color: "#c084fc", margin: 0 }}>
-            🏢 {empresa}
+    <article style={cardStyle}>
+      <div style={innerStyle}>
+        <div>
+          <h3 style={nameStyle}>{nome}</h3>
+          <p style={profileStyle}>{perfil}</p>
+          {empresa && <p style={companyStyle}>{empresa}</p>}
+          <p style={{ ...statusStyle, color: ativo ? "#039855" : "#d92d20" }}>
+            {ativo ? "ATIVO" : "INATIVO"}
           </p>
-        )}
+        </div>
 
-        <p
-          style={{
-            color: ativo ? "#22c55e" : "#ef4444",
-            marginTop: 10,
-          }}
-        >
-          {ativo ? "● Ativo" : "● Inativo"}
-        </p>
+        <div style={actionsStyle}>
+          <button onClick={onEditar} style={editButtonStyle}>
+            EDITAR
+          </button>
+          <button onClick={onExcluir} style={deleteButtonStyle}>
+            EXCLUIR
+          </button>
+        </div>
       </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-        }}
-      >
-        <button
-          onClick={onEditar}
-          style={{
-            padding: "12px 18px",
-            border: "none",
-            borderRadius: 12,
-            cursor: "pointer",
-            color: "#fff",
-            fontWeight: 700,
-            background:
-              "linear-gradient(90deg,#7c3aed,#db2777)",
-          }}
-        >
-          ✏️ Editar
-        </button>
-
-        <button
-          onClick={onExcluir}
-          style={{
-            padding: "12px 18px",
-            border: "1px solid rgba(239,68,68,.4)",
-            borderRadius: 12,
-            cursor: "pointer",
-            color: "#fff",
-            fontWeight: 700,
-            background: "rgba(239,68,68,.15)",
-          }}
-        >
-          🗑️ Excluir
-        </button>
-      </div>
-    </div>
+    </article>
   );
 }
+
+const cardStyle = {
+  padding: 18,
+  borderRadius: 24,
+  border: "1px solid rgba(111,50,210,.16)",
+  background:
+    "linear-gradient(145deg, rgba(111,50,210,.06), rgba(230,61,174,.04), rgba(255,59,37,.04)), #ffffff",
+  boxShadow: "0 18px 42px rgba(39,36,67,.1)",
+};
+
+const innerStyle = {
+  minHeight: 144,
+  padding: "28px 32px",
+  borderRadius: 20,
+  background: "rgba(255,255,255,.84)",
+  border: "1px solid rgba(20,24,39,.08)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 24,
+};
+
+const nameStyle = {
+  margin: 0,
+  color: "#141827",
+  fontSize: 30,
+  fontWeight: 900,
+};
+
+const profileStyle = {
+  color: "#667085",
+  margin: "10px 0 0",
+  fontSize: 18,
+  fontWeight: 800,
+};
+
+const companyStyle = {
+  color: "#6f32d2",
+  margin: "10px 0 0",
+  fontSize: 18,
+  fontWeight: 900,
+};
+
+const statusStyle = {
+  margin: "12px 0 0",
+  fontSize: 18,
+  fontWeight: 900,
+};
+
+const actionsStyle = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap" as const,
+  justifyContent: "flex-end",
+};
+
+const editButtonStyle = {
+  padding: "16px 24px",
+  border: "none",
+  borderRadius: 16,
+  cursor: "pointer",
+  color: "#ffffff",
+  fontSize: 18,
+  fontWeight: 900,
+  background: "linear-gradient(90deg,#6f32d2,#e63dae)",
+};
+
+const deleteButtonStyle = {
+  padding: "16px 24px",
+  border: "1px solid rgba(217,45,32,.26)",
+  borderRadius: 16,
+  cursor: "pointer",
+  color: "#b42318",
+  fontSize: 18,
+  fontWeight: 900,
+  background: "rgba(254,228,226,.72)",
+};

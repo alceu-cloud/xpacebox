@@ -320,3 +320,58 @@ export async function excluirUsuario(
   return resultado;
 
 }
+export async function alterarSenhaUsuario(
+id:string,
+senha:string
+){
+
+
+const response =
+await fetch(
+"/api/usuarios/alterar-senha",
+{
+
+method:"POST",
+
+headers:{
+
+"Content-Type":
+"application/json"
+
+},
+
+body:JSON.stringify({
+
+id,
+senha
+
+})
+
+}
+
+);
+
+
+
+const resultado =
+await response.json();
+
+
+
+if(!resultado.success){
+
+
+throw new Error(
+resultado.message ||
+"Erro ao alterar senha"
+);
+
+
+}
+
+
+
+return resultado;
+
+
+}

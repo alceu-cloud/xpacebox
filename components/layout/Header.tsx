@@ -39,7 +39,7 @@ export default function Header({
         }}
       >
         <Image
-          src="/logo-xpacebox.png"
+          src="/xpacebox-logo-dark.svg"
           alt="XPACEBOX"
           width={190}
           height={90}

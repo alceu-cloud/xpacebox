@@ -2,17 +2,14 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
 
 import LoginBackground from "@/components/login/LoginBackground";
 import LoginCard from "@/components/login/LoginCard";
 import LoginLogo from "@/components/login/LoginLogo";
-
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
-
   const router = useRouter();
-
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -22,779 +19,309 @@ export default function LoginPage() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [lembrar, setLembrar] = useState(false);
 
-
-
   useEffect(() => {
-
     verificarSessao();
 
-
-    const emailSalvo =
-      localStorage.getItem("xpacebox_email");
-
-
+    const emailSalvo = localStorage.getItem("xpacebox_email");
     if (emailSalvo) {
-
       setEmail(emailSalvo);
-
       setLembrar(true);
-
     }
-
-
   }, []);
 
-
-
-
-
-
   async function verificarSessao() {
-
-
     const {
-      data:{
-        session
-      },
+      data: { session },
     } = await supabase.auth.getSession();
 
-
-
-    if(session){
-
-
-      await redirecionarUsuario(
-        session.user.id
-      );
-
-
+    if (session) {
+      await redirecionarUsuario(session.user.id);
       return;
-
     }
-
-
 
     setVerificando(false);
-
-
   }
 
+  async function redirecionarUsuario(userId: string) {
+    const { data: perfil, error } = await supabase
+      .from("profiles")
+      .select("platform_role")
+      .eq("id", userId)
+      .single();
 
-
-
-
-
-
-  async function redirecionarUsuario(
-    userId:string
-  ){
-
-
-    const {
-      data:perfil,
-      error
-    } =
-      await supabase
-        .from("profiles")
-        .select(
-          "platform_role"
-        )
-        .eq(
-          "id",
-          userId
-        )
-        .single();
-
-
-
-
-    if(error || !perfil){
-
-  console.error(
-    "ERRO BUSCANDO PERFIL:",
-    {
-      userId,
-      perfil,
-      error
-    }
-  );
-
-
-  alert(
-    "Erro buscando perfil: " +
-    JSON.stringify(error)
-  );
-
-
-  return;
-
-}
-
-
-
-
-
-    if(
-      perfil.platform_role ===
-      "platform_owner"
-    ){
-
-
-      router.replace("/");
-
-
+    if (error || !perfil) {
+      console.error("ERRO PERFIL:", error);
+      alert("Erro buscando perfil.");
       return;
-
-
     }
 
+    if (perfil.platform_role === "platform_owner") {
+      router.replace("/");
+      return;
+    }
 
+    const { data: vinculo, error: erroVinculo } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("profile_id", userId)
+      .single();
 
+    if (erroVinculo || !vinculo) {
+      alert("Usuario sem empresa vinculada.");
+      return;
+    }
 
+    const { data: empresa, error: erroEmpresa } = await supabase
+      .from("companies")
+      .select("slug")
+      .eq("id", vinculo.company_id)
+      .single();
 
-    router.replace("/empresas");
+    if (erroEmpresa || !empresa) {
+      alert("Empresa nao encontrada.");
+      return;
+    }
 
-
+    router.replace(`/empresa/${empresa.slug}`);
   }
 
-
-
-
-
-
-
-  async function entrar(
-    event:FormEvent
-  ){
-
-
+  async function entrar(event: FormEvent) {
     event.preventDefault();
-
-
     setMensagem("");
-
     setCarregando(true);
 
-
-
-
-    if(lembrar){
-
-
-      localStorage.setItem(
-        "xpacebox_email",
-        email.trim().toLowerCase()
-      );
-
-
-    }else{
-
-
-      localStorage.removeItem(
-        "xpacebox_email"
-      );
-
-
+    if (lembrar) {
+      localStorage.setItem("xpacebox_email", email.trim().toLowerCase());
+    } else {
+      localStorage.removeItem("xpacebox_email");
     }
 
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: senha,
+    });
 
-
-
-
-
-    const {
-      data,
-      error
-    } =
-      await supabase.auth.signInWithPassword({
-
-        email:
-          email.trim().toLowerCase(),
-
-        password:
-          senha,
-
-      });
-
-
-
-
-
-    if(error){
-
-
-      setMensagem(
-        "E-MAIL OU SENHA INVÁLIDOS."
-      );
-
-
+    if (error) {
+      console.log("ERRO LOGIN:", error);
+      setMensagem(error.message);
       setCarregando(false);
-
-
       return;
-
-
     }
 
-
-
-
-
-    if(data.user){
-
-
-      await redirecionarUsuario(
-        data.user.id
-      );
-
-
+    if (data.user) {
+      await redirecionarUsuario(data.user.id);
     }
-
-
 
     setCarregando(false);
-
-
-
   }
+
   if (verificando) {
-
     return (
-
       <LoginBackground>
-
         <LoginCard>
-
           <LoginLogo />
-
-
-          <p style={verificandoStyle}>
-            VERIFICANDO SEU ACESSO...
-          </p>
-
-
+          <p style={verificandoStyle}>Verificando seu acesso...</p>
         </LoginCard>
-
       </LoginBackground>
-
     );
-
   }
-
-
-
 
   return (
-
     <LoginBackground>
-
       <LoginCard>
-
         <LoginLogo />
 
-
-        <form onSubmit={entrar}>
-
-
+        <form onSubmit={entrar} style={{ marginTop: 48 }}>
           <label style={labelStyle}>
-
-            E-MAIL
-
-
+            E-mail
             <div style={inputWrapperStyle}>
-
-
-              <span style={iconStyle}>
-                ✉
-              </span>
-
-
-
+              <span style={iconStyle}>@</span>
               <input
-
                 className="login-input"
-
                 type="email"
-
-                autoComplete="off"
-
+                autoComplete="email"
                 value={email}
-
-                onChange={(event) =>
-                  setEmail(event.target.value)
-                }
-
-                placeholder="DIGITE SEU E-MAIL"
-
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Digite seu e-mail"
                 required
-
                 disabled={carregando}
-
                 style={inputStyle}
-
               />
-
-
             </div>
-
-
           </label>
 
-
-
-
-
           <label style={labelStyle}>
-
-            SENHA
-
-
-
+            Senha
             <div style={inputWrapperStyle}>
-
-
-              <span style={iconStyle}>
-                🔒
-              </span>
-
-
-
+              <span style={iconStyle}>#</span>
               <input
-
                 className="login-input"
-
-                type={
-                  mostrarSenha
-                    ? "text"
-                    : "password"
-                }
-
-                autoComplete="new-password"
-
+                type={mostrarSenha ? "text" : "password"}
+                autoComplete="current-password"
                 value={senha}
-
-                onChange={(event) =>
-                  setSenha(event.target.value)
-                }
-
-                placeholder="DIGITE SUA SENHA"
-
+                onChange={(event) => setSenha(event.target.value)}
+                placeholder="Digite sua senha"
                 required
-
                 disabled={carregando}
-
                 style={inputStyle}
-
               />
-
-
 
               <button
-
                 type="button"
-
-                onClick={() =>
-                  setMostrarSenha(
-                    (valor) => !valor
-                  )
-                }
-
+                onClick={() => setMostrarSenha((valor) => !valor)}
                 style={eyeButtonStyle}
-
               >
-
-                {mostrarSenha ? "🙈" : "👁"}
-
+                {mostrarSenha ? "Ocultar" : "Ver"}
               </button>
-
-
             </div>
-
-
           </label>
 
-
-
-
-
           <div style={optionsStyle}>
-
-
             <label style={rememberStyle}>
-
-
               <input
-
                 type="checkbox"
-
                 checked={lembrar}
-
-                onChange={(event) =>
-                  setLembrar(
-                    event.target.checked
-                  )
-                }
-
+                onChange={(event) => setLembrar(event.target.checked)}
                 style={checkboxStyle}
-
               />
-
-
-              <span>
-                LEMBRAR DE MIM
-              </span>
-
-
+              <span>Lembrar de mim</span>
             </label>
 
-
-
-
-
-            <button
-
-              type="button"
-
-              style={forgotButtonStyle}
-
-            >
-
-              ESQUECI MINHA SENHA
-
+            <button type="button" style={forgotButtonStyle}>
+              Esqueci minha senha
             </button>
-
-
           </div>
-
-
-
-
 
           <button
-
             type="submit"
-
             disabled={carregando}
-
             style={{
-
               ...botaoStyle,
-
-              opacity:
-                carregando
-                  ? 0.7
-                  : 1,
-
+              opacity: carregando ? 0.72 : 1,
             }}
-
           >
-
-            {
-              carregando
-                ? "ENTRANDO..."
-                : "ENTRAR"
-            }
-
-
+            {carregando ? "Entrando..." : "Entrar"}
           </button>
 
-
-
-
-
-          {mensagem && (
-
-            <div style={mensagemStyle}>
-
-              {mensagem}
-
-            </div>
-
-          )}
-
-
-
-
-
-
-          <div style={dividerStyle}>
-
-            <span style={lineStyle} />
-
-            <span>
-              OU
-            </span>
-
-            <span style={lineStyle} />
-
-
-          </div>
-
-
-
-
-
-          <footer style={footerStyle}>
-
-            XPACEBOX © 2026 — TODOS OS DIREITOS RESERVADOS
-
-          </footer>
-
-
-
+          {mensagem && <div style={mensagemStyle}>{mensagem}</div>}
         </form>
-
-
       </LoginCard>
-
-
     </LoginBackground>
-
   );
-
-
 }
 
-
-
-
-
-
 const verificandoStyle = {
-
-  textAlign:"center" as const,
-
-  color:"#9ca3af",
-
-  textTransform:"uppercase" as const,
-
-  letterSpacing:"1px",
-
+  textAlign: "center" as const,
+  color: "#667085",
+  textTransform: "uppercase" as const,
+  letterSpacing: "1px",
+  fontSize: 12,
+  fontWeight: 700,
 };
-
-
-
 
 const labelStyle = {
-
-  display:"block",
-
-  marginBottom:22,
-
-  color:"#d1d5db",
-
-  fontSize:14,
-
-  fontWeight:700,
-
+  display: "block",
+  marginBottom: 32,
+  color: "#344054",
+  fontSize: 28,
+  fontWeight: 800,
 };
-
-
-
 
 const inputWrapperStyle = {
-
-  display:"flex",
-
-  alignItems:"center",
-
-  marginTop:10,
-
-  borderRadius:12,
-
-  overflow:"hidden",
-
-  border:"1px solid rgba(255,255,255,.15)",
-
-  background:"#16141f",
-
+  display: "flex",
+  alignItems: "center",
+  marginTop: 9,
+  borderRadius: 14,
+  overflow: "hidden",
+  border: "1px solid rgba(20,24,39,.14)",
+  background: "#ffffff",
+  boxShadow: "0 10px 28px rgba(20,24,39,.06)",
 };
-
-
-
 
 const inputStyle = {
-
-  flex:1,
-
-  height:56,
-
-  padding:"0 14px",
-
-  border:"none",
-
-  outline:"none",
-
-  background:"#16141f",
-
-  color:"#fff",
-
-  fontSize:18,
-
-  fontWeight:500,
-
+  flex: 1,
+  height: 96,
+  padding: "0 24px",
+  border: "none",
+  outline: "none",
+  background: "#ffffff",
+  color: "#141827",
+  fontSize: 34,
+  fontWeight: 600,
 };
-
-
-
 
 const iconStyle = {
-
-  marginLeft:16,
-
+  width: 76,
+  textAlign: "center" as const,
+  fontSize: 34,
+  fontWeight: 900,
+  color: "#6f32d2",
 };
-
-
-
 
 const eyeButtonStyle = {
-
-  background:"transparent",
-
-  border:"none",
-
-  color:"#fff",
-
-  cursor:"pointer",
-
-  padding:"10px",
-
+  alignSelf: "stretch",
+  minWidth: 124,
+  background: "transparent",
+  border: "none",
+  borderLeft: "1px solid rgba(20,24,39,.1)",
+  color: "#6f32d2",
+  cursor: "pointer",
+  padding: "0 14px",
+  fontSize: 24,
+  fontWeight: 900,
 };
-
-
-
 
 const optionsStyle = {
-
-  display:"flex",
-
-  justifyContent:"space-between",
-
-  marginBottom:26,
-
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 42,
+  alignItems: "center",
 };
-
-
-
 
 const rememberStyle = {
-
-  display:"flex",
-
-  gap:8,
-
-  color:"#d1d5db",
-
+  display: "flex",
+  gap: 8,
+  color: "#344054",
+  fontSize: 24,
+  fontWeight: 700,
 };
-
-
-
 
 const checkboxStyle = {
-
-  width:18,
-
-  height:18,
-
+  width: 30,
+  height: 30,
+  accentColor: "#6f32d2",
 };
-
-
-
 
 const forgotButtonStyle = {
-
-  background:"transparent",
-
-  border:"none",
-
-  color:"#c084fc",
-
-  cursor:"pointer",
-
+  background: "transparent",
+  border: "none",
+  color: "#6f32d2",
+  cursor: "pointer",
+  fontSize: 24,
+  fontWeight: 900,
 };
-
-
-
 
 const botaoStyle = {
-
-  width:"100%",
-
-  padding:17,
-
-  borderRadius:12,
-
-  border:"none",
-
-  color:"#fff",
-
-  fontWeight:800,
-
-  background:
-    "linear-gradient(90deg,#7c3aed,#db2777,#f97316)",
-
+  width: "100%",
+  padding: 30,
+  borderRadius: 14,
+  border: "none",
+  color: "#ffffff",
+  fontWeight: 900,
+  cursor: "pointer",
+  background: "linear-gradient(90deg,#6f32d2,#e63dae,#ff3b25)",
+  boxShadow: "0 16px 34px rgba(230,61,174,.26)",
 };
-
-
-
 
 const mensagemStyle = {
-
-  marginTop:18,
-
-  padding:14,
-
-  borderRadius:10,
-
-  background:"rgba(127,29,29,.35)",
-
-  color:"#fecaca",
-
-  textAlign:"center" as const,
-
-};
-
-
-
-
-const dividerStyle = {
-
-  display:"flex",
-
-  alignItems:"center",
-
-  gap:18,
-
-  marginTop:30,
-
-  color:"#9ca3af",
-
-};
-
-
-
-
-const lineStyle = {
-
-  flex:1,
-
-  height:1,
-
-  background:"rgba(255,255,255,.15)",
-
-};
-
-
-
-
-const footerStyle = {
-
-  marginTop:28,
-
-  textAlign:"center" as const,
-
-  color:"#6b7280",
-
-  fontSize:11,
-
+  marginTop: 18,
+  padding: 14,
+  borderRadius: 12,
+  background: "rgba(255,59,37,.08)",
+  color: "#b42318",
+  textAlign: "center" as const,
+  border: "1px solid rgba(255,59,37,.18)",
+  fontSize: 22,
+  fontWeight: 700,
 };
