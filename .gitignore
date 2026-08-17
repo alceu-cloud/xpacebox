@@ -2,3 +2,5 @@
 .next/
 .env.local
 *.log
+.vercel
+.env*
