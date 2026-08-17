@@ -85,9 +85,9 @@ export function calculatePriceAnalysis({
   const requiresManualProductionRate = !hasRegisteredProductionTime;
   const configuredSetupMinutes = hasRegisteredProductionTime ? productionTime!.setupMinutes : 15;
   const setupMinutes = ignoreSetup ? 0 : configuredSetupMinutes;
-  const boxesPerHour = hasRegisteredProductionTime
-    ? productionTime!.boxesPerHour
-    : Math.max(0, manualBoxesPerHour);
+  const simulatedBoxesPerHour = Math.max(0, manualBoxesPerHour);
+  const tableBoxesPerHour = hasRegisteredProductionTime ? productionTime!.boxesPerHour : 0;
+  const boxesPerHour = simulatedBoxesPerHour > 0 ? simulatedBoxesPerHour : tableBoxesPerHour;
   const productionDataReady = boxesPerHour > 0;
   const productionMinutes = productionDataReady ? (lotQuantity / boxesPerHour) * 60 : 0;
   const totalMinutes = productionDataReady ? setupMinutes + productionMinutes : 0;
@@ -123,6 +123,8 @@ export function calculatePriceAnalysis({
     setupMinutes,
     setupIgnored: ignoreSetup,
     boxesPerHour,
+    tableBoxesPerHour,
+    productionCapacitySimulated: simulatedBoxesPerHour > 0,
     productionDataReady,
     requiresManualProductionRate,
     productionTimeSource: productionTimeMatch?.source ?? "manual",

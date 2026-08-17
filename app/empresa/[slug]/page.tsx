@@ -1130,6 +1130,29 @@ function PriceSummaryStep({
               {analysis.productionDataReady ? `${formatNumber(analysis.boxesPerHour, 0)} CX/H` : "AGUARDANDO CX/H"}
             </strong>
           </div>
+
+          {analysis.productionCapacitySimulated && analysis.tableBoxesPerHour > 0 && (
+            <span style={configuredSetupNoteStyle}>
+              VALOR DA TABELA: {formatNumber(analysis.tableBoxesPerHour, 0)} CX/H
+            </span>
+          )}
+
+          <label style={productionCapacityOverrideStyle}>
+            <span style={productionCapacityOverrideLabelStyle}>SIMULAR QUANTIDADE</span>
+            <span style={productionCapacityOverrideInputRowStyle}>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={manualBoxesPerHour || ""}
+                onChange={(event) => setManualBoxesPerHour(Math.max(0, Math.round(Number(event.target.value) || 0)))}
+                placeholder={analysis.tableBoxesPerHour > 0 ? formatNumber(analysis.tableBoxesPerHour, 0) : "EX.: 900"}
+                aria-label="SIMULAR QUANTIDADE EM CAIXAS POR HORA"
+                style={productionCapacityOverrideInputStyle}
+              />
+              <strong style={productionCapacityOverrideSuffixStyle}>CX/H</strong>
+            </span>
+          </label>
         </aside>
 
         {(economicAlternative || economicSimulationActive) && originalMaterial && (
@@ -2142,6 +2165,49 @@ const additionalCostsCheckboxStyle = { ...zeroSetupCheckboxStyle, accentColor: "
 const configuredSetupNoteStyle = { marginTop: -10, color: "#9b59d0", fontSize: 13, fontWeight: 900, letterSpacing: 1 };
 const configuredAdditionalCostsNoteStyle = { ...configuredSetupNoteStyle, color: "#6f32d2" };
 const productionDividerStyle = { height: 1, background: "rgba(230,0,126,.12)" };
+const productionCapacityOverrideStyle = {
+  display: "grid",
+  gap: 8,
+  padding: "14px 14px 15px",
+  borderRadius: 14,
+  border: "1px solid rgba(0,135,215,.20)",
+  background: "linear-gradient(135deg,rgba(240,249,255,.92),rgba(255,255,255,.96))",
+};
+const productionCapacityOverrideLabelStyle = {
+  color: "#667085",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: 1,
+};
+const productionCapacityOverrideInputRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0,1fr) 64px",
+  alignItems: "center",
+  overflow: "hidden",
+  borderRadius: 10,
+  border: "1px solid rgba(0,135,215,.28)",
+  background: "#fff",
+};
+const productionCapacityOverrideInputStyle = {
+  width: "100%",
+  height: 44,
+  border: "none",
+  outline: "none",
+  background: "transparent",
+  color: "#0087d7",
+  fontSize: 20,
+  fontWeight: 900,
+  textAlign: "center" as const,
+};
+const productionCapacityOverrideSuffixStyle = {
+  height: "100%",
+  display: "grid",
+  placeItems: "center",
+  borderLeft: "1px solid rgba(0,135,215,.18)",
+  color: "#0087d7",
+  fontSize: 13,
+  fontWeight: 900,
+};
 const priceStandardPanelStyle = {
   borderRadius: 20,
   border: "1px solid rgba(0,166,81,.22)",
