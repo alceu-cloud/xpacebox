@@ -8,6 +8,7 @@ import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa from "@/components/gerenciador/GerenciadorEmpresa";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
+import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { supabase } from "@/lib/supabase";
@@ -135,6 +136,36 @@ export default function EmpresaPage() {
     carregarPermissao();
   }, [moduloAtivo]);
 
+  useEffect(() => {
+    let active = true;
+    loadManagerSettings(slug)
+      .then((settings) => {
+        if (!active) return;
+        if (settings.suppliers) setSuppliers(settings.suppliers);
+        if (settings.paperTypes) setPaperTypes(settings.paperTypes);
+        if (settings.materials) setMaterials(settings.materials);
+        if (settings.engineeringFormulas) setEngineeringFormulas(settings.engineeringFormulas);
+        if (settings.paperCostParams) setPaperCostParams(settings.paperCostParams);
+        if (settings.pricingParams) setPricingParams(settings.pricingParams);
+        if (settings.pricingGoalsByCompany) setPricingGoalsByCompany(settings.pricingGoalsByCompany);
+        if (settings.productionTimes) setProductionTimes(settings.productionTimes);
+        if (settings.paymentConditions) setPaymentConditions(settings.paymentConditions);
+        if (settings.cfops) setCfops(settings.cfops);
+        if (settings.taxRegimes) setTaxRegimes(settings.taxRegimes);
+        if (settings.fiscalProfiles) setFiscalProfiles(settings.fiscalProfiles);
+        if (settings.fiscalBenefits) setFiscalBenefits(settings.fiscalBenefits);
+      })
+      .catch((error) => console.error("MANAGER SETTINGS LOAD ERROR", error));
+    return () => {
+      active = false;
+    };
+  }, [slug]);
+
+  function persistManagerChange<K extends keyof ManagerSettings>(key: K, value: NonNullable<ManagerSettings[K]>, setter: (value: NonNullable<ManagerSettings[K]>) => void) {
+    setter(value);
+    void saveManagerSetting(slug, key, value).catch((error) => console.error("MANAGER SETTINGS SAVE ERROR", error));
+  }
+
   const modulosVisiveis = useMemo(
     () => modulos.filter((modulo) => !modulo.somenteGerencia || podeGerenciar),
     [podeGerenciar]
@@ -216,22 +247,22 @@ export default function EmpresaPage() {
             productionTimes={productionTimes}
             paymentConditions={paymentConditions}
             cfops={cfops}
-            onSuppliersChange={setSuppliers}
-            onPaperTypesChange={setPaperTypes}
-            onMaterialsChange={setMaterials}
-            onEngineeringFormulasChange={setEngineeringFormulas}
-            onPaperCostParamsChange={setPaperCostParams}
-            onPricingParamsChange={setPricingParams}
-            onPricingGoalsByCompanyChange={setPricingGoalsByCompany}
-            onProductionTimesChange={setProductionTimes}
-            onPaymentConditionsChange={setPaymentConditions}
-            onCfopsChange={setCfops}
+            onSuppliersChange={(value) => persistManagerChange("suppliers", value, setSuppliers)}
+            onPaperTypesChange={(value) => persistManagerChange("paperTypes", value, setPaperTypes)}
+            onMaterialsChange={(value) => persistManagerChange("materials", value, setMaterials)}
+            onEngineeringFormulasChange={(value) => persistManagerChange("engineeringFormulas", value, setEngineeringFormulas)}
+            onPaperCostParamsChange={(value) => persistManagerChange("paperCostParams", value, setPaperCostParams)}
+            onPricingParamsChange={(value) => persistManagerChange("pricingParams", value, setPricingParams)}
+            onPricingGoalsByCompanyChange={(value) => persistManagerChange("pricingGoalsByCompany", value, setPricingGoalsByCompany)}
+            onProductionTimesChange={(value) => persistManagerChange("productionTimes", value, setProductionTimes)}
+            onPaymentConditionsChange={(value) => persistManagerChange("paymentConditions", value, setPaymentConditions)}
+            onCfopsChange={(value) => persistManagerChange("cfops", value, setCfops)}
             taxRegimes={taxRegimes}
             fiscalProfiles={fiscalProfiles}
             fiscalBenefits={fiscalBenefits}
-            onTaxRegimesChange={setTaxRegimes}
-            onFiscalProfilesChange={setFiscalProfiles}
-            onFiscalBenefitsChange={setFiscalBenefits}
+            onTaxRegimesChange={(value) => persistManagerChange("taxRegimes", value, setTaxRegimes)}
+            onFiscalProfilesChange={(value) => persistManagerChange("fiscalProfiles", value, setFiscalProfiles)}
+            onFiscalBenefitsChange={(value) => persistManagerChange("fiscalBenefits", value, setFiscalBenefits)}
           />
         ) : moduloAtivo === "clientes" ? (
           <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} />
