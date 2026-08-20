@@ -189,6 +189,7 @@ export default function GerenciadorEmpresa({
     if (activeTab === "papeis") return "GERENCIADOR DE TIPOS DE PAPELAO";
     if (activeTab === "materiais") return "BANCO DE MATERIAIS ESPECIFICOS";
     if (activeTab === "engenharia") return "ENGENHARIA DE FORMULAS DE CAIXAS";
+    if (activeTab === "cores") return "CADASTRO DE CORES";
     if (activeTab === "custo") return "CUSTO DE PAPEL";
     if (activeTab === "parametros") return "PARAMETROS DE PRECIFICACAO - DAWOS";
     if (activeTab === "metas") return "METAS DE DESEMPENHO - DAWOS";
