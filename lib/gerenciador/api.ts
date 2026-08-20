@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingParams, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingParams, ProductFicha, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 
 export type ManagerSettings = {
@@ -15,6 +15,8 @@ export type ManagerSettings = {
   taxRegimes?: GeneralOption[];
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
+  productFichas?: ProductFicha[];
+  productColors?: string[];
 };
 
 async function authorizedFetch(path: string, init?: RequestInit) {

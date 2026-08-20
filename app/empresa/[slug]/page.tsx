@@ -12,7 +12,7 @@ import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { supabase } from "@/lib/supabase";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductFicha, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
 
@@ -108,6 +108,8 @@ export default function EmpresaPage() {
   const [taxRegimes, setTaxRegimes] = useState<GeneralOption[]>(initialTaxRegimes);
   const [fiscalProfiles, setFiscalProfiles] = useState<GeneralOption[]>(initialFiscalProfiles);
   const [fiscalBenefits, setFiscalBenefits] = useState<GeneralOption[]>(initialFiscalBenefits);
+  const [productFichas, setProductFichas] = useState<ProductFicha[]>([]);
+  const [productColors, setProductColors] = useState<string[]>(["BRANCO", "PRETO", "VERMELHO", "AZUL", "AMARELO"]);
 
   const slug = String(params.slug ?? "");
 
@@ -154,6 +156,8 @@ export default function EmpresaPage() {
         if (settings.taxRegimes) setTaxRegimes(settings.taxRegimes);
         if (settings.fiscalProfiles) setFiscalProfiles(settings.fiscalProfiles);
         if (settings.fiscalBenefits) setFiscalBenefits(settings.fiscalBenefits);
+        if (settings.productFichas) setProductFichas(settings.productFichas);
+        if (settings.productColors) setProductColors(settings.productColors);
       })
       .catch((error) => console.error("MANAGER SETTINGS LOAD ERROR", error));
     return () => {
@@ -263,6 +267,10 @@ export default function EmpresaPage() {
             onTaxRegimesChange={(value) => persistManagerChange("taxRegimes", value, setTaxRegimes)}
             onFiscalProfilesChange={(value) => persistManagerChange("fiscalProfiles", value, setFiscalProfiles)}
             onFiscalBenefitsChange={(value) => persistManagerChange("fiscalBenefits", value, setFiscalBenefits)}
+            productFichas={productFichas}
+            productColors={productColors}
+            onProductFichasChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}
+            onProductColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloAtivo === "clientes" ? (
           <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} />

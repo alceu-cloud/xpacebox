@@ -83,3 +83,34 @@ export type ReminderFormula = {
   description: string;
   items: string[];
 };
+
+export type ProductComponent = {
+  id: string;
+  reference: string;
+  revision: string;
+  company: string;
+  clientId: string;
+  laudo: "SIM" | "NAO";
+  palete: "SIM" | "NAO";
+  tieCount: number;
+  status: "INATIVO" | "DESENVOLVIMENTO" | "PRE-CALCULO" | "PRODUTO FINAL";
+  length: number;
+  width: number;
+  height: number;
+  topOverlap: number;
+  bottomOverlap: number;
+  knifeWidth: number;
+  knifeWidthBoxes: number;
+  knifeLength: number;
+  knifeLengthBoxes: number;
+  supplierQuality: string;
+  color1: string;
+  color2: string;
+  engineeringId: string;
+  observations: string;
+};
+
+export type ProductFicha = ProductComponent & {
+  ftNumber: string;
+  accessories: ProductComponent[];
+};

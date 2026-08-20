@@ -16,6 +16,8 @@ const allowedKeys = new Set([
   "taxRegimes",
   "fiscalProfiles",
   "fiscalBenefits",
+  "productFichas",
+  "productColors",
 ]);
 
 function failure(message: string, status: number) {

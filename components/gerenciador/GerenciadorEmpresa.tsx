@@ -15,11 +15,11 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductComponent, ProductFicha, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
-type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
+type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "produtos" | "cores" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
 type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
@@ -28,6 +28,8 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
   { key: "papeis", label: "TIPOS DE PAPELAO" },
   { key: "materiais", label: "MATERIAIS ESPECIFICOS" },
   { key: "engenharia", label: "ENGENHARIA DA CAIXA" },
+  { key: "produtos", label: "FICHAS TECNICAS" },
+  { key: "cores", label: "CORES" },
   { key: "custo", label: "CUSTO DE PAPEL" },
   { key: "parametros", label: "PARAMETROS DE PRECO" },
   { key: "metas", label: "METAS" },
@@ -38,7 +40,7 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
 const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
   embalagem: ["papeis", "materiais", "tempos", "lembretes"],
   fornecedores: ["fornecedores", "custo"],
-  produtos: ["engenharia"],
+  produtos: ["engenharia", "produtos", "cores"],
   empresa: ["parametros", "metas"],
 };
 
@@ -78,6 +80,8 @@ type GerenciadorEmpresaProps = {
   taxRegimes?: GeneralOption[];
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
+  productFichas?: ProductFicha[];
+  productColors?: string[];
   onSuppliersChange?: (suppliers: Supplier[]) => void;
   onPaperTypesChange?: (paperTypes: PaperType[]) => void;
   onMaterialsChange?: (materials: SpecificMaterial[]) => void;
@@ -91,6 +95,8 @@ type GerenciadorEmpresaProps = {
   onTaxRegimesChange?: (items: GeneralOption[]) => void;
   onFiscalProfilesChange?: (items: GeneralOption[]) => void;
   onFiscalBenefitsChange?: (items: GeneralOption[]) => void;
+  onProductFichasChange?: (items: ProductFicha[]) => void;
+  onProductColorsChange?: (items: string[]) => void;
 };
 
 export default function GerenciadorEmpresa({
@@ -108,6 +114,8 @@ export default function GerenciadorEmpresa({
   taxRegimes: controlledTaxRegimes,
   fiscalProfiles: controlledFiscalProfiles,
   fiscalBenefits: controlledFiscalBenefits,
+  productFichas: controlledProductFichas,
+  productColors: controlledProductColors,
   onSuppliersChange,
   onPaperTypesChange,
   onMaterialsChange,
@@ -121,9 +129,13 @@ export default function GerenciadorEmpresa({
   onTaxRegimesChange,
   onFiscalProfilesChange,
   onFiscalBenefitsChange,
+  onProductFichasChange,
+  onProductColorsChange,
 }: GerenciadorEmpresaProps = {}) {
   const [activeTab, setActiveTab] = useState<Tab>("papeis");
   const [managerSection, setManagerSection] = useState<ManagerSection>("embalagem");
+  const [localProductFichas, setLocalProductFichas] = useState<ProductFicha[]>(controlledProductFichas ?? []);
+  const [localProductColors, setLocalProductColors] = useState<string[]>(controlledProductColors ?? ["BRANCO", "PRETO", "VERMELHO", "AZUL", "AMARELO"]);
   const [localSuppliers, setLocalSuppliers] = useState(initialSuppliers);
   const [localPaperTypes, setLocalPaperTypes] = useState(initialPaperTypes);
   const [localMaterials, setLocalMaterials] = useState(initialMaterials);
@@ -148,6 +160,8 @@ export default function GerenciadorEmpresa({
   const paperTypes = controlledPaperTypes ?? localPaperTypes;
   const materials = controlledMaterials ?? localMaterials;
   const engineeringFormulas = controlledEngineeringFormulas ?? localEngineeringFormulas;
+  const productFichas = controlledProductFichas ?? localProductFichas;
+  const productColors = controlledProductColors ?? localProductColors;
   const paperCostParams = controlledPaperCostParams ?? localPaperCostParams;
   const pricingParams = controlledPricingParams ?? localPricingParams;
   const pricingGoalsByCompany = controlledPricingGoalsByCompany ?? localPricingGoalsByCompany;
@@ -476,6 +490,21 @@ export default function GerenciadorEmpresa({
             </Table>
           )}
 
+          {activeTab === "produtos" && (
+            <ProductCatalogPanel
+              companySlug={companySlug}
+              fichas={productFichas}
+              colors={productColors}
+              engineeringFormulas={engineeringFormulas}
+              onChange={setProductFichas}
+              onColorsChange={setProductColors}
+            />
+          )}
+
+          {activeTab === "cores" && (
+            <ProductColorsPanel colors={productColors} onChange={setProductColors} />
+          )}
+
           {activeTab === "custo" && (
             <>
               <div style={costControlsStyle}>
@@ -683,6 +712,129 @@ export default function GerenciadorEmpresa({
   function updateProductionTime(id: string, field: "setupMinutes" | "boxesPerHour", value: number) {
     setProductionTimes(productionTimes.map((time) => (time.id === id ? { ...time, [field]: value } : time)));
   }
+
+  function setProductFichas(value: ProductFicha[]) {
+    if (onProductFichasChange) onProductFichasChange(value);
+    else setLocalProductFichas(value);
+  }
+
+  function setProductColors(value: string[]) {
+    if (onProductColorsChange) onProductColorsChange(value);
+    else setLocalProductColors(value);
+  }
+}
+
+const productCompanies = ["DAWOS", "CARCAT", "GTA"];
+const productStatuses: ProductComponent["status"][] = ["INATIVO", "DESENVOLVIMENTO", "PRE-CALCULO", "PRODUTO FINAL"];
+
+function emptyProductComponent(): ProductComponent {
+  return {
+    id: crypto.randomUUID(), reference: "", revision: "", company: "DAWOS", clientId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
+    status: "DESENVOLVIMENTO", length: 0, width: 0, height: 0, topOverlap: 0, bottomOverlap: 0, knifeWidth: 0, knifeWidthBoxes: 1,
+    knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "",
+  };
+}
+
+function ProductCatalogPanel({
+  companySlug, fichas, colors, engineeringFormulas, onChange, onColorsChange,
+}: {
+  companySlug?: string;
+  fichas: ProductFicha[];
+  colors: string[];
+  engineeringFormulas: EngineeringFormula[];
+  onChange: (items: ProductFicha[]) => void;
+  onColorsChange: (items: string[]) => void;
+}) {
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<ProductFicha | null>(null);
+
+  useEffect(() => {
+    if (!companySlug) return;
+    loadClients(companySlug).then(setClients).catch(() => setClients([]));
+  }, [companySlug]);
+
+  function startCreate() {
+    setEditingId(null);
+    setDraft({ ...emptyProductComponent(), ftNumber: "", accessories: [] });
+  }
+
+  function startEdit(item: ProductFicha) {
+    setEditingId(item.id);
+    setDraft({ ...item, accessories: item.accessories.map((accessory) => ({ ...accessory })) });
+  }
+
+  function updateMain<K extends keyof ProductFicha>(key: K, value: ProductFicha[K]) {
+    setDraft((current) => current ? { ...current, [key]: value } : current);
+  }
+
+  function updateAccessory(id: string, key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) {
+    setDraft((current) => current ? { ...current, accessories: current.accessories.map((item) => item.id === id ? { ...item, [key]: value } as ProductComponent : item) } : current);
+  }
+
+  function save() {
+    if (!draft?.ftNumber.trim() || !draft.reference.trim() || !draft.clientId) return;
+    const next = { ...draft, ftNumber: draft.ftNumber.trim().toUpperCase(), reference: draft.reference.trim().toUpperCase() };
+    onChange(editingId ? fichas.map((item) => item.id === editingId ? next : item) : [...fichas, next]);
+    setDraft(null);
+    setEditingId(null);
+  }
+
+  function renderFields(item: ProductComponent, update: (key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) => void, prefix: string) {
+    return (
+      <div style={productFieldsStyle}>
+        <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
+        <label style={productLabelStyle}>REVISAO<input value={item.revision} onChange={(event) => update("revision", event.target.value)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>EMPRESA<select value={item.company} onChange={(event) => update("company", event.target.value)} style={productInputStyle}>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
+        <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => update("clientId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}</select></label>
+        <label style={productLabelStyle}>LAUDO<select value={item.laudo} onChange={(event) => update("laudo", event.target.value as ProductComponent["laudo"])} style={productInputStyle}><option>NAO</option><option>SIM</option></select></label>
+        <label style={productLabelStyle}>PALETE<select value={item.palete} onChange={(event) => update("palete", event.target.value as ProductComponent["palete"])} style={productInputStyle}><option>NAO</option><option>SIM</option></select></label>
+        <label style={productLabelStyle}>NUMERO DE AMARRADOS<input type="number" min="0" value={item.tieCount} onChange={(event) => update("tieCount", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>STATUS<select value={item.status} onChange={(event) => update("status", event.target.value as ProductComponent["status"])} style={productInputStyle}>{productStatuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+        <label style={productLabelStyle}>COMPRIMENTO (MM)<input type="number" value={item.length || ""} onChange={(event) => update("length", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>LARGURA (MM)<input type="number" value={item.width || ""} onChange={(event) => update("width", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>ALTURA (MM)<input type="number" value={item.height || ""} onChange={(event) => update("height", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>TRANSPASSE SUPERIOR<input type="number" value={item.topOverlap || ""} onChange={(event) => update("topOverlap", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>TRANSPASSE INFERIOR<input type="number" value={item.bottomOverlap || ""} onChange={(event) => update("bottomOverlap", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>LARGURA DA FACA<input type="number" value={item.knifeWidth || ""} onChange={(event) => update("knifeWidth", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>CAIXAS NA LARGURA<input type="number" min="1" value={item.knifeWidthBoxes || ""} onChange={(event) => update("knifeWidthBoxes", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>COMPRIMENTO DA FACA<input type="number" value={item.knifeLength || ""} onChange={(event) => update("knifeLength", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>CAIXAS NO COMPRIMENTO<input type="number" min="1" value={item.knifeLengthBoxes || ""} onChange={(event) => update("knifeLengthBoxes", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>QUALIDADE DO FORNECEDOR<input value={item.supplierQuality} onChange={(event) => update("supplierQuality", event.target.value)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>COR 1<select value={item.color1} onChange={(event) => update("color1", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-1-${color}`}>{color}</option>)}</select></label>
+        <label style={productLabelStyle}>COR 2<select value={item.color2} onChange={(event) => update("color2", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-2-${color}`}>{color}</option>)}</select></label>
+        <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{engineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
+        <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {draft ? (
+        <FormPanel title={editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
+          <label style={wideLabelStyle}>NUMERO DA FT<input value={draft.ftNumber} onChange={(event) => updateMain("ftNumber", event.target.value)} style={inputStyle} placeholder="EX: FT-0001" /></label>
+          <div style={productColumnsStyle}>
+            <section style={productSideStyle}><h3 style={productSideTitleStyle}>CAIXA PRINCIPAL</h3>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}</section>
+            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong><button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button></div>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</article>)}<button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button></section>
+          </div>
+          <div style={formActionsStyle}><button type="button" onClick={() => setDraft(null)} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button></div>
+        </FormPanel>
+      ) : (
+        <Panel title="FICHAS TECNICAS DE PRODUTOS" description="CADASTRE A CAIXA PRINCIPAL E OS ACESSORIOS VINCULADOS A CADA FT." actionLabel="+ NOVA FICHA TECNICA" onAction={startCreate}>
+          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : fichas.map((ficha) => <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S) · {ficha.status}</small></div><div><button type="button" onClick={() => startEdit(ficha)} style={editButtonStyle}>EDITAR</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}
+        </Panel>
+      )}
+    </>
+  );
+}
+
+function ProductColorsPanel({ colors, onChange }: { colors: string[]; onChange: (items: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  return <Panel title="CADASTRO DE CORES" description="CORES DISPONIVEIS PARA AS FICHAS TECNICAS DE PRODUTOS." onAction={() => undefined}>
+    <div style={colorAddStyle}><input value={draft} onChange={(event) => setDraft(event.target.value)} style={{ ...productInputStyle, width: 220 }} placeholder="NOVA COR" /><button type="button" onClick={() => { const value = draft.trim().toUpperCase(); if (value && !colors.includes(value)) { onChange([...colors, value]); setDraft(""); } }} style={orangeButtonStyle}>+ ADICIONAR</button></div>
+    <div style={colorListStyle}>{colors.map((color) => <div key={color} style={colorItemStyle}><span>{color}</span><button type="button" onClick={() => onChange(colors.filter((item) => item !== color))} style={deleteButtonStyle}>EXCLUIR</button></div>)}</div>
+  </Panel>;
 }
 
 function GeneralRegistriesPanel({
@@ -1296,4 +1448,22 @@ const wideLabelStyle = { display: "grid", gap: 12, color: "#141827", fontSize: 1
 const inputStyle = { width: "100%", height: 66, borderRadius: 13, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 22px", fontSize: 20, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
 const formActionsStyle = { display: "flex", justifyContent: "flex-end", gap: 16, marginTop: 4 };
 const cancelButtonStyle = { minHeight: 52, padding: "0 26px", borderRadius: 12, border: "1px solid rgba(52,64,84,.16)", background: "#fff", color: "#141827", fontSize: 16, fontWeight: 900, cursor: "pointer" };
+const productColumnsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 24, alignItems: "start" };
+const productSideStyle = { padding: 22, borderRadius: 16, border: "1px solid rgba(255,0,135,.20)", background: "rgba(255,248,252,.72)" };
+const productSideTitleStyle = { margin: "0 0 20px", color: "#e6007e", fontSize: 22, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
+const productFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 15 };
+const productLabelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 13, fontWeight: 900, letterSpacing: .7 };
+const productInputStyle = { width: "100%", minHeight: 46, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 13px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
+const accessoryStyle = { padding: 16, marginBottom: 16, borderRadius: 13, border: "1px solid rgba(111,50,210,.20)", background: "rgba(255,255,255,.82)" };
+const accessoryHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, color: "#6f32d2", fontSize: 14, letterSpacing: 1 };
+const removeAccessoryStyle = { border: "none", background: "transparent", color: "#ff4b4b", fontSize: 12, fontWeight: 900, cursor: "pointer" };
+const secondaryActionStyle = { minHeight: 48, width: "100%", borderRadius: 11, border: "1px solid rgba(111,50,210,.25)", background: "rgba(111,50,210,.06)", color: "#6f32d2", fontSize: 14, fontWeight: 900, cursor: "pointer" };
+const emptyListStyle = { padding: 44, borderRadius: 14, border: "1px dashed rgba(111,50,210,.30)", color: "#667085", fontSize: 17, fontWeight: 800, textAlign: "center" as const };
+const fichaRowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 22, padding: "22px 24px", borderBottom: "1px solid rgba(255,0,135,.12)", background: "rgba(255,255,255,.72)" };
+const fichaNumberStyle = { display: "block", color: "#6f32d2", fontSize: 20, fontWeight: 900 };
+const fichaReferenceStyle = { display: "block", marginTop: 5, color: "#141827", fontSize: 17, fontWeight: 900 };
+const fichaMetaStyle = { display: "block", marginTop: 7, color: "#667085", fontSize: 13, fontWeight: 800 };
+const colorAddStyle = { display: "flex", alignItems: "center", gap: 10 };
+const colorListStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 14 };
+const colorItemStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 18px", borderRadius: 12, border: "1px solid rgba(255,0,135,.18)", background: "rgba(255,248,252,.74)", color: "#141827", fontSize: 16, fontWeight: 900 };
 
