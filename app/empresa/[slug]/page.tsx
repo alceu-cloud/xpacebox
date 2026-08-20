@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
@@ -273,6 +274,7 @@ function PricingPreview({
   const [category, setCategory] = useState<BoxCategory>("maleta");
   const [modelKey, setModelKey] = useState<BoxModelKey>("caixa-4-abas");
   const [dimensions, setDimensions] = useState({ length: "", width: "", height: "" });
+  const lengthInputRef = useRef<HTMLInputElement | null>(null);
   const [lotQuantity, setLotQuantity] = useState(1000);
   const [sellerCompanyKey, setSellerCompanyKey] = useState<SellerCompanyKey>("dawos");
   const [simulatedMaterialId, setSimulatedMaterialId] = useState<string | null>(null);
@@ -427,13 +429,24 @@ function PricingPreview({
               </div>
 
               <div style={dimensionGridStyle}>
-                <DimensionInput label="COMPRIMENTO (C)" value={dimensions.length} onChange={(value) => setDimensions((current) => ({ ...current, length: value }))} />
+                <DimensionInput
+                  ref={lengthInputRef}
+                  label="COMPRIMENTO (C)"
+                  value={dimensions.length}
+                  onChange={(value) => setDimensions((current) => ({ ...current, length: value }))}
+                />
                 <DimensionInput label="LARGURA (L)" value={dimensions.width} onChange={(value) => setDimensions((current) => ({ ...current, width: value }))} />
                 {selectedModel.dimensionMode !== "hide-height" && (
                   <DimensionInput
                     label="ALTURA (A)"
                     value={dimensions.height}
                     disabled={selectedModel.dimensionMode === "disabled-height"}
+                    onTab={(event) => {
+                      if (!event.shiftKey) {
+                        event.preventDefault();
+                        lengthInputRef.current?.focus();
+                      }
+                    }}
                     onChange={(value) => setDimensions((current) => ({ ...current, height: value }))}
                   />
                 )}
@@ -710,31 +723,33 @@ function FormulaSummary({ formula }: { formula: (typeof initialEngineeringFormul
   );
 }
 
-function DimensionInput({
-  label,
-  value,
-  disabled,
-  onChange,
-}: {
+const DimensionInput = forwardRef<HTMLInputElement, {
   label: string;
   value: string;
   disabled?: boolean;
   onChange: (value: string) => void;
-}) {
-  return (
-    <label style={{ ...dimensionFieldStyle, ...(disabled ? disabledDimensionFieldStyle : {}) }}>
-      <span style={dimensionLabelStyle}>{label}</span>
-      <input
-        type="number"
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={disabled ? "NAO USADO" : "0"}
-        style={dimensionInputStyle}
-      />
-    </label>
-  );
-}
+  onTab?: (event: KeyboardEvent<HTMLInputElement>) => void;
+}>(
+  ({ label, value, disabled, onChange, onTab }, ref) => {
+    return (
+      <label style={{ ...dimensionFieldStyle, ...(disabled ? disabledDimensionFieldStyle : {}) }}>
+        <span style={dimensionLabelStyle}>{label}</span>
+        <input
+          ref={ref}
+          type="number"
+          value={value}
+          disabled={disabled}
+          onKeyDown={(event) => {
+            if (event.key === "Tab") onTab?.(event);
+          }}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={disabled ? "NAO USADO" : "0"}
+          style={dimensionInputStyle}
+        />
+      </label>
+    );
+  }
+);
 
 function LotLogisticsStep({
   quantity,
