@@ -19,7 +19,7 @@ import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
-type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "produtos" | "cores" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
+type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
 type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
@@ -28,7 +28,6 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
   { key: "papeis", label: "TIPOS DE PAPELAO" },
   { key: "materiais", label: "MATERIAIS ESPECIFICOS" },
   { key: "engenharia", label: "ENGENHARIA DA CAIXA" },
-  { key: "produtos", label: "FICHAS TECNICAS" },
   { key: "cores", label: "CORES" },
   { key: "custo", label: "CUSTO DE PAPEL" },
   { key: "parametros", label: "PARAMETROS DE PRECO" },
@@ -40,7 +39,7 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
 const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
   embalagem: ["papeis", "materiais", "tempos", "lembretes"],
   fornecedores: ["fornecedores", "custo"],
-  produtos: ["engenharia", "produtos", "cores"],
+  produtos: ["engenharia", "cores"],
   empresa: ["parametros", "metas"],
 };
 
@@ -490,17 +489,6 @@ export default function GerenciadorEmpresa({
             </Table>
           )}
 
-          {activeTab === "produtos" && (
-            <ProductCatalogPanel
-              companySlug={companySlug}
-              fichas={productFichas}
-              colors={productColors}
-              engineeringFormulas={engineeringFormulas}
-              onChange={setProductFichas}
-              onColorsChange={setProductColors}
-            />
-          )}
-
           {activeTab === "cores" && (
             <ProductColorsPanel colors={productColors} onChange={setProductColors} />
           )}
@@ -735,7 +723,7 @@ function emptyProductComponent(): ProductComponent {
   };
 }
 
-function ProductCatalogPanel({
+export function ProductCatalogPanel({
   companySlug, fichas, colors, engineeringFormulas, onChange, onColorsChange,
 }: {
   companySlug?: string;

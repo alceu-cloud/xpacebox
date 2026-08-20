@@ -5,7 +5,7 @@ import type { KeyboardEvent } from "react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
-import GerenciadorEmpresa from "@/components/gerenciador/GerenciadorEmpresa";
+import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
@@ -274,6 +274,15 @@ export default function EmpresaPage() {
           />
         ) : moduloAtivo === "clientes" ? (
           <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} />
+        ) : moduloAtivo === "produtos" ? (
+          <ProductCatalogPanel
+            companySlug={slug}
+            fichas={productFichas}
+            colors={productColors}
+            engineeringFormulas={engineeringFormulas}
+            onChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}
+            onColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
+          />
         ) : moduloAtivo === "formacao-preco" ? (
           <PricingPreview
             suppliers={suppliers}
