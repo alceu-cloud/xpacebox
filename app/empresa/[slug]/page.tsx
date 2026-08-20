@@ -841,7 +841,7 @@ function CompanyStep({
   const activeConditions = selectedCompany.key === "dawos"
     ? [
         { label: "ICMS CLIENTE", value: `${formatNumber(pricingParams.clientIcms, 2)}%`, color: "#10b981" },
-        { label: "COMISSAO", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
+        { label: "COMISSAO PREVIA", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
         { label: "FRETE", value: `${formatNumber(pricingParams.freight, 2)}%`, color: "#0ea5e9" },
         { label: "OUTROS", value: `${formatNumber(pricingParams.otherCosts, 2)}%`, color: "#8b36e8" },
         { label: "DEMAIS", value: `${formatNumber(pricingParams.additionalCosts, 2)}%`, color: "#ef4444" },
@@ -849,7 +849,7 @@ function CompanyStep({
     : selectedCompany.key === "carcat"
       ? [
           { label: "SIMPLES", value: `${formatNumber(pricingParams.simplesTax, 2)}%`, color: "#e68019" },
-          { label: "COMISSAO", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
+          { label: "COMISSAO PREVIA", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
           { label: "FRETE", value: `${formatNumber(pricingParams.freight, 2)}%`, color: "#0ea5e9" },
           { label: "OUTROS", value: `${formatNumber(pricingParams.otherCosts, 2)}%`, color: "#8b36e8" },
           { label: "CUSTO MP", value: "C/ IPI", color: "#e68019" },
@@ -858,7 +858,7 @@ function CompanyStep({
           { label: "ICMS SAIDA", value: `${formatNumber(pricingParams.outputIcms, 2)}%`, color: "#10b981" },
           { label: "PIS/COFINS", value: `${formatNumber(pricingParams.outputPisCofins, 2)}%`, color: "#8b36e8" },
           { label: "IPI", value: `${formatNumber(pricingParams.outputIpi, 2)}%`, color: "#ff3b25" },
-          { label: "COMISSAO", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
+          { label: "COMISSAO PREVIA", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
           { label: "FRETE / OUTROS", value: `${formatNumber(pricingParams.freight, 2)}% / ${formatNumber(pricingParams.otherCosts, 2)}%`, color: "#e68019" },
         ];
 
@@ -1201,7 +1201,7 @@ function PriceSummaryStep({
             <PriceDetail label="CUSTO MP (S/ NOTA):" value={formatCurrency(analysis.materialCostNoInvoice)} color="#6f32d2" />
             <PriceDetail label="MARGEM R$ (UNITARIA):" value={formatCurrency(analysis.marginValue)} color="#00a651" />
             <PriceDetail label="PRECO LIQUIDO (R$):" value={formatCurrency(analysis.netPrice)} color="#0087d7" />
-            <PriceDetail label="COMISSAO (%):" value={`${formatNumber(analysis.commissionPercent, 2)}%`} color="#0087d7" />
+            <PriceDetail label="COMISSAO APLICADA (%):" value={`${formatNumber(analysis.commissionPercent, 2)}%`} color="#0087d7" />
             <PriceDetail label="COMISSAO A RECEBER (R$):" value={formatCurrency(analysis.commissionValue)} color="#00a651" />
             <PriceDetail label="TOTAL DO PEDIDO:" value={formatCurrency(analysis.totalOrder)} color="#00a651" large />
           </div>
@@ -1457,6 +1457,7 @@ function SimulatorFinancialDetails({
       <PriceDetail label="MC R$ (UNITARIA):" value={formatCurrency(result.marginValue)} color="#00a651" />
       <PriceDetail label={`CUSTO MP USADO (${analysis.pricingMaterialCostLabel}):`} value={formatCurrency(analysis.pricingMaterialCost)} color="#6f32d2" />
       <PriceDetail label="PRECO LIQUIDO (R$):" value={formatCurrency(result.netPrice)} color="#0087d7" />
+      <PriceDetail label="COMISSAO APLICADA (%):" value={`${formatNumber(result.commissionPercent, 2)}%`} color="#0087d7" />
       <PriceDetail label="COMISSAO A RECEBER (R$):" value={formatCurrency(result.commissionValue)} color="#00a651" />
       <PriceDetail label="TOTAL DO PEDIDO:" value={formatCurrency(result.totalOrder)} color="#00a651" />
       <PriceDetail label="TEMPO TOTAL DO LOTE:" value={analysis.productionDataReady ? `${formatNumber(analysis.totalMinutes, 2)} MIN` : "AGUARDANDO CX/H"} color="#e68019" />

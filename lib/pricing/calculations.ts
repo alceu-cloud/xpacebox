@@ -59,20 +59,36 @@ export function calculatePriceAnalysis({
     : materialCostNoInvoice;
   const pricingMaterialCostLabel = sellerCompany.key === "carcat" ? "C/ IPI" : "S/ NOTA";
   const shouldIgnoreAdditionalCosts = sellerCompany.key === "dawos" && ignoreAdditionalCosts;
+  const preliminaryExpensesPercent = getExpensesPercent(
+    sellerCompany.key,
+    params,
+    params.commission,
+    shouldIgnoreAdditionalCosts
+  );
+  const preliminaryExpensesRate = preliminaryExpensesPercent / 100;
+  const mcRate = params.mcDefault / 100;
+  const preliminaryStandardPrice = calculatePriceForMargin(pricingMaterialCost, mcRate, preliminaryExpensesRate);
+  const preliminaryNetPrice = preliminaryStandardPrice * (1 - preliminaryExpensesRate);
+  const preliminaryMarginValue = preliminaryNetPrice - pricingMaterialCost;
+  const commissionPercent = calculateDynamicCommission(
+    params.mcDefault,
+    lotQuantity,
+    sheetArea * grammage
+  );
   const expensesPercent = getExpensesPercent(
     sellerCompany.key,
     params,
+    commissionPercent,
     shouldIgnoreAdditionalCosts
   );
   const expensesRate = expensesPercent / 100;
-  const mcRate = params.mcDefault / 100;
   const standardPrice = calculatePriceForMargin(pricingMaterialCost, mcRate, expensesRate);
   const netPrice = standardPrice * (1 - expensesRate);
   const marginValue = netPrice - pricingMaterialCost;
   const unitWeightKg = sheetArea * grammage;
   const totalWeightKg = unitWeightKg * lotQuantity;
   const totalOrder = standardPrice * lotQuantity;
-  const commissionValue = totalOrder * (params.commission / 100);
+  const commissionValue = totalOrder * (commissionPercent / 100);
   const pricePerKg = unitWeightKg > 0 ? standardPrice / unitWeightKg : 0;
   const productionTimeMatch = findProductionTime(
     productionTimes,
@@ -101,7 +117,14 @@ export function calculatePriceAnalysis({
   return {
     mcDefault: params.mcDefault,
     mcrHour: params.mcrHour,
-    commissionPercent: params.commission,
+    commissionPercent,
+    preliminaryCommissionPercent: params.commission,
+    commissionReferenceMcPercent: params.mcDefault,
+    preliminaryExpensesPercent,
+    preliminaryMarginValue,
+    sellerCompanyKey: sellerCompany.key,
+    pricingParams: params,
+    ignoreAdditionalCosts: shouldIgnoreAdditionalCosts,
     expensesPercent,
     additionalCostsIgnored: shouldIgnoreAdditionalCosts,
     configuredAdditionalCosts: params.additionalCosts,
@@ -139,7 +162,39 @@ export function calculatePriceResult(
   price: number,
   analysis: ReturnType<typeof calculatePriceAnalysis>
 ) {
-  const expensesRate = analysis.expensesPercent / 100;
+  const preliminaryExpensesPercent = getExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    analysis.preliminaryCommissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
+  const preliminaryExpensesRate = preliminaryExpensesPercent / 100;
+  const preliminaryNetPrice = price * (1 - preliminaryExpensesRate);
+  const preliminaryMarginValue = preliminaryNetPrice - analysis.pricingMaterialCost;
+  const preliminaryMcPercent = preliminaryNetPrice !== 0
+    ? (preliminaryMarginValue / preliminaryNetPrice) * 100
+    : 0;
+  const commissionPercent = calculateDynamicCommission(
+    preliminaryMcPercent,
+    analysis.lotQuantity,
+    analysis.unitWeightKg
+  );
+  return calculatePriceResultWithCommission(price, analysis, commissionPercent, preliminaryMcPercent);
+}
+
+function calculatePriceResultWithCommission(
+  price: number,
+  analysis: ReturnType<typeof calculatePriceAnalysis>,
+  commissionPercent: number,
+  preliminaryMcPercent: number
+) {
+  const expensesPercent = getExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    commissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
+  const expensesRate = expensesPercent / 100;
   const netPrice = price * (1 - expensesRate);
   const marginValue = netPrice - analysis.pricingMaterialCost;
   const mcPercent = netPrice !== 0 ? (marginValue / netPrice) * 100 : 0;
@@ -148,19 +203,26 @@ export function calculatePriceResult(
     : 0;
   const pricePerKg = analysis.unitWeightKg > 0 ? price / analysis.unitWeightKg : 0;
   const totalOrder = price * analysis.lotQuantity;
-  const commissionValue = totalOrder * (analysis.commissionPercent / 100);
+  const commissionValue = totalOrder * (commissionPercent / 100);
 
-  return { netPrice, marginValue, mcPercent, mch, pricePerKg, totalOrder, commissionValue };
+  return { netPrice, marginValue, mcPercent, mch, pricePerKg, totalOrder, commissionValue, commissionPercent, preliminaryMcPercent };
 }
 
 export function calculatePriceForMarginTarget(
   mcPercent: number,
   analysis: ReturnType<typeof calculatePriceAnalysis>
 ) {
+  const commissionPercent = calculateDynamicCommission(mcPercent, analysis.lotQuantity, analysis.unitWeightKg);
+  const expensesPercent = getExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    commissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
   return calculatePriceForMargin(
     analysis.pricingMaterialCost,
     mcPercent / 100,
-    analysis.expensesPercent / 100
+    expensesPercent / 100
   );
 }
 
@@ -170,7 +232,39 @@ export function calculatePriceForHourlyTarget(
 ) {
   if (!analysis.productionDataReady) return 0;
 
-  const expensesRate = analysis.expensesPercent / 100;
+  const preliminaryExpensesPercent = getExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    analysis.preliminaryCommissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
+  const preliminaryPrice = calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, preliminaryExpensesPercent);
+  const preliminaryResult = calculatePriceResultWithCommission(
+    preliminaryPrice,
+    analysis,
+    analysis.preliminaryCommissionPercent,
+    0
+  );
+  const commissionPercent = calculateDynamicCommission(
+    preliminaryResult.mcPercent,
+    analysis.lotQuantity,
+    analysis.unitWeightKg
+  );
+  const expensesPercent = getExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    commissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
+  return calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, expensesPercent);
+}
+
+function calculatePriceForHourlyTargetWithExpenses(
+  targetMch: number,
+  analysis: ReturnType<typeof calculatePriceAnalysis>,
+  expensesPercent: number
+) {
+  const expensesRate = expensesPercent / 100;
   const targetMarginTotal = targetMch * (analysis.totalMinutes / 60);
   const targetMarginUnit = analysis.lotQuantity > 0
     ? targetMarginTotal / analysis.lotQuantity
@@ -233,18 +327,47 @@ function calculatePriceForMargin(materialCost: number, mcRate: number, expensesR
 function getExpensesPercent(
   company: SellerCompanyKey,
   params: PricingParams,
+  commissionPercent: number,
   ignoreAdditionalCosts = false
 ) {
   if (company === "carcat") {
-    return params.simplesTax + params.commission + params.freight + params.otherCosts;
+    return params.simplesTax + commissionPercent + params.freight + params.otherCosts;
   }
 
   if (company === "gta") {
-    return params.outputIcms + params.outputPisCofins + params.outputIpi + params.commission + params.freight + params.otherCosts;
+    return params.outputIcms + params.outputPisCofins + params.outputIpi + commissionPercent + params.freight + params.otherCosts;
   }
 
   const additionalCosts = ignoreAdditionalCosts ? 0 : params.additionalCosts;
-  return params.commission + params.freight + params.otherCosts + params.clientIcms + additionalCosts;
+  return commissionPercent + params.freight + params.otherCosts + params.clientIcms + additionalCosts;
+}
+
+function calculateDynamicCommission(mcPercent: number, lotQuantity: number, unitWeightKg: number) {
+  return commissionByMc(mcPercent) + commissionByVolume(lotQuantity) + commissionByWeight(unitWeightKg);
+}
+
+function commissionByMc(mcPercent: number) {
+  if (mcPercent >= 45) return 1.33;
+  if (mcPercent >= 40) return 1;
+  if (mcPercent >= 35) return 0.66;
+  if (mcPercent >= 10) return 0.34;
+  return 0;
+}
+
+function commissionByVolume(lotQuantity: number) {
+  if (lotQuantity >= 1000) return 1.33;
+  if (lotQuantity >= 500) return 1;
+  if (lotQuantity >= 201) return 0.66;
+  if (lotQuantity >= 100) return 0.34;
+  return 0;
+}
+
+function commissionByWeight(unitWeightKg: number) {
+  if (unitWeightKg >= 1) return 1.33;
+  if (unitWeightKg >= 0.7) return 1;
+  if (unitWeightKg >= 0.5) return 0.66;
+  if (unitWeightKg >= 0.1) return 0.34;
+  return 0;
 }
 
 function calculateNoInvoiceMaterialCost(costWithIpi: number, ipiPercent: number, icmsPercent: number) {

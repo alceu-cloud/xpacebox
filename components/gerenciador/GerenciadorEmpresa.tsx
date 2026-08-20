@@ -590,7 +590,7 @@ function PricingParamsPanel({ params, onChange }: { params: PricingParams; onCha
           <span style={greenBadgeStyle}>SOMA TOTAL DAS DESPESAS: {formatPercent(operationalTotal)}</span>
         </div>
         <div style={pricingFieldsStyle}>
-          <ParamField label="COMISSAO (%)" value={params.commission} color="#ff5a00" onChange={(commission) => onChange({ ...params, commission })} />
+          <ParamField label="COMISSAO PREVIA (%)" value={params.commission} color="#ff5a00" onChange={(commission) => onChange({ ...params, commission })} />
           <ParamField label="IMPOSTO NO SIMPLES (%)" value={params.simplesTax} color="#eab308" onChange={(simplesTax) => onChange({ ...params, simplesTax })} />
           <ParamField label="FRETE (%)" value={params.freight} color="#0ea5e9" onChange={(freight) => onChange({ ...params, freight })} />
           <ParamField label="OUTROS CUSTOS (%)" value={params.otherCosts} color="#8b5cf6" onChange={(otherCosts) => onChange({ ...params, otherCosts })} />
