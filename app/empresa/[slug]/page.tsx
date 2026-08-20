@@ -8,9 +8,12 @@ import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa from "@/components/gerenciador/GerenciadorEmpresa";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
+import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { supabase } from "@/lib/supabase";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
+import type { GeneralOption } from "@/types/cadastros-gerais";
 
 type ModuloKey = "gerenciador" | "clientes" | "produtos" | "formacao-preco" | "financeiro" | "relatorios";
 
@@ -99,6 +102,11 @@ export default function EmpresaPage() {
   const [pricingParams, setPricingParams] = useState<PricingParams>(defaultPricingParams);
   const [pricingGoalsByCompany, setPricingGoalsByCompany] = useState<PricingGoalsByCompany>(defaultPricingGoalsByCompany);
   const [productionTimes, setProductionTimes] = useState<ProductionTime[]>(defaultProductionTimes);
+  const [paymentConditions, setPaymentConditions] = useState<PaymentCondition[]>(initialPaymentConditions);
+  const [cfops, setCfops] = useState<CfopOption[]>(initialCfops);
+  const [taxRegimes, setTaxRegimes] = useState<GeneralOption[]>(initialTaxRegimes);
+  const [fiscalProfiles, setFiscalProfiles] = useState<GeneralOption[]>(initialFiscalProfiles);
+  const [fiscalBenefits, setFiscalBenefits] = useState<GeneralOption[]>(initialFiscalBenefits);
 
   const slug = String(params.slug ?? "");
 
@@ -197,6 +205,7 @@ export default function EmpresaPage() {
 
         {moduloAtivo === "gerenciador" ? (
           <GerenciadorEmpresa
+            companySlug={slug}
             suppliers={suppliers}
             paperTypes={paperTypes}
             materials={materials}
@@ -205,6 +214,8 @@ export default function EmpresaPage() {
             pricingParams={pricingParams}
             pricingGoalsByCompany={pricingGoalsByCompany}
             productionTimes={productionTimes}
+            paymentConditions={paymentConditions}
+            cfops={cfops}
             onSuppliersChange={setSuppliers}
             onPaperTypesChange={setPaperTypes}
             onMaterialsChange={setMaterials}
@@ -213,9 +224,17 @@ export default function EmpresaPage() {
             onPricingParamsChange={setPricingParams}
             onPricingGoalsByCompanyChange={setPricingGoalsByCompany}
             onProductionTimesChange={setProductionTimes}
+            onPaymentConditionsChange={setPaymentConditions}
+            onCfopsChange={setCfops}
+            taxRegimes={taxRegimes}
+            fiscalProfiles={fiscalProfiles}
+            fiscalBenefits={fiscalBenefits}
+            onTaxRegimesChange={setTaxRegimes}
+            onFiscalProfilesChange={setFiscalProfiles}
+            onFiscalBenefitsChange={setFiscalBenefits}
           />
         ) : moduloAtivo === "clientes" ? (
-          <ClientesEmpresa slug={slug} />
+          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} />
         ) : moduloAtivo === "formacao-preco" ? (
           <PricingPreview
             suppliers={suppliers}

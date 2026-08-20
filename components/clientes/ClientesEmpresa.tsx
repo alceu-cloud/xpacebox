@@ -15,6 +15,7 @@ import type {
   RepresentativeOption,
   SellerCompanyOption,
 } from "@/types/clientes";
+import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 
 const emptyForm: ClientFormData = {
   legalName: "",
@@ -38,14 +39,38 @@ const emptyForm: ClientFormData = {
   paymentTerms: "",
   cfop: "",
   freightTerms: "",
+  purchaseLimit: "",
+  taxRegime: "",
+  fiscalProfile: "",
+  fiscalBenefit: "",
+  icms: "",
 };
 
-export default function ClientesEmpresa({ slug }: { slug: string }) {
+export default function ClientesEmpresa({
+  slug,
+  paymentConditions = [],
+  cfops = [],
+  taxRegimes = [],
+  fiscalProfiles = [],
+  fiscalBenefits = [],
+}: {
+  slug: string;
+  paymentConditions?: PaymentCondition[];
+  cfops?: CfopOption[];
+  taxRegimes?: GeneralOption[];
+  fiscalProfiles?: GeneralOption[];
+  fiscalBenefits?: GeneralOption[];
+}) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [sellerCompanies, setSellerCompanies] = useState<SellerCompanyOption[]>([]);
   const [representatives, setRepresentatives] = useState<RepresentativeOption[]>([]);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"cadastro" | "crm">("cadastro");
+  const [crmSearch, setCrmSearch] = useState("");
+  const [crmSelectedId, setCrmSelectedId] = useState("");
+  const [crmFrequency, setCrmFrequency] = useState("");
+  const [crmAverageValue, setCrmAverageValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -90,6 +115,18 @@ export default function ClientesEmpresa({ slug }: { slug: string }) {
         .includes(term)
     );
   }, [clients, search]);
+
+  const crmClients = useMemo(() => {
+    const term = crmSearch.trim().toLocaleUpperCase("pt-BR");
+    if (!term) return [];
+    return clients.filter((client) =>
+      `${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`
+        .toLocaleUpperCase("pt-BR")
+        .includes(term)
+    ).slice(0, 8);
+  }, [clients, crmSearch]);
+
+  const crmSelectedClient = clients.find((client) => client.id === crmSelectedId);
 
   async function handleLookup() {
     if (digits(form.cnpj).length !== 14) {
@@ -171,6 +208,11 @@ export default function ClientesEmpresa({ slug }: { slug: string }) {
       paymentTerms: client.paymentTerms,
       cfop: client.cfop,
       freightTerms: client.freightTerms,
+      purchaseLimit: client.purchaseLimit,
+      taxRegime: client.taxRegime,
+      fiscalProfile: client.fiscalProfile,
+      fiscalBenefit: client.fiscalBenefit,
+      icms: client.icms,
     });
     setMessage(`EDITANDO ${client.clientCode}.`);
     setError("");
@@ -193,9 +235,40 @@ export default function ClientesEmpresa({ slug }: { slug: string }) {
   return (
     <section className="clients-module">
       <nav className="clients-tabs" aria-label="ETAPAS DO MODULO CLIENTES">
-        <button type="button" className="clients-tab clients-tab-active">CADASTRO</button>
+        <button type="button" className={`clients-tab ${activeTab === "cadastro" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("cadastro")}>CADASTRO</button>
+        <button type="button" className={`clients-tab ${activeTab === "crm" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("crm")}>CRM</button>
       </nav>
 
+      {activeTab === "crm" && (
+        <section className="clients-crm-panel">
+          <span className="clients-eyebrow">RELACIONAMENTO COM CLIENTES</span>
+          <h2>CRM</h2>
+          <p>BUSQUE UM CLIENTE PARA CONTINUAR O ATENDIMENTO.</p>
+          <label className="clients-crm-search">
+            <span>BUSCAR CLIENTE</span>
+            <input value={crmSearch} onChange={(event) => { setCrmSearch(event.target.value); setCrmSelectedId(""); }} placeholder="NOME, CODIGO OU CNPJ" />
+          </label>
+          {crmSearch.trim() && crmClients.length === 0 && <div className="clients-empty">NENHUM CLIENTE ENCONTRADO.</div>}
+          {crmClients.length > 0 && <div className="clients-crm-results">{crmClients.map((client) => <button type="button" className={crmSelectedId === client.id ? "clients-crm-result clients-crm-result-active" : "clients-crm-result"} key={client.id} onClick={() => setCrmSelectedId(client.id)}><strong>{client.clientCode}</strong><span>{client.tradeName || client.legalName}</span><small>{formatCnpj(client.cnpj)}</small></button>)}</div>}
+          {crmSelectedClient && (
+            <div className="clients-crm-fields">
+              <div className="clients-crm-selected">
+                CLIENTE SELECIONADO: <strong>{crmSelectedClient.tradeName || crmSelectedClient.legalName}</strong>
+              </div>
+              <label>
+                <span>FREQUENCIA DE COMPRA</span>
+                <input value={crmFrequency} onChange={(event) => setCrmFrequency(event.target.value)} placeholder="EX.: 30 DIAS" />
+              </label>
+              <label>
+                <span>VALOR MEDIO DE COMPRA</span>
+                <input value={crmAverageValue} onChange={(event) => setCrmAverageValue(event.target.value)} placeholder="R$ 0,00" inputMode="decimal" />
+              </label>
+            </div>
+          )}
+        </section>
+      )}
+
+      <div style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
       <div className="clients-cnpj-band">
         <div>
           <span className="clients-eyebrow">IDENTIFICACAO FISCAL</span>
@@ -217,10 +290,14 @@ export default function ClientesEmpresa({ slug }: { slug: string }) {
           </div>
         </label>
       </div>
+      </div>
 
+      <div style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
       {error && <div className="clients-feedback clients-feedback-error">{error}</div>}
       {message && <div className="clients-feedback clients-feedback-success">{message}</div>}
+      </div>
 
+      <div style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
       <div className="clients-form">
         <FormSection title="IDENTIFICACAO DO CLIENTE">
           <div className="clients-grid clients-grid-3">
@@ -263,8 +340,23 @@ export default function ClientesEmpresa({ slug }: { slug: string }) {
 
         <FormSection title="CONDICOES COMERCIAIS E FISCAIS">
           <div className="clients-grid clients-grid-3">
-            <Field label="CONDICAO DE PAGAMENTO" value={form.paymentTerms} onChange={(paymentTerms) => setForm({ ...form, paymentTerms })} />
-            <Field label="CFOP" value={form.cfop} onChange={(cfop) => setForm({ ...form, cfop })} />
+            <SelectField
+              label="CONDICAO DE PAGAMENTO"
+              value={form.paymentTerms}
+              onChange={(paymentTerms) => setForm({ ...form, paymentTerms })}
+              options={paymentConditions.map((item) => ({ value: item.name, label: item.name }))}
+            />
+            <SelectField
+              label="CFOP"
+              value={form.cfop}
+              onChange={(cfop) => setForm({ ...form, cfop })}
+              options={cfops.map((item) => ({ value: item.code, label: `${item.code} - ${item.description}` }))}
+            />
+            <Field label="LIMITE DE COMPRA" value={form.purchaseLimit} onChange={(purchaseLimit) => setForm({ ...form, purchaseLimit })} type="number" />
+            <SelectField label="REGIME TRIBUTARIO" value={form.taxRegime} onChange={(taxRegime) => setForm({ ...form, taxRegime })} options={taxRegimes.map((item) => ({ value: item.name, label: item.name }))} />
+            <SelectField label="PERFIL FISCAL" value={form.fiscalProfile} onChange={(fiscalProfile) => setForm({ ...form, fiscalProfile })} options={fiscalProfiles.map((item) => ({ value: item.name, label: item.name }))} />
+            <SelectField label="BENEFICIO FISCAL ESPECIFICO" value={form.fiscalBenefit} onChange={(fiscalBenefit) => setForm({ ...form, fiscalBenefit })} options={fiscalBenefits.map((item) => ({ value: item.name, label: item.name }))} />
+            <Field label="ICMS (%)" value={form.icms} onChange={(icms) => setForm({ ...form, icms })} type="number" />
             <SelectField
               label="FRETE"
               value={form.freightTerms}
@@ -290,8 +382,9 @@ export default function ClientesEmpresa({ slug }: { slug: string }) {
           </button>
         </div>
       </div>
+      </div>
 
-      <section className="clients-list-section">
+      <section className="clients-list-section" style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
         <div className="clients-list-header">
           <div>
             <span className="clients-eyebrow">CARTEIRA COMPARTILHADA</span>

@@ -158,6 +158,11 @@ function toDatabase(client: ClientFormData) {
     payment_terms: client.paymentTerms || null,
     cfop: client.cfop || null,
     freight_terms: client.freightTerms || null,
+    purchase_limit: client.purchaseLimit ? Number(client.purchaseLimit.replace(",", ".")) : null,
+    tax_regime: client.taxRegime || null,
+    fiscal_profile: client.fiscalProfile || null,
+    fiscal_benefit: client.fiscalBenefit || null,
+    icms: client.icms ? Number(client.icms.replace(",", ".")) : null,
   };
 }
 
@@ -196,6 +201,11 @@ async function enrichClients(admin: ReturnType<typeof import("@/lib/server/supab
     paymentTerms: row.payment_terms || "",
     cfop: row.cfop || "",
     freightTerms: row.freight_terms || "",
+    purchaseLimit: row.purchase_limit == null ? "" : String(row.purchase_limit),
+    taxRegime: row.tax_regime || "",
+    fiscalProfile: row.fiscal_profile || "",
+    fiscalBenefit: row.fiscal_benefit || "",
+    icms: row.icms == null ? "" : String(row.icms),
     active: row.active,
     updatedAt: row.updated_at,
   }));

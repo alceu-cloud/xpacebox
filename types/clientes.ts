@@ -37,6 +37,11 @@ export type ClientRecord = {
   paymentTerms: string;
   cfop: string;
   freightTerms: string;
+  purchaseLimit: string;
+  taxRegime: string;
+  fiscalProfile: string;
+  fiscalBenefit: string;
+  icms: string;
   active: boolean;
   updatedAt: string;
 };
@@ -64,6 +69,11 @@ export type ClientFormData = {
   paymentTerms: string;
   cfop: string;
   freightTerms: string;
+  purchaseLimit: string;
+  taxRegime: string;
+  fiscalProfile: string;
+  fiscalBenefit: string;
+  icms: string;
 };
 
 export type CnpjLookupResult = {

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import {
   defaultPricingParams,
@@ -13,7 +13,11 @@ import {
   reminderFormulas,
 } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
+import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
+import { loadClients } from "@/lib/clientes";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
+import type { ClientRecord } from "@/types/clientes";
 
 type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
 type Mode = "create" | "edit";
@@ -52,6 +56,7 @@ const emptyEngineering: EngineeringFormula = {
   lengthFormula: "",
 };
 type GerenciadorEmpresaProps = {
+  companySlug?: string;
   suppliers?: Supplier[];
   paperTypes?: PaperType[];
   materials?: SpecificMaterial[];
@@ -60,6 +65,11 @@ type GerenciadorEmpresaProps = {
   pricingParams?: PricingParams;
   pricingGoalsByCompany?: PricingGoalsByCompany;
   productionTimes?: ProductionTime[];
+  paymentConditions?: PaymentCondition[];
+  cfops?: CfopOption[];
+  taxRegimes?: GeneralOption[];
+  fiscalProfiles?: GeneralOption[];
+  fiscalBenefits?: GeneralOption[];
   onSuppliersChange?: (suppliers: Supplier[]) => void;
   onPaperTypesChange?: (paperTypes: PaperType[]) => void;
   onMaterialsChange?: (materials: SpecificMaterial[]) => void;
@@ -68,9 +78,15 @@ type GerenciadorEmpresaProps = {
   onPricingParamsChange?: (params: PricingParams) => void;
   onPricingGoalsByCompanyChange?: (goals: PricingGoalsByCompany) => void;
   onProductionTimesChange?: (times: ProductionTime[]) => void;
+  onPaymentConditionsChange?: (conditions: PaymentCondition[]) => void;
+  onCfopsChange?: (cfops: CfopOption[]) => void;
+  onTaxRegimesChange?: (items: GeneralOption[]) => void;
+  onFiscalProfilesChange?: (items: GeneralOption[]) => void;
+  onFiscalBenefitsChange?: (items: GeneralOption[]) => void;
 };
 
 export default function GerenciadorEmpresa({
+  companySlug,
   suppliers: controlledSuppliers,
   paperTypes: controlledPaperTypes,
   materials: controlledMaterials,
@@ -79,6 +95,11 @@ export default function GerenciadorEmpresa({
   pricingParams: controlledPricingParams,
   pricingGoalsByCompany: controlledPricingGoalsByCompany,
   productionTimes: controlledProductionTimes,
+  paymentConditions: controlledPaymentConditions,
+  cfops: controlledCfops,
+  taxRegimes: controlledTaxRegimes,
+  fiscalProfiles: controlledFiscalProfiles,
+  fiscalBenefits: controlledFiscalBenefits,
   onSuppliersChange,
   onPaperTypesChange,
   onMaterialsChange,
@@ -87,8 +108,14 @@ export default function GerenciadorEmpresa({
   onPricingParamsChange,
   onPricingGoalsByCompanyChange,
   onProductionTimesChange,
+  onPaymentConditionsChange,
+  onCfopsChange,
+  onTaxRegimesChange,
+  onFiscalProfilesChange,
+  onFiscalBenefitsChange,
 }: GerenciadorEmpresaProps = {}) {
   const [activeTab, setActiveTab] = useState<Tab>("fornecedores");
+  const [managerSection, setManagerSection] = useState<"embalagem" | "gerais">("embalagem");
   const [localSuppliers, setLocalSuppliers] = useState(initialSuppliers);
   const [localPaperTypes, setLocalPaperTypes] = useState(initialPaperTypes);
   const [localMaterials, setLocalMaterials] = useState(initialMaterials);
@@ -97,6 +124,11 @@ export default function GerenciadorEmpresa({
   const [localPricingParams, setLocalPricingParams] = useState(defaultPricingParams);
   const [localPricingGoalsByCompany, setLocalPricingGoalsByCompany] = useState(defaultPricingGoalsByCompany);
   const [localProductionTimes, setLocalProductionTimes] = useState(defaultProductionTimes);
+  const [localPaymentConditions, setLocalPaymentConditions] = useState(initialPaymentConditions);
+  const [localCfops, setLocalCfops] = useState(initialCfops);
+  const [localTaxRegimes, setLocalTaxRegimes] = useState(initialTaxRegimes);
+  const [localFiscalProfiles, setLocalFiscalProfiles] = useState(initialFiscalProfiles);
+  const [localFiscalBenefits, setLocalFiscalBenefits] = useState(initialFiscalBenefits);
   const [productionFilter, setProductionFilter] = useState("");
   const [form, setForm] = useState<null | { type: Tab; mode: Mode; id?: string }>(null);
   const [supplierDraft, setSupplierDraft] = useState(emptySupplier);
@@ -112,6 +144,11 @@ export default function GerenciadorEmpresa({
   const pricingParams = controlledPricingParams ?? localPricingParams;
   const pricingGoalsByCompany = controlledPricingGoalsByCompany ?? localPricingGoalsByCompany;
   const productionTimes = controlledProductionTimes ?? localProductionTimes;
+  const paymentConditions = controlledPaymentConditions ?? localPaymentConditions;
+  const cfops = controlledCfops ?? localCfops;
+  const taxRegimes = controlledTaxRegimes ?? localTaxRegimes;
+  const fiscalProfiles = controlledFiscalProfiles ?? localFiscalProfiles;
+  const fiscalBenefits = controlledFiscalBenefits ?? localFiscalBenefits;
   const setSuppliers = onSuppliersChange ?? setLocalSuppliers;
   const setPaperTypes = onPaperTypesChange ?? setLocalPaperTypes;
   const setMaterials = onMaterialsChange ?? setLocalMaterials;
@@ -120,6 +157,11 @@ export default function GerenciadorEmpresa({
   const setPricingParams = onPricingParamsChange ?? setLocalPricingParams;
   const setPricingGoalsByCompany = onPricingGoalsByCompanyChange ?? setLocalPricingGoalsByCompany;
   const setProductionTimes = onProductionTimesChange ?? setLocalProductionTimes;
+  const setPaymentConditions = onPaymentConditionsChange ?? setLocalPaymentConditions;
+  const setCfops = onCfopsChange ?? setLocalCfops;
+  const setTaxRegimes = onTaxRegimesChange ?? setLocalTaxRegimes;
+  const setFiscalProfiles = onFiscalProfilesChange ?? setLocalFiscalProfiles;
+  const setFiscalBenefits = onFiscalBenefitsChange ?? setLocalFiscalBenefits;
 
   const activeTitle = useMemo(() => {
     if (activeTab === "fornecedores") return "GERENCIADOR DE FORNECEDORES";
@@ -147,9 +189,48 @@ export default function GerenciadorEmpresa({
     return productionTimes.filter((time) => `${time.paperType} ${time.materialCode}`.includes(term));
   }, [productionFilter, productionTimes]);
 
+  const managerSwitcher = (
+    <nav style={managerSwitcherStyle} aria-label="AREAS DO GERENCIADOR">
+      <button type="button" onClick={() => setManagerSection("embalagem")} style={{ ...managerSwitchButtonStyle, ...(managerSection === "embalagem" ? activeManagerSwitchStyle : {}) }}>
+        CONFIGURACOES DA EMBALAGEM
+      </button>
+      <button type="button" onClick={() => setManagerSection("gerais")} style={{ ...managerSwitchButtonStyle, ...(managerSection === "gerais" ? activeManagerSwitchStyle : {}) }}>
+        CADASTROS GERAIS
+      </button>
+    </nav>
+  );
+
+  if (managerSection === "gerais") {
+    return (
+      <main style={pageStyle}>
+        <section style={shellStyle}>
+          {managerSwitcher}
+          <div style={introStyle}>
+            <h2 style={sectionTitleStyle}>2. CADASTROS GERAIS</h2>
+            <p style={sectionSubtitleStyle}>OPCOES COMPARTILHADAS USADAS NO CADASTRO DE CLIENTES.</p>
+          </div>
+          <GeneralRegistriesPanel
+            companySlug={companySlug}
+            paymentConditions={paymentConditions}
+            cfops={cfops}
+            taxRegimes={taxRegimes}
+            fiscalProfiles={fiscalProfiles}
+            fiscalBenefits={fiscalBenefits}
+            onPaymentConditionsChange={setPaymentConditions}
+            onCfopsChange={setCfops}
+            onTaxRegimesChange={setTaxRegimes}
+            onFiscalProfilesChange={setFiscalProfiles}
+            onFiscalBenefitsChange={setFiscalBenefits}
+          />
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main style={pageStyle}>
       <section style={shellStyle}>
+        {managerSwitcher}
         <div style={introStyle}>
           <h2 style={sectionTitleStyle}>1. CONFIGURACOES DA EMBALAGEM</h2>
           <p style={sectionSubtitleStyle}>SELECIONE AS ESPECIFICACOES FISICAS E O MATERIAL DESEJADO.</p>
@@ -573,6 +654,198 @@ export default function GerenciadorEmpresa({
   }
 }
 
+function GeneralRegistriesPanel({
+  companySlug,
+  paymentConditions,
+  cfops,
+  taxRegimes,
+  fiscalProfiles,
+  fiscalBenefits,
+  onPaymentConditionsChange,
+  onCfopsChange,
+  onTaxRegimesChange,
+  onFiscalProfilesChange,
+  onFiscalBenefitsChange,
+}: {
+  companySlug?: string;
+  paymentConditions: PaymentCondition[];
+  cfops: CfopOption[];
+  taxRegimes: GeneralOption[];
+  fiscalProfiles: GeneralOption[];
+  fiscalBenefits: GeneralOption[];
+  onPaymentConditionsChange: (items: PaymentCondition[]) => void;
+  onCfopsChange: (items: CfopOption[]) => void;
+  onTaxRegimesChange: (items: GeneralOption[]) => void;
+  onFiscalProfilesChange: (items: GeneralOption[]) => void;
+  onFiscalBenefitsChange: (items: GeneralOption[]) => void;
+}) {
+  const [generalSection, setGeneralSection] = useState<"cadastros" | "limites">("cadastros");
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<{ mode: Mode; id?: string; name: string } | null>(null);
+  const [cfopForm, setCfopForm] = useState<{ mode: Mode; id?: string; code: string; description: string } | null>(null);
+
+  useEffect(() => {
+    if (generalSection !== "limites" || !companySlug) return;
+    let active = true;
+    setLoadingClients(true);
+    loadClients(companySlug).then((items) => {
+      if (active) setClients(items);
+    }).catch(() => {
+      if (active) setClients([]);
+    }).finally(() => {
+      if (active) setLoadingClients(false);
+    });
+    return () => { active = false; };
+  }, [companySlug, generalSection]);
+
+  const matchingClients = clients.filter((client) => `${client.clientCode} ${client.tradeName} ${client.legalName} ${client.cnpj}`.toUpperCase().includes(clientSearch.trim().toUpperCase()));
+  const searchedClient = clientSearch.trim() ? matchingClients[0] : undefined;
+
+  function savePayment() {
+    if (!paymentForm?.name.trim()) return;
+    const name = paymentForm.name.trim().toUpperCase();
+    if (paymentForm.mode === "edit" && paymentForm.id) {
+      onPaymentConditionsChange(paymentConditions.map((item) => item.id === paymentForm.id ? { ...item, name } : item));
+    } else {
+      onPaymentConditionsChange([...paymentConditions, { id: `payment-${Date.now()}`, name }]);
+    }
+    setPaymentForm(null);
+  }
+
+  function saveCfop() {
+    if (!cfopForm?.code.trim() || !cfopForm.description.trim()) return;
+    const next = { code: cfopForm.code.trim(), description: cfopForm.description.trim().toUpperCase() };
+    if (cfopForm.mode === "edit" && cfopForm.id) {
+      onCfopsChange(cfops.map((item) => item.id === cfopForm.id ? { ...item, ...next } : item));
+    } else {
+      onCfopsChange([...cfops, { id: `cfop-${Date.now()}`, ...next }]);
+    }
+    setCfopForm(null);
+  }
+
+  return (
+    <div>
+      <nav style={generalSubTabsStyle} aria-label="CADASTROS GERAIS">
+        <button type="button" onClick={() => setGeneralSection("cadastros")} style={{ ...generalSubTabStyle, ...(generalSection === "cadastros" ? activeGeneralSubTabStyle : {}) }}>CADASTROS</button>
+        <button type="button" onClick={() => setGeneralSection("limites")} style={{ ...generalSubTabStyle, ...(generalSection === "limites" ? activeGeneralSubTabStyle : {}) }}>LIMITES</button>
+      </nav>
+      {generalSection === "limites" ? (
+        <section style={generalRegistryPanelStyle}>
+          <div style={panelHeaderStyle}>
+            <div>
+              <h3 style={panelTitleStyle}>LIMITE DE COMPRA</h3>
+              <p style={panelTextStyle}>CONSULTE O LIMITE E OS VALORES EM ABERTO DE CADA CLIENTE.</p>
+            </div>
+          </div>
+          <label style={wideLabelStyle}>
+            BUSCAR CLIENTE
+            <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="NOME, CODIGO OU CNPJ" style={inputStyle} />
+          </label>
+          {loadingClients ? <div style={limitEmptyStyle}>CARREGANDO CLIENTES...</div> : searchedClient ? (
+            <div style={limitReportStyle}>
+              <h4 style={limitClientTitleStyle}>{searchedClient.tradeName || searchedClient.legalName}</h4>
+              <div style={limitReportGridStyle}>
+                <LimitMetric label="LIMITE DE COMPRA" value={searchedClient.purchaseLimit ? formatGeneralMoney(Number(searchedClient.purchaseLimit)) : "NAO INFORMADO"} color="#16a34a" />
+                <LimitMetric label="PEDIDOS SEM FATURAMENTO" value="R$ 0,00" color="#e68019" />
+                <LimitMetric label="FATURAMENTO EM ABERTO" value="R$ 0,00" color="#7c3aed" />
+                <LimitMetric label="ORCAMENTOS EM ABERTO" value="0" color="#e6007e" />
+              </div>
+            </div>
+          ) : <div style={limitEmptyStyle}>BUSQUE UM CLIENTE PARA VER O RESUMO.</div>}
+        </section>
+      ) : (
+      <div style={generalRegistriesGridStyle}>
+      <section style={generalRegistryPanelStyle}>
+        {paymentForm && (
+          <FormPanel title={paymentForm.mode === "create" ? "CADASTRAR CONDICAO DE PAGAMENTO" : "EDITAR CONDICAO DE PAGAMENTO"}>
+            <label style={wideLabelStyle}>
+              CONDICAO DE PAGAMENTO
+              <input value={paymentForm.name} onChange={(event) => setPaymentForm({ ...paymentForm, name: event.target.value })} placeholder="EX: 28 DIAS" style={inputStyle} />
+            </label>
+            <Actions onCancel={() => setPaymentForm(null)} onSave={savePayment} />
+          </FormPanel>
+        )}
+        <div style={panelHeaderStyle}>
+          <div>
+            <h3 style={panelTitleStyle}>CONDICOES DE PAGAMENTO</h3>
+            <p style={panelTextStyle}>OPCOES DISPONIVEIS PARA O CADASTRO DE CLIENTES.</p>
+          </div>
+          <button type="button" style={orangeButtonStyle} onClick={() => setPaymentForm({ mode: "create", name: "" })}>+ NOVA CONDICAO</button>
+        </div>
+        <Table headers={["CONDICAO", "ACOES"]}>
+          {paymentConditions.map((item) => (
+            <tr key={item.id}>
+              <td style={supplierNameCellStyle}>{item.name}</td>
+              <td style={supplierActionCellStyle}>
+                <EditButton onClick={() => setPaymentForm({ mode: "edit", id: item.id, name: item.name })} />
+                <DeleteButton onClick={() => onPaymentConditionsChange(paymentConditions.filter((entry) => entry.id !== item.id))} />
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </section>
+
+      <section style={generalRegistryPanelStyle}>
+        {cfopForm && (
+          <FormPanel title={cfopForm.mode === "create" ? "CADASTRAR NOVO CFOP" : "EDITAR CFOP"}>
+            <div style={twoColumnsStyle}>
+              <TextField label="CODIGO CFOP" value={cfopForm.code} onChange={(code) => setCfopForm({ ...cfopForm, code })} placeholder="EX: 5101" />
+              <TextField label="DESCRICAO" value={cfopForm.description} onChange={(description) => setCfopForm({ ...cfopForm, description })} placeholder="EX: VENDA DE PRODUCAO" />
+            </div>
+            <Actions onCancel={() => setCfopForm(null)} onSave={saveCfop} />
+          </FormPanel>
+        )}
+        <div style={panelHeaderStyle}>
+          <div>
+            <h3 style={panelTitleStyle}>CFOP</h3>
+            <p style={panelTextStyle}>CODIGOS FISCAIS MAIS USADOS NO CADASTRO DE CLIENTES.</p>
+          </div>
+          <button type="button" style={orangeButtonStyle} onClick={() => setCfopForm({ mode: "create", code: "", description: "" })}>+ NOVO CFOP</button>
+        </div>
+        <Table headers={["CODIGO", "DESCRICAO", "ACOES"]}>
+          {cfops.map((item) => (
+            <tr key={item.id}>
+              <td style={strongCellStyle}>{item.code}</td>
+              <td style={centerCellStyle}>{item.description}</td>
+              <td style={actionCellStyle}>
+                <EditButton onClick={() => setCfopForm({ mode: "edit", id: item.id, code: item.code, description: item.description })} />
+                <DeleteButton onClick={() => onCfopsChange(cfops.filter((entry) => entry.id !== item.id))} />
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </section>
+      <SimpleGeneralRegistry title="REGIME TRIBUTARIO" description="REGIMES DISPONIVEIS PARA CLASSIFICAR O CLIENTE." addLabel="+ NOVO REGIME" items={taxRegimes} onChange={onTaxRegimesChange} />
+      <SimpleGeneralRegistry title="PERFIL FISCAL" description="PERFIS FISCAIS USADOS NO ATENDIMENTO AO CLIENTE." addLabel="+ NOVO PERFIL" items={fiscalProfiles} onChange={onFiscalProfilesChange} />
+      <SimpleGeneralRegistry title="BENEFICIO FISCAL ESPECIFICO" description="BENEFICIOS QUE PODEM SER ASSOCIADOS AO CLIENTE." addLabel="+ NOVO BENEFICIO" items={fiscalBenefits} onChange={onFiscalBenefitsChange} />
+      </div>
+      )}
+    </div>
+  );
+}
+
+function SimpleGeneralRegistry({ title, description, addLabel, items, onChange }: { title: string; description: string; addLabel: string; items: GeneralOption[]; onChange: (items: GeneralOption[]) => void }) {
+  const [draft, setDraft] = useState<{ mode: Mode; id?: string; name: string } | null>(null);
+  function save() {
+    if (!draft?.name.trim()) return;
+    const name = draft.name.trim().toUpperCase();
+    if (draft.mode === "edit" && draft.id) onChange(items.map((item) => item.id === draft.id ? { ...item, name } : item));
+    else onChange([...items, { id: `option-${Date.now()}`, name }]);
+    setDraft(null);
+  }
+  return <section style={generalRegistryPanelStyle}>
+    {draft && <FormPanel title={draft.mode === "create" ? `CADASTRAR ${title}` : `EDITAR ${title}`}><label style={wideLabelStyle}>DESCRICAO<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="INFORME O NOME" style={inputStyle} /></label><Actions onCancel={() => setDraft(null)} onSave={save} /></FormPanel>}
+    <div style={panelHeaderStyle}><div><h3 style={panelTitleStyle}>{title}</h3><p style={panelTextStyle}>{description}</p></div><button type="button" style={orangeButtonStyle} onClick={() => setDraft({ mode: "create", name: "" })}>{addLabel}</button></div>
+    <Table headers={["DESCRICAO", "ACOES"]}>{items.map((item) => <tr key={item.id}><td style={supplierNameCellStyle}>{item.name}</td><td style={supplierActionCellStyle}><EditButton onClick={() => setDraft({ mode: "edit", id: item.id, name: item.name })} /><DeleteButton onClick={() => onChange(items.filter((entry) => entry.id !== item.id))} /></td></tr>)}</Table>
+  </section>;
+}
+
+function LimitMetric({ label, value, color }: { label: string; value: string; color: string }) {
+  return <div style={{ ...limitMetricStyle, borderTopColor: color }}><span>{label}</span><strong style={{ color }}>{value}</strong></div>;
+}
+
 function PricingParamsPanel({ params, onChange }: { params: PricingParams; onChange: (params: PricingParams) => void }) {
   const operationalTotal = params.commission + params.freight + params.otherCosts + params.clientIcms + params.additionalCosts;
 
@@ -882,6 +1155,10 @@ function formatMoney(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
+function formatGeneralMoney(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function formatWeight(value: number) {
   return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KG`;
 }
@@ -896,6 +1173,19 @@ function formatGoalNumber(value: number) {
 
 const pageStyle = { color: "#141827" };
 const shellStyle = { width: "100%", maxWidth: 2120, margin: "0 auto", padding: "44px 52px", borderRadius: 26, border: "1px solid rgba(52,64,84,.22)", background: "rgba(255,255,255,.94)", boxShadow: "0 28px 72px rgba(39,36,67,.12)", boxSizing: "border-box" as const, overflow: "hidden" };
+const managerSwitcherStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, padding: 8, marginBottom: 34, borderRadius: 999, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)", boxShadow: "inset 0 1px 5px rgba(39,36,67,.08)" };
+const managerSwitchButtonStyle = { minHeight: 58, border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 17, fontWeight: 900, letterSpacing: 1, cursor: "pointer" };
+const activeManagerSwitchStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
+const generalRegistriesGridStyle = { display: "grid", gap: 28 };
+const generalRegistryPanelStyle = { border: "1px solid rgba(255,0,135,.32)", borderRadius: 22, background: "rgba(255,247,252,.62)", padding: 34, marginTop: 0 };
+const generalSubTabsStyle = { display: "inline-grid", gridTemplateColumns: "repeat(2,minmax(190px,1fr))", gap: 8, padding: 7, marginBottom: 28, borderRadius: 999, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)" };
+const generalSubTabStyle = { minHeight: 52, padding: "0 28px", border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 1, cursor: "pointer" };
+const activeGeneralSubTabStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 10px 20px rgba(111,50,210,.2)" };
+const limitReportStyle = { marginTop: 28, padding: 26, border: "1px solid rgba(255,0,135,.24)", borderRadius: 18, background: "rgba(255,255,255,.8)" };
+const limitClientTitleStyle = { margin: "0 0 22px", color: "#141827", fontSize: 25, fontWeight: 900 };
+const limitReportGridStyle = { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 16 };
+const limitMetricStyle = { display: "grid", gap: 10, minHeight: 90, padding: 18, border: "1px solid rgba(52,64,84,.12)", borderTop: "4px solid", borderRadius: 12, background: "#fff", boxSizing: "border-box" as const };
+const limitEmptyStyle = { marginTop: 24, padding: 28, border: "1px dashed rgba(111,50,210,.3)", borderRadius: 14, color: "#667085", fontSize: 17, fontWeight: 800, textAlign: "center" as const };
 const introStyle = { marginBottom: 32 };
 const sectionTitleStyle = { margin: 0, fontSize: 32, color: "#141827", fontWeight: 900 };
 const sectionSubtitleStyle = { margin: "12px 0 0", fontSize: 18, color: "#344054", fontWeight: 800 };
