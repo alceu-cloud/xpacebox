@@ -20,6 +20,7 @@ import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadast
 import type { ClientRecord } from "@/types/clientes";
 
 type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
+type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
 const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
@@ -33,6 +34,13 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
   { key: "tempos", label: "TEMPOS DE PRODUCAO" },
   { key: "lembretes", label: "LEMBRETES & FORMULAS" },
 ];
+
+const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
+  embalagem: ["papeis", "materiais", "tempos", "lembretes"],
+  fornecedores: ["fornecedores", "custo"],
+  produtos: ["engenharia"],
+  empresa: ["parametros", "metas"],
+};
 
 const emptySupplier: Supplier = { id: "", name: "" };
 const emptyPaper: PaperType = { id: "", code: "", description: "" };
@@ -114,8 +122,8 @@ export default function GerenciadorEmpresa({
   onFiscalProfilesChange,
   onFiscalBenefitsChange,
 }: GerenciadorEmpresaProps = {}) {
-  const [activeTab, setActiveTab] = useState<Tab>("fornecedores");
-  const [managerSection, setManagerSection] = useState<"embalagem" | "gerais">("embalagem");
+  const [activeTab, setActiveTab] = useState<Tab>("papeis");
+  const [managerSection, setManagerSection] = useState<ManagerSection>("embalagem");
   const [localSuppliers, setLocalSuppliers] = useState(initialSuppliers);
   const [localPaperTypes, setLocalPaperTypes] = useState(initialPaperTypes);
   const [localMaterials, setLocalMaterials] = useState(initialMaterials);
@@ -191,12 +199,25 @@ export default function GerenciadorEmpresa({
 
   const managerSwitcher = (
     <nav style={managerSwitcherStyle} aria-label="AREAS DO GERENCIADOR">
-      <button type="button" onClick={() => setManagerSection("embalagem")} style={{ ...managerSwitchButtonStyle, ...(managerSection === "embalagem" ? activeManagerSwitchStyle : {}) }}>
-        CONFIGURACOES DA EMBALAGEM
-      </button>
-      <button type="button" onClick={() => setManagerSection("gerais")} style={{ ...managerSwitchButtonStyle, ...(managerSection === "gerais" ? activeManagerSwitchStyle : {}) }}>
-        CADASTROS GERAIS
-      </button>
+      {([
+        ["embalagem", "CONFIGURACOES DAS EMBALAGENS", "papeis"],
+        ["fornecedores", "CONFIGURACOES DOS FORNECEDORES", "fornecedores"],
+        ["produtos", "CADASTROS DE PRODUTOS", "engenharia"],
+        ["empresa", "CONFIGURACOES DA EMPRESA", "parametros"],
+        ["gerais", "CADASTROS GERAIS", "papeis"],
+      ] as Array<[ManagerSection, string, Tab]>).map(([section, label, tab]) => (
+        <button
+          key={section}
+          type="button"
+          onClick={() => {
+            setManagerSection(section);
+            if (section !== "gerais") setActiveTab(tab);
+          }}
+          style={{ ...managerSwitchButtonStyle, ...(managerSection === section ? activeManagerSwitchStyle : {}) }}
+        >
+          {label}
+        </button>
+      ))}
     </nav>
   );
 
@@ -206,7 +227,7 @@ export default function GerenciadorEmpresa({
         <section style={shellStyle}>
           {managerSwitcher}
           <div style={introStyle}>
-            <h2 style={sectionTitleStyle}>2. CADASTROS GERAIS</h2>
+            <h2 style={sectionTitleStyle}>CADASTROS GERAIS</h2>
             <p style={sectionSubtitleStyle}>OPCOES COMPARTILHADAS USADAS NO CADASTRO DE CLIENTES.</p>
           </div>
           <GeneralRegistriesPanel
@@ -232,12 +253,22 @@ export default function GerenciadorEmpresa({
       <section style={shellStyle}>
         {managerSwitcher}
         <div style={introStyle}>
-          <h2 style={sectionTitleStyle}>1. CONFIGURACOES DA EMBALAGEM</h2>
-          <p style={sectionSubtitleStyle}>SELECIONE AS ESPECIFICACOES FISICAS E O MATERIAL DESEJADO.</p>
+          <h2 style={sectionTitleStyle}>
+            {managerSection === "embalagem" && "CONFIGURACOES DAS EMBALAGENS"}
+            {managerSection === "fornecedores" && "CONFIGURACOES DOS FORNECEDORES"}
+            {managerSection === "produtos" && "CADASTROS DE PRODUTOS"}
+            {managerSection === "empresa" && "CONFIGURACOES DA EMPRESA"}
+          </h2>
+          <p style={sectionSubtitleStyle}>
+            {managerSection === "embalagem" && "TIPOS DE PAPELAO, MATERIAIS, TEMPOS E FORMULAS DE APOIO."}
+            {managerSection === "fornecedores" && "FORNECEDORES E CUSTOS DE COMPRA DO PAPELAO."}
+            {managerSection === "produtos" && "ENGENHARIAS E FORMULAS USADAS NOS PRODUTOS."}
+            {managerSection === "empresa" && "PARAMETROS E METAS USADOS NA OPERACAO DA EMPRESA."}
+          </p>
         </div>
 
         <nav style={tabsStyle}>
-          {tabs.map((tab) => (
+          {tabs.filter((tab) => sectionTabs[managerSection as Exclude<ManagerSection, "gerais">]?.includes(tab.key)).map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -1173,8 +1204,8 @@ function formatGoalNumber(value: number) {
 
 const pageStyle = { color: "#141827" };
 const shellStyle = { width: "100%", maxWidth: 2120, margin: "0 auto", padding: "44px 52px", borderRadius: 26, border: "1px solid rgba(52,64,84,.22)", background: "rgba(255,255,255,.94)", boxShadow: "0 28px 72px rgba(39,36,67,.12)", boxSizing: "border-box" as const, overflow: "hidden" };
-const managerSwitcherStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, padding: 8, marginBottom: 34, borderRadius: 999, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)", boxShadow: "inset 0 1px 5px rgba(39,36,67,.08)" };
-const managerSwitchButtonStyle = { minHeight: 58, border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 17, fontWeight: 900, letterSpacing: 1, cursor: "pointer" };
+const managerSwitcherStyle = { display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", gap: 8, padding: 8, marginBottom: 34, borderRadius: 999, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)", boxShadow: "inset 0 1px 5px rgba(39,36,67,.08)" };
+const managerSwitchButtonStyle = { minHeight: 64, padding: "0 14px", border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 15, fontWeight: 900, letterSpacing: 1, lineHeight: 1.2, cursor: "pointer" };
 const activeManagerSwitchStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
 const generalRegistriesGridStyle = { display: "grid", gap: 28 };
 const generalRegistryPanelStyle = { border: "1px solid rgba(255,0,135,.32)", borderRadius: 22, background: "rgba(255,247,252,.62)", padding: 34, marginTop: 0 };
@@ -1189,7 +1220,7 @@ const limitEmptyStyle = { marginTop: 24, padding: 28, border: "1px dashed rgba(1
 const introStyle = { marginBottom: 32 };
 const sectionTitleStyle = { margin: 0, fontSize: 32, color: "#141827", fontWeight: 900 };
 const sectionSubtitleStyle = { margin: "12px 0 0", fontSize: 18, color: "#344054", fontWeight: 800 };
-const tabsStyle = { display: "grid", gridTemplateColumns: "repeat(9,1fr)", alignItems: "center", gap: 8, borderRadius: 999, padding: 8, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)", boxShadow: "inset 0 1px 5px rgba(39,36,67,.08)", marginBottom: 38 };
+const tabsStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", alignItems: "center", gap: 8, borderRadius: 999, padding: 8, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)", boxShadow: "inset 0 1px 5px rgba(39,36,67,.08)", marginBottom: 38 };
 const tabButtonStyle = { minHeight: 66, width: "100%", minWidth: 0, padding: "0 12px", border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 15, fontWeight: 900, letterSpacing: 1, lineHeight: 1.2, display: "inline-flex", alignItems: "center", justifyContent: "center", textAlign: "center" as const, whiteSpace: "normal" as const, cursor: "pointer" };
 const activeTabButtonStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
 const panelStyle = { border: "1px solid rgba(255,0,135,.32)", borderRadius: 22, background: "rgba(255,247,252,.62)", padding: 34, marginTop: 28 };
