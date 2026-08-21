@@ -52,3 +52,19 @@ export type QuoteRecord = {
 export type QuoteDraft = Omit<QuoteRecord, "id" | "quoteNumber" | "status" | "productTotal" | "ipiTotal" | "grandTotal" | "items"> & {
   items: QuoteItem[];
 };
+
+export type PricingQuotePrefill = {
+  kind: QuoteKind;
+  sellerCompanyName: string;
+  sellerCompanySlug: string;
+  clientId?: string;
+  clientName?: string;
+  buyerName?: string;
+  phone?: string;
+  email?: string;
+  clientCnpj?: string;
+  address?: string;
+  representativeName?: string;
+  fichaId?: string;
+  items: QuoteItem[];
+};

@@ -18,6 +18,7 @@ import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, Pric
 import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
+import type { PricingQuotePrefill, QuoteItem } from "@/types/orcamentos";
 
 type ModuloKey = "gerenciador" | "clientes" | "produtos" | "formacao-preco" | "financeiro" | "relatorios";
 
@@ -115,6 +116,7 @@ export default function EmpresaPage() {
   const [fiscalBenefits, setFiscalBenefits] = useState<GeneralOption[]>(initialFiscalBenefits);
   const [productFichas, setProductFichas] = useState<ProductFicha[]>([]);
   const [productColors, setProductColors] = useState<string[]>(["BRANCO", "PRETO", "VERMELHO", "AZUL", "AMARELO"]);
+  const [quotePrefill, setQuotePrefill] = useState<PricingQuotePrefill | null>(null);
 
   const slug = String(params.slug ?? "");
 
@@ -301,6 +303,34 @@ export default function EmpresaPage() {
             pricingGoalsByCompany={pricingGoalsByCompany}
             productionTimes={productionTimes}
             productFichas={productFichas}
+            onSendToQuote={(prefill) => {
+              if (prefill.kind === "DIRECT") {
+                setQuotePrefill((current) => current?.kind === "DIRECT"
+                  ? { ...prefill, items: [...current.items, ...prefill.items].map((item, index) => ({ ...item, itemNumber: index + 1 })) }
+                  : prefill);
+                const continuePricing = window.confirm("ITEM ENVIADO PARA O ORCAMENTO. DESEJA FORMAR MAIS UM PRECO PARA ESTE MESMO ORCAMENTO?");
+                if (!continuePricing) setModuloAtivo("financeiro");
+                return;
+              }
+
+              if (!prefill.fichaId) return;
+              const nextFichas = productFichas.map((ficha) => {
+                if (ficha.id !== prefill.fichaId) return ficha;
+                const item = prefill.items[0];
+                const snapshot = item.snapshot ?? {};
+                return {
+                  ...ficha,
+                  price: item.unitPrice,
+                  materialId: typeof snapshot.materialId === "string" ? snapshot.materialId : ficha.materialId,
+                  length: item.length,
+                  width: item.width,
+                  height: item.height,
+                  company: prefill.sellerCompanyName,
+                };
+              });
+              persistManagerChange("productFichas", nextFichas, setProductFichas);
+              window.alert("PRECO E DADOS DA FORMACAO ENVIADOS PARA A FICHA TECNICA.");
+            }}
           />
         ) : moduloAtivo === "financeiro" ? (
           <FinanceiroEmpresa
@@ -308,6 +338,7 @@ export default function EmpresaPage() {
             productFichas={productFichas}
             materials={materials}
             engineeringFormulas={engineeringFormulas}
+            prefill={quotePrefill}
           />
         ) : moduloSelecionado ? (
           <ModulePlaceholder modulo={moduloSelecionado} />
@@ -341,6 +372,7 @@ function PricingPreview({
   pricingGoalsByCompany,
   productionTimes,
   productFichas,
+  onSendToQuote,
 }: {
   companySlug: string;
   suppliers: Supplier[];
@@ -352,6 +384,7 @@ function PricingPreview({
   pricingGoalsByCompany: PricingGoalsByCompany;
   productionTimes: ProductionTime[];
   productFichas: ProductFicha[];
+  onSendToQuote: (prefill: PricingQuotePrefill) => void;
 }) {
   const [pricingMode, setPricingMode] = useState<PricingMode>("direct");
   const [activeStep, setActiveStep] = useState<PricingStep | EngineeringPricingStep>("MATERIAIS");
@@ -706,6 +739,10 @@ function PricingPreview({
           pricingParams={pricingParams}
           pricingGoals={pricingGoalsByCompany[sellerCompanyKey]}
           productionTimes={productionTimes}
+          pricingMode={pricingMode}
+          engineeringFicha={selectedEngineeringFicha}
+          engineeringClient={clients.find((client) => client.id === engineeringClientId)}
+          onSendToQuote={onSendToQuote}
         />
       )}
     </section>
@@ -1242,6 +1279,10 @@ function PriceSummaryStep({
   pricingParams,
   pricingGoals,
   productionTimes,
+  pricingMode,
+  engineeringFicha,
+  engineeringClient,
+  onSendToQuote,
 }: {
   sellerCompany: (typeof sellerCompanies)[number];
   selectedModel: (typeof modelOptions)[BoxCategory][number];
@@ -1261,6 +1302,10 @@ function PriceSummaryStep({
   pricingParams: PricingParams;
   pricingGoals: PricingGoals;
   productionTimes: ProductionTime[];
+  pricingMode: PricingMode;
+  engineeringFicha?: ProductFicha;
+  engineeringClient?: ClientRecord;
+  onSendToQuote: (prefill: PricingQuotePrefill) => void;
 }) {
   const [simulatorPrice, setSimulatorPrice] = useState(1.72);
   const [targetMcPercent, setTargetMcPercent] = useState(pricingParams.mcDefault);
@@ -1268,6 +1313,7 @@ function PriceSummaryStep({
   const [ignoreSetup, setIgnoreSetup] = useState(false);
   const [ignoreAdditionalCosts, setIgnoreAdditionalCosts] = useState(false);
   const [manualBoxesPerHour, setManualBoxesPerHour] = useState(0);
+  const [sendMessage, setSendMessage] = useState("");
   useEffect(() => {
     setManualBoxesPerHour(0);
   }, [selectedMaterial?.id]);
@@ -1297,6 +1343,68 @@ function PriceSummaryStep({
     ? `${formatNumber(dimensions.C, 0)} X ${formatNumber(dimensions.L, 0)} X ${formatNumber(dimensions.A, 0)} MM`
     : `${formatNumber(dimensions.C, 0)} X ${formatNumber(dimensions.L, 0)} MM`;
 
+  const sendTargetLabel = pricingMode === "engineering" ? "ENVIAR PARA ENGENHARIA" : "ENVIAR PARA ORCAMENTO";
+
+  function sendPriceToTarget(price: number, source: string) {
+    if (pricingMode === "engineering" && !engineeringFicha) {
+      setSendMessage("SELECIONE UMA FICHA TECNICA ANTES DE ENVIAR PARA A ENGENHARIA.");
+      return;
+    }
+
+    const ipiPercent = paperCostParams.ipi;
+    const totalWithoutIpi = lotQuantity * price;
+    const item: QuoteItem = {
+      itemNumber: 1,
+      ftNumber: engineeringFicha?.ftNumber ?? "",
+      description: engineeringFicha?.reference || selectedFormula.description,
+      length: dimensions.C,
+      width: dimensions.L,
+      height: dimensions.A,
+      area: sheetArea,
+      quality: `${selectedMaterial?.grammage ?? ""} / ${selectedMaterial?.pressure ?? ""}`.replace(/^ \/ | \/ $/g, ""),
+      boxType: selectedFormula.description,
+      material: selectedMaterial?.code ?? "",
+      quantity: lotQuantity,
+      unitPrice: price,
+      ipiPercent,
+      ipiValue: totalWithoutIpi * ipiPercent / 100,
+      total: totalWithoutIpi * (1 + ipiPercent / 100),
+      snapshot: {
+        source,
+        materialId: selectedMaterial?.id,
+        engineeringId: engineeringFicha?.engineeringId,
+        sellerCompanyKey: sellerCompany.key,
+        mcPercent: source === "PADRAO" ? analysis.mcDefault : source === "SIMULADOR A" ? simulatorA.mcPercent : source === "SIMULADOR B" ? simulatorB.mcPercent : simulatorC.mcPercent,
+        mcrHour: source === "PADRAO" ? analysis.mchStandard : source === "SIMULADOR A" ? simulatorA.mch : source === "SIMULADOR B" ? simulatorB.mch : simulatorC.mch,
+        pricePerKg: source === "PADRAO" ? analysis.pricePerKg : source === "SIMULADOR A" ? simulatorA.pricePerKg : source === "SIMULADOR B" ? simulatorB.pricePerKg : simulatorC.pricePerKg,
+        commissionPercent: source === "PADRAO" ? analysis.commissionPercent : source === "SIMULADOR A" ? simulatorA.commissionPercent : source === "SIMULADOR B" ? simulatorB.commissionPercent : simulatorC.commissionPercent,
+        boxesPerHour: analysis.boxesPerHour,
+        setupMinutes: analysis.setupMinutes,
+        totalMinutes: analysis.totalMinutes,
+      },
+    };
+
+    onSendToQuote({
+      kind: pricingMode === "engineering" ? "ENGINEERING" : "DIRECT",
+      sellerCompanyName: sellerCompany.name,
+      sellerCompanySlug: sellerCompany.key,
+      fichaId: engineeringFicha?.id,
+      clientId: engineeringClient?.id,
+      clientName: engineeringClient?.tradeName || engineeringClient?.legalName,
+      buyerName: engineeringClient?.buyerName,
+      phone: engineeringClient?.phone || engineeringClient?.whatsapp,
+      email: engineeringClient?.purchaseEmail || engineeringClient?.invoiceEmail,
+      clientCnpj: engineeringClient?.cnpj,
+      address: engineeringClient ? [engineeringClient.street, engineeringClient.streetNumber, engineeringClient.district, engineeringClient.city, engineeringClient.state, engineeringClient.postalCode].filter(Boolean).join(", ") : undefined,
+      representativeName: engineeringClient?.representativeName,
+      items: [item],
+    });
+
+    if (pricingMode === "engineering") {
+      setSendMessage("PRECO ENVIADO PARA A FICHA TECNICA. A ENGENHARIA FOI ATUALIZADA.");
+    }
+  }
+
   if (!selectedMaterial || !sheetArea || !sheetWidth || !sheetLength) {
     return (
       <section style={priceSummaryPanelStyle}>
@@ -1312,6 +1420,7 @@ function PriceSummaryStep({
       <span style={priceBadgeStyle}>FORMACAO DE PRECO</span>
       <h2 style={priceSummaryTitleStyle}>ANALISE DE MARGEM DE CONTRIBUICAO</h2>
       <p style={priceSummarySubtitleStyle}>{sellerCompany.description}</p>
+      {sendMessage && <div style={pricingSendMessageStyle}>{sendMessage}</div>}
 
       {analysis.requiresManualProductionRate && (
         <section style={{
@@ -1462,8 +1571,11 @@ function PriceSummaryStep({
 
       <div style={priceStandardPanelStyle}>
         <div style={priceStandardHeaderStyle}>
-          <strong style={priceStandardTitleStyle}>PRECO PADRAO - MC% CONFIGURADA: {formatNumber(analysis.mcDefault, 0)}%</strong>
-          <span style={priceExpensesBadgeStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+          <div>
+            <strong style={priceStandardTitleStyle}>PRECO PADRAO - MC% CONFIGURADA: {formatNumber(analysis.mcDefault, 0)}%</strong>
+            <span style={priceExpensesBadgeStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+          </div>
+          <button type="button" onClick={() => sendPriceToTarget(analysis.standardPrice, "PADRAO")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
         </div>
 
         <div style={priceAnalysisGridStyle}>
@@ -1492,7 +1604,10 @@ function PriceSummaryStep({
             <span style={simulatorEyebrowStyle}>SIMULADOR A</span>
             <h3 style={simulatorTitleStyle}>INFORME O PRECO, VEJA A MARGEM</h3>
           </div>
-          <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+          <div style={simulatorHeaderActionsStyle}>
+            <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <button type="button" onClick={() => sendPriceToTarget(simulatorPrice, "SIMULADOR A")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+          </div>
         </div>
 
         <div style={simulatorGridStyle}>
@@ -1551,7 +1666,10 @@ function PriceSummaryStep({
             <span style={simulatorEyebrowStyle}>SIMULADOR B</span>
             <h3 style={simulatorTitleStyle}>INFORME A MC%, VEJA O PRECO</h3>
           </div>
-          <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+          <div style={simulatorHeaderActionsStyle}>
+            <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <button type="button" onClick={() => sendPriceToTarget(simulatorBPrice, "SIMULADOR B")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+          </div>
         </div>
 
         <div style={inverseSimulatorGridStyle}>
@@ -1586,7 +1704,10 @@ function PriceSummaryStep({
             <span style={simulatorEyebrowStyle}>SIMULADOR C</span>
             <h3 style={simulatorTitleStyle}>INFORME A MC R$/HORA, VEJA O PRECO E A MARGEM</h3>
           </div>
-          <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+          <div style={simulatorHeaderActionsStyle}>
+            <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <button type="button" onClick={() => sendPriceToTarget(simulatorCPrice, "SIMULADOR C")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+          </div>
         </div>
 
         <div style={inverseSimulatorGridStyle}>
@@ -2582,9 +2703,12 @@ const simulatorPanelStyle = {
   gap: 22,
 };
 const simulatorHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "end", gap: 18 };
+const simulatorHeaderActionsStyle = { display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 8 };
 const simulatorEyebrowStyle = { color: "#6f32d2", fontSize: 17, fontWeight: 900, letterSpacing: 2 };
 const simulatorTitleStyle = { margin: "7px 0 0", color: "#141827", fontSize: 25, fontWeight: 900 };
 const simulatorExpensesStyle = { color: "#e68019", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
+const pricingActionButtonStyle = { minHeight: 38, padding: "0 14px", border: "1px solid rgba(230,61,174,.28)", borderRadius: 10, color: "#d60078", background: "#fff", fontSize: 11, fontWeight: 900, letterSpacing: .8, cursor: "pointer" };
+const pricingSendMessageStyle = { margin: "14px 0", padding: "11px 14px", borderRadius: 10, background: "rgba(0,156,75,.08)", color: "#008f48", fontSize: 13, fontWeight: 900 };
 const simulatorGridStyle = { display: "grid", gridTemplateColumns: "1.15fr repeat(3,1fr)", gap: 16 };
 const simulatorInputCardStyle = {
   minHeight: 116,

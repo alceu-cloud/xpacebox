@@ -6,7 +6,7 @@ import { createQuote, deleteQuote, loadQuotes } from "@/lib/orcamentos";
 import { loadClients } from "@/lib/clientes";
 import type { EngineeringFormula, ProductFicha, SpecificMaterial } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
-import type { QuoteDraft, QuoteItem, QuoteRecord } from "@/types/orcamentos";
+import type { PricingQuotePrefill, QuoteDraft, QuoteItem, QuoteRecord } from "@/types/orcamentos";
 
 const companies = [
   { name: "DAWOS", slug: "dawos" },
@@ -25,11 +25,13 @@ export default function FinanceiroEmpresa({
   productFichas,
   materials,
   engineeringFormulas,
+  prefill,
 }: {
   companySlug: string;
   productFichas: ProductFicha[];
   materials: SpecificMaterial[];
   engineeringFormulas: EngineeringFormula[];
+  prefill?: PricingQuotePrefill | null;
 }) {
   const [kind, setKind] = useState<"DIRECT" | "ENGINEERING">("DIRECT");
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
@@ -46,6 +48,29 @@ export default function FinanceiroEmpresa({
     loadClients(companySlug).then(setClients).catch(() => setClients([]));
     refreshQuotes("DIRECT");
   }, [companySlug]);
+
+  useEffect(() => {
+    if (!prefill) return;
+
+    setKind(prefill.kind);
+    setShowForm(true);
+    setItems(prefill.items);
+    setSelectedClientId(prefill.clientId ?? "");
+    setSelectedFichaId(prefill.fichaId ?? "");
+    setForm((current) => ({
+      ...current,
+      clientName: prefill.clientName ?? "",
+      buyerName: prefill.buyerName ?? "",
+      phone: prefill.phone ?? "",
+      email: prefill.email ?? "",
+      cnpj: prefill.clientCnpj ?? "",
+      address: prefill.address ?? "",
+      company: prefill.sellerCompanyName,
+      representative: prefill.representativeName ?? current.representative,
+    }));
+    setMessage("ITEM RECEBIDO DA FORMACAO DE PRECO. ADICIONE OUTROS ITENS OU GERE O ORCAMENTO.");
+    void refreshQuotes(prefill.kind, "");
+  }, [prefill, companySlug]);
 
   const selectedClient = clients.find((client) => client.id === selectedClientId);
   const clientFichas = useMemo(() => productFichas.filter((ficha) => ficha.clientId === selectedClientId), [productFichas, selectedClientId]);
