@@ -742,6 +742,10 @@ function nextFichaNumber(fichas: ProductFicha[]) {
   return `FT-${String(highestNumber + 1).padStart(4, "0")}`;
 }
 
+function normalizeProductSearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+}
+
 export function ProductCatalogPanel({
   companySlug, fichas, colors, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
 }: {
@@ -757,6 +761,9 @@ export function ProductCatalogPanel({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProductFicha | null>(null);
+  const [viewOnly, setViewOnly] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [fichaSearch, setFichaSearch] = useState("");
   const [supplierSelection, setSupplierSelection] = useState<Record<string, string>>({});
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [productPanel, setProductPanel] = useState<"dados" | "arte" | "historico" | null>(null);
@@ -767,8 +774,21 @@ export function ProductCatalogPanel({
     loadClients(companySlug).then(setClients).catch(() => setClients([]));
   }, [companySlug]);
 
+  const clientsById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
+  const filteredFichas = useMemo(() => {
+    const clientTerm = normalizeProductSearch(clientSearch);
+    const fichaTerm = normalizeProductSearch(fichaSearch);
+    return fichas.filter((ficha) => {
+      const client = clientsById.get(ficha.clientId);
+      const clientText = normalizeProductSearch(`${client?.tradeName ?? ""} ${client?.legalName ?? ""} ${client?.cnpj ?? ""} ${client?.clientCode ?? ""}`);
+      const fichaText = normalizeProductSearch(`${ficha.ftNumber} ${ficha.reference}`);
+      return (!clientTerm || clientText.includes(clientTerm)) && (!fichaTerm || fichaText.includes(fichaTerm));
+    });
+  }, [clientSearch, clientsById, fichaSearch, fichas]);
+
   function startCreate() {
     setEditingId(null);
+    setViewOnly(false);
     setDraft({ ...emptyProductComponent(), ftNumber: nextFichaNumber(fichas), accessories: [] });
     setSupplierSelection({});
     setProductMenuOpen(false);
@@ -776,8 +796,9 @@ export function ProductCatalogPanel({
     setSelectedHistoryId(null);
   }
 
-  function startEdit(item: ProductFicha) {
+  function openFicha(item: ProductFicha) {
     setEditingId(item.id);
+    setViewOnly(true);
     setDraft({ ...item, accessories: item.accessories.map((accessory) => ({ ...accessory })) });
     setProductMenuOpen(false);
     setProductPanel(null);
@@ -788,6 +809,16 @@ export function ProductCatalogPanel({
       if (material?.supplier) selection[component.id] = material.supplier;
     });
     setSupplierSelection(selection);
+  }
+
+  function closeFicha() {
+    setDraft(null);
+    setEditingId(null);
+    setViewOnly(false);
+    setSupplierSelection({});
+    setProductMenuOpen(false);
+    setProductPanel(null);
+    setSelectedHistoryId(null);
   }
 
   function updateMain<K extends keyof ProductFicha>(key: K, value: ProductFicha[K]) {
@@ -804,6 +835,7 @@ export function ProductCatalogPanel({
     onChange(editingId ? fichas.map((item) => item.id === editingId ? next : item) : [...fichas, next]);
     setDraft(null);
     setEditingId(null);
+    setViewOnly(false);
     setSupplierSelection({});
     setProductMenuOpen(false);
     setProductPanel(null);
@@ -913,7 +945,7 @@ export function ProductCatalogPanel({
   return (
     <>
       {draft ? (
-        <FormPanel title={editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
+        <FormPanel title={viewOnly ? "VISUALIZAR FICHA TECNICA" : editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
           <label style={wideLabelStyle}>NUMERO DA FT<input value={draft.ftNumber} readOnly style={{ ...inputStyle, background: "#f5f1ff", color: "#7c3aed", fontWeight: 800 }} /></label>
           <div style={productColumnsStyle}>
             <section style={productSideStyle}>
@@ -930,16 +962,21 @@ export function ProductCatalogPanel({
               </div>
               {productPanel === "dados" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>DADOS DA FORMACAO DE PRECO</strong><span>ULTIMA FORMACAO ENVIADA PARA ESTA FICHA</span></div><PriceSnapshotDetails snapshot={draft.pricingData} /></section>}
               {productPanel === "arte" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>ARTE</strong><span>ESTE ESPACO FICARA DISPONIVEL PARA A ARTE DO PRODUTO.</span></div><div style={productPanelEmptyStyle}>MODULO DE ARTE EM PREPARACAO.</div></section>}
-              {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <div key={snapshot.id} style={productHistoryItemWrapStyle}><button type="button" onClick={() => setSelectedHistoryId((current) => current === snapshot.id ? null : snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }} aria-expanded={selectedHistoryId === snapshot.id}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source}</span><small>{formatSnapshotDate(snapshot.createdAt)}</small></button><button type="button" onClick={() => removeHistorySnapshot(snapshot.id)} style={productHistoryDeleteStyle} aria-label={`EXCLUIR HISTORICO DE ${formatCurrencyValue(snapshot.price)}`} title="EXCLUIR DO HISTORICO">X</button></div>)}</div>{selectedHistoryId && <PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId)} />}</div>}</section>}
-              {renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}
+              {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <div key={snapshot.id} style={productHistoryItemWrapStyle}><button type="button" onClick={() => setSelectedHistoryId((current) => current === snapshot.id ? null : snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }} aria-expanded={selectedHistoryId === snapshot.id}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source}</span><small>{formatSnapshotDate(snapshot.createdAt)}</small></button>{!viewOnly && <button type="button" onClick={() => removeHistorySnapshot(snapshot.id)} style={productHistoryDeleteStyle} aria-label={`EXCLUIR HISTORICO DE ${formatCurrencyValue(snapshot.price)}`} title="EXCLUIR DO HISTORICO">X</button>}</div>)}</div>{selectedHistoryId && <PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId)} />}</div>}</section>}
+              <fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}</fieldset>
             </section>
-            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong><button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button></div>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</article>)}<button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button></section>
+            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong>{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button>}</div><fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</fieldset></article>)}{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button>}</section>
           </div>
-          <div style={formActionsStyle}><button type="button" onClick={() => setDraft(null)} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button></div>
+          <div style={formActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>{viewOnly ? "SAIR" : "CANCELAR"}</button>{viewOnly ? <button type="button" onClick={() => setViewOnly(false)} style={editButtonStyle}>EDITAR</button> : <button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button>}</div>
         </FormPanel>
       ) : (
         <Panel title="FICHAS TECNICAS DE PRODUTOS" description="CADASTRE A CAIXA PRINCIPAL E OS ACESSORIOS VINCULADOS A CADA FT." actionLabel="+ NOVA FICHA TECNICA" onAction={startCreate}>
-          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : fichas.map((ficha) => <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S) · {ficha.status}</small></div><div><button type="button" onClick={() => startEdit(ficha)} style={editButtonStyle}>EDITAR</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}
+          <div style={productSearchBarStyle}>
+            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<input type="search" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="NOME, FANTASIA, CODIGO OU CNPJ" style={productInputStyle} /></label>
+            <label style={productSearchFieldStyle}>BUSCAR POR FICHA<input type="search" value={fichaSearch} onChange={(event) => setFichaSearch(event.target.value)} placeholder="NUMERO DA FT OU REFERENCIA" style={productInputStyle} /></label>
+            <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientSearch || fichaSearch) && <button type="button" onClick={() => { setClientSearch(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
+          </div>
+          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => { const client = clientsById.get(ficha.clientId); const clientName = client?.tradeName || client?.legalName || "CLIENTE NAO INFORMADO"; return <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaClientStyle}>{clientName}</small><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S) · {ficha.status}</small></div><div style={fichaActionsStyle}><button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>; })}
         </Panel>
       )}
     </>
@@ -1592,6 +1629,11 @@ const productHistoryDeleteStyle = { position: "absolute" as const, top: 7, right
 const productFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 15 };
 const productLabelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 13, fontWeight: 900, letterSpacing: .7 };
 const productInputStyle = { width: "100%", minHeight: 46, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 13px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
+const productReadOnlyFieldsetStyle = { minWidth: 0, margin: 0, padding: 0, border: "none" };
+const productSearchBarStyle = { display: "flex", alignItems: "flex-end", flexWrap: "wrap" as const, gap: 14, marginBottom: 20, padding: 18, borderRadius: 12, border: "1px solid rgba(111,50,210,.16)", background: "linear-gradient(135deg, rgba(247,242,255,.86), rgba(255,247,251,.92))" };
+const productSearchFieldStyle = { ...productLabelStyle, flex: "1 1 320px" };
+const productSearchSummaryStyle = { position: "relative" as const, minWidth: 170, minHeight: 46, display: "grid", alignContent: "center", justifyItems: "center", gap: 2, padding: "0 42px 0 16px", borderRadius: 10, border: "1px solid rgba(230,0,126,.18)", background: "#fff", color: "#667085", fontSize: 10, fontWeight: 900, letterSpacing: .6 };
+const productSearchClearStyle = { position: "absolute" as const, top: "50%", right: 10, transform: "translateY(-50%)", width: 26, height: 26, display: "grid", placeItems: "center", padding: 0, border: "1px solid rgba(255,61,70,.22)", borderRadius: "50%", background: "#fff1f2", color: "#ff3d46", fontSize: 11, fontWeight: 900, cursor: "pointer" };
 const accessoryStyle = { padding: 16, marginBottom: 16, borderRadius: 13, border: "1px solid rgba(111,50,210,.20)", background: "rgba(255,255,255,.82)" };
 const accessoryHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, color: "#6f32d2", fontSize: 14, letterSpacing: 1 };
 const removeAccessoryStyle = { border: "none", background: "transparent", color: "#ff4b4b", fontSize: 12, fontWeight: 900, cursor: "pointer" };
@@ -1600,7 +1642,9 @@ const emptyListStyle = { padding: 44, borderRadius: 14, border: "1px dashed rgba
 const fichaRowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 22, padding: "22px 24px", borderBottom: "1px solid rgba(255,0,135,.12)", background: "rgba(255,255,255,.72)" };
 const fichaNumberStyle = { display: "block", color: "#6f32d2", fontSize: 20, fontWeight: 900 };
 const fichaReferenceStyle = { display: "block", marginTop: 5, color: "#141827", fontSize: 17, fontWeight: 900 };
+const fichaClientStyle = { display: "block", marginTop: 8, color: "#e6007e", fontSize: 14, fontWeight: 900 };
 const fichaMetaStyle = { display: "block", marginTop: 7, color: "#667085", fontSize: 13, fontWeight: 800 };
+const fichaActionsStyle = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const };
 const colorAddStyle = { display: "flex", alignItems: "center", gap: 10 };
 const colorListStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 14 };
 const colorItemStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 18px", borderRadius: 12, border: "1px solid rgba(255,0,135,.18)", background: "rgba(255,248,252,.74)", color: "#141827", fontSize: 16, fontWeight: 900 };
