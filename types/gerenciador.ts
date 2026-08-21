@@ -87,6 +87,7 @@ export type ReminderFormula = {
 export type ProductComponent = {
   id: string;
   reference: string;
+  price: number;
   revision: string;
   company: string;
   clientId: string;

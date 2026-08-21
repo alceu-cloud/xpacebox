@@ -718,7 +718,7 @@ const productStatuses: ProductComponent["status"][] = ["INATIVO", "DESENVOLVIMEN
 
 function emptyProductComponent(): ProductComponent {
   return {
-    id: crypto.randomUUID(), reference: "", revision: "", company: "DAWOS", clientId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
+    id: crypto.randomUUID(), reference: "", price: 0, revision: "", company: "DAWOS", clientId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
     status: "DESENVOLVIMENTO", length: 0, width: 0, height: 0, topOverlap: 0, bottomOverlap: 0, knifeWidth: 0, knifeWidthBoxes: 1,
     knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "",
   };
@@ -773,6 +773,7 @@ export function ProductCatalogPanel({
     return (
       <div style={productFieldsStyle}>
         <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
+        <label style={productLabelStyle}>PRECO (R$)<input type="number" min="0" step="0.01" value={item.price || ""} onChange={(event) => update("price", Number(event.target.value) || 0)} style={productInputStyle} placeholder="0,00" /></label>
         <label style={productLabelStyle}>REVISAO<input value={item.revision} onChange={(event) => update("revision", event.target.value)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} onChange={(event) => update("company", event.target.value)} style={productInputStyle}>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
         <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => update("clientId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}</select></label>
