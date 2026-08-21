@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { createQuote, loadQuotes } from "@/lib/orcamentos";
+import { createQuote, deleteQuote, loadQuotes } from "@/lib/orcamentos";
 import { loadClients } from "@/lib/clientes";
 import type { EngineeringFormula, ProductFicha, SpecificMaterial } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
@@ -144,6 +144,17 @@ export default function FinanceiroEmpresa({
     }
   }
 
+  async function removeQuote(quote: QuoteRecord) {
+    if (!window.confirm(`EXCLUIR O ORCAMENTO ${quote.quoteNumber}?`)) return;
+    try {
+      await deleteQuote(companySlug, quote.id);
+      setMessage(`ORCAMENTO ${quote.quoteNumber} EXCLUIDO.`);
+      await refreshQuotes();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL EXCLUIR O ORCAMENTO.");
+    }
+  }
+
   return (
     <section style={shellStyle}>
       <div style={modeTabsStyle}>
@@ -162,7 +173,7 @@ export default function FinanceiroEmpresa({
 
       {showForm && <QuoteForm kind={kind} form={form} items={items} clients={clients} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))} onCancel={() => setShowForm(false)} onSave={saveQuote} />}
 
-      <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><button type="button" onClick={() => printQuote(quote)} style={pdfButtonStyle}>GERAR PDF</button></article>)}</div>}</section>
+      <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => printQuote(quote)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
     </section>
   );
 }
@@ -218,6 +229,8 @@ const quoteNumberStyle = { display: "block", color: "#6f32d2", fontSize: 18, fon
 const quoteClientStyle = { display: "block", marginTop: 4, color: "#141827", fontSize: 16, fontWeight: 900 };
 const quoteMetaStyle = { display: "block", marginTop: 5, color: "#667085", fontSize: 12, fontWeight: 800 };
 const pdfButtonStyle = { ...primaryButtonStyle, background: "linear-gradient(135deg,#ff8a00,#ff3b25)" };
+const deleteButtonStyle = { ...secondaryButtonStyle, color: "#ff3b25", borderColor: "rgba(255,59,37,.30)" };
+const quoteActionsStyle = { display: "flex", gap: 10, alignItems: "center" };
 const lookupGridStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14, marginBottom: 18 };
 const formGridStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 };
 const itemGridStyle = { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12 };

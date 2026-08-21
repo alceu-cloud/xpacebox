@@ -104,6 +104,22 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const slug = url.searchParams.get("slug")?.trim() ?? "";
+    const id = url.searchParams.get("id")?.trim() ?? "";
+    if (!slug || !id) return failure("ORCAMENTO INVALIDO.", 400);
+
+    const { admin, company } = await requireCompanyAccess(request, slug);
+    const { error } = await admin.from("quotes").delete().eq("id", id).eq("tenant_company_id", company.id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 function normalizeItem(item: QuoteDraft["items"][number], itemNumber: number) {
   const quantity = Number(item.quantity) || 0;
   const unitPrice = Number(item.unitPrice) || 0;

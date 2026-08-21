@@ -29,3 +29,7 @@ export async function createQuote(slug: string, quote: QuoteDraft) {
   });
   return payload.quote as QuoteRecord;
 }
+
+export async function deleteQuote(slug: string, id: string) {
+  await authorizedFetch(`/api/orcamentos?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`, { method: "DELETE" });
+}
