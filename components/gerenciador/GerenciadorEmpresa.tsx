@@ -734,6 +734,14 @@ function getMaterialWave(paperType: string) {
   return "";
 }
 
+function nextFichaNumber(fichas: ProductFicha[]) {
+  const highestNumber = fichas.reduce((highest, ficha) => {
+    const match = ficha.ftNumber.match(/(\d+)$/);
+    return Math.max(highest, match ? Number(match[1]) : 0);
+  }, 0);
+  return `FT-${String(highestNumber + 1).padStart(4, "0")}`;
+}
+
 export function ProductCatalogPanel({
   companySlug, fichas, colors, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
 }: {
@@ -758,7 +766,7 @@ export function ProductCatalogPanel({
 
   function startCreate() {
     setEditingId(null);
-    setDraft({ ...emptyProductComponent(), ftNumber: "", accessories: [] });
+    setDraft({ ...emptyProductComponent(), ftNumber: nextFichaNumber(fichas), accessories: [] });
     setSupplierSelection({});
   }
 
@@ -836,7 +844,7 @@ export function ProductCatalogPanel({
     <>
       {draft ? (
         <FormPanel title={editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
-          <label style={wideLabelStyle}>NUMERO DA FT<input value={draft.ftNumber} onChange={(event) => updateMain("ftNumber", event.target.value)} style={inputStyle} placeholder="EX: FT-0001" /></label>
+          <label style={wideLabelStyle}>NUMERO DA FT<input value={draft.ftNumber} readOnly style={{ ...inputStyle, background: "#f5f1ff", color: "#7c3aed", fontWeight: 800 }} /></label>
           <div style={productColumnsStyle}>
             <section style={productSideStyle}><h3 style={productSideTitleStyle}>CAIXA PRINCIPAL</h3>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}</section>
             <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong><button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button></div>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</article>)}<button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button></section>
