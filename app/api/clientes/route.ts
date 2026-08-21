@@ -124,14 +124,27 @@ async function validateRelations(admin: ReturnType<typeof import("@/lib/server/s
   if (!seller) throw new RequestError("EMPRESA ATENDENTE INVALIDA.", 400);
 
   if (client.representativeUserId) {
-    const { data: membership } = await admin
-      .from("company_members")
-      .select("profile_id")
-      .eq("profile_id", client.representativeUserId)
-      .eq("company_id", companyId)
+    const { data: representative } = await admin
+      .from("profiles")
+      .select("id, platform_role")
+      .eq("id", client.representativeUserId)
       .eq("active", true)
       .maybeSingle();
-    if (!membership) throw new RequestError("REPRESENTANTE INVALIDO.", 400);
+
+    if (!representative) throw new RequestError("REPRESENTANTE INVALIDO.", 400);
+
+    // Administradores da plataforma aparecem na lista de representantes mesmo
+    // sem um registro de membro vinculado a esta empresa.
+    if (representative.platform_role !== "platform_owner") {
+      const { data: membership } = await admin
+        .from("company_members")
+        .select("profile_id")
+        .eq("profile_id", client.representativeUserId)
+        .eq("company_id", companyId)
+        .eq("active", true)
+        .maybeSingle();
+      if (!membership) throw new RequestError("REPRESENTANTE INVALIDO.", 400);
+    }
   }
 }
 
