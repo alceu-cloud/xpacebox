@@ -286,6 +286,7 @@ export default function EmpresaPage() {
             companySlug={slug}
             fichas={productFichas}
             colors={productColors}
+            suppliers={suppliers}
             materials={materials}
             engineeringFormulas={engineeringFormulas}
             onChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}

@@ -724,12 +724,23 @@ function emptyProductComponent(): ProductComponent {
   };
 }
 
+function getMaterialWave(paperType: string) {
+  const code = paperType.trim().toUpperCase();
+  const suffix = code.match(/-([A-Z]+)$/)?.[1];
+  if (suffix) return suffix;
+  if (code.includes("BB")) return "BB";
+  if (code.includes("C")) return "C";
+  if (code.includes("T")) return "T";
+  return "";
+}
+
 export function ProductCatalogPanel({
-  companySlug, fichas, colors, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
+  companySlug, fichas, colors, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
 }: {
   companySlug?: string;
   fichas: ProductFicha[];
   colors: string[];
+  suppliers?: Supplier[];
   materials?: SpecificMaterial[];
   engineeringFormulas: EngineeringFormula[];
   onChange: (items: ProductFicha[]) => void;
@@ -738,6 +749,7 @@ export function ProductCatalogPanel({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProductFicha | null>(null);
+  const [supplierSelection, setSupplierSelection] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!companySlug) return;
@@ -747,11 +759,18 @@ export function ProductCatalogPanel({
   function startCreate() {
     setEditingId(null);
     setDraft({ ...emptyProductComponent(), ftNumber: "", accessories: [] });
+    setSupplierSelection({});
   }
 
   function startEdit(item: ProductFicha) {
     setEditingId(item.id);
     setDraft({ ...item, accessories: item.accessories.map((accessory) => ({ ...accessory })) });
+    const selection: Record<string, string> = {};
+    [item, ...item.accessories].forEach((component) => {
+      const material = materials.find((candidate) => candidate.id === component.materialId);
+      if (material?.supplier) selection[component.id] = material.supplier;
+    });
+    setSupplierSelection(selection);
   }
 
   function updateMain<K extends keyof ProductFicha>(key: K, value: ProductFicha[K]) {
@@ -768,9 +787,21 @@ export function ProductCatalogPanel({
     onChange(editingId ? fichas.map((item) => item.id === editingId ? next : item) : [...fichas, next]);
     setDraft(null);
     setEditingId(null);
+    setSupplierSelection({});
   }
 
   function renderFields(item: ProductComponent, update: (key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) => void, prefix: string) {
+    const materialSupplier = materials.find((material) => material.id === item.materialId)?.supplier ?? "";
+    const selectedSupplier = supplierSelection[item.id] ?? materialSupplier;
+    const filteredMaterials = selectedSupplier
+      ? materials.filter((material) => material.supplier === selectedSupplier)
+      : [];
+    const selectedMaterial = materials.find((material) => material.id === item.materialId);
+    const selectedWave = selectedMaterial ? getMaterialWave(selectedMaterial.paperType) : "";
+    const filteredEngineeringFormulas = selectedWave
+      ? engineeringFormulas.filter((formula) => formula.wave.split("/").map((wave) => wave.trim().toUpperCase()).includes(selectedWave))
+      : [];
+    const supplierNames = suppliers.map((supplier) => supplier.name).filter(Boolean);
     return (
       <div style={productFieldsStyle}>
         <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
@@ -778,7 +809,8 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>REVISAO<input value={item.revision} onChange={(event) => update("revision", event.target.value)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} onChange={(event) => update("company", event.target.value)} style={productInputStyle}>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
         <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => update("clientId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}</select></label>
-        <label style={productLabelStyle}>MATERIAL<select value={item.materialId ?? ""} onChange={(event) => update("materialId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O MATERIAL</option>{materials.map((material) => <option key={material.id} value={material.id}>{material.code} - {material.supplier}</option>)}</select></label>
+        <label style={productLabelStyle}>FORNECEDOR<select value={selectedSupplier} onChange={(event) => { const value = event.target.value; setSupplierSelection((current) => ({ ...current, [item.id]: value })); update("materialId", ""); update("engineeringId", ""); }} style={productInputStyle}><option value="">SELECIONE O FORNECEDOR</option>{supplierNames.map((supplier) => <option key={`${prefix}-supplier-${supplier}`} value={supplier}>{supplier}</option>)}</select></label>
+        <label style={productLabelStyle}>MATERIAL<select value={item.materialId ?? ""} onChange={(event) => { const value = event.target.value; const material = materials.find((candidate) => candidate.id === value); if (material?.supplier) setSupplierSelection((current) => ({ ...current, [item.id]: material.supplier })); update("materialId", value); update("engineeringId", ""); }} style={productInputStyle} disabled={!selectedSupplier}><option value="">{selectedSupplier ? "SELECIONE O MATERIAL" : "SELECIONE O FORNECEDOR PRIMEIRO"}</option>{filteredMaterials.map((material) => <option key={material.id} value={material.id}>{material.code} - {material.name || material.supplier}</option>)}</select></label>
         <label style={productLabelStyle}>LAUDO<select value={item.laudo} onChange={(event) => update("laudo", event.target.value as ProductComponent["laudo"])} style={productInputStyle}><option>NAO</option><option>SIM</option></select></label>
         <label style={productLabelStyle}>PALETE<select value={item.palete} onChange={(event) => update("palete", event.target.value as ProductComponent["palete"])} style={productInputStyle}><option>NAO</option><option>SIM</option></select></label>
         <label style={productLabelStyle}>NUMERO DE AMARRADOS<input type="number" min="0" value={item.tieCount} onChange={(event) => update("tieCount", Number(event.target.value) || 0)} style={productInputStyle} /></label>
@@ -792,10 +824,9 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>CAIXAS NA LARGURA<input type="number" min="1" value={item.knifeWidthBoxes || ""} onChange={(event) => update("knifeWidthBoxes", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>COMPRIMENTO DA FACA<input type="number" value={item.knifeLength || ""} onChange={(event) => update("knifeLength", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>CAIXAS NO COMPRIMENTO<input type="number" min="1" value={item.knifeLengthBoxes || ""} onChange={(event) => update("knifeLengthBoxes", Number(event.target.value) || 0)} style={productInputStyle} /></label>
-        <label style={productLabelStyle}>QUALIDADE DO FORNECEDOR<input value={item.supplierQuality} onChange={(event) => update("supplierQuality", event.target.value)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>COR 1<select value={item.color1} onChange={(event) => update("color1", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-1-${color}`}>{color}</option>)}</select></label>
         <label style={productLabelStyle}>COR 2<select value={item.color2} onChange={(event) => update("color2", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-2-${color}`}>{color}</option>)}</select></label>
-        <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{engineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
+        <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
       </div>
     );

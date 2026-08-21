@@ -473,13 +473,37 @@ button {
 }
 
 .clients-cnpj-field,
-.clients-field {
+.clients-field,
+.clients-existing-search {
   display: grid;
   gap: 10px;
   color: #344054;
   font-size: 15px;
   font-weight: 900;
   letter-spacing: 0;
+}
+
+.clients-existing-search {
+  margin-top: 18px;
+  grid-column: 2;
+}
+
+.clients-existing-search input,
+.clients-existing-search select {
+  width: 100%;
+  min-width: 0;
+  height: 54px;
+  box-sizing: border-box;
+  padding: 0 16px;
+  border: 1px solid rgba(111, 50, 210, 0.24);
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+  color: #141827;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .clients-cnpj-field > div {
@@ -759,6 +783,10 @@ button {
   .clients-cnpj-band {
     gap: 24px;
     padding: 24px 20px;
+  }
+
+  .clients-existing-search {
+    grid-column: auto;
   }
 
   .clients-cnpj-field > div {

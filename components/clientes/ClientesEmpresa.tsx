@@ -66,6 +66,7 @@ export default function ClientesEmpresa({
   const [representatives, setRepresentatives] = useState<RepresentativeOption[]>([]);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [search, setSearch] = useState("");
+  const [clientNameSearch, setClientNameSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"cadastro" | "crm">("cadastro");
   const [crmSearch, setCrmSearch] = useState("");
   const [crmSelectedId, setCrmSelectedId] = useState("");
@@ -115,6 +116,16 @@ export default function ClientesEmpresa({
         .includes(term)
     );
   }, [clients, search]);
+
+  const nameSearchMatches = useMemo(() => {
+    const term = clientNameSearch.trim().toLocaleUpperCase("pt-BR");
+    if (!term) return [];
+    return clients.filter((client) =>
+      `${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`
+        .toLocaleUpperCase("pt-BR")
+        .includes(term)
+    ).slice(0, 8);
+  }, [clients, clientNameSearch]);
 
   const crmClients = useMemo(() => {
     const term = crmSearch.trim().toLocaleUpperCase("pt-BR");
@@ -287,7 +298,32 @@ export default function ClientesEmpresa({
             <button type="button" onClick={handleLookup} disabled={lookingUp}>
               {lookingUp ? "CONSULTANDO..." : "BUSCAR DADOS"}
             </button>
-          </div>
+            </div>
+        </label>
+        <label className="clients-existing-search">
+          <span>BUSCAR CLIENTE JA CADASTRADO</span>
+          <input
+            value={clientNameSearch}
+            onChange={(event) => setClientNameSearch(event.target.value)}
+            placeholder="NOME, FANTASIA, CODIGO OU CNPJ"
+            list="client-name-search-options"
+          />
+          <datalist id="client-name-search-options">
+            {nameSearchMatches.map((client) => <option key={client.id} value={client.tradeName || client.legalName}>{client.cnpj}</option>)}
+          </datalist>
+          {nameSearchMatches.length > 0 && (
+            <select
+              value=""
+              onChange={(event) => {
+                const client = clients.find((item) => item.id === event.target.value);
+                if (client) handleEdit(client);
+              }}
+              aria-label="SELECIONE O CLIENTE ENCONTRADO"
+            >
+              <option value="">SELECIONE O CLIENTE ENCONTRADO</option>
+              {nameSearchMatches.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName} · {formatCnpj(client.cnpj)}</option>)}
+            </select>
+          )}
         </label>
       </div>
       </div>
