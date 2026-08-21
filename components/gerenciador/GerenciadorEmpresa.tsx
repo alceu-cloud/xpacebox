@@ -718,18 +718,19 @@ const productStatuses: ProductComponent["status"][] = ["INATIVO", "DESENVOLVIMEN
 
 function emptyProductComponent(): ProductComponent {
   return {
-    id: crypto.randomUUID(), reference: "", price: 0, revision: "", company: "DAWOS", clientId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
+    id: crypto.randomUUID(), reference: "", price: 0, revision: "", company: "DAWOS", clientId: "", materialId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
     status: "DESENVOLVIMENTO", length: 0, width: 0, height: 0, topOverlap: 0, bottomOverlap: 0, knifeWidth: 0, knifeWidthBoxes: 1,
     knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "",
   };
 }
 
 export function ProductCatalogPanel({
-  companySlug, fichas, colors, engineeringFormulas, onChange, onColorsChange,
+  companySlug, fichas, colors, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
 }: {
   companySlug?: string;
   fichas: ProductFicha[];
   colors: string[];
+  materials?: SpecificMaterial[];
   engineeringFormulas: EngineeringFormula[];
   onChange: (items: ProductFicha[]) => void;
   onColorsChange: (items: string[]) => void;
@@ -777,6 +778,7 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>REVISAO<input value={item.revision} onChange={(event) => update("revision", event.target.value)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} onChange={(event) => update("company", event.target.value)} style={productInputStyle}>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
         <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => update("clientId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}</select></label>
+        <label style={productLabelStyle}>MATERIAL<select value={item.materialId ?? ""} onChange={(event) => update("materialId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O MATERIAL</option>{materials.map((material) => <option key={material.id} value={material.id}>{material.code} - {material.supplier}</option>)}</select></label>
         <label style={productLabelStyle}>LAUDO<select value={item.laudo} onChange={(event) => update("laudo", event.target.value as ProductComponent["laudo"])} style={productInputStyle}><option>NAO</option><option>SIM</option></select></label>
         <label style={productLabelStyle}>PALETE<select value={item.palete} onChange={(event) => update("palete", event.target.value as ProductComponent["palete"])} style={productInputStyle}><option>NAO</option><option>SIM</option></select></label>
         <label style={productLabelStyle}>NUMERO DE AMARRADOS<input type="number" min="0" value={item.tieCount} onChange={(event) => update("tieCount", Number(event.target.value) || 0)} style={productInputStyle} /></label>

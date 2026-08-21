@@ -91,6 +91,7 @@ export type ProductComponent = {
   revision: string;
   company: string;
   clientId: string;
+  materialId?: string;
   laudo: "SIM" | "NAO";
   palete: "SIM" | "NAO";
   tieCount: number;

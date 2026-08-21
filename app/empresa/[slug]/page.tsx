@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
+import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
@@ -13,6 +14,7 @@ import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaym
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { supabase } from "@/lib/supabase";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductFicha, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
 
@@ -36,6 +38,8 @@ const modulos: Array<{
 const etapasPreco = ["MATERIAIS", "TIPO DE CAIXA", "CONFIGURAR DIMENSOES", "LOTE & LOGISTICA", "EMPRESA", "VER PRECO"];
 
 type PricingStep = (typeof etapasPreco)[number];
+type PricingMode = "direct" | "engineering";
+type EngineeringPricingStep = "CLIENTE / PRODUTO" | "LOTE & LOGISTICA" | "VER PRECO";
 type BoxCategory = "maleta" | "corte-vinco" | "tabuleiro";
 type BoxModelKey = "caixa-4-abas" | "caixa-4-abas-transpasse" | "corte-vinco-geral" | "caixa-sedex" | "tabuleiro";
 type SellerCompanyKey = "dawos" | "carcat" | "gta";
@@ -279,12 +283,14 @@ export default function EmpresaPage() {
             companySlug={slug}
             fichas={productFichas}
             colors={productColors}
+            materials={materials}
             engineeringFormulas={engineeringFormulas}
             onChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}
             onColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloAtivo === "formacao-preco" ? (
           <PricingPreview
+            companySlug={slug}
             suppliers={suppliers}
             paperTypes={paperTypes}
             materials={materials}
@@ -293,6 +299,7 @@ export default function EmpresaPage() {
             pricingParams={pricingParams}
             pricingGoalsByCompany={pricingGoalsByCompany}
             productionTimes={productionTimes}
+            productFichas={productFichas}
           />
         ) : moduloSelecionado ? (
           <ModulePlaceholder modulo={moduloSelecionado} />
@@ -316,6 +323,7 @@ function EmptyWorkspace() {
 }
 
 function PricingPreview({
+  companySlug,
   suppliers,
   paperTypes,
   materials,
@@ -324,7 +332,9 @@ function PricingPreview({
   pricingParams,
   pricingGoalsByCompany,
   productionTimes,
+  productFichas,
 }: {
+  companySlug: string;
   suppliers: Supplier[];
   paperTypes: PaperType[];
   materials: SpecificMaterial[];
@@ -333,8 +343,10 @@ function PricingPreview({
   pricingParams: PricingParams;
   pricingGoalsByCompany: PricingGoalsByCompany;
   productionTimes: ProductionTime[];
+  productFichas: ProductFicha[];
 }) {
-  const [activeStep, setActiveStep] = useState<PricingStep>("MATERIAIS");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("direct");
+  const [activeStep, setActiveStep] = useState<PricingStep | EngineeringPricingStep>("MATERIAIS");
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? "");
   const [paperTypeId, setPaperTypeId] = useState("");
   const [materialId, setMaterialId] = useState("");
@@ -345,6 +357,14 @@ function PricingPreview({
   const [lotQuantity, setLotQuantity] = useState(1000);
   const [sellerCompanyKey, setSellerCompanyKey] = useState<SellerCompanyKey>("dawos");
   const [simulatedMaterialId, setSimulatedMaterialId] = useState<string | null>(null);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [engineeringClientId, setEngineeringClientId] = useState("");
+  const [engineeringFichaId, setEngineeringFichaId] = useState("");
+  const [engineeringClientSearch, setEngineeringClientSearch] = useState("");
+
+  useEffect(() => {
+    loadClients(companySlug).then(setClients).catch(() => setClients([]));
+  }, [companySlug]);
 
   const supplier = suppliers.find((item) => item.id === supplierId) ?? suppliers[0];
   const materialsBySupplier = materials.filter((material) => material.supplier === supplier?.name);
@@ -382,6 +402,24 @@ function PricingPreview({
   const sheetArea = sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
   const boxWeight = pricingMaterial ? sheetArea * parseDecimal(pricingMaterial.grammage) : 0;
   const maletaInvalid = category === "maleta" && numericDimensions.C > 0 && numericDimensions.L > 0 && numericDimensions.C < numericDimensions.L;
+  const engineeringClientFichas = productFichas.filter((ficha) => ficha.clientId === engineeringClientId);
+  const selectedEngineeringFicha = productFichas.find((ficha) => ficha.id === engineeringFichaId);
+  const selectedEngineeringMaterial = selectedEngineeringFicha?.materialId
+    ? materials.find((material) => material.id === selectedEngineeringFicha.materialId)
+    : undefined;
+  const selectedEngineeringFormula = selectedEngineeringFicha?.engineeringId
+    ? engineeringFormulas.find((formula) => formula.id === selectedEngineeringFicha.engineeringId)
+    : undefined;
+  const filteredEngineeringClients = clients.filter((client) => {
+    const term = engineeringClientSearch.trim().toUpperCase();
+    if (!term) return true;
+    return `${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`.toUpperCase().includes(term);
+  });
+
+  function changePricingMode(nextMode: PricingMode) {
+    setPricingMode(nextMode);
+    setActiveStep(nextMode === "direct" ? "MATERIAIS" : "CLIENTE / PRODUTO");
+  }
 
   function chooseCategory(nextCategory: BoxCategory) {
     setCategory(nextCategory);
@@ -414,23 +452,109 @@ function PricingPreview({
     setSimulatedMaterialId(null);
   }
 
+  function chooseEngineeringClient(nextClientId: string) {
+    setEngineeringClientId(nextClientId);
+    setEngineeringFichaId("");
+  }
+
+  function applyEngineeringFicha(ficha: ProductFicha) {
+    const material = ficha.materialId ? materials.find((item) => item.id === ficha.materialId) : undefined;
+    const formula = ficha.engineeringId ? engineeringFormulas.find((item) => item.id === ficha.engineeringId) : undefined;
+    if (material) {
+      const nextSupplier = suppliers.find((item) => item.name === material.supplier);
+      const nextPaperType = paperTypes.find((item) => item.code === material.paperType);
+      if (nextSupplier) setSupplierId(nextSupplier.id);
+      if (nextPaperType) setPaperTypeId(nextPaperType.id);
+      setMaterialId(material.id);
+      setSimulatedMaterialId(null);
+    }
+
+    if (formula) {
+      const formulaId = formula.id.toLowerCase();
+      const nextCategory: BoxCategory = formulaId.startsWith("mn-") || formulaId.startsWith("mt-")
+        ? "maleta"
+        : formulaId.startsWith("tab-")
+          ? "tabuleiro"
+          : "corte-vinco";
+      const nextModel: BoxModelKey = formulaId.startsWith("mn-")
+        ? "caixa-4-abas"
+        : formulaId.startsWith("mt-")
+          ? "caixa-4-abas-transpasse"
+          : formulaId.startsWith("sedex-")
+            ? "caixa-sedex"
+            : formulaId.startsWith("tab-")
+              ? "tabuleiro"
+              : "corte-vinco-geral";
+      setCategory(nextCategory);
+      setModelKey(nextModel);
+    }
+
+    setDimensions({
+      length: ficha.length ? String(ficha.length) : "",
+      width: ficha.width ? String(ficha.width) : "",
+      height: ficha.height ? String(ficha.height) : "",
+    });
+    const nextCompany = ficha.company.toLowerCase() as SellerCompanyKey;
+    if (sellerCompanies.some((company) => company.key === nextCompany)) setSellerCompanyKey(nextCompany);
+  }
+
+  function chooseEngineeringFicha(nextFichaId: string) {
+    setEngineeringFichaId(nextFichaId);
+    const ficha = productFichas.find((item) => item.id === nextFichaId);
+    if (ficha) applyEngineeringFicha(ficha);
+  }
+
   return (
     <section style={pricingCardStyle}>
-      <nav style={stepsStyle}>
-        {etapasPreco.map((etapa) => (
-          <button
-            key={etapa}
-            type="button"
-            onClick={() => setActiveStep(etapa)}
-            style={{
-              ...stepButtonStyle,
-              ...(etapa === activeStep ? activeStepButtonStyle : {}),
-            }}
-          >
-            {etapa}
-          </button>
-        ))}
+      <nav style={pricingModeStyle} aria-label="TIPO DE FORMACAO DE PRECO">
+        <button type="button" onClick={() => changePricingMode("direct")} style={{ ...pricingModeButtonStyle, ...(pricingMode === "direct" ? activePricingModeStyle : {}) }}>PRECO DIRETO</button>
+        <button type="button" onClick={() => changePricingMode("engineering")} style={{ ...pricingModeButtonStyle, ...(pricingMode === "engineering" ? activePricingModeStyle : {}) }}>PRECO ENGENHARIA</button>
       </nav>
+
+      {pricingMode === "direct" && (
+        <nav style={stepsStyle}>
+          {etapasPreco.map((etapa) => (
+            <button
+              key={etapa}
+              type="button"
+              onClick={() => setActiveStep(etapa)}
+              style={{
+                ...stepButtonStyle,
+                ...(etapa === activeStep ? activeStepButtonStyle : {}),
+              }}
+            >
+              {etapa}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {pricingMode === "engineering" && (
+        <nav style={stepsStyle}>
+          {(["CLIENTE / PRODUTO", "LOTE & LOGISTICA", "VER PRECO"] as EngineeringPricingStep[]).map((step) => (
+            <button key={step} type="button" onClick={() => setActiveStep(step)} style={{ ...stepButtonStyle, ...(step === activeStep ? activeStepButtonStyle : {}) }}>
+              {step}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {pricingMode === "engineering" && activeStep === "CLIENTE / PRODUTO" && (
+        <EngineeringProductStep
+          clients={filteredEngineeringClients}
+          clientSearch={engineeringClientSearch}
+          selectedClientId={engineeringClientId}
+          fichas={engineeringClientFichas}
+          selectedFichaId={engineeringFichaId}
+          selectedFicha={selectedEngineeringFicha}
+          selectedMaterial={selectedEngineeringMaterial}
+          selectedFormula={selectedEngineeringFormula}
+          onClientSearch={setEngineeringClientSearch}
+          onClientChange={chooseEngineeringClient}
+          onFichaChange={chooseEngineeringFicha}
+          onContinue={() => setActiveStep("LOTE & LOGISTICA")}
+        />
+      )}
 
       {activeStep === "MATERIAIS" && (
         <MaterialStep
@@ -609,6 +733,85 @@ function OptionCard({
       <strong style={optionTitleStyle}>{title}</strong>
       <small style={optionSubtitleStyle}>{subtitle}</small>
     </button>
+  );
+}
+
+function EngineeringProductStep({
+  clients,
+  clientSearch,
+  selectedClientId,
+  fichas,
+  selectedFichaId,
+  selectedFicha,
+  selectedMaterial,
+  selectedFormula,
+  onClientSearch,
+  onClientChange,
+  onFichaChange,
+  onContinue,
+}: {
+  clients: ClientRecord[];
+  clientSearch: string;
+  selectedClientId: string;
+  fichas: ProductFicha[];
+  selectedFichaId: string;
+  selectedFicha?: ProductFicha;
+  selectedMaterial?: SpecificMaterial;
+  selectedFormula?: EngineeringFormula;
+  onClientSearch: (value: string) => void;
+  onClientChange: (value: string) => void;
+  onFichaChange: (value: string) => void;
+  onContinue: () => void;
+}) {
+  const canContinue = Boolean(selectedFicha && selectedMaterial && selectedFormula);
+
+  return (
+    <section style={engineeringSelectionPanelStyle}>
+      <div>
+        <span style={workspaceEyebrowStyle}>FICHA TECNICA</span>
+        <h2 style={engineeringSelectionTitleStyle}>CLIENTE / PRODUTO</h2>
+        <p style={dimensionSubtitleStyle}>SELECIONE O CLIENTE E O PRODUTO PARA CARREGAR AUTOMATICAMENTE A FICHA TECNICA.</p>
+      </div>
+
+      <div style={engineeringSelectionGridStyle}>
+        <label style={engineeringSelectionLabelStyle}>
+          BUSCAR CLIENTE
+          <input value={clientSearch} onChange={(event) => onClientSearch(event.target.value)} style={engineeringSelectionInputStyle} placeholder="NOME, CODIGO OU CNPJ" />
+        </label>
+        <label style={engineeringSelectionLabelStyle}>
+          CLIENTE
+          <select value={selectedClientId} onChange={(event) => onClientChange(event.target.value)} style={engineeringSelectionInputStyle}>
+            <option value="">SELECIONE O CLIENTE</option>
+            {clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}
+          </select>
+        </label>
+        <label style={{ ...engineeringSelectionLabelStyle, gridColumn: "1 / -1" }}>
+          PRODUTO / FICHA TECNICA
+          <select value={selectedFichaId} onChange={(event) => onFichaChange(event.target.value)} style={engineeringSelectionInputStyle} disabled={!selectedClientId}>
+            <option value="">{selectedClientId ? "SELECIONE O PRODUTO" : "SELECIONE PRIMEIRO O CLIENTE"}</option>
+            {fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.ftNumber} - {ficha.reference}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {selectedFicha && (
+        <div style={engineeringFichaSummaryStyle}>
+          <div><span>FT</span><strong>{selectedFicha.ftNumber}</strong></div>
+          <div><span>REFERENCIA</span><strong>{selectedFicha.reference}</strong></div>
+          <div><span>EMPRESA</span><strong>{selectedFicha.company}</strong></div>
+          <div><span>ENGENHARIA</span><strong>{selectedFormula?.description ?? "NAO INFORMADA"}</strong></div>
+          <div><span>DIMENSOES</span><strong>{selectedFicha.length} X {selectedFicha.width} X {selectedFicha.height} MM</strong></div>
+          <div><span>MATERIAL</span><strong>{selectedMaterial?.code ?? "NAO VINCULADO"}</strong></div>
+        </div>
+      )}
+
+      {selectedFicha && !selectedMaterial && <div style={engineeringSelectionAlertStyle}>ESTA FICHA AINDA NAO TEM MATERIAL VINCULADO. EDITE A FICHA TECNICA NO MODULO PRODUTOS PARA LIBERAR O PRECO POR ENGENHARIA.</div>}
+      {selectedFicha && !selectedFormula && <div style={engineeringSelectionAlertStyle}>ESTA FICHA AINDA NAO TEM UMA ENGENHARIA VINCULADA.</div>}
+
+      <div style={engineeringSelectionActionsStyle}>
+        <button type="button" onClick={onContinue} disabled={!canContinue} style={{ ...engineeringContinueButtonStyle, opacity: canContinue ? 1 : 0.55, cursor: canContinue ? "pointer" : "not-allowed" }}>CONTINUAR PARA LOTE</button>
+      </div>
+    </section>
   );
 }
 
@@ -2483,6 +2686,67 @@ const requiredLotValueStyle = { color: "#00a651", fontSize: 29, fontWeight: 900,
 const requiredLotNoSetupStyle = { display: "grid", gap: 7, color: "#00a651", textAlign: "right" as const, fontSize: 17, fontWeight: 900, letterSpacing: 1 };
 const requiredLotImpossibleStyle = { display: "grid", gap: 7, color: "#dc2626", textAlign: "right" as const, fontSize: 17, fontWeight: 900, letterSpacing: 1 };
 const materialStepStyle = { display: "grid", gap: 18 };
+const pricingModeStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+  gap: 10,
+  padding: 7,
+  marginBottom: 18,
+  borderRadius: 18,
+  border: "1px solid rgba(111,50,210,.18)",
+  background: "#f3f5fa",
+};
+const pricingModeButtonStyle = {
+  minHeight: 52,
+  border: "1px solid transparent",
+  borderRadius: 14,
+  background: "transparent",
+  color: "#667085",
+  fontSize: 16,
+  fontWeight: 900,
+  letterSpacing: 1,
+  cursor: "pointer",
+};
+const activePricingModeStyle = {
+  background: "linear-gradient(135deg,#8b36e8,#6f32d2)",
+  color: "#fff",
+  boxShadow: "0 10px 22px rgba(111,50,210,.22)",
+};
+const engineeringSelectionPanelStyle = {
+  display: "grid",
+  gap: 22,
+  padding: 26,
+  borderRadius: 18,
+  border: "1px solid rgba(230,0,126,.26)",
+  background: "linear-gradient(145deg,rgba(255,0,135,.035),rgba(255,255,255,.82))",
+};
+const engineeringSelectionTitleStyle = { margin: "8px 0 0", color: "#141827", fontSize: 30, fontWeight: 900 };
+const engineeringSelectionGridStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 18 };
+const engineeringSelectionLabelStyle = { display: "grid", gap: 9, color: "#141827", fontSize: 16, fontWeight: 900, letterSpacing: 1 };
+const engineeringSelectionInputStyle = {
+  minHeight: 56,
+  borderRadius: 13,
+  border: "1px solid rgba(52,64,84,.18)",
+  background: "#fff",
+  color: "#141827",
+  padding: "0 16px",
+  fontSize: 18,
+  fontWeight: 800,
+  outline: "none",
+};
+const engineeringFichaSummaryStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+  gap: 14,
+  padding: 18,
+  borderRadius: 15,
+  border: "1px solid rgba(111,50,210,.18)",
+  background: "rgba(255,255,255,.82)",
+};
+const engineeringFichaSummaryItemStyle = { display: "grid", gap: 6 };
+const engineeringSelectionAlertStyle = { padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(220,38,38,.24)", background: "#fff1f2", color: "#c62828", fontSize: 14, fontWeight: 900, letterSpacing: 1 };
+const engineeringSelectionActionsStyle = { display: "flex", justifyContent: "flex-end" };
+const engineeringContinueButtonStyle = { minHeight: 50, padding: "0 22px", border: 0, borderRadius: 13, background: "linear-gradient(135deg,#8b36e8,#ff3b25)", color: "#fff", fontSize: 16, fontWeight: 900, letterSpacing: 1 };
 const selectFieldStyle = { display: "grid", gap: 10 };
 const selectLabelStyle = { color: "#141827", fontSize: 17, fontWeight: 900, letterSpacing: 1 };
 const selectStyle = {
