@@ -1221,8 +1221,13 @@ function Panel({ title, description, actionLabel, onAction, children }: { title:
 }
 
 function FormPanel({ title, children }: { title: string; children: React.ReactNode }) {
+  const editing = title.startsWith("EDITAR");
   return (
-    <section style={formPanelStyle}>
+    <section style={{
+      ...formPanelStyle,
+      borderColor: editing ? "rgba(234, 179, 8, .62)" : "rgba(22, 163, 74, .42)",
+      background: editing ? "rgba(255, 251, 235, .82)" : "rgba(240, 253, 244, .76)",
+    }}>
       <h3 style={panelTitleStyle}>{title}</h3>
       <div style={formBodyStyle}>{children}</div>
     </section>

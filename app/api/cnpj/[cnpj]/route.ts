@@ -15,11 +15,32 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
     const source = hasSerproCredentials()
       ? await lookupSerpro(cnpj)
       : await lookupBrasilApi(cnpj);
-    return NextResponse.json({ success: true, company: mapCompany(source, cnpj) });
+    const company = mapCompany(source, cnpj);
+    const stateRegistration = company.stateRegistration || await lookupSintegraStateRegistration(cnpj);
+    return NextResponse.json({ success: true, company: { ...company, stateRegistration } });
   } catch (error) {
     if (error instanceof AccessError) return failure(error.message, error.status);
     console.error("CNPJ LOOKUP ERROR", error);
     return failure("NAO FOI POSSIVEL CONSULTAR O CNPJ.", 500);
+  }
+}
+
+async function lookupSintegraStateRegistration(cnpj: string) {
+  const token = process.env.SINTEGRA_WS_TOKEN;
+  if (!token) return "";
+
+  const params = new URLSearchParams({ token, cnpj, plugin: "ST" });
+  try {
+    const response = await fetch(`https://www.sintegraws.com.br/api/v1/execute-api.php?${params}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) return "";
+    const payload = (await response.json()) as Record<string, unknown>;
+    return text(payload.inscricao_estadual ?? payload.inscricaoEstadual);
+  } catch (error) {
+    console.error("SINTEGRA IE ERROR", error);
+    return "";
   }
 }
 

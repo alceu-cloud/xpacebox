@@ -43,10 +43,12 @@ export async function GET(request: Request) {
 
     if (membershipError) throw membershipError;
 
-    const profileIds = [...new Set((memberships ?? []).map((item) => item.profile_id).filter(Boolean))];
-    const { data: profiles, error: profileError } = profileIds.length
-      ? await admin.from("profiles").select("id, full_name, email").in("id", profileIds).eq("active", true).order("full_name")
-      : { data: [], error: null };
+    const profileIds = new Set((memberships ?? []).map((item) => item.profile_id).filter(Boolean));
+    const { data: profiles, error: profileError } = await admin
+      .from("profiles")
+      .select("id, full_name, email, platform_role")
+      .eq("active", true)
+      .order("full_name");
 
     if (profileError) throw profileError;
 
@@ -54,7 +56,7 @@ export async function GET(request: Request) {
       success: true,
       options: {
         sellerCompanies: sellerCompanies ?? [],
-        representatives: (profiles ?? []).map((profile) => ({
+        representatives: (profiles ?? []).filter((profile) => profile.platform_role === "platform_owner" || profileIds.has(profile.id)).map((profile) => ({
           id: profile.id,
           name: profile.full_name || profile.email || "USUARIO",
           email: profile.email || "",

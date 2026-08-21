@@ -145,7 +145,7 @@ export default function ClientesEmpresa({
         legalName: company.legalName || current.legalName,
         tradeName: company.tradeName || current.tradeName,
         stateRegistration: company.stateRegistration || current.stateRegistration,
-        phone: company.phone || current.phone,
+        phone: formatPhone(company.phone) || current.phone,
         purchaseEmail: company.email || current.purchaseEmail,
         invoiceEmail: company.email || current.invoiceEmail,
         street: company.street || current.street,
@@ -190,10 +190,10 @@ export default function ClientesEmpresa({
       legalName: client.legalName,
       tradeName: client.tradeName,
       buyerName: client.buyerName,
-      whatsapp: client.whatsapp,
+      whatsapp: formatPhone(client.whatsapp),
       cnpj: formatCnpj(client.cnpj),
       stateRegistration: client.stateRegistration,
-      phone: client.phone,
+      phone: formatPhone(client.phone),
       purchaseEmail: client.purchaseEmail,
       invoiceEmail: client.invoiceEmail,
       street: client.street,
@@ -312,10 +312,10 @@ export default function ClientesEmpresa({
         <FormSection title="CONTATOS E COMPRAS">
           <div className="clients-grid clients-grid-3">
             <Field label="NOME DO COMPRADOR" value={form.buyerName} onChange={(buyerName) => setForm({ ...form, buyerName })} />
-            <Field label="WHATSAPP" value={form.whatsapp} onChange={(whatsapp) => setForm({ ...form, whatsapp })} />
-            <Field label="FONE" value={form.phone} onChange={(phone) => setForm({ ...form, phone })} />
-            <Field label="E-MAIL DE COMPRAS" type="email" value={form.purchaseEmail} onChange={(purchaseEmail) => setForm({ ...form, purchaseEmail })} />
-            <Field label="E-MAIL PARA NOTA FISCAL" type="email" value={form.invoiceEmail} onChange={(invoiceEmail) => setForm({ ...form, invoiceEmail })} />
+            <Field label="WHATSAPP" value={form.whatsapp} onChange={(whatsapp) => setForm({ ...form, whatsapp: formatPhone(whatsapp) })} />
+            <Field label="FONE" value={form.phone} onChange={(phone) => setForm({ ...form, phone: formatPhone(phone) })} />
+            <Field label="E-MAIL DE COMPRAS" type="email" value={form.purchaseEmail} lowercase onChange={(purchaseEmail) => setForm({ ...form, purchaseEmail: purchaseEmail.toLowerCase() })} />
+            <Field label="E-MAIL PARA NOTA FISCAL" type="email" value={form.invoiceEmail} lowercase onChange={(invoiceEmail) => setForm({ ...form, invoiceEmail: invoiceEmail.toLowerCase() })} />
             <SelectField
               label="REPRESENTANTE"
               value={form.representativeUserId}
@@ -444,11 +444,11 @@ function FormSection({ title, children }: { title: string; children: React.React
   );
 }
 
-function Field({ label, value, onChange, type = "text", wide = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean }) {
+function Field({ label, value, onChange, type = "text", wide = false, lowercase = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean; lowercase?: boolean }) {
   return (
     <label className={wide ? "clients-field clients-field-wide" : "clients-field"}>
       <span>{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+      <input type={type} value={value} onChange={(event) => onChange(lowercase ? event.target.value.toLowerCase() : event.target.value)} />
     </label>
   );
 }
@@ -489,6 +489,15 @@ function formatCnpj(value: string) {
 
 function formatCep(value: string) {
   return digits(value).slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
+function formatPhone(value: string) {
+  const digitsValue = digits(value).slice(0, 11);
+  if (digitsValue.length <= 2) return digitsValue ? `(${digitsValue}` : "";
+  const ddd = digitsValue.slice(0, 2);
+  const number = digitsValue.slice(2);
+  if (number.length <= 8) return `(${ddd}) ${number.slice(0, 4)}${number.length > 4 ? `-${number.slice(4)}` : ""}`;
+  return `(${ddd}) ${number.slice(0, 5)}-${number.slice(5)}`;
 }
 
 function messageFrom(error: unknown) {

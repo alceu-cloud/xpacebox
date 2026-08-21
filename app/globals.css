@@ -508,6 +508,10 @@ button {
   text-transform: uppercase;
 }
 
+.clients-field input[type="email"] {
+  text-transform: lowercase;
+}
+
 .clients-cnpj-field input {
   height: 66px;
   border-color: rgba(111, 50, 210, 0.32);
