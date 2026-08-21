@@ -946,7 +946,10 @@ export function ProductCatalogPanel({
     <>
       {draft ? (
         <FormPanel title={viewOnly ? "VISUALIZAR FICHA TECNICA" : editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
-          <label style={wideLabelStyle}>NUMERO DA FT<input value={draft.ftNumber} readOnly style={{ ...inputStyle, background: "#f5f1ff", color: "#7c3aed", fontWeight: 800 }} /></label>
+          <div style={productFichaTopbarStyle}>
+            <label style={{ ...wideLabelStyle, flex: "1 1 360px" }}>NUMERO DA FT<input value={draft.ftNumber} readOnly style={{ ...inputStyle, background: "#f5f1ff", color: "#7c3aed", fontWeight: 800 }} /></label>
+            {viewOnly && <div style={productFichaTopActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>SAIR</button><button type="button" onClick={() => setViewOnly(false)} style={editButtonStyle}>EDITAR</button></div>}
+          </div>
           <div style={productColumnsStyle}>
             <section style={productSideStyle}>
               <div style={productSideHeaderStyle}>
@@ -967,7 +970,7 @@ export function ProductCatalogPanel({
             </section>
             <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong>{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button>}</div><fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</fieldset></article>)}{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button>}</section>
           </div>
-          <div style={formActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>{viewOnly ? "SAIR" : "CANCELAR"}</button>{viewOnly ? <button type="button" onClick={() => setViewOnly(false)} style={editButtonStyle}>EDITAR</button> : <button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button>}</div>
+          {!viewOnly && <div style={formActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button></div>}
         </FormPanel>
       ) : (
         <Panel title="FICHAS TECNICAS DE PRODUTOS" description="CADASTRE A CAIXA PRINCIPAL E OS ACESSORIOS VINCULADOS A CADA FT." actionLabel="+ NOVA FICHA TECNICA" onAction={startCreate}>
@@ -1629,6 +1632,8 @@ const productHistoryDeleteStyle = { position: "absolute" as const, top: 7, right
 const productFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 15 };
 const productLabelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 13, fontWeight: 900, letterSpacing: .7 };
 const productInputStyle = { width: "100%", minHeight: 46, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 13px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
+const productFichaTopbarStyle = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 16 };
+const productFichaTopActionsStyle = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, paddingBottom: 1 };
 const productReadOnlyFieldsetStyle = { minWidth: 0, margin: 0, padding: 0, border: "none" };
 const productSearchBarStyle = { display: "flex", alignItems: "flex-end", flexWrap: "wrap" as const, gap: 14, marginBottom: 20, padding: 18, borderRadius: 12, border: "1px solid rgba(111,50,210,.16)", background: "linear-gradient(135deg, rgba(247,242,255,.86), rgba(255,247,251,.92))" };
 const productSearchFieldStyle = { ...productLabelStyle, flex: "1 1 320px" };
