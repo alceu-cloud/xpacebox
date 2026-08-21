@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
+import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
 import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
@@ -300,6 +301,13 @@ export default function EmpresaPage() {
             pricingGoalsByCompany={pricingGoalsByCompany}
             productionTimes={productionTimes}
             productFichas={productFichas}
+          />
+        ) : moduloAtivo === "financeiro" ? (
+          <FinanceiroEmpresa
+            companySlug={slug}
+            productFichas={productFichas}
+            materials={materials}
+            engineeringFormulas={engineeringFormulas}
           />
         ) : moduloSelecionado ? (
           <ModulePlaceholder modulo={moduloSelecionado} />
