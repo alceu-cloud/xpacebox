@@ -15,7 +15,7 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductComponent, ProductFicha, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
@@ -758,6 +758,9 @@ export function ProductCatalogPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProductFicha | null>(null);
   const [supplierSelection, setSupplierSelection] = useState<Record<string, string>>({});
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
+  const [productPanel, setProductPanel] = useState<"dados" | "arte" | "historico" | null>(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!companySlug) return;
@@ -768,11 +771,17 @@ export function ProductCatalogPanel({
     setEditingId(null);
     setDraft({ ...emptyProductComponent(), ftNumber: nextFichaNumber(fichas), accessories: [] });
     setSupplierSelection({});
+    setProductMenuOpen(false);
+    setProductPanel(null);
+    setSelectedHistoryId(null);
   }
 
   function startEdit(item: ProductFicha) {
     setEditingId(item.id);
     setDraft({ ...item, accessories: item.accessories.map((accessory) => ({ ...accessory })) });
+    setProductMenuOpen(false);
+    setProductPanel(null);
+    setSelectedHistoryId(null);
     const selection: Record<string, string> = {};
     [item, ...item.accessories].forEach((component) => {
       const material = materials.find((candidate) => candidate.id === component.materialId);
@@ -796,6 +805,54 @@ export function ProductCatalogPanel({
     setDraft(null);
     setEditingId(null);
     setSupplierSelection({});
+    setProductMenuOpen(false);
+    setProductPanel(null);
+    setSelectedHistoryId(null);
+  }
+
+  function selectProductPanel(panel: "dados" | "arte" | "historico") {
+    setProductPanel(panel);
+    setProductMenuOpen(false);
+    if (panel !== "historico") setSelectedHistoryId(null);
+  }
+
+  function formatSnapshotDate(value?: string) {
+    if (!value) return "NAO INFORMADO";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "NAO INFORMADO" : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function PriceSnapshotDetails({ snapshot }: { snapshot?: ProductPriceSnapshot }) {
+    if (!snapshot) return <div style={productPanelEmptyStyle}>NENHUMA FORMACAO DE PRECO FOI VINCULADA A ESTA FICHA AINDA.</div>;
+    const details = [
+      ["PRECO UNITARIO", formatCurrencyValue(snapshot.price)],
+      ["MC%", formatPercentValue(snapshot.mcPercent)],
+      ["MC/HORA", formatCurrencyValue(snapshot.mcrHour, "/H")],
+      ["PRECO R$/KG", formatCurrencyValue(snapshot.pricePerKg, "/KG")],
+      ["SET-UP", formatNumberValue(snapshot.setupMinutes, " MIN")],
+      ["CAIXAS POR HORA", formatNumberValue(snapshot.boxesPerHour, " CX/H")],
+      ["COMISSAO", formatPercentValue(snapshot.commissionPercent)],
+      ["QUANTIDADE", formatNumberValue(snapshot.quantity, " UNIDS")],
+      ["MATERIAL", snapshot.materialCode || "NAO INFORMADO"],
+      ["TIPO DE PAPELAO", snapshot.paperType || "NAO INFORMADO"],
+      ["AREA", formatNumberValue(snapshot.areaM2, " M2")],
+      ["PESO UNITARIO", formatNumberValue(snapshot.weightKg, " KG")],
+      ["EMPRESA", snapshot.sellerCompany || "NAO INFORMADO"],
+      ["DATA DO PRECO", formatSnapshotDate(snapshot.createdAt)],
+    ];
+    return <div style={productPricingDetailsGridStyle}>{details.map(([label, value]) => <div key={label} style={productPricingDetailStyle}><small>{label}</small><strong>{value}</strong></div>)}</div>;
+  }
+
+  function formatCurrencyValue(value?: number, suffix = "") {
+    return typeof value === "number" && Number.isFinite(value) ? `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}` : "NAO INFORMADO";
+  }
+
+  function formatPercentValue(value?: number) {
+    return typeof value === "number" && Number.isFinite(value) ? `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : "NAO INFORMADO";
+  }
+
+  function formatNumberValue(value?: number, suffix = "") {
+    return typeof value === "number" && Number.isFinite(value) ? `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}` : "NAO INFORMADO";
   }
 
   function renderFields(item: ProductComponent, update: (key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) => void, prefix: string) {
@@ -846,7 +903,23 @@ export function ProductCatalogPanel({
         <FormPanel title={editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
           <label style={wideLabelStyle}>NUMERO DA FT<input value={draft.ftNumber} readOnly style={{ ...inputStyle, background: "#f5f1ff", color: "#7c3aed", fontWeight: 800 }} /></label>
           <div style={productColumnsStyle}>
-            <section style={productSideStyle}><h3 style={productSideTitleStyle}>CAIXA PRINCIPAL</h3>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}</section>
+            <section style={productSideStyle}>
+              <div style={productSideHeaderStyle}>
+                <h3 style={{ ...productSideTitleStyle, marginBottom: 0 }}>CAIXA PRINCIPAL</h3>
+                <div style={productOptionsWrapStyle}>
+                  <button type="button" onClick={() => setProductMenuOpen((current) => !current)} style={productOptionsButtonStyle} aria-expanded={productMenuOpen}>OPCOES DA CAIXA <span aria-hidden="true">{productMenuOpen ? "▲" : "▼"}</span></button>
+                  {productMenuOpen && <div style={productOptionsMenuStyle}>
+                    <button type="button" onClick={() => selectProductPanel("dados")} style={productOptionButtonStyle}>DADOS DA FORMACAO DE PRECO</button>
+                    <button type="button" onClick={() => selectProductPanel("arte")} style={productOptionButtonStyle}>ARTE</button>
+                    <button type="button" onClick={() => selectProductPanel("historico")} style={productOptionButtonStyle}>HISTORICO DE PRECOS</button>
+                  </div>}
+                </div>
+              </div>
+              {productPanel === "dados" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>DADOS DA FORMACAO DE PRECO</strong><span>ULTIMA FORMACAO ENVIADA PARA ESTA FICHA</span></div><PriceSnapshotDetails snapshot={draft.pricingData} /></section>}
+              {productPanel === "arte" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>ARTE</strong><span>ESTE ESPACO FICARA DISPONIVEL PARA A ARTE DO PRODUTO.</span></div><div style={productPanelEmptyStyle}>MODULO DE ARTE EM PREPARACAO.</div></section>}
+              {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <button type="button" key={snapshot.id} onClick={() => setSelectedHistoryId(snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source} · {formatSnapshotDate(snapshot.createdAt)}</span></button>)}</div><PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId) ?? draft.priceHistory?.[0]} /></div>}</section>}
+              {renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}
+            </section>
             <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong><button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button></div>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</article>)}<button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button></section>
           </div>
           <div style={formActionsStyle}><button type="button" onClick={() => setDraft(null)} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button></div>
@@ -1487,6 +1560,20 @@ const cancelButtonStyle = { minHeight: 52, padding: "0 26px", borderRadius: 12, 
 const productColumnsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 24, alignItems: "start" };
 const productSideStyle = { padding: 22, borderRadius: 16, border: "1px solid rgba(255,0,135,.20)", background: "rgba(255,248,252,.72)" };
 const productSideTitleStyle = { margin: "0 0 20px", color: "#e6007e", fontSize: 22, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
+const productSideHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 20, flexWrap: "wrap" as const };
+const productOptionsWrapStyle = { position: "relative" as const, marginLeft: "auto" };
+const productOptionsButtonStyle = { border: "1px solid rgba(111,50,210,.28)", background: "#f5f1ff", color: "#6f32d2", borderRadius: 10, minHeight: 40, padding: "0 14px", fontSize: 11, fontWeight: 900, letterSpacing: .7, cursor: "pointer" };
+const productOptionsMenuStyle = { position: "absolute" as const, zIndex: 5, top: "calc(100% + 7px)", right: 0, width: 240, padding: 7, display: "grid", gap: 5, border: "1px solid rgba(111,50,210,.2)", borderRadius: 12, background: "#fff", boxShadow: "0 18px 40px rgba(20,24,39,.16)" };
+const productOptionButtonStyle = { border: 0, borderRadius: 8, background: "transparent", color: "#344054", padding: "11px 12px", textAlign: "left" as const, fontSize: 11, fontWeight: 900, letterSpacing: .55, cursor: "pointer" };
+const productInfoPanelStyle = { margin: "0 0 20px", padding: 16, borderRadius: 13, border: "1px solid rgba(230,0,126,.22)", background: "linear-gradient(135deg, rgba(255,244,250,.98), rgba(247,242,255,.9))" };
+const productInfoPanelHeaderStyle = { display: "grid", gap: 5, marginBottom: 14, color: "#e6007e", fontSize: 13, fontWeight: 900, letterSpacing: .8 };
+const productPricingDetailsGridStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 };
+const productPricingDetailStyle = { display: "grid", gap: 5, minHeight: 53, padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(111,50,210,.12)", background: "rgba(255,255,255,.75)" };
+const productPanelEmptyStyle = { padding: "16px 12px", borderRadius: 9, background: "rgba(255,255,255,.72)", color: "#667085", fontSize: 11, fontWeight: 800, letterSpacing: .45 };
+const productHistoryLayoutStyle = { display: "grid", gridTemplateColumns: "minmax(170px,.8fr) minmax(0,2fr)", gap: 12, alignItems: "start" };
+const productHistoryListStyle = { display: "grid", gap: 7, maxHeight: 250, overflowY: "auto" as const };
+const productHistoryItemStyle = { display: "grid", gap: 4, padding: "10px 11px", border: "1px solid rgba(111,50,210,.14)", borderRadius: 9, background: "#fff", color: "#344054", textAlign: "left" as const, cursor: "pointer" };
+const productHistoryItemActiveStyle = { borderColor: "#e6007e", boxShadow: "0 0 0 2px rgba(230,0,126,.1)" };
 const productFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 15 };
 const productLabelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 13, fontWeight: 900, letterSpacing: .7 };
 const productInputStyle = { width: "100%", minHeight: 46, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 13px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };

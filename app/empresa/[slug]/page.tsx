@@ -14,7 +14,7 @@ import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { supabase } from "@/lib/supabase";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductFicha, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductFicha, ProductPriceSnapshot, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
@@ -319,6 +319,25 @@ export default function EmpresaPage() {
                 if (ficha.id !== prefill.fichaId) return ficha;
                 const item = prefill.items[0];
                 const snapshot = item.snapshot ?? {};
+                const priceSnapshot: ProductPriceSnapshot = {
+                  id: crypto.randomUUID(),
+                  source: typeof snapshot.source === "string" ? snapshot.source : "FORMACAO DE PRECO",
+                  price: item.unitPrice,
+                  createdAt: new Date().toISOString(),
+                  sellerCompany: prefill.sellerCompanyName,
+                  mcPercent: typeof snapshot.mcPercent === "number" ? snapshot.mcPercent : undefined,
+                  mcrHour: typeof snapshot.mcrHour === "number" ? snapshot.mcrHour : undefined,
+                  pricePerKg: typeof snapshot.pricePerKg === "number" ? snapshot.pricePerKg : undefined,
+                  setupMinutes: typeof snapshot.setupMinutes === "number" ? snapshot.setupMinutes : undefined,
+                  boxesPerHour: typeof snapshot.boxesPerHour === "number" ? snapshot.boxesPerHour : undefined,
+                  commissionPercent: typeof snapshot.commissionPercent === "number" ? snapshot.commissionPercent : undefined,
+                  quantity: item.quantity,
+                  materialCode: item.material,
+                  paperType: typeof snapshot.paperType === "string" ? snapshot.paperType : undefined,
+                  areaM2: item.area,
+                  weightKg: typeof snapshot.weightKg === "number" ? snapshot.weightKg : undefined,
+                  totalOrder: item.total,
+                };
                 return {
                   ...ficha,
                   price: item.unitPrice,
@@ -327,6 +346,8 @@ export default function EmpresaPage() {
                   width: item.width,
                   height: item.height,
                   company: prefill.sellerCompanyName,
+                  pricingData: priceSnapshot,
+                  priceHistory: [...(ficha.priceHistory ?? []), priceSnapshot],
                 };
               });
               persistManagerChange("productFichas", nextFichas, setProductFichas);
@@ -1372,7 +1393,10 @@ function PriceSummaryStep({
       total: totalWithoutIpi * (1 + ipiPercent / 100),
       snapshot: {
         source,
+        createdAt: new Date().toISOString(),
         materialId: selectedMaterial?.id,
+        materialCode: selectedMaterial?.code,
+        paperType: selectedMaterial?.paperType,
         engineeringId: engineeringFicha?.engineeringId,
         sellerCompanyKey: sellerCompany.key,
         mcPercent: source === "PADRAO" ? analysis.mcDefault : source === "SIMULADOR A" ? simulatorA.mcPercent : source === "SIMULADOR B" ? simulatorB.mcPercent : simulatorC.mcPercent,
@@ -1382,6 +1406,8 @@ function PriceSummaryStep({
         boxesPerHour: analysis.boxesPerHour,
         setupMinutes: analysis.setupMinutes,
         totalMinutes: analysis.totalMinutes,
+        weightKg: analysis.unitWeightKg,
+        totalOrder: totalWithoutIpi * (1 + ipiPercent / 100),
       },
     };
 

@@ -112,7 +112,29 @@ export type ProductComponent = {
   observations: string;
 };
 
+export type ProductPriceSnapshot = {
+  id: string;
+  source: string;
+  price: number;
+  createdAt: string;
+  sellerCompany?: string;
+  mcPercent?: number;
+  mcrHour?: number;
+  pricePerKg?: number;
+  setupMinutes?: number;
+  boxesPerHour?: number;
+  commissionPercent?: number;
+  quantity?: number;
+  materialCode?: string;
+  paperType?: string;
+  areaM2?: number;
+  weightKg?: number;
+  totalOrder?: number;
+};
+
 export type ProductFicha = ProductComponent & {
   ftNumber: string;
   accessories: ProductComponent[];
+  pricingData?: ProductPriceSnapshot;
+  priceHistory?: ProductPriceSnapshot[];
 };
