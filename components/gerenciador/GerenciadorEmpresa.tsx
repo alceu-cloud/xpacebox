@@ -816,6 +816,19 @@ export function ProductCatalogPanel({
     if (panel !== "historico") setSelectedHistoryId(null);
   }
 
+  function removeHistorySnapshot(snapshotId: string) {
+    if (!draft) return;
+    const nextDraft = {
+      ...draft,
+      priceHistory: (draft.priceHistory ?? []).filter((snapshot) => snapshot.id !== snapshotId),
+    };
+    setDraft(nextDraft);
+    setSelectedHistoryId((current) => current === snapshotId ? null : current);
+    if (editingId) {
+      onChange(fichas.map((item) => item.id === editingId ? nextDraft : item));
+    }
+  }
+
   function formatSnapshotDate(value?: string) {
     if (!value) return "NAO INFORMADO";
     const date = new Date(value);
@@ -917,7 +930,7 @@ export function ProductCatalogPanel({
               </div>
               {productPanel === "dados" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>DADOS DA FORMACAO DE PRECO</strong><span>ULTIMA FORMACAO ENVIADA PARA ESTA FICHA</span></div><PriceSnapshotDetails snapshot={draft.pricingData} /></section>}
               {productPanel === "arte" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>ARTE</strong><span>ESTE ESPACO FICARA DISPONIVEL PARA A ARTE DO PRODUTO.</span></div><div style={productPanelEmptyStyle}>MODULO DE ARTE EM PREPARACAO.</div></section>}
-              {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <button type="button" key={snapshot.id} onClick={() => setSelectedHistoryId(snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source} · {formatSnapshotDate(snapshot.createdAt)}</span></button>)}</div><PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId) ?? draft.priceHistory?.[0]} /></div>}</section>}
+              {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <div key={snapshot.id} style={productHistoryItemWrapStyle}><button type="button" onClick={() => setSelectedHistoryId((current) => current === snapshot.id ? null : snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }} aria-expanded={selectedHistoryId === snapshot.id}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source}</span><small>{formatSnapshotDate(snapshot.createdAt)}</small></button><button type="button" onClick={() => removeHistorySnapshot(snapshot.id)} style={productHistoryDeleteStyle} aria-label={`EXCLUIR HISTORICO DE ${formatCurrencyValue(snapshot.price)}`} title="EXCLUIR DO HISTORICO">X</button></div>)}</div>{selectedHistoryId && <PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId)} />}</div>}</section>}
               {renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}
             </section>
             <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong><button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button></div>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</article>)}<button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, emptyProductComponent()] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button></section>
@@ -1570,10 +1583,12 @@ const productInfoPanelHeaderStyle = { display: "grid", gap: 5, marginBottom: 14,
 const productPricingDetailsGridStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 };
 const productPricingDetailStyle = { display: "grid", gap: 5, minHeight: 53, padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(111,50,210,.12)", background: "rgba(255,255,255,.75)" };
 const productPanelEmptyStyle = { padding: "16px 12px", borderRadius: 9, background: "rgba(255,255,255,.72)", color: "#667085", fontSize: 11, fontWeight: 800, letterSpacing: .45 };
-const productHistoryLayoutStyle = { display: "grid", gridTemplateColumns: "minmax(170px,.8fr) minmax(0,2fr)", gap: 12, alignItems: "start" };
-const productHistoryListStyle = { display: "grid", gap: 7, maxHeight: 250, overflowY: "auto" as const };
-const productHistoryItemStyle = { display: "grid", gap: 4, padding: "10px 11px", border: "1px solid rgba(111,50,210,.14)", borderRadius: 9, background: "#fff", color: "#344054", textAlign: "left" as const, cursor: "pointer" };
+const productHistoryLayoutStyle = { display: "grid", gap: 14, alignItems: "start" };
+const productHistoryListStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(185px, 1fr))", gap: 9, maxHeight: 270, overflowY: "auto" as const, padding: "2px" };
+const productHistoryItemWrapStyle = { position: "relative" as const, minWidth: 0 };
+const productHistoryItemStyle = { width: "100%", minHeight: 82, display: "grid", alignContent: "center", gap: 4, padding: "12px 34px 12px 13px", border: "1px solid rgba(111,50,210,.14)", borderRadius: 9, background: "#fff", color: "#344054", textAlign: "left" as const, cursor: "pointer" };
 const productHistoryItemActiveStyle = { borderColor: "#e6007e", boxShadow: "0 0 0 2px rgba(230,0,126,.1)" };
+const productHistoryDeleteStyle = { position: "absolute" as const, top: 7, right: 7, width: 24, height: 24, display: "grid", placeItems: "center", padding: 0, border: "1px solid rgba(255,61,70,.24)", borderRadius: "50%", background: "#fff1f2", color: "#ff3d46", fontSize: 11, fontWeight: 900, cursor: "pointer" };
 const productFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 15 };
 const productLabelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 13, fontWeight: 900, letterSpacing: .7 };
 const productInputStyle = { width: "100%", minHeight: 46, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 13px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
