@@ -393,7 +393,7 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
     .seller { display: grid; align-content: center; justify-items: center; padding: 12px 20px; text-align: center; }
     .seller h1 { margin: 0 0 6px; color: #172033; font-size: 20px; letter-spacing: .8px; }
     .seller p { margin: 2px 0; color: #596579; font-size: 9.5px; font-weight: 700; line-height: 1.25; }
-    .quote-meta { display: grid; align-content: center; padding: 12px 18px; border-left: 1px solid #d8dee9; background: #faf7ff; }
+    .quote-meta { display: grid; align-content: center; justify-items: center; padding: 12px 18px; border-left: 1px solid #d8dee9; background: #faf7ff; text-align: center; }
     .badge { width: fit-content; margin-bottom: 8px; padding: 5px 10px; border-radius: 999px; background: #fce7f3; color: #d60078; font-size: 9px; font-weight: 900; letter-spacing: .8px; }
     .quote-meta strong { font-size: 16px; }
     .quote-meta span { margin-top: 4px; color: #596579; font-size: 9.5px; font-weight: 700; }
