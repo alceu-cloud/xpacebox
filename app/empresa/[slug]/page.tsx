@@ -118,6 +118,7 @@ export default function EmpresaPage() {
   const [productFichas, setProductFichas] = useState<ProductFicha[]>([]);
   const [productColors, setProductColors] = useState<string[]>(["BRANCO", "PRETO", "VERMELHO", "AZUL", "AMARELO"]);
   const [quotePrefill, setQuotePrefill] = useState<PricingQuotePrefill | null>(null);
+  const [quoteContinuationOpen, setQuoteContinuationOpen] = useState(false);
 
   const slug = String(params.slug ?? "");
 
@@ -313,8 +314,7 @@ export default function EmpresaPage() {
                 setQuotePrefill((current) => current?.kind === "DIRECT"
                   ? { ...prefill, items: [...current.items, ...prefill.items].map((item, index) => ({ ...item, itemNumber: index + 1 })) }
                   : prefill);
-                const continuePricing = window.confirm("ITEM ENVIADO PARA O ORCAMENTO. DESEJA FORMAR MAIS UM PRECO PARA ESTE MESMO ORCAMENTO?");
-                if (!continuePricing) setModuloAtivo("financeiro");
+                setQuoteContinuationOpen(true);
                 return;
               }
 
@@ -373,7 +373,77 @@ export default function EmpresaPage() {
           null
         )}
       </section>
+
+      <QuoteContinuationModal
+        open={quoteContinuationOpen}
+        onContinue={() => setQuoteContinuationOpen(false)}
+        onFinish={() => {
+          setQuoteContinuationOpen(false);
+          setModuloAtivo("financeiro");
+        }}
+      />
     </main>
+  );
+}
+
+function QuoteContinuationModal({
+  open,
+  onContinue,
+  onFinish,
+}: {
+  open: boolean;
+  onContinue: () => void;
+  onFinish: () => void;
+}) {
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    continueButtonRef.current?.focus();
+
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") onContinue();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onContinue]);
+
+  if (!open) return null;
+
+  return (
+    <div style={quoteModalOverlayStyle} role="presentation">
+      <style>{`@keyframes quote-success-pulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(230,61,174,.25); } 50% { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(230,61,174,0); } }`}</style>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quote-continuation-title"
+        aria-describedby="quote-continuation-description"
+        style={quoteModalCardStyle}
+      >
+        <div style={quoteModalAccentStyle} />
+        <div style={quoteModalSuccessIconStyle}>{"\u2713"}</div>
+        <span style={quoteModalEyebrowStyle}>ITEM ADICIONADO</span>
+        <h2 id="quote-continuation-title" style={quoteModalTitleStyle}>ITEM ENVIADO PARA O ORCAMENTO</h2>
+        <p id="quote-continuation-description" style={quoteModalTextStyle}>
+          DESEJA FORMAR MAIS UM PRECO PARA ESTE MESMO ORCAMENTO?
+        </p>
+        <div style={quoteModalActionsStyle}>
+          <button ref={continueButtonRef} type="button" onClick={onContinue} style={quoteModalContinueButtonStyle}>
+            + ADICIONAR OUTRO ITEM
+          </button>
+          <button type="button" onClick={onFinish} style={quoteModalFinishButtonStyle}>
+            FINALIZAR ORCAMENTO
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -2968,6 +3038,103 @@ const economyDividerStyle = {
   background: "linear-gradient(180deg,#8b36e8,#e63dae,#ff3b25)",
   justifySelf: "center",
   boxShadow: "0 10px 22px rgba(230,61,174,.18)",
+};
+
+const quoteModalOverlayStyle = {
+  position: "fixed" as const,
+  inset: 0,
+  zIndex: 1000,
+  display: "grid",
+  placeItems: "center",
+  padding: 24,
+  background: "rgba(20,24,39,.46)",
+  backdropFilter: "blur(7px)",
+};
+const quoteModalCardStyle = {
+  position: "relative" as const,
+  width: "min(620px,100%)",
+  overflow: "hidden",
+  borderRadius: 24,
+  border: "1px solid rgba(230,61,174,.28)",
+  background: "linear-gradient(145deg,#ffffff 0%,#fff8fc 58%,#fff5ee 100%)",
+  boxShadow: "0 28px 80px rgba(20,24,39,.30)",
+  padding: "42px 40px 36px",
+  display: "grid",
+  justifyItems: "center",
+  textAlign: "center" as const,
+};
+const quoteModalAccentStyle = {
+  position: "absolute" as const,
+  inset: "0 0 auto",
+  height: 7,
+  background: "linear-gradient(90deg,#8b36e8,#e63dae,#ff3b25,#e68019)",
+};
+const quoteModalSuccessIconStyle = {
+  width: 72,
+  height: 72,
+  borderRadius: 20,
+  display: "grid",
+  placeItems: "center",
+  marginBottom: 22,
+  background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)",
+  color: "#fff",
+  fontSize: 36,
+  fontWeight: 900,
+  animation: "quote-success-pulse 1.8s ease-in-out infinite",
+};
+const quoteModalEyebrowStyle = {
+  color: "#8b36e8",
+  fontSize: 14,
+  fontWeight: 900,
+  letterSpacing: 2,
+};
+const quoteModalTitleStyle = {
+  margin: "10px 0 0",
+  color: "#141827",
+  fontSize: 27,
+  fontWeight: 900,
+  letterSpacing: 0,
+};
+const quoteModalTextStyle = {
+  maxWidth: 470,
+  margin: "15px 0 0",
+  color: "#667085",
+  fontSize: 18,
+  fontWeight: 800,
+  lineHeight: 1.5,
+  letterSpacing: 0,
+};
+const quoteModalActionsStyle = {
+  width: "100%",
+  marginTop: 30,
+  display: "grid",
+  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+  gap: 13,
+};
+const quoteModalContinueButtonStyle = {
+  minHeight: 56,
+  borderRadius: 14,
+  border: 0,
+  background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)",
+  color: "#fff",
+  boxShadow: "0 14px 28px rgba(230,61,174,.20)",
+  padding: "0 18px",
+  fontSize: 15,
+  fontWeight: 900,
+  letterSpacing: 0,
+  cursor: "pointer",
+};
+const quoteModalFinishButtonStyle = {
+  minHeight: 56,
+  borderRadius: 14,
+  border: "1px solid rgba(111,50,210,.24)",
+  background: "#fff",
+  color: "#6f32d2",
+  padding: "0 18px",
+  fontSize: 15,
+  fontWeight: 900,
+  letterSpacing: 0,
+  cursor: "pointer",
 };
 
 const placeholderStyle = { minHeight: 430, display: "grid", placeItems: "center", alignContent: "center", gap: 16, borderRadius: 22, border: "1px solid rgba(52,64,84,.12)", background: "rgba(255,255,255,.72)" };
