@@ -167,6 +167,36 @@ export const defaultPricingGoalsByCompany: PricingGoalsByCompany = {
   gta: clonePricingGoals(),
 };
 
+export const defaultQuoteParametersByCompany: import("@/types/gerenciador").QuoteParametersByCompany = {
+  dawos: {
+    name: "DAWOS EMBALAGENS",
+    address: "",
+    phone: "",
+    email: "",
+    site: "",
+    logo: "/companies/dawos-logo.jpg",
+    technicalNotes: "",
+  },
+  carcat: {
+    name: "CARCAT EMBALAGENS",
+    address: "",
+    phone: "",
+    email: "",
+    site: "",
+    logo: "",
+    technicalNotes: "",
+  },
+  gta: {
+    name: "GTA EMBALAGENS LTDA",
+    address: "",
+    phone: "",
+    email: "",
+    site: "",
+    logo: "",
+    technicalNotes: "",
+  },
+};
+
 export const reminderFormulas: ReminderFormula[] = [
   {
     id: "variaveis",

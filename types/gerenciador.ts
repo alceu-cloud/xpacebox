@@ -66,6 +66,20 @@ export type PricingGoalCompany = "dawos" | "carcat" | "gta";
 
 export type PricingGoalsByCompany = Record<PricingGoalCompany, PricingGoals>;
 
+export type QuoteCompanyKey = PricingGoalCompany;
+
+export type QuoteCompanyParameters = {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  site: string;
+  logo: string;
+  technicalNotes: string;
+};
+
+export type QuoteParametersByCompany = Record<QuoteCompanyKey, QuoteCompanyParameters>;
+
 export type ProductionTime = {
   id: string;
   sector: string;

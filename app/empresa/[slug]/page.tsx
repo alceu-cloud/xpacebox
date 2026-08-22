@@ -8,13 +8,13 @@ import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
 import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
 import { loadClients } from "@/lib/clientes";
-import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
+import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParams, defaultQuoteParametersByCompany, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { supabase } from "@/lib/supabase";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductFicha, ProductPriceSnapshot, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
@@ -108,6 +108,7 @@ export default function EmpresaPage() {
   const [paperCostParams, setPaperCostParams] = useState<PaperCostParams>(defaultPaperCostParams);
   const [pricingParams, setPricingParams] = useState<PricingParams>(defaultPricingParams);
   const [pricingGoalsByCompany, setPricingGoalsByCompany] = useState<PricingGoalsByCompany>(defaultPricingGoalsByCompany);
+  const [quoteParameters, setQuoteParameters] = useState<QuoteParametersByCompany>(defaultQuoteParametersByCompany);
   const [productionTimes, setProductionTimes] = useState<ProductionTime[]>(defaultProductionTimes);
   const [paymentConditions, setPaymentConditions] = useState<PaymentCondition[]>(initialPaymentConditions);
   const [cfops, setCfops] = useState<CfopOption[]>(initialCfops);
@@ -157,6 +158,7 @@ export default function EmpresaPage() {
         if (settings.paperCostParams) setPaperCostParams(settings.paperCostParams);
         if (settings.pricingParams) setPricingParams(settings.pricingParams);
         if (settings.pricingGoalsByCompany) setPricingGoalsByCompany(settings.pricingGoalsByCompany);
+        if (settings.quoteParameters) setQuoteParameters(settings.quoteParameters);
         if (settings.productionTimes) setProductionTimes(settings.productionTimes);
         if (settings.paymentConditions) setPaymentConditions(settings.paymentConditions);
         if (settings.cfops) setCfops(settings.cfops);
@@ -255,6 +257,7 @@ export default function EmpresaPage() {
             paperCostParams={paperCostParams}
             pricingParams={pricingParams}
             pricingGoalsByCompany={pricingGoalsByCompany}
+            quoteParameters={quoteParameters}
             productionTimes={productionTimes}
             paymentConditions={paymentConditions}
             cfops={cfops}
@@ -265,6 +268,7 @@ export default function EmpresaPage() {
             onPaperCostParamsChange={(value) => persistManagerChange("paperCostParams", value, setPaperCostParams)}
             onPricingParamsChange={(value) => persistManagerChange("pricingParams", value, setPricingParams)}
             onPricingGoalsByCompanyChange={(value) => persistManagerChange("pricingGoalsByCompany", value, setPricingGoalsByCompany)}
+            onQuoteParametersChange={(value) => persistManagerChange("quoteParameters", value, setQuoteParameters)}
             onProductionTimesChange={(value) => persistManagerChange("productionTimes", value, setProductionTimes)}
             onPaymentConditionsChange={(value) => persistManagerChange("paymentConditions", value, setPaymentConditions)}
             onCfopsChange={(value) => persistManagerChange("cfops", value, setCfops)}
@@ -361,6 +365,7 @@ export default function EmpresaPage() {
             materials={materials}
             engineeringFormulas={engineeringFormulas}
             prefill={quotePrefill}
+            quoteParameters={quoteParameters}
           />
         ) : moduloSelecionado ? (
           <ModulePlaceholder modulo={moduloSelecionado} />

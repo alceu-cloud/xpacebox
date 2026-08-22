@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { createQuote, deleteQuote, loadQuotes } from "@/lib/orcamentos";
 import { loadClients } from "@/lib/clientes";
-import type { EngineeringFormula, ProductFicha, SpecificMaterial } from "@/types/gerenciador";
+import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
+import type { EngineeringFormula, ProductFicha, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
 import type { PricingQuotePrefill, QuoteDraft, QuoteItem, QuoteRecord } from "@/types/orcamentos";
 
@@ -16,6 +17,12 @@ const companies = [
 
 const today = new Date().toISOString().slice(0, 10);
 
+function dateAfterDays(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function emptyItem(): QuoteItem {
   return { itemNumber: 1, ftNumber: "", description: "", length: 0, width: 0, height: 0, area: 0, quality: "", boxType: "", material: "", quantity: 1, unitPrice: 0, ipiPercent: 0, ipiValue: 0, total: 0 };
 }
@@ -26,12 +33,14 @@ export default function FinanceiroEmpresa({
   materials,
   engineeringFormulas,
   prefill,
+  quoteParameters,
 }: {
   companySlug: string;
   productFichas: ProductFicha[];
   materials: SpecificMaterial[];
   engineeringFormulas: EngineeringFormula[];
   prefill?: PricingQuotePrefill | null;
+  quoteParameters: QuoteParametersByCompany;
 }) {
   const [kind, setKind] = useState<"DIRECT" | "ENGINEERING">("DIRECT");
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
@@ -42,7 +51,7 @@ export default function FinanceiroEmpresa({
   const [items, setItems] = useState<QuoteItem[]>([emptyItem()]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedFichaId, setSelectedFichaId] = useState("");
-  const [form, setForm] = useState({ clientName: "", buyerName: "", phone: "", email: "", cnpj: "", address: "", company: "DAWOS", recipient: "CLIENT" as "CLIENT" | "REPRESENTATIVE", representative: "", paymentTerms: "", freight: "", deliveryDate: "", validUntil: "", observations: "" });
+  const [form, setForm] = useState({ clientName: "", buyerName: "", phone: "", email: "", cnpj: "", address: "", company: "DAWOS", recipient: "CLIENT" as "CLIENT" | "REPRESENTATIVE", representative: "", paymentTerms: "", freight: "", deliveryDate: "", validUntil: dateAfterDays(3), observations: "" });
 
   useEffect(() => {
     loadClients(companySlug).then(setClients).catch(() => setClients([]));
@@ -98,7 +107,7 @@ export default function FinanceiroEmpresa({
     setItems([emptyItem()]);
     setSelectedClientId("");
     setSelectedFichaId("");
-    setForm({ clientName: "", buyerName: "", phone: "", email: "", cnpj: "", address: "", company: "DAWOS", recipient: "CLIENT", representative: "", paymentTerms: "", freight: "", deliveryDate: "", validUntil: "", observations: "" });
+    setForm({ clientName: "", buyerName: "", phone: "", email: "", cnpj: "", address: "", company: "DAWOS", recipient: "CLIENT", representative: "", paymentTerms: "", freight: "", deliveryDate: "", validUntil: dateAfterDays(3), observations: "" });
   }
 
   function updateForm(key: keyof typeof form, value: string) { setForm((current) => ({ ...current, [key]: value })); }
@@ -163,7 +172,7 @@ export default function FinanceiroEmpresa({
       setShowForm(false);
       setMessage(`ORCAMENTO ${quote.quoteNumber} GERADO COM SUCESSO.`);
       await refreshQuotes();
-      printQuote(quote);
+      printQuote(quote, quoteParameters);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL GERAR O ORCAMENTO.");
     }
@@ -198,7 +207,7 @@ export default function FinanceiroEmpresa({
 
       {showForm && <QuoteForm kind={kind} form={form} items={items} clients={clients} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))} onCancel={() => setShowForm(false)} onSave={saveQuote} />}
 
-      <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => printQuote(quote)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
+      <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
     </section>
   );
 }
@@ -218,12 +227,187 @@ function Field({ label, value, onChange, type = "text", lower = false, selectOpt
 
 function formatCurrency(value: number) { return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
 
-function printQuote(quote: QuoteRecord) {
+function resolveQuoteCompanyKey(quote: QuoteRecord): QuoteCompanyKey {
+  const company = `${quote.sellerCompanySlug} ${quote.sellerCompanyName}`.toLowerCase();
+  if (company.includes("carcat")) return "carcat";
+  if (company.includes("gta")) return "gta";
+  return "dawos";
+}
+
+function formatDate(value: string) {
+  if (!value) return "-";
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pt-BR");
+}
+
+function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompany) {
   const escape = (value: unknown) => String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char] ?? char));
-  const rows = quote.items.map((item) => `<tr><td>${item.itemNumber}</td><td>${escape(item.ftNumber)}</td><td>${escape(item.description)}</td><td>${escape(item.boxType)}</td><td>${item.length} x ${item.width} x ${item.height} MM</td><td>${item.quantity}</td><td>${formatCurrency(item.unitPrice)}</td><td>${item.ipiPercent.toLocaleString("pt-BR")} %</td><td>${formatCurrency(item.total)}</td></tr>`).join("");
-  const popup = window.open("", "_blank", "width=1100,height=800");
+  const companyKey = resolveQuoteCompanyKey(quote);
+  const seller = { ...defaultQuoteParametersByCompany[companyKey], ...(quoteParameters[companyKey] ?? {}) };
+  const isDirect = quote.kind === "DIRECT";
+  const logoSource = seller.logo
+    ? seller.logo.startsWith("data:") || seller.logo.startsWith("http")
+      ? seller.logo
+      : `${location.origin}${seller.logo.startsWith("/") ? "" : "/"}${seller.logo}`
+    : "";
+  const logo = logoSource
+    ? `<img class="company-logo" src="${escape(logoSource)}" alt="${escape(seller.name)}">`
+    : `<div class="logo-fallback">${escape(companyKey.toUpperCase())}</div>`;
+  const rows = quote.items.map((item, index) => {
+    const ftNumber = isDirect ? "OD" : item.ftNumber || "FT";
+    const dimensions = `${item.length || 0} x ${item.width || 0} x ${item.height || 0} MM`;
+    return `<tr>
+      <td class="center">${index + 1}</td>
+      <td class="center strong">${escape(ftNumber)}</td>
+      <td>${escape(item.description)}</td>
+      <td class="center">${escape(dimensions)}</td>
+      <td class="center">${Number(item.area || 0).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 4 })}</td>
+      <td class="center">${escape(item.quality || item.material || "-")}</td>
+      <td class="center">${escape(item.boxType || "-")}</td>
+      <td class="number">${Number(item.quantity || 0).toLocaleString("pt-BR")}</td>
+      <td class="number">${formatCurrency(item.unitPrice)}</td>
+      <td class="number">${Number(item.ipiPercent || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</td>
+      <td class="number strong">${formatCurrency(item.total)}</td>
+    </tr>`;
+  }).join("");
+  const freight = isDirect ? "CIF" : quote.freight || "-";
+  const deliveryAddress = isDirect ? "NAO SE APLICA" : quote.address || "-";
+  const deliveryDate = quote.deliveryDate ? formatDate(quote.deliveryDate) : "PERANTE CONFIRMACAO";
+  const validity = quote.validUntil ? `3 DIAS - ATE ${formatDate(quote.validUntil)}` : "3 DIAS";
+  const popup = window.open("", "_blank", "width=1280,height=900");
   if (!popup) return;
-  popup.document.write(`<!doctype html><html><head><title>${escape(quote.quoteNumber)}</title><style>@page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#141827;margin:0;width:100%}header{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #e63dae;padding:0 0 14px;margin-bottom:16px}.brand{display:flex;align-items:center;gap:12px}.brand img{width:58px;height:58px}.brand strong{font-size:25px;letter-spacing:3px}.brand span{display:block;color:#6f32d2;font-weight:800;letter-spacing:3px}.meta{text-align:right;font-size:12px;color:#667085;line-height:1.65}.badge{display:inline-block;background:#fce7f3;color:#d60078;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:800;letter-spacing:1px}.block{border:1px solid #f2a5d0;border-radius:10px;padding:13px 15px;margin:10px 0;break-inside:avoid}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 18px;font-size:12px}.grid strong{display:block;color:#667085;font-size:10px;letter-spacing:1px;margin-bottom:3px}h1{font-size:25px;margin:8px 0}h2{font-size:14px;color:#d60078;letter-spacing:1px;margin:0 0 10px}table{width:100%;table-layout:auto;border-collapse:collapse;font-size:10px}th{background:#fce7f3;color:#d60078;text-align:left;padding:8px 7px;white-space:nowrap}td{padding:8px 7px;border-bottom:1px solid #f3d7e7;vertical-align:top}th:nth-child(1),td:nth-child(1){width:3%}th:nth-child(2),td:nth-child(2){width:8%}th:nth-child(3),td:nth-child(3){width:24%}th:nth-child(4),td:nth-child(4){width:14%}th:nth-child(5),td:nth-child(5){width:15%;white-space:nowrap}th:nth-child(6),td:nth-child(6){width:8%;text-align:center}th:nth-child(7),td:nth-child(7),th:nth-child(8),td:nth-child(8),th:nth-child(9),td:nth-child(9){width:9%;text-align:right;white-space:nowrap}.totals{display:flex;justify-content:flex-end;align-items:center;gap:36px;margin-top:12px;font-size:13px}.total{font-size:18px;color:#009c4b;font-weight:900}footer{margin-top:18px;color:#667085;font-size:11px;white-space:pre-wrap;break-inside:avoid}@media print{button{display:none}}</style></head><body><header><div class="brand"><img src="${location.origin}/logo-xpacebox.png"><div><strong>XPACE</strong><span>BOX</span></div></div><div class="meta"><span class="badge">${escape(quote.kind === "DIRECT" ? "ORCAMENTO DIRETO" : "ORCAMENTO ENGENHARIA")}</span><br><b>${escape(quote.sellerCompanyName)}</b><br>ORCAMENTO ${escape(quote.quoteNumber)} · EMISSAO ${escape(quote.issueDate)}<br>REPRESENTANTE: ${escape(quote.representativeName)}</div></header><section class="block"><h2>DADOS DO CLIENTE</h2><div class="grid"><div><strong>CLIENTE</strong>${escape(quote.clientName)}</div><div><strong>COMPRADOR</strong>${escape(quote.buyerName)}</div><div><strong>CNPJ</strong>${escape(quote.clientCnpj)}</div><div><strong>TELEFONE</strong>${escape(quote.phone)}</div><div><strong>E-MAIL</strong>${escape(quote.email)}</div><div><strong>ENDERECO</strong>${escape(quote.address)}</div></div></section><section class="block"><h2>ITENS DO ORCAMENTO</h2><table><thead><tr><th>#</th><th>FT</th><th>DESCRICAO</th><th>TIPO</th><th>MEDIDAS</th><th>QTD.</th><th>UNITARIO</th><th>IPI</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table></section><section class="block"><div class="grid"><div><strong>CONDICAO DE PAGAMENTO</strong>${escape(quote.paymentTerms)}</div><div><strong>FRETE</strong>${escape(quote.freight)}</div><div><strong>ENTREGA</strong>${escape(quote.deliveryDate)}</div><div><strong>VALIDADE</strong>${escape(quote.validUntil)}</div></div><div class="totals"><span>PRODUTOS: ${formatCurrency(quote.productTotal)}</span><span>IPI: ${formatCurrency(quote.ipiTotal)}</span><span class="total">TOTAL: ${formatCurrency(quote.grandTotal)}</span></div></section><footer><b>OBSERVACOES</b>\n${escape(quote.observations)}</footer><script>window.onload=()=>window.print()</script></body></html>`);
+  popup.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>${escape(quote.quoteNumber)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 22px; background: #edf1f6; color: #172033; font-family: Arial, sans-serif; }
+    .document { width: min(277mm, calc(100vw - 44px)); min-height: 185mm; margin: 0 auto; padding: 10mm; background: #fff; border-radius: 12px; box-shadow: 0 18px 48px rgba(20,24,39,.14); }
+    .header { display: grid; grid-template-columns: 27% 45% 28%; min-height: 92px; border: 1px solid #d8dee9; border-radius: 10px; overflow: hidden; }
+    .logo-box { display: grid; place-items: center; padding: 12px 18px; border-right: 1px solid #d8dee9; }
+    .company-logo { display: block; max-width: 100%; max-height: 72px; object-fit: contain; }
+    .logo-fallback { color: #6f32d2; font-size: 28px; font-weight: 900; letter-spacing: 2px; }
+    .seller { display: grid; align-content: center; justify-items: center; padding: 12px 20px; text-align: center; }
+    .seller h1 { margin: 0 0 6px; color: #172033; font-size: 20px; letter-spacing: .8px; }
+    .seller p { margin: 2px 0; color: #596579; font-size: 9.5px; font-weight: 700; line-height: 1.25; }
+    .quote-meta { display: grid; align-content: center; padding: 12px 18px; border-left: 1px solid #d8dee9; background: #faf7ff; }
+    .badge { width: fit-content; margin-bottom: 8px; padding: 5px 10px; border-radius: 999px; background: #fce7f3; color: #d60078; font-size: 9px; font-weight: 900; letter-spacing: .8px; }
+    .quote-meta strong { font-size: 16px; }
+    .quote-meta span { margin-top: 4px; color: #596579; font-size: 9.5px; font-weight: 700; }
+    .client-strip { display: grid; grid-template-columns: 2fr 1fr; margin-top: 10px; border: 1px solid #d8dee9; border-radius: 10px; overflow: hidden; }
+    .client-data, .commercial-data { padding: 12px 15px; }
+    .commercial-data { border-left: 1px solid #d8dee9; background: #fbfcfe; }
+    .section-title { margin: 0 0 9px; color: #d60078; font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+    .data-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px 14px; }
+    .commercial-data .data-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .datum label { display: block; margin-bottom: 2px; color: #778195; font-size: 7.5px; font-weight: 900; letter-spacing: .65px; }
+    .datum span { display: block; color: #172033; font-size: 9.5px; font-weight: 800; line-height: 1.25; }
+    .items { margin-top: 10px; border: 1px solid #d8dee9; border-radius: 10px; overflow: hidden; }
+    .items-title { padding: 9px 12px; background: linear-gradient(90deg,#fdf1f8,#f7f3ff); color: #d60078; font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+    table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8px; }
+    th { padding: 7px 5px; background: #172033; color: #fff; font-size: 7px; letter-spacing: .35px; text-align: left; }
+    td { padding: 7px 5px; border-bottom: 1px solid #e5e9f0; vertical-align: middle; overflow-wrap: anywhere; }
+    tr:last-child td { border-bottom: 0; }
+    th:nth-child(1) { width: 3%; } th:nth-child(2) { width: 6%; } th:nth-child(3) { width: 18%; }
+    th:nth-child(4) { width: 12%; } th:nth-child(5) { width: 6%; } th:nth-child(6) { width: 8%; }
+    th:nth-child(7) { width: 11%; } th:nth-child(8) { width: 8%; } th:nth-child(9) { width: 9%; }
+    th:nth-child(10) { width: 6%; } th:nth-child(11) { width: 13%; }
+    .center { text-align: center; } .number { text-align: right; white-space: nowrap; } .strong { font-weight: 900; }
+    .summary { display: grid; grid-template-columns: 1fr 310px; gap: 10px; margin-top: 10px; }
+    .notes, .totals { border: 1px solid #d8dee9; border-radius: 10px; padding: 12px 15px; }
+    .notes { min-height: 72px; }
+    .notes p { margin: 0; color: #445066; font-size: 9px; line-height: 1.45; white-space: pre-wrap; }
+    .total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 4px 0; color: #445066; font-size: 9.5px; font-weight: 800; }
+    .total-row.grand { margin-top: 4px; padding-top: 8px; border-top: 1px solid #e1e5ec; color: #009c4b; font-size: 15px; font-weight: 900; }
+    .terms { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+    .term { min-height: 52px; padding: 9px 10px; border: 1px solid #d8dee9; border-radius: 9px; background: #fbfcfe; }
+    .term label { display: block; margin-bottom: 4px; color: #778195; font-size: 7px; font-weight: 900; letter-spacing: .6px; }
+    .term span { display: block; color: #172033; font-size: 8.5px; font-weight: 800; line-height: 1.25; }
+    .footer { display: grid; grid-template-columns: 1fr 290px; gap: 18px; margin-top: 10px; padding: 11px 14px; border-radius: 9px; background: #f7f9fc; color: #596579; font-size: 8px; line-height: 1.45; }
+    .signature { align-self: end; padding-top: 18px; border-top: 1px solid #778195; text-align: center; font-weight: 900; }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .document { width: auto; min-height: 0; margin: 0; padding: 0; border-radius: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="document">
+    <header class="header">
+      <div class="logo-box">${logo}</div>
+      <div class="seller">
+        <h1>${escape(seller.name || quote.sellerCompanyName)}</h1>
+        <p>${escape(seller.address || "ENDERECO A CADASTRAR")}</p>
+        <p>${escape([seller.phone, seller.email].filter(Boolean).join(" · ") || "CONTATOS A CADASTRAR")}</p>
+        <p>${escape(seller.site || "")}</p>
+      </div>
+      <div class="quote-meta">
+        <span class="badge">${escape(isDirect ? "ORCAMENTO DIRETO" : "ORCAMENTO ENGENHARIA")}</span>
+        <strong>${escape(quote.quoteNumber)}</strong>
+        <span>EMISSAO: ${escape(formatDate(quote.issueDate))}</span>
+        <span>REPRESENTANTE: ${escape(quote.representativeName || "-")}</span>
+      </div>
+    </header>
+
+    <section class="client-strip">
+      <div class="client-data">
+        <h2 class="section-title">DADOS DO CLIENTE</h2>
+        <div class="data-grid">
+          <div class="datum"><label>CLIENTE</label><span>${escape(quote.clientName || "-")}</span></div>
+          <div class="datum"><label>CNPJ</label><span>${escape(quote.clientCnpj || "-")}</span></div>
+          <div class="datum"><label>COMPRADOR</label><span>${escape(quote.buyerName || "-")}</span></div>
+          <div class="datum"><label>E-MAIL</label><span>${escape(quote.email || "-")}</span></div>
+          <div class="datum"><label>TELEFONE</label><span>${escape(quote.phone || "-")}</span></div>
+          <div class="datum"><label>ENDERECO</label><span>${escape(isDirect ? "NAO INFORMADO" : quote.address || "-")}</span></div>
+        </div>
+      </div>
+      <div class="commercial-data">
+        <h2 class="section-title">DADOS DO ORCAMENTO</h2>
+        <div class="data-grid">
+          <div class="datum"><label>NUMERO</label><span>${escape(quote.quoteNumber)}</span></div>
+          <div class="datum"><label>EMISSAO</label><span>${escape(formatDate(quote.issueDate))}</span></div>
+          <div class="datum"><label>EMPRESA</label><span>${escape(seller.name || quote.sellerCompanyName)}</span></div>
+          <div class="datum"><label>REPRESENTANTE</label><span>${escape(quote.representativeName || "-")}</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="items">
+      <div class="items-title">ITENS DO ORCAMENTO</div>
+      <table>
+        <thead><tr><th>IT.</th><th>F.T.</th><th>DESCRICAO</th><th>MEDIDAS</th><th>AREA M2</th><th>QUALIDADE</th><th>ESTRUTURA</th><th>QTDE.</th><th>VL. UNIT.</th><th>IPI</th><th>VL. TOTAL</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
+
+    <section class="summary">
+      <div class="notes"><h2 class="section-title">OBSERVACOES</h2><p>${escape(quote.observations || "SEM OBSERVACOES.")}</p></div>
+      <div class="totals">
+        <div class="total-row"><span>TOTAL DOS PRODUTOS</span><strong>${formatCurrency(quote.productTotal)}</strong></div>
+        <div class="total-row"><span>TOTAL DO IPI</span><strong>${formatCurrency(quote.ipiTotal)}</strong></div>
+        <div class="total-row grand"><span>TOTAL DO ORCAMENTO</span><strong>${formatCurrency(quote.grandTotal)}</strong></div>
+      </div>
+    </section>
+
+    <section class="terms">
+      <div class="term"><label>FRETE</label><span>${escape(freight)}</span></div>
+      <div class="term"><label>ENTREGA EM</label><span>${escape(deliveryAddress)}</span></div>
+      <div class="term"><label>CONDICAO DE PAGAMENTO</label><span>${escape(quote.paymentTerms || "-")}</span></div>
+      <div class="term"><label>PRAZO DE ENTREGA</label><span>${escape(deliveryDate)}</span></div>
+      <div class="term"><label>VALIDADE</label><span>${escape(validity)}</span></div>
+    </section>
+
+    <footer class="footer">
+      <div><strong>OBSERVACOES TECNICAS</strong><br>${escape(seller.technicalNotes || "CADASTRE AS OBSERVACOES TECNICAS NOS PARAMETROS DE ORCAMENTO.")}</div>
+      <div class="signature">${escape(quote.representativeName || seller.name || quote.sellerCompanyName)}</div>
+    </footer>
+  </main>
+  <script>window.onload=()=>setTimeout(()=>window.print(),250)</script>
+</body>
+</html>`);
   popup.document.close();
 }
 

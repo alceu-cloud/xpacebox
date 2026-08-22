@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import {
+  defaultQuoteParametersByCompany,
   defaultPricingParams,
   defaultPricingGoalsByCompany,
   defaultPaperCostParams,
@@ -15,11 +16,11 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
-type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "tempos" | "lembretes";
+type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "orcamento" | "tempos" | "lembretes";
 type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
@@ -32,6 +33,7 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
   { key: "custo", label: "CUSTO DE PAPEL" },
   { key: "parametros", label: "PARAMETROS DE PRECO" },
   { key: "metas", label: "METAS" },
+  { key: "orcamento", label: "PARAMETROS DE ORCAMENTO" },
   { key: "tempos", label: "TEMPOS DE PRODUCAO" },
   { key: "lembretes", label: "LEMBRETES & FORMULAS" },
 ];
@@ -40,7 +42,7 @@ const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
   embalagem: ["papeis", "materiais", "tempos", "lembretes"],
   fornecedores: ["fornecedores", "custo"],
   produtos: ["engenharia", "cores"],
-  empresa: ["parametros", "metas"],
+  empresa: ["parametros", "metas", "orcamento"],
 };
 
 const emptySupplier: Supplier = { id: "", name: "" };
@@ -73,6 +75,7 @@ type GerenciadorEmpresaProps = {
   paperCostParams?: PaperCostParams;
   pricingParams?: PricingParams;
   pricingGoalsByCompany?: PricingGoalsByCompany;
+  quoteParameters?: QuoteParametersByCompany;
   productionTimes?: ProductionTime[];
   paymentConditions?: PaymentCondition[];
   cfops?: CfopOption[];
@@ -88,6 +91,7 @@ type GerenciadorEmpresaProps = {
   onPaperCostParamsChange?: (params: PaperCostParams) => void;
   onPricingParamsChange?: (params: PricingParams) => void;
   onPricingGoalsByCompanyChange?: (goals: PricingGoalsByCompany) => void;
+  onQuoteParametersChange?: (params: QuoteParametersByCompany) => void;
   onProductionTimesChange?: (times: ProductionTime[]) => void;
   onPaymentConditionsChange?: (conditions: PaymentCondition[]) => void;
   onCfopsChange?: (cfops: CfopOption[]) => void;
@@ -107,6 +111,7 @@ export default function GerenciadorEmpresa({
   paperCostParams: controlledPaperCostParams,
   pricingParams: controlledPricingParams,
   pricingGoalsByCompany: controlledPricingGoalsByCompany,
+  quoteParameters: controlledQuoteParameters,
   productionTimes: controlledProductionTimes,
   paymentConditions: controlledPaymentConditions,
   cfops: controlledCfops,
@@ -122,6 +127,7 @@ export default function GerenciadorEmpresa({
   onPaperCostParamsChange,
   onPricingParamsChange,
   onPricingGoalsByCompanyChange,
+  onQuoteParametersChange,
   onProductionTimesChange,
   onPaymentConditionsChange,
   onCfopsChange,
@@ -142,6 +148,7 @@ export default function GerenciadorEmpresa({
   const [localPaperCostParams, setLocalPaperCostParams] = useState(defaultPaperCostParams);
   const [localPricingParams, setLocalPricingParams] = useState(defaultPricingParams);
   const [localPricingGoalsByCompany, setLocalPricingGoalsByCompany] = useState(defaultPricingGoalsByCompany);
+  const [localQuoteParameters, setLocalQuoteParameters] = useState(defaultQuoteParametersByCompany);
   const [localProductionTimes, setLocalProductionTimes] = useState(defaultProductionTimes);
   const [localPaymentConditions, setLocalPaymentConditions] = useState(initialPaymentConditions);
   const [localCfops, setLocalCfops] = useState(initialCfops);
@@ -164,6 +171,7 @@ export default function GerenciadorEmpresa({
   const paperCostParams = controlledPaperCostParams ?? localPaperCostParams;
   const pricingParams = controlledPricingParams ?? localPricingParams;
   const pricingGoalsByCompany = controlledPricingGoalsByCompany ?? localPricingGoalsByCompany;
+  const quoteParameters = controlledQuoteParameters ?? localQuoteParameters;
   const productionTimes = controlledProductionTimes ?? localProductionTimes;
   const paymentConditions = controlledPaymentConditions ?? localPaymentConditions;
   const cfops = controlledCfops ?? localCfops;
@@ -177,6 +185,7 @@ export default function GerenciadorEmpresa({
   const setPaperCostParams = onPaperCostParamsChange ?? setLocalPaperCostParams;
   const setPricingParams = onPricingParamsChange ?? setLocalPricingParams;
   const setPricingGoalsByCompany = onPricingGoalsByCompanyChange ?? setLocalPricingGoalsByCompany;
+  const setQuoteParameters = onQuoteParametersChange ?? setLocalQuoteParameters;
   const setProductionTimes = onProductionTimesChange ?? setLocalProductionTimes;
   const setPaymentConditions = onPaymentConditionsChange ?? setLocalPaymentConditions;
   const setCfops = onCfopsChange ?? setLocalCfops;
@@ -193,6 +202,7 @@ export default function GerenciadorEmpresa({
     if (activeTab === "custo") return "CUSTO DE PAPEL";
     if (activeTab === "parametros") return "PARAMETROS DE PRECIFICACAO - DAWOS";
     if (activeTab === "metas") return "METAS DE DESEMPENHO - DAWOS";
+    if (activeTab === "orcamento") return "PARAMETROS DE ORCAMENTO";
     if (activeTab === "tempos") return "TABELA DE TEMPOS DE PRODUCAO";
     return "LEMBRETES & FORMULAS";
   }, [activeTab]);
@@ -277,7 +287,7 @@ export default function GerenciadorEmpresa({
             {managerSection === "embalagem" && "TIPOS DE PAPELAO, MATERIAIS, TEMPOS E FORMULAS DE APOIO."}
             {managerSection === "fornecedores" && "FORNECEDORES E CUSTOS DE COMPRA DO PAPELAO."}
             {managerSection === "produtos" && "ENGENHARIAS E FORMULAS USADAS NOS PRODUTOS."}
-            {managerSection === "empresa" && "PARAMETROS E METAS USADOS NA OPERACAO DA EMPRESA."}
+            {managerSection === "empresa" && "PARAMETROS DE PRECO, METAS E DADOS DOS ORCAMENTOS."}
           </p>
         </div>
 
@@ -402,6 +412,8 @@ export default function GerenciadorEmpresa({
                         ? "CONFIGURE OS PERCENTUAIS USADOS NA FORMACAO DE PRECO."
                         : activeTab === "metas"
                           ? "DEFINA AS FAIXAS DE DESEMPENHO EXIBIDAS NOS SIMULADORES DE PRECO."
+                        : activeTab === "orcamento"
+                          ? "CADASTRE AS INFORMACOES, LOGOS E OBSERVACOES EXIBIDAS NOS ORCAMENTOS."
                         : activeTab === "tempos"
                           ? "TABELA COMPLETA DE TEMPOS DE IMPRESSAO POR TIPO DE PAPELAO, MATERIAL ESPECIFICO E FAIXAS DE PESO."
                           : "CONSULTE AS REGRAS, VARIAVEIS E OBSERVACOES USADAS PELO SISTEMA."
@@ -536,6 +548,10 @@ export default function GerenciadorEmpresa({
 
           {activeTab === "metas" && (
             <PricingGoalsPanel goalsByCompany={pricingGoalsByCompany} onChange={setPricingGoalsByCompany} />
+          )}
+
+          {activeTab === "orcamento" && (
+            <QuoteParametersPanel values={quoteParameters} onChange={setQuoteParameters} />
           )}
 
           {activeTab === "tempos" && (
@@ -1279,6 +1295,127 @@ function PricingGoalsPanel({
   );
 }
 
+function QuoteParametersPanel({
+  values,
+  onChange,
+}: {
+  values: QuoteParametersByCompany;
+  onChange: (values: QuoteParametersByCompany) => void;
+}) {
+  const [company, setCompany] = useState<QuoteCompanyKey>("dawos");
+  const params = {
+    ...defaultQuoteParametersByCompany[company],
+    ...(values[company] ?? {}),
+  };
+
+  function update(field: keyof typeof params, value: string) {
+    onChange({
+      ...values,
+      [company]: { ...params, [field]: value },
+    });
+  }
+
+  function selectLogo(file?: File) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      window.alert("SELECIONE UM ARQUIVO DE IMAGEM.");
+      return;
+    }
+    if (file.size > 900_000) {
+      window.alert("A LOGO DEVE TER NO MAXIMO 900 KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => update("logo", String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div style={quoteParametersStyle}>
+      <div style={goalCompanyTabsStyle}>
+        {(["dawos", "carcat", "gta"] as QuoteCompanyKey[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCompany(key)}
+            style={{
+              ...goalCompanyButtonStyle,
+              ...(company === key ? goalCompanyButtonActiveStyle : {}),
+            }}
+          >
+            {key.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      <div style={quoteParametersGridStyle}>
+        <section style={quoteLogoPanelStyle}>
+          <span style={quoteFieldTitleStyle}>LOGO DA EMPRESA</span>
+          <div style={quoteLogoPreviewStyle}>
+            {params.logo ? (
+              <img src={params.logo} alt={`LOGO ${params.name}`} style={quoteLogoImageStyle} />
+            ) : (
+              <strong style={quoteLogoFallbackStyle}>{company.toUpperCase()}</strong>
+            )}
+          </div>
+          <label style={quoteFileButtonStyle}>
+            ESCOLHER IMAGEM
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => selectLogo(event.target.files?.[0])}
+              style={hiddenFileInputStyle}
+            />
+          </label>
+          {params.logo && (
+            <button type="button" onClick={() => update("logo", "")} style={removeLogoButtonStyle}>
+              REMOVER LOGO
+            </button>
+          )}
+        </section>
+
+        <section style={quoteFieldsPanelStyle}>
+          <div style={twoColumnsStyle}>
+            <label style={wideLabelStyle}>
+              NOME DA EMPRESA
+              <input value={params.name} onChange={(event) => update("name", event.target.value.toUpperCase())} style={inputStyle} />
+            </label>
+            <label style={wideLabelStyle}>
+              TELEFONE
+              <input value={params.phone} onChange={(event) => update("phone", event.target.value)} style={inputStyle} />
+            </label>
+            <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
+              ENDERECO COMPLETO
+              <input value={params.address} onChange={(event) => update("address", event.target.value.toUpperCase())} style={inputStyle} />
+            </label>
+            <label style={wideLabelStyle}>
+              E-MAIL
+              <input value={params.email} onChange={(event) => update("email", event.target.value.toLowerCase())} style={{ ...inputStyle, textTransform: "none" }} />
+            </label>
+            <label style={wideLabelStyle}>
+              SITE
+              <input value={params.site} onChange={(event) => update("site", event.target.value.toLowerCase())} style={{ ...inputStyle, textTransform: "none" }} />
+            </label>
+            <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
+              ENDERECO OU CAMINHO DA LOGO
+              <input value={params.logo.startsWith("data:") ? "IMAGEM SELECIONADA" : params.logo} onChange={(event) => update("logo", event.target.value)} disabled={params.logo.startsWith("data:")} placeholder="EX: /companies/dawos-logo.jpg" style={inputStyle} />
+            </label>
+            <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
+              OBSERVACOES TECNICAS PADRAO
+              <textarea
+                value={params.technicalNotes}
+                onChange={(event) => update("technicalNotes", event.target.value.toUpperCase())}
+                placeholder="INFORMACOES EXIBIDAS NO RODAPE DO ORCAMENTO"
+                style={{ ...inputStyle, minHeight: 112, paddingTop: 14, resize: "vertical" }}
+              />
+            </label>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function GoalRangeCard({
   title,
   prefix,
@@ -1581,6 +1718,17 @@ const goalsPanelStyle = { display: "grid", gap: 22 };
 const goalCompanyTabsStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10, padding: 7, borderRadius: 999, border: "1px solid rgba(52,64,84,.12)", background: "#eef2f7" };
 const goalCompanyButtonStyle = { minHeight: 52, border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 17, fontWeight: 900, letterSpacing: 1, cursor: "pointer" };
 const goalCompanyButtonActiveStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", boxShadow: "0 12px 24px rgba(230,61,174,.20)" };
+const quoteParametersStyle = { display: "grid", gap: 22 };
+const quoteParametersGridStyle = { display: "grid", gridTemplateColumns: "minmax(280px,.65fr) minmax(620px,1.35fr)", gap: 24, alignItems: "stretch" };
+const quoteLogoPanelStyle = { minHeight: 390, padding: 28, borderRadius: 18, border: "1px solid rgba(111,50,210,.18)", background: "linear-gradient(145deg,rgba(247,242,255,.9),rgba(255,247,251,.94))", display: "grid", alignContent: "center", justifyItems: "center", gap: 18 };
+const quoteFieldTitleStyle = { margin: 0, color: "#6f32d2", fontSize: 17, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
+const quoteLogoPreviewStyle = { width: "100%", minHeight: 190, padding: 20, borderRadius: 14, border: "1px solid rgba(52,64,84,.12)", background: "#fff", display: "grid", placeItems: "center", overflow: "hidden" };
+const quoteLogoImageStyle = { display: "block", width: "100%", maxWidth: 270, maxHeight: 150, objectFit: "contain" as const };
+const quoteLogoFallbackStyle = { color: "#667085", fontSize: 28, fontWeight: 900, letterSpacing: 2 };
+const quoteFileButtonStyle = { minHeight: 48, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 20px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", color: "#fff", fontSize: 14, fontWeight: 900, letterSpacing: .7, cursor: "pointer" };
+const hiddenFileInputStyle = { position: "absolute" as const, width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" as const, border: 0 };
+const removeLogoButtonStyle = { minHeight: 42, padding: "0 18px", borderRadius: 10, border: "1px solid rgba(255,75,75,.26)", background: "#fff1f2", color: "#e11d48", fontSize: 13, fontWeight: 900, cursor: "pointer" };
+const quoteFieldsPanelStyle = { padding: 26, borderRadius: 18, border: "1px solid rgba(52,64,84,.14)", background: "rgba(255,255,255,.82)", display: "grid", alignContent: "start", gap: 20 };
 const goalsNoticeStyle = { minHeight: 48, display: "grid", placeItems: "center", padding: "0 18px", borderRadius: 12, border: "1px solid rgba(111,50,210,.16)", background: "rgba(111,50,210,.05)", color: "#6f32d2", fontSize: 15, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
 const goalsGridStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(260px,1fr))", gap: 20 };
 const goalCardStyle = { padding: 22, borderRadius: 16, border: "1px solid rgba(52,64,84,.14)", background: "rgba(255,255,255,.84)", display: "grid", gap: 16, boxShadow: "0 16px 34px rgba(39,36,67,.07)" };
