@@ -45,6 +45,33 @@ export async function requireCompanyAccess(request: Request, slug: string) {
   return { admin, company, user: data.user, profile };
 }
 
+export async function requireCompanyProfile(
+  admin: ReturnType<typeof createSupabaseAdmin>,
+  companyId: string,
+  profileId: string
+) {
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, full_name, email, platform_role, active")
+    .eq("id", profileId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!profile) throw new AccessError("REPRESENTANTE INVALIDO.", 400);
+  if (profile.platform_role === "platform_owner") return profile;
+
+  const { data: membership } = await admin
+    .from("company_members")
+    .select("profile_id")
+    .eq("company_id", companyId)
+    .eq("profile_id", profileId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!membership) throw new AccessError("REPRESENTANTE SEM ACESSO A ESTA EMPRESA.", 400);
+  return profile;
+}
+
 export class AccessError extends Error {
   constructor(message: string, public status: number) {
     super(message);

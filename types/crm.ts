@@ -1,0 +1,119 @@
+export type CrmHealth = "GREEN" | "YELLOW" | "RED" | "GRAY";
+
+export type CrmActivityType = "WHATSAPP" | "CALL" | "EMAIL" | "VISIT" | "NOTE" | "QUOTE";
+export type CrmActivityOutcome = "CONTACTED" | "NO_RESPONSE" | "QUOTE_REQUESTED" | "PURCHASE_EXPECTED" | "FOLLOW_UP" | "NO_INTEREST" | "OTHER";
+export type CrmNextActionType = "WHATSAPP" | "CALL" | "EMAIL" | "VISIT" | "QUOTE" | "FOLLOW_UP";
+export type CrmOpportunityStage = "CONTACT_PENDING" | "CONTACTED" | "QUOTE_PREPARATION" | "QUOTE_SENT" | "NEGOTIATION" | "WON" | "LOST";
+
+export type CrmCustomerProfile = {
+  clientId: string;
+  ownerProfileId: string;
+  ownerName: string;
+  purchaseFrequencyDays: number | null;
+  averagePurchaseValue: number;
+  lastPurchaseAt: string;
+  nextPurchaseAt: string;
+  nextContactAt: string;
+  relationshipStatus: "ACTIVE" | "DORMANT" | "BLOCKED";
+  whatsappOptIn: boolean;
+  whatsappOptInAt: string;
+  whatsappOptInSource: string;
+  notes: string;
+  updatedAt: string;
+};
+
+export type CrmActivity = {
+  id: string;
+  clientId: string;
+  representativeProfileId: string;
+  representativeName: string;
+  activityType: CrmActivityType;
+  outcome: CrmActivityOutcome;
+  subject: string;
+  notes: string;
+  occurredAt: string;
+  nextActionType: CrmNextActionType | "";
+  nextActionAt: string;
+};
+
+export type CrmOpportunity = {
+  id: string;
+  clientId: string;
+  representativeProfileId: string;
+  representativeName: string;
+  title: string;
+  stage: CrmOpportunityStage;
+  estimatedValue: number;
+  expectedCloseDate: string;
+  quoteId: string;
+  notes: string;
+  lostReason: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrmQuoteSummary = {
+  clientId: string;
+  count: number;
+  total: number;
+  lastQuoteAt: string;
+};
+
+export type WhatsAppConnection = {
+  sellerCompanyId: string;
+  sellerCompanyName: string;
+  status: "NOT_CONNECTED" | "PENDING" | "CONNECTED" | "ERROR";
+  displayPhoneNumber: string;
+  displayName: string;
+  webhookSubscribed: boolean;
+  connectedAt: string;
+};
+
+export type CrmOverview = {
+  currentProfileId: string;
+  currentProfileName: string;
+  isManager: boolean;
+  profiles: CrmCustomerProfile[];
+  activities: CrmActivity[];
+  opportunities: CrmOpportunity[];
+  quotes: CrmQuoteSummary[];
+  whatsappConnections: WhatsAppConnection[];
+};
+
+export type CrmProfileInput = {
+  clientId: string;
+  ownerProfileId: string;
+  purchaseFrequencyDays: number | null;
+  averagePurchaseValue: number;
+  lastPurchaseAt: string;
+  nextPurchaseAt: string;
+  nextContactAt: string;
+  relationshipStatus: "ACTIVE" | "DORMANT" | "BLOCKED";
+  whatsappOptIn: boolean;
+  whatsappOptInSource: string;
+  notes: string;
+};
+
+export type CrmActivityInput = {
+  clientId: string;
+  representativeProfileId: string;
+  activityType: CrmActivityType;
+  outcome: CrmActivityOutcome;
+  subject: string;
+  notes: string;
+  occurredAt: string;
+  nextActionType: CrmNextActionType | "";
+  nextActionAt: string;
+};
+
+export type CrmOpportunityInput = {
+  id?: string;
+  clientId: string;
+  representativeProfileId: string;
+  title: string;
+  stage: CrmOpportunityStage;
+  estimatedValue: number;
+  expectedCloseDate: string;
+  notes: string;
+  lostReason: string;
+};

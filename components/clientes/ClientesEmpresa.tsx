@@ -9,6 +9,7 @@ import {
   lookupCnpj,
   saveClient as persistClient,
 } from "@/lib/clientes";
+import CrmEmpresa from "@/components/clientes/CrmEmpresa";
 import type {
   ClientFormData,
   ClientRecord,
@@ -68,10 +69,6 @@ export default function ClientesEmpresa({
   const [search, setSearch] = useState("");
   const [clientNameSearch, setClientNameSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"cadastro" | "crm">("cadastro");
-  const [crmSearch, setCrmSearch] = useState("");
-  const [crmSelectedId, setCrmSelectedId] = useState("");
-  const [crmFrequency, setCrmFrequency] = useState("");
-  const [crmAverageValue, setCrmAverageValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -126,18 +123,6 @@ export default function ClientesEmpresa({
         .includes(term)
     ).slice(0, 8);
   }, [clients, clientNameSearch]);
-
-  const crmClients = useMemo(() => {
-    const term = crmSearch.trim().toLocaleUpperCase("pt-BR");
-    if (!term) return [];
-    return clients.filter((client) =>
-      `${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`
-        .toLocaleUpperCase("pt-BR")
-        .includes(term)
-    ).slice(0, 8);
-  }, [clients, crmSearch]);
-
-  const crmSelectedClient = clients.find((client) => client.id === crmSelectedId);
 
   async function handleLookup() {
     if (digits(form.cnpj).length !== 14) {
@@ -251,32 +236,12 @@ export default function ClientesEmpresa({
       </nav>
 
       {activeTab === "crm" && (
-        <section className="clients-crm-panel">
-          <span className="clients-eyebrow">RELACIONAMENTO COM CLIENTES</span>
-          <h2>CRM</h2>
-          <p>BUSQUE UM CLIENTE PARA CONTINUAR O ATENDIMENTO.</p>
-          <label className="clients-crm-search">
-            <span>BUSCAR CLIENTE</span>
-            <input value={crmSearch} onChange={(event) => { setCrmSearch(event.target.value); setCrmSelectedId(""); }} placeholder="NOME, CODIGO OU CNPJ" />
-          </label>
-          {crmSearch.trim() && crmClients.length === 0 && <div className="clients-empty">NENHUM CLIENTE ENCONTRADO.</div>}
-          {crmClients.length > 0 && <div className="clients-crm-results">{crmClients.map((client) => <button type="button" className={crmSelectedId === client.id ? "clients-crm-result clients-crm-result-active" : "clients-crm-result"} key={client.id} onClick={() => setCrmSelectedId(client.id)}><strong>{client.clientCode}</strong><span>{client.tradeName || client.legalName}</span><small>{formatCnpj(client.cnpj)}</small></button>)}</div>}
-          {crmSelectedClient && (
-            <div className="clients-crm-fields">
-              <div className="clients-crm-selected">
-                CLIENTE SELECIONADO: <strong>{crmSelectedClient.tradeName || crmSelectedClient.legalName}</strong>
-              </div>
-              <label>
-                <span>FREQUENCIA DE COMPRA</span>
-                <input value={crmFrequency} onChange={(event) => setCrmFrequency(event.target.value)} placeholder="EX.: 30 DIAS" />
-              </label>
-              <label>
-                <span>VALOR MEDIO DE COMPRA</span>
-                <input value={crmAverageValue} onChange={(event) => setCrmAverageValue(event.target.value)} placeholder="R$ 0,00" inputMode="decimal" />
-              </label>
-            </div>
-          )}
-        </section>
+        <CrmEmpresa
+          slug={slug}
+          clients={clients}
+          representatives={representatives}
+          sellerCompanies={sellerCompanies}
+        />
       )}
 
       <div style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
