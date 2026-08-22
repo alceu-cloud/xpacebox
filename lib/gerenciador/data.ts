@@ -176,6 +176,7 @@ export const defaultQuoteParametersByCompany: import("@/types/gerenciador").Quot
     site: "",
     logo: "/companies/dawos-logo.jpg",
     technicalNotes: "",
+    validityDays: 3,
   },
   carcat: {
     name: "CARCAT EMBALAGENS",
@@ -185,6 +186,7 @@ export const defaultQuoteParametersByCompany: import("@/types/gerenciador").Quot
     site: "",
     logo: "",
     technicalNotes: "",
+    validityDays: 3,
   },
   gta: {
     name: "GTA EMBALAGENS LTDA",
@@ -194,6 +196,7 @@ export const defaultQuoteParametersByCompany: import("@/types/gerenciador").Quot
     site: "",
     logo: "",
     technicalNotes: "",
+    validityDays: 3,
   },
 };
 

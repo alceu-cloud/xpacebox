@@ -1308,7 +1308,7 @@ function QuoteParametersPanel({
     ...(values[company] ?? {}),
   };
 
-  function update(field: keyof typeof params, value: string) {
+  function update<K extends keyof typeof params>(field: K, value: (typeof params)[K]) {
     onChange({
       ...values,
       [company]: { ...params, [field]: value },
@@ -1395,6 +1395,16 @@ function QuoteParametersPanel({
             <label style={wideLabelStyle}>
               SITE
               <input value={params.site} onChange={(event) => update("site", event.target.value.toLowerCase())} style={{ ...inputStyle, textTransform: "none" }} />
+            </label>
+            <label style={wideLabelStyle}>
+              VALIDADE DO ORCAMENTO (DIAS)
+              <input
+                type="number"
+                min={1}
+                value={params.validityDays}
+                onChange={(event) => update("validityDays", Math.max(1, Number(event.target.value) || 1))}
+                style={inputStyle}
+              />
             </label>
             <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
               ENDERECO OU CAMINHO DA LOGO

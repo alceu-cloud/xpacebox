@@ -366,6 +366,7 @@ export default function EmpresaPage() {
             engineeringFormulas={engineeringFormulas}
             prefill={quotePrefill}
             quoteParameters={quoteParameters}
+            paymentConditions={paymentConditions}
           />
         ) : moduloSelecionado ? (
           <ModulePlaceholder modulo={moduloSelecionado} />

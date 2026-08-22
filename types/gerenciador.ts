@@ -76,6 +76,7 @@ export type QuoteCompanyParameters = {
   site: string;
   logo: string;
   technicalNotes: string;
+  validityDays: number;
 };
 
 export type QuoteParametersByCompany = Record<QuoteCompanyKey, QuoteCompanyParameters>;
