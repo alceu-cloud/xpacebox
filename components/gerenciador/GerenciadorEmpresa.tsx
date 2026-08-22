@@ -1413,7 +1413,7 @@ function QuoteParametersPanel({
             </label>
             <label style={wideLabelStyle}>
               TELEFONE
-              <input value={params.phone} onChange={(event) => update("phone", event.target.value)} style={inputStyle} />
+              <input value={params.phone} onChange={(event) => update("phone", formatPhone(event.target.value))} style={inputStyle} inputMode="tel" />
             </label>
             <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
               ENDERECO COMPLETO
@@ -1672,6 +1672,17 @@ function parseBrazilianNumber(value: string) {
   const match = value.match(/[\d,.]+/);
   if (!match) return 0;
   return Number(match[0].replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits ? `(${digits}` : "";
+  const area = digits.slice(0, 2);
+  const number = digits.slice(2);
+  if (number.length <= 8) {
+    return `(${area}) ${number.slice(0, 4)}${number.length > 4 ? `-${number.slice(4)}` : ""}`;
+  }
+  return `(${area}) ${number.slice(0, 5)}-${number.slice(5)}`;
 }
 
 function formatMoney(value: number) {
