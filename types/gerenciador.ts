@@ -51,6 +51,8 @@ export type PricingParams = {
   outputIpi: number;
 };
 
+export type PricingParamsByCompany = Record<PricingGoalCompany, PricingParams>;
+
 export type PricingGoalRange = {
   redMax: number;
   greenMin: number;

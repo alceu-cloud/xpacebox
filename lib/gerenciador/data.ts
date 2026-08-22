@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, ReminderFormula, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ReminderFormula, SpecificMaterial, Supplier } from "@/types/gerenciador";
 
 export const initialSuppliers: Supplier[] = [
   "COCELPA",
@@ -140,6 +140,36 @@ export const defaultPricingParams: PricingParams = {
   outputPisCofins: 3.65,
   outputIpi: 3.25,
 };
+
+function clonePricingParams(params: PricingParams = defaultPricingParams): PricingParams {
+  return { ...params };
+}
+
+export const defaultPricingParamsByCompany: PricingParamsByCompany = {
+  dawos: clonePricingParams(),
+  carcat: clonePricingParams(),
+  gta: clonePricingParams(),
+};
+
+export function normalizePricingParamsByCompany(value: unknown): PricingParamsByCompany {
+  const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const hasCompanyValues = ["dawos", "carcat", "gta"].some((key) => record[key] && typeof record[key] === "object");
+
+  if (hasCompanyValues) {
+    return {
+      dawos: { ...defaultPricingParams, ...((record.dawos as Partial<PricingParams>) ?? {}) },
+      carcat: { ...defaultPricingParams, ...((record.carcat as Partial<PricingParams>) ?? {}) },
+      gta: { ...defaultPricingParams, ...((record.gta as Partial<PricingParams>) ?? {}) },
+    };
+  }
+
+  const legacyParams = { ...defaultPricingParams, ...(record as Partial<PricingParams>) };
+  return {
+    dawos: clonePricingParams(legacyParams),
+    carcat: clonePricingParams(legacyParams),
+    gta: clonePricingParams(legacyParams),
+  };
+}
 
 export const defaultPaperCostParams: PaperCostParams = {
   ipi: 3.25,

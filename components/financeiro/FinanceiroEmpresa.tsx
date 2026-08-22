@@ -206,7 +206,7 @@ export default function FinanceiroEmpresa({
     if (!ficha) return;
     const material = materials.find((item) => item.id === ficha.materialId);
     const formula = engineeringFormulas.find((item) => item.id === ficha.engineeringId);
-    setItems([{ ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, quality: ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId } }]);
+    setItems([{ ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } }]);
     updateForm("company", ficha.company);
   }
 
@@ -216,6 +216,15 @@ export default function FinanceiroEmpresa({
       return;
     }
     try {
+      const appliesIpi = resolveCompanyKey(form.company) === "gta";
+      const normalizedItems = items.filter((item) => item.description.trim()).map((item, index) => {
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = Number(item.unitPrice || 0);
+        const ipiPercent = appliesIpi ? Number(item.ipiPercent || 0) : 0;
+        const productTotal = quantity * unitPrice;
+        const ipiValue = productTotal * ipiPercent / 100;
+        return { ...item, itemNumber: index + 1, quantity, unitPrice, ipiPercent, ipiValue, total: productTotal + ipiValue };
+      });
       const quote = await createQuote(companySlug, {
         kind,
         recipient: "CLIENT",
@@ -235,7 +244,7 @@ export default function FinanceiroEmpresa({
         paymentTerms: form.paymentTerms,
         freight: form.freight,
         observations: form.observations,
-        items: items.filter((item) => item.description.trim()).map((item, index) => ({ ...item, itemNumber: index + 1 })),
+        items: normalizedItems,
       });
       setShowForm(false);
       setMessage(`ORCAMENTO ${quote.quoteNumber} GERADO COM SUCESSO.`);
@@ -281,10 +290,11 @@ export default function FinanceiroEmpresa({
 }
 
 function QuoteForm({ kind, form, items, clients, representatives, paymentConditions, clientFichas, selectedClientId, selectedFichaId, selectedClient, selectedFicha, updateForm, updateItem, selectClient, selectFicha, addItem, removeItem, onCancel, onSave }: any) {
+  const appliesIpi = resolveCompanyKey(form.company) === "gta";
   return <section style={formPanelStyle}><div style={formHeaderStyle}><div><span style={eyebrowStyle}>{kind === "DIRECT" ? "ORCAMENTO DIRETO" : "ORCAMENTO DE ENGENHARIA"}</span><h2 style={titleStyle}>MONTAR ORCAMENTO</h2></div><button type="button" onClick={onCancel} style={closeButtonStyle}>FECHAR</button></div>
     {kind === "ENGINEERING" ? <div style={lookupGridStyle}><label style={labelStyle}>CLIENTE<select value={selectedClientId} onChange={(event) => selectClient(event.target.value)} style={inputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client: ClientRecord) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName} · {client.cnpj}</option>)}</select></label><label style={labelStyle}>FICHA TECNICA<select value={selectedFichaId} onChange={(event) => selectFicha(event.target.value)} style={inputStyle}><option value="">SELECIONE O PRODUTO</option>{clientFichas.map((ficha: ProductFicha) => <option key={ficha.id} value={ficha.id}>{ficha.ftNumber} · {ficha.reference}</option>)}</select></label></div> : <div style={noticeStyle}>NO ORCAMENTO DIRETO, OS DADOS DO CLIENTE E DO ITEM SAO PREENCHIDOS MANUALMENTE.</div>}
     <div style={formGridStyle}><Field label="NOME DO CLIENTE" value={form.clientName} onChange={(value: string) => updateForm("clientName", value)} /><Field label="COMPRADOR" value={form.buyerName} onChange={(value: string) => updateForm("buyerName", value)} /><Field label="TELEFONE" value={form.phone} onChange={(value: string) => updateForm("phone", formatPhone(value))} /><Field label="E-MAIL" value={form.email} onChange={(value: string) => updateForm("email", value.toLowerCase())} lower /><Field label="CNPJ" value={form.cnpj} onChange={(value: string) => updateForm("cnpj", formatCnpj(value))} /><Field label="EMPRESA VENDEDORA" value={form.company} onChange={(value: string) => updateForm("company", value)} /><Field label="REPRESENTANTE" value={form.representative} onChange={(value: string) => updateForm("representative", value)} options={representatives.map((item: RepresentativeOption) => ({ value: item.name, label: item.name }))} placeholder="SELECIONE O REPRESENTANTE" /><Field label="CONDICAO DE PAGAMENTO" value={form.paymentTerms} onChange={(value: string) => updateForm("paymentTerms", value)} options={paymentConditions.map((item: PaymentCondition) => ({ value: item.name, label: item.name }))} placeholder="SELECIONE A CONDICAO" /><Field label="FRETE" value={form.freight} onChange={(value: string) => updateForm("freight", value)} options={[{ value: "CIF", label: "CIF - REMETENTE" }, { value: "FOB", label: "FOB - RETIRADA / DESTINATARIO" }, { value: "SEM_FRETE", label: "SEM FRETE" }]} /><Field label="DATA DE ENTREGA" value={form.deliveryDate} onChange={(value: string) => updateForm("deliveryDate", value)} type="date" /><Field label="VALIDADE DO ORCAMENTO (AUTOMATICA)" value={form.validUntil} onChange={() => undefined} type="date" readOnly /><label style={{ ...labelStyle, gridColumn: "1 / -1" }}>ENDERECO<input value={form.address} onChange={(event) => updateForm("address", event.target.value)} style={inputStyle} /></label><label style={{ ...labelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={form.observations} onChange={(event) => updateForm("observations", event.target.value)} style={{ ...inputStyle, minHeight: 84, resize: "vertical" }} /></label></div>
-    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3>{kind === "DIRECT" && <button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ADICIONAR ITEM</button>}</div>{items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}><div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong>{items.length > 1 && <button type="button" onClick={() => removeItem(index)} style={removeButtonStyle}>REMOVER</button>}</div><div style={itemGridStyle}><Field label="FICHA TECNICA" value={item.ftNumber} onChange={(value: string) => updateItem(index, "ftNumber", value)} /><Field label="DESCRICAO" value={item.description} onChange={(value: string) => updateItem(index, "description", value)} /><Field label="TIPO DE CAIXA" value={item.boxType} onChange={(value: string) => updateItem(index, "boxType", value)} /><Field label="MATERIAL" value={item.material} onChange={(value: string) => updateItem(index, "material", value)} /><Field label="COMPRIMENTO (MM)" value={String(item.length || "")} onChange={(value: string) => updateItem(index, "length", value)} type="number" /><Field label="LARGURA (MM)" value={String(item.width || "")} onChange={(value: string) => updateItem(index, "width", value)} type="number" /><Field label="ALTURA (MM)" value={String(item.height || "")} onChange={(value: string) => updateItem(index, "height", value)} type="number" /><Field label="AREA (M2)" value={String(item.area || "")} onChange={(value: string) => updateItem(index, "area", value)} type="number" /><Field label="QUALIDADE" value={item.quality} onChange={(value: string) => updateItem(index, "quality", value)} /><Field label="QUANTIDADE" value={String(item.quantity || "")} onChange={(value: string) => updateItem(index, "quantity", value)} type="number" /><Field label="VALOR UNITARIO" value={String(item.unitPrice || "")} onChange={(value: string) => updateItem(index, "unitPrice", value)} type="number" /><Field label="IPI (%)" value={String(item.ipiPercent || "")} onChange={(value: string) => updateItem(index, "ipiPercent", value)} type="number" /></div></div>)}
+    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3>{kind === "DIRECT" && <button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ADICIONAR ITEM</button>}</div>{items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}><div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong>{items.length > 1 && <button type="button" onClick={() => removeItem(index)} style={removeButtonStyle}>REMOVER</button>}</div><div style={itemGridStyle}><Field label="FICHA TECNICA" value={item.ftNumber} onChange={(value: string) => updateItem(index, "ftNumber", value)} /><Field label="DESCRICAO" value={item.description} onChange={(value: string) => updateItem(index, "description", value)} /><Field label="TIPO DE CAIXA" value={item.boxType} onChange={(value: string) => updateItem(index, "boxType", value)} /><Field label="MATERIAL" value={item.material} onChange={(value: string) => updateItem(index, "material", value)} /><Field label="COMPRIMENTO (MM)" value={String(item.length || "")} onChange={(value: string) => updateItem(index, "length", value)} type="number" /><Field label="LARGURA (MM)" value={String(item.width || "")} onChange={(value: string) => updateItem(index, "width", value)} type="number" /><Field label="ALTURA (MM)" value={String(item.height || "")} onChange={(value: string) => updateItem(index, "height", value)} type="number" /><Field label="AREA (M2)" value={String(item.area || "")} onChange={(value: string) => updateItem(index, "area", value)} type="number" /><Field label="QUALIDADE" value={item.quality} onChange={(value: string) => updateItem(index, "quality", value)} /><Field label="QUANTIDADE" value={String(item.quantity || "")} onChange={(value: string) => updateItem(index, "quantity", value)} type="number" /><Field label="VALOR UNITARIO" value={String(item.unitPrice || "")} onChange={(value: string) => updateItem(index, "unitPrice", value)} type="number" /><Field label="IPI (%)" value={String(appliesIpi ? item.ipiPercent || "" : 0)} onChange={(value: string) => updateItem(index, "ipiPercent", value)} type="number" readOnly={!appliesIpi} /></div></div>)}
     <div style={formActionsStyle}><button type="button" onClick={onCancel} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={onSave} style={primaryButtonStyle}>GERAR ORCAMENTO E PDF</button></div>
   </section>;
 }
@@ -320,6 +330,7 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
   const companyKey = resolveQuoteCompanyKey(quote);
   const seller = { ...defaultQuoteParametersByCompany[companyKey], ...(quoteParameters[companyKey] ?? {}) };
   const isDirect = quote.kind === "DIRECT";
+  const appliesIpi = companyKey === "gta";
   const logoSource = seller.logo
     ? seller.logo.startsWith("data:") || seller.logo.startsWith("http")
       ? seller.logo
@@ -328,16 +339,28 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
   const logo = logoSource
     ? `<img class="company-logo" src="${escape(logoSource)}" alt="${escape(seller.name)}">`
     : `<div class="logo-fallback">${escape(companyKey.toUpperCase())}</div>`;
-  const rows = quote.items.map((item, index) => {
+  const printableItems = quote.items.map((item) => {
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(item.unitPrice || 0);
+    const ipiPercent = appliesIpi ? Number(item.ipiPercent || 0) : 0;
+    const productTotal = quantity * unitPrice;
+    const ipiValue = productTotal * ipiPercent / 100;
+    return { ...item, quantity, unitPrice, ipiPercent, ipiValue, total: productTotal + ipiValue };
+  });
+  const printableProductTotal = printableItems.reduce((total, item) => total + item.quantity * item.unitPrice, 0);
+  const printableIpiTotal = printableItems.reduce((total, item) => total + item.ipiValue, 0);
+  const printableGrandTotal = printableProductTotal + printableIpiTotal;
+  const rows = printableItems.map((item, index) => {
     const ftNumber = isDirect ? "OD" : item.ftNumber || "FT";
     const dimensions = `${item.length || 0} x ${item.width || 0} x ${item.height || 0} MM`;
+    const snapshotPaperType = typeof item.snapshot?.paperType === "string" ? item.snapshot.paperType : "";
     return `<tr>
       <td class="center">${index + 1}</td>
       <td class="center strong">${escape(ftNumber)}</td>
-      <td>${escape(item.description)}</td>
+      <td class="center">${escape(item.description)}</td>
       <td class="center">${escape(dimensions)}</td>
       <td class="center">${Number(item.area || 0).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 4 })}</td>
-      <td class="center">${escape(item.quality || item.material || "-")}</td>
+      <td class="center">${escape(snapshotPaperType || item.quality || item.material || "-")}</td>
       <td class="center">${escape(item.boxType || "-")}</td>
       <td class="number">${Number(item.quantity || 0).toLocaleString("pt-BR")}</td>
       <td class="number">${formatCurrency(item.unitPrice)}</td>
@@ -385,14 +408,14 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
     .items { margin-top: 10px; border: 1px solid #d8dee9; border-radius: 10px; overflow: hidden; }
     .items-title { padding: 9px 12px; background: linear-gradient(90deg,#fdf1f8,#f7f3ff); color: #d60078; font-size: 10px; font-weight: 900; letter-spacing: 1px; }
     table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8px; }
-    th { padding: 7px 5px; background: #172033; color: #fff; font-size: 7px; letter-spacing: .35px; text-align: left; }
-    td { padding: 7px 5px; border-bottom: 1px solid #e5e9f0; vertical-align: middle; overflow-wrap: anywhere; }
+    th { padding: 7px 5px; background: #172033; color: #fff; font-size: 7px; letter-spacing: .35px; text-align: center; vertical-align: middle; }
+    td { padding: 7px 5px; border-bottom: 1px solid #e5e9f0; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
     tr:last-child td { border-bottom: 0; }
     th:nth-child(1) { width: 3%; } th:nth-child(2) { width: 6%; } th:nth-child(3) { width: 18%; }
     th:nth-child(4) { width: 12%; } th:nth-child(5) { width: 6%; } th:nth-child(6) { width: 8%; }
     th:nth-child(7) { width: 11%; } th:nth-child(8) { width: 8%; } th:nth-child(9) { width: 9%; }
     th:nth-child(10) { width: 6%; } th:nth-child(11) { width: 13%; }
-    .center { text-align: center; } .number { text-align: right; white-space: nowrap; } .strong { font-weight: 900; }
+    .center { text-align: center; } .number { text-align: center; white-space: nowrap; } .strong { font-weight: 900; }
     .summary { display: grid; grid-template-columns: 1fr 310px; gap: 10px; margin-top: 10px; }
     .notes, .totals { border: 1px solid #d8dee9; border-radius: 10px; padding: 12px 15px; }
     .notes { min-height: 72px; }
@@ -463,9 +486,9 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
     <section class="summary">
       <div class="notes"><h2 class="section-title">OBSERVACOES</h2><p>${escape(quote.observations || "SEM OBSERVACOES.")}</p></div>
       <div class="totals">
-        <div class="total-row"><span>TOTAL DOS PRODUTOS</span><strong>${formatCurrency(quote.productTotal)}</strong></div>
-        <div class="total-row"><span>TOTAL DO IPI</span><strong>${formatCurrency(quote.ipiTotal)}</strong></div>
-        <div class="total-row grand"><span>TOTAL DO ORCAMENTO</span><strong>${formatCurrency(quote.grandTotal)}</strong></div>
+        <div class="total-row"><span>TOTAL DOS PRODUTOS</span><strong>${formatCurrency(printableProductTotal)}</strong></div>
+        <div class="total-row"><span>TOTAL DO IPI</span><strong>${formatCurrency(printableIpiTotal)}</strong></div>
+        <div class="total-row grand"><span>TOTAL DO ORCAMENTO</span><strong>${formatCurrency(printableGrandTotal)}</strong></div>
       </div>
     </section>
 

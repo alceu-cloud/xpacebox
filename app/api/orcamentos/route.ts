@@ -34,7 +34,9 @@ export async function POST(request: Request) {
     const { data: numberData, error: numberError } = await admin.rpc("next_quote_number", { target_tenant: company.id, target_prefix: prefix });
     if (numberError) throw numberError;
 
-    const normalizedItems = quote.items.map((item, index) => normalizeItem(item, index + 1));
+    const sellerIdentity = `${quote.sellerCompanySlug} ${quote.sellerCompanyName}`.toLowerCase();
+    const appliesIpi = sellerIdentity.includes("gta");
+    const normalizedItems = quote.items.map((item, index) => normalizeItem(item, index + 1, appliesIpi));
     const totals = normalizedItems.reduce((summary, item) => ({
       productTotal: summary.productTotal + item.quantity * item.unitPrice,
       ipiTotal: summary.ipiTotal + item.ipiValue,
@@ -120,10 +122,10 @@ export async function DELETE(request: Request) {
   }
 }
 
-function normalizeItem(item: QuoteDraft["items"][number], itemNumber: number) {
+function normalizeItem(item: QuoteDraft["items"][number], itemNumber: number, appliesIpi: boolean) {
   const quantity = Number(item.quantity) || 0;
   const unitPrice = Number(item.unitPrice) || 0;
-  const ipiPercent = Number(item.ipiPercent) || 0;
+  const ipiPercent = appliesIpi ? Number(item.ipiPercent) || 0 : 0;
   return { ...item, itemNumber, quantity, unitPrice, ipiPercent, ipiValue: quantity * unitPrice * ipiPercent / 100, total: quantity * unitPrice * (1 + ipiPercent / 100) };
 }
 

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 
 import {
   defaultQuoteParametersByCompany,
-  defaultPricingParams,
+  defaultPricingParamsByCompany,
   defaultPricingGoalsByCompany,
   defaultPaperCostParams,
   initialEngineeringFormulas,
@@ -16,7 +16,7 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
@@ -73,7 +73,7 @@ type GerenciadorEmpresaProps = {
   materials?: SpecificMaterial[];
   engineeringFormulas?: EngineeringFormula[];
   paperCostParams?: PaperCostParams;
-  pricingParams?: PricingParams;
+  pricingParams?: PricingParamsByCompany;
   pricingGoalsByCompany?: PricingGoalsByCompany;
   quoteParameters?: QuoteParametersByCompany;
   productionTimes?: ProductionTime[];
@@ -89,7 +89,7 @@ type GerenciadorEmpresaProps = {
   onMaterialsChange?: (materials: SpecificMaterial[]) => void;
   onEngineeringFormulasChange?: (formulas: EngineeringFormula[]) => void;
   onPaperCostParamsChange?: (params: PaperCostParams) => void;
-  onPricingParamsChange?: (params: PricingParams) => void;
+  onPricingParamsChange?: (params: PricingParamsByCompany) => void;
   onPricingGoalsByCompanyChange?: (goals: PricingGoalsByCompany) => void;
   onQuoteParametersChange?: (params: QuoteParametersByCompany) => void;
   onProductionTimesChange?: (times: ProductionTime[]) => void;
@@ -146,7 +146,7 @@ export default function GerenciadorEmpresa({
   const [localMaterials, setLocalMaterials] = useState(initialMaterials);
   const [localEngineeringFormulas, setLocalEngineeringFormulas] = useState(initialEngineeringFormulas);
   const [localPaperCostParams, setLocalPaperCostParams] = useState(defaultPaperCostParams);
-  const [localPricingParams, setLocalPricingParams] = useState(defaultPricingParams);
+  const [localPricingParams, setLocalPricingParams] = useState(defaultPricingParamsByCompany);
   const [localPricingGoalsByCompany, setLocalPricingGoalsByCompany] = useState(defaultPricingGoalsByCompany);
   const [localQuoteParameters, setLocalQuoteParameters] = useState(defaultQuoteParametersByCompany);
   const [localProductionTimes, setLocalProductionTimes] = useState(defaultProductionTimes);
@@ -200,7 +200,7 @@ export default function GerenciadorEmpresa({
     if (activeTab === "engenharia") return "ENGENHARIA DE FORMULAS DE CAIXAS";
     if (activeTab === "cores") return "CADASTRO DE CORES";
     if (activeTab === "custo") return "CUSTO DE PAPEL";
-    if (activeTab === "parametros") return "PARAMETROS DE PRECIFICACAO - DAWOS";
+    if (activeTab === "parametros") return "PARAMETROS DE PRECIFICACAO";
     if (activeTab === "metas") return "METAS DE DESEMPENHO - DAWOS";
     if (activeTab === "orcamento") return "PARAMETROS DE ORCAMENTO";
     if (activeTab === "tempos") return "TABELA DE TEMPOS DE PRODUCAO";
@@ -1202,35 +1202,66 @@ function LimitMetric({ label, value, color }: { label: string; value: string; co
   return <div style={{ ...limitMetricStyle, borderTopColor: color }}><span>{label}</span><strong style={{ color }}>{value}</strong></div>;
 }
 
-function PricingParamsPanel({ params, onChange }: { params: PricingParams; onChange: (params: PricingParams) => void }) {
-  const operationalTotal = params.commission + params.freight + params.otherCosts + params.clientIcms + params.additionalCosts;
+function PricingParamsPanel({ params, onChange }: { params: PricingParamsByCompany; onChange: (params: PricingParamsByCompany) => void }) {
+  const [company, setCompany] = useState<PricingGoalCompany>("dawos");
+  const companyParams = params[company] ?? defaultPricingParamsByCompany[company];
+  const operationalTotal = company === "dawos"
+    ? companyParams.commission + companyParams.freight + companyParams.otherCosts + companyParams.clientIcms + companyParams.additionalCosts
+    : company === "carcat"
+      ? companyParams.simplesTax + companyParams.commission + companyParams.freight + companyParams.otherCosts
+      : companyParams.outputIcms + companyParams.outputPisCofins + companyParams.outputIpi + companyParams.commission + companyParams.freight + companyParams.otherCosts;
+
+  function updateCompanyParams(nextParams: PricingParams) {
+    onChange({ ...params, [company]: nextParams });
+  }
 
   return (
-    <div style={pricingGridStyle}>
-      <section style={pricingHighlightStyle}>
-        <HighlightParamField label="MC% PADRAO" value={params.mcDefault} suffix="%" color="#16a34a" onChange={(mcDefault) => onChange({ ...params, mcDefault })} />
-        <div style={dividerStyle} />
-        <HighlightParamField label="MCR$ HORA PADRAO" value={params.mcrHour} prefix="R$" suffix="/H" color="#0284c7" onChange={(mcrHour) => onChange({ ...params, mcrHour })} />
-      </section>
+    <div style={goalsPanelStyle}>
+      <div style={goalCompanyTabsStyle}>
+        {(["dawos", "carcat", "gta"] as PricingGoalCompany[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCompany(key)}
+            style={{ ...goalCompanyButtonStyle, ...(company === key ? goalCompanyButtonActiveStyle : {}) }}
+          >
+            {key.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <div style={goalsNoticeStyle}>
+        PARAMETROS EXCLUSIVOS DA {company.toUpperCase()}. SOMENTE OS CAMPOS USADOS NAS FORMULAS DESTA EMPRESA SAO EXIBIDOS.
+      </div>
+      <div style={pricingGridStyle}>
+        <section style={pricingHighlightStyle}>
+          <HighlightParamField label="MC% PADRAO" value={companyParams.mcDefault} suffix="%" color="#16a34a" onChange={(mcDefault) => updateCompanyParams({ ...companyParams, mcDefault })} />
+          <div style={dividerStyle} />
+          <HighlightParamField label="MCR$ HORA PADRAO" value={companyParams.mcrHour} prefix="R$" suffix="/H" color="#0284c7" onChange={(mcrHour) => updateCompanyParams({ ...companyParams, mcrHour })} />
+        </section>
 
-      <section style={pricingPanelStyle}>
-        <div style={pricingPanelHeaderStyle}>
-          <h4 style={subPanelTitleStyle}>CUSTOS OPERACIONAIS (%)</h4>
-          <span style={greenBadgeStyle}>SOMA TOTAL DAS DESPESAS: {formatPercent(operationalTotal)}</span>
-        </div>
-        <div style={pricingFieldsStyle}>
-          <ParamField label="COMISSAO PREVIA (%)" value={params.commission} color="#ff5a00" onChange={(commission) => onChange({ ...params, commission })} />
-          <ParamField label="IMPOSTO NO SIMPLES (%)" value={params.simplesTax} color="#eab308" onChange={(simplesTax) => onChange({ ...params, simplesTax })} />
-          <ParamField label="FRETE (%)" value={params.freight} color="#0ea5e9" onChange={(freight) => onChange({ ...params, freight })} />
-          <ParamField label="OUTROS CUSTOS (%)" value={params.otherCosts} color="#8b5cf6" onChange={(otherCosts) => onChange({ ...params, otherCosts })} />
-          <ParamField label="ICMS DAWOS (%)" value={params.icmsDawos} color="#10b981" onChange={(icmsDawos) => onChange({ ...params, icmsDawos })} />
-          <ParamField label="ICMS DO CLIENTE (%)" value={params.clientIcms} color="#14b8a6" onChange={(clientIcms) => onChange({ ...params, clientIcms })} />
-          <ParamField label="DEMAIS CUSTOS (%)" value={params.additionalCosts} color="#ef4444" onChange={(additionalCosts) => onChange({ ...params, additionalCosts })} />
-          <ParamField label="ICMS SAIDA LP/LC (%)" value={params.outputIcms} color="#38bdf8" onChange={(outputIcms) => onChange({ ...params, outputIcms })} />
-          <ParamField label="PIS / COFINS LP/LC (%)" value={params.outputPisCofins} color="#f59e0b" onChange={(outputPisCofins) => onChange({ ...params, outputPisCofins })} />
-          <ParamField label="IPI SAIDA/ENTRADA (%)" value={params.outputIpi} color="#a78bfa" onChange={(outputIpi) => onChange({ ...params, outputIpi })} />
-        </div>
-      </section>
+        <section style={pricingPanelStyle}>
+          <div style={pricingPanelHeaderStyle}>
+            <h4 style={subPanelTitleStyle}>CUSTOS OPERACIONAIS (%)</h4>
+            <span style={greenBadgeStyle}>SOMA TOTAL DAS DESPESAS: {formatPercent(operationalTotal)}</span>
+          </div>
+          <div style={pricingFieldsStyle}>
+            <ParamField label="COMISSAO PREVIA (%)" value={companyParams.commission} color="#ff5a00" onChange={(commission) => updateCompanyParams({ ...companyParams, commission })} />
+            <ParamField label="FRETE (%)" value={companyParams.freight} color="#0ea5e9" onChange={(freight) => updateCompanyParams({ ...companyParams, freight })} />
+            <ParamField label="OUTROS CUSTOS (%)" value={companyParams.otherCosts} color="#8b5cf6" onChange={(otherCosts) => updateCompanyParams({ ...companyParams, otherCosts })} />
+            {company === "dawos" && <>
+              <ParamField label="ICMS DO CLIENTE (%)" value={companyParams.clientIcms} color="#14b8a6" onChange={(clientIcms) => updateCompanyParams({ ...companyParams, clientIcms })} />
+              <ParamField label="DEMAIS CUSTOS (%)" value={companyParams.additionalCosts} color="#ef4444" onChange={(additionalCosts) => updateCompanyParams({ ...companyParams, additionalCosts })} />
+            </>}
+            {company === "carcat" &&
+              <ParamField label="IMPOSTO NO SIMPLES (%)" value={companyParams.simplesTax} color="#eab308" onChange={(simplesTax) => updateCompanyParams({ ...companyParams, simplesTax })} />}
+            {company === "gta" && <>
+              <ParamField label="ICMS SAIDA LP/LC (%)" value={companyParams.outputIcms} color="#38bdf8" onChange={(outputIcms) => updateCompanyParams({ ...companyParams, outputIcms })} />
+              <ParamField label="PIS / COFINS LP/LC (%)" value={companyParams.outputPisCofins} color="#f59e0b" onChange={(outputPisCofins) => updateCompanyParams({ ...companyParams, outputPisCofins })} />
+              <ParamField label="IPI SAIDA/ENTRADA (%)" value={companyParams.outputIpi} color="#a78bfa" onChange={(outputIpi) => updateCompanyParams({ ...companyParams, outputIpi })} />
+            </>}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
