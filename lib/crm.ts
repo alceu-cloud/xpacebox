@@ -46,5 +46,8 @@ export async function saveCrmOpportunity(slug: string, opportunity: CrmOpportuni
     method: opportunity.id ? "PATCH" : "POST",
     body: JSON.stringify({ slug, opportunity }),
   });
-  return payload.opportunity;
+  return {
+    opportunity: payload.opportunity,
+    cycleScheduled: Boolean(payload.cycleScheduled),
+  };
 }

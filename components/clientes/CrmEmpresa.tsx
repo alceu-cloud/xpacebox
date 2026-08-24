@@ -251,7 +251,7 @@ export default function CrmEmpresa({
       opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage } : item),
     }));
     try {
-      await saveCrmOpportunity(slug, {
+      const result = await saveCrmOpportunity(slug, {
         id: opportunity.id,
         clientId: opportunity.clientId,
         representativeProfileId: opportunity.representativeProfileId,
@@ -263,7 +263,13 @@ export default function CrmEmpresa({
         lostReason: opportunity.lostReason,
       });
       await refresh(true);
-      setMessage("ETAPA DA OPORTUNIDADE ATUALIZADA.");
+      if (stage === "WON" || stage === "LOST") {
+        setMessage(result.cycleScheduled
+          ? "ETAPA ATUALIZADA. O PROXIMO CICLO FOI AGENDADO AUTOMATICAMENTE."
+          : "ETAPA ATUALIZADA. DEFINA A FREQUENCIA DE COMPRA PARA AUTOMATIZAR O PROXIMO CICLO.");
+      } else {
+        setMessage("ETAPA DA OPORTUNIDADE ATUALIZADA.");
+      }
     } catch (saveError) {
       setOverview((current) => ({
         ...current,
@@ -532,7 +538,7 @@ function ClientDetail({
   onSaveOpportunity: () => void;
   saving: boolean;
 }) {
-  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("resumo");
+  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("contato");
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
 
@@ -551,8 +557,8 @@ function ClientDetail({
       </header>
 
       <nav className="crm-detail-tabs">
+        <button type="button" className={`crm-contact-tab ${detailTab === "contato" ? "active" : ""}`} onClick={() => setDetailTab("contato")}>REGISTRAR CONTATO</button>
         <button type="button" className={detailTab === "resumo" ? "active" : ""} onClick={() => setDetailTab("resumo")}>RESUMO</button>
-        <button type="button" className={detailTab === "contato" ? "active" : ""} onClick={() => setDetailTab("contato")}>REGISTRAR CONTATO</button>
         <button type="button" className={detailTab === "negocio" ? "active" : ""} onClick={() => setDetailTab("negocio")}>NOVA OPORTUNIDADE</button>
       </nav>
 

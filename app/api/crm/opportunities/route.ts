@@ -25,6 +25,18 @@ async function save(request: Request, editing: boolean) {
 
     const representativeId = input.representativeProfileId || user.id;
     await requireCompanyProfile(admin, company.id, representativeId);
+    let previousStage = "";
+    if (editing) {
+      const { data: currentOpportunity, error: currentOpportunityError } = await admin
+        .from("crm_opportunities")
+        .select("stage")
+        .eq("id", input.id)
+        .eq("tenant_company_id", company.id)
+        .single();
+      if (currentOpportunityError) throw currentOpportunityError;
+      previousStage = currentOpportunity.stage || "";
+    }
+
     const base = {
       client_id: input.clientId,
       representative_profile_id: representativeId,
@@ -42,10 +54,110 @@ async function save(request: Request, editing: boolean) {
       : admin.from("crm_opportunities").insert({ ...base, tenant_company_id: company.id, created_by: user.id });
     const { data, error } = await query.select("*").single();
     if (error) throw error;
-    return NextResponse.json({ success: true, opportunity: data }, { status: editing ? 200 : 201 });
+
+    let cycleScheduled = false;
+    if (editing && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
+      cycleScheduled = await scheduleNextCommercialCycle({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityTitle: base.title,
+        representativeId,
+        stage: input.stage,
+        userId: user.id,
+      });
+    }
+
+    return NextResponse.json({ success: true, opportunity: data, cycleScheduled }, { status: editing ? 200 : 201 });
   } catch (error) {
     return handleError(error);
   }
+}
+
+async function scheduleNextCommercialCycle({
+  admin,
+  companyId,
+  clientId,
+  opportunityTitle,
+  representativeId,
+  stage,
+  userId,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+  opportunityTitle: string;
+  representativeId: string;
+  stage: CrmOpportunityInput["stage"];
+  userId: string;
+}) {
+  const { data: profile, error: profileError } = await admin
+    .from("crm_customer_profiles")
+    .select("purchase_frequency_days")
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+
+  const frequencyDays = Number(profile?.purchase_frequency_days || 0);
+  if (!Number.isFinite(frequencyDays) || frequencyDays <= 0) return false;
+
+  const today = saoPauloDate();
+  const nextCycleDate = addDays(today, Math.trunc(frequencyDays));
+  const nextActionAt = `${nextCycleDate}T12:00:00.000Z`;
+  const profileUpdate: Record<string, string> = {
+    next_purchase_at: nextCycleDate,
+    next_contact_at: nextActionAt,
+    updated_at: new Date().toISOString(),
+  };
+  if (stage === "WON") profileUpdate.last_purchase_at = today;
+
+  const { error: updateError } = await admin
+    .from("crm_customer_profiles")
+    .update(profileUpdate)
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId);
+  if (updateError) throw updateError;
+
+  const outcome = stage === "WON" ? "PURCHASE_EXPECTED" : "FOLLOW_UP";
+  const resultLabel = stage === "WON" ? "GANHA" : "PERDIDA";
+  const { error: activityError } = await admin.from("crm_activities").insert({
+    tenant_company_id: companyId,
+    client_id: clientId,
+    representative_profile_id: representativeId,
+    activity_type: "NOTE",
+    outcome,
+    subject: "PROXIMO CICLO COMERCIAL AGENDADO",
+    notes: `OPORTUNIDADE ${resultLabel}: ${opportunityTitle}. NOVO CONTATO PROGRAMADO CONFORME A FREQUENCIA DE COMPRA DO CLIENTE.`,
+    occurred_at: new Date().toISOString(),
+    next_action_type: "FOLLOW_UP",
+    next_action_at: nextActionAt,
+    created_by: userId,
+  });
+  if (activityError) throw activityError;
+  return true;
+}
+
+function isClosedStage(stage: string) {
+  return stage === "WON" || stage === "LOST";
+}
+
+function saoPauloDate() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function addDays(dateValue: string, days: number) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }
