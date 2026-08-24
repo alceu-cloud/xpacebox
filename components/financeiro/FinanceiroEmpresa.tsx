@@ -79,6 +79,18 @@ function emptyItem(): QuoteItem {
   return { itemNumber: 1, ftNumber: "", description: "", length: 0, width: 0, height: 0, area: 0, quality: "", boxType: "", material: "", quantity: 1, unitPrice: 0, ipiPercent: 0, ipiValue: 0, total: 0 };
 }
 
+function resolveFichaArea(ficha: ProductFicha) {
+  const currentArea = Number(ficha.pricingData?.areaM2);
+  if (Number.isFinite(currentArea) && currentArea > 0) return currentArea;
+
+  const historicalArea = [...(ficha.priceHistory ?? [])]
+    .reverse()
+    .map((snapshot) => Number(snapshot.areaM2))
+    .find((area) => Number.isFinite(area) && area > 0);
+
+  return historicalArea ?? 0;
+}
+
 export default function FinanceiroEmpresa({
   companySlug,
   productFichas,
@@ -207,7 +219,7 @@ export default function FinanceiroEmpresa({
     if (!ficha) return;
     const material = materials.find((item) => item.id === ficha.materialId);
     const formula = engineeringFormulas.find((item) => item.id === ficha.engineeringId);
-    setItems([{ ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } }]);
+    setItems([{ ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } }]);
     updateForm("company", ficha.company);
   }
 
