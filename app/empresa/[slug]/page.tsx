@@ -188,52 +188,59 @@ export default function EmpresaPage() {
   const moduloSelecionado = modulos.find((modulo) => modulo.key === moduloAtivo);
 
   return (
-    <main style={paginaStyle}>
-      <aside
-        style={{
-          ...sidebarStyle,
-          left: menuAberto ? 0 : -252,
-        }}
-        onMouseEnter={() => setMenuAberto(true)}
-        onMouseLeave={() => setMenuAberto(false)}
-      >
-        <div style={sidebarContentStyle}>
-          <div style={sidebarHeaderStyle}>
-            <span style={sidebarEyebrowStyle}>MODULOS</span>
-            <strong style={sidebarTitleStyle}>AMBIENTE DAWOS</strong>
-          </div>
+    <main
+      style={{
+        ...paginaStyle,
+        paddingLeft: menuAberto ? 322 : 72,
+      }}
+    >
+      <div style={sidebarDockStyle}>
+        <aside
+          style={{
+            ...sidebarStyle,
+            transform: menuAberto ? "translateX(0)" : "translateX(-252px)",
+          }}
+          onMouseEnter={() => setMenuAberto(true)}
+          onMouseLeave={() => setMenuAberto(false)}
+        >
+          <div style={sidebarContentStyle}>
+            <div style={sidebarHeaderStyle}>
+              <span style={sidebarEyebrowStyle}>MODULOS</span>
+              <strong style={sidebarTitleStyle}>AMBIENTE DAWOS</strong>
+            </div>
 
-          <nav style={moduleListStyle}>
-            {modulosVisiveis.map((modulo) => {
-              const ativo = modulo.key === moduloAtivo;
-              return (
-                <button
-                  key={modulo.key}
-                  type="button"
-                  onClick={() => setModuloAtivo(modulo.key)}
-                  style={{
-                    ...moduleButtonStyle,
-                    ...(ativo ? activeModuleButtonStyle : {}),
-                    borderColor: ativo ? `${modulo.cor}55` : "rgba(52,64,84,.12)",
-                  }}
-                >
-                  <span
+            <nav style={moduleListStyle}>
+              {modulosVisiveis.map((modulo) => {
+                const ativo = modulo.key === moduloAtivo;
+                return (
+                  <button
+                    key={modulo.key}
+                    type="button"
+                    onClick={() => setModuloAtivo(modulo.key)}
                     style={{
-                      ...moduleAccentStyle,
-                      background: `linear-gradient(180deg, ${modulo.cor}, #e63dae, #ff3b25)`,
+                      ...moduleButtonStyle,
+                      ...(ativo ? activeModuleButtonStyle : {}),
+                      borderColor: ativo ? `${modulo.cor}55` : "rgba(52,64,84,.12)",
                     }}
-                  />
-                  <span style={moduleTextStyle}>
-                    <strong style={moduleNameStyle}>{modulo.nome}</strong>
-                    <small style={moduleDescriptionStyle}>{modulo.descricao}</small>
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-        <div style={sidebarHandleStyle}>MODULOS</div>
-      </aside>
+                  >
+                    <span
+                      style={{
+                        ...moduleAccentStyle,
+                        background: `linear-gradient(180deg, ${modulo.cor}, #e63dae, #ff3b25)`,
+                      }}
+                    />
+                    <span style={moduleTextStyle}>
+                      <strong style={moduleNameStyle}>{modulo.nome}</strong>
+                      <small style={moduleDescriptionStyle}>{modulo.descricao}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+          <div style={sidebarHandleStyle}>MODULOS</div>
+        </aside>
+      </div>
 
       <section style={workspaceStyle}>
         {!moduloSelecionado ? (
@@ -2211,24 +2218,37 @@ const paginaStyle = {
   width: "100%",
   display: "block",
   position: "relative" as const,
-  paddingLeft: 138,
+  transition: "padding-left .22s ease",
   boxSizing: "border-box" as const,
+};
+
+const sidebarDockStyle = {
+  width: 294,
+  position: "fixed" as const,
+  top: 188,
+  bottom: 20,
+  left: 0,
+  zIndex: 12,
+  display: "flex",
+  alignItems: "center",
+  pointerEvents: "none" as const,
 };
 
 const sidebarStyle = {
   width: 294,
-  position: "fixed" as const,
-  top: "50%",
-  zIndex: 12,
   display: "flex",
   alignItems: "stretch",
-  transition: "left .22s ease",
-  transform: "translateY(-50%)",
+  maxHeight: "calc(100vh - 228px)",
+  transition: "transform .22s ease",
   filter: "drop-shadow(0 22px 42px rgba(39,36,67,.14))",
+  pointerEvents: "auto" as const,
 };
 
 const sidebarContentStyle = {
   width: 252,
+  maxHeight: "calc(100vh - 228px)",
+  overflowY: "auto" as const,
+  scrollbarWidth: "thin" as const,
   borderRadius: 24,
   border: "1px solid rgba(111,50,210,.18)",
   background: "rgba(255,255,255,.92)",
