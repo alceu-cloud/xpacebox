@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { resolveQuoteRepresentative, syncQuoteWithCrm } from "@/lib/server/quote-crm";
 import type { QuoteDraft } from "@/types/orcamentos";
 
 export async function GET(request: Request) {
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
     if (!slug || !quote || !quote.clientName?.trim() || !quote.items?.length) return failure("PREENCHA O CLIENTE E PELO MENOS UM ITEM.", 400);
 
     const { admin, company, user } = await requireCompanyAccess(request, slug);
+    const representativeProfileId = quote.clientId
+      ? await resolveQuoteRepresentative(admin, company.id, quote.clientId, user.id)
+      : user.id;
     const prefix = quote.kind === "ENGINEERING" ? "OE" : "OD";
     const { data: numberData, error: numberError } = await admin.rpc("next_quote_number", { target_tenant: company.id, target_prefix: prefix });
     if (numberError) throw numberError;
@@ -57,7 +61,7 @@ export async function POST(request: Request) {
       phone: quote.phone || null,
       email: quote.email?.toLowerCase() || null,
       address: quote.address || null,
-      representative_profile_id: null,
+      representative_profile_id: representativeProfileId,
       representative_name: quote.representativeName || null,
       issue_date: quote.issueDate || new Date().toISOString().slice(0, 10),
       delivery_date: quote.deliveryDate || null,
@@ -100,6 +104,20 @@ export async function POST(request: Request) {
       .single();
     if (completeError) throw completeError;
 
+    if (quote.clientId) {
+      await syncQuoteWithCrm(admin, {
+        tenantCompanyId: company.id,
+        quoteId: String(saved.id),
+        quoteNumber: String(saved.quote_number),
+        clientId: quote.clientId,
+        clientName: quote.clientName.trim(),
+        representativeProfileId,
+        grandTotal: totals.productTotal + totals.ipiTotal,
+        validUntil: quote.validUntil || "",
+        createdBy: user.id,
+      });
+    }
+
     return NextResponse.json({ success: true, quote: mapQuote(complete) }, { status: 201 });
   } catch (error) {
     return handleError(error);
@@ -114,6 +132,12 @@ export async function DELETE(request: Request) {
     if (!slug || !id) return failure("ORCAMENTO INVALIDO.", 400);
 
     const { admin, company } = await requireCompanyAccess(request, slug);
+    const { error: crmError } = await admin
+      .from("crm_opportunities")
+      .delete()
+      .eq("tenant_company_id", company.id)
+      .eq("quote_id", id);
+    if (crmError) throw crmError;
     const { error } = await admin.from("quotes").delete().eq("id", id).eq("tenant_company_id", company.id);
     if (error) throw error;
     return NextResponse.json({ success: true });

@@ -137,6 +137,11 @@ export default function CrmEmpresa({
   useEffect(() => {
     if (!selectedClient) return;
     const owner = selectedProfile?.ownerProfileId || selectedClient.representativeUserId || overview.currentProfileId;
+    const nextContactAt = selectedProfile?.nextContactAt || "";
+    const scheduledActivity = overview.activities.find((activity) => {
+      if (activity.clientId !== selectedClient.id || !activity.nextActionAt) return false;
+      return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
+    });
     setProfileDraft({
       clientId: selectedClient.id,
       ownerProfileId: owner,
@@ -157,9 +162,11 @@ export default function CrmEmpresa({
       clientId: selectedClient.id,
       representativeProfileId: owner,
       occurredAt: toLocalDateTime(new Date().toISOString()),
+      nextActionType: scheduledActivity?.nextActionType || (nextContactAt ? "FOLLOW_UP" : ""),
+      nextActionAt: toLocalDateTime(nextContactAt || scheduledActivity?.nextActionAt || ""),
     });
     setOpportunityDraft({ ...emptyOpportunity, clientId: selectedClient.id, representativeProfileId: owner });
-  }, [overview.currentProfileId, selectedClient, selectedProfile]);
+  }, [overview.activities, overview.currentProfileId, selectedClient, selectedProfile]);
 
   const activeOpportunities = useMemo(
     () => overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST"),
@@ -213,11 +220,13 @@ export default function CrmEmpresa({
     setSaving(true);
     clearFeedback();
     try {
+      const savedNextActionAt = toIsoDateTime(activityDraft.nextActionAt);
+      const savedNextActionType = activityDraft.nextActionType;
       await createCrmActivity(slug, {
         ...activityDraft,
         clientId: selectedClient.id,
         occurredAt: toIsoDateTime(activityDraft.occurredAt) || new Date().toISOString(),
-        nextActionAt: toIsoDateTime(activityDraft.nextActionAt),
+        nextActionAt: savedNextActionAt,
       });
       await refresh(true);
       setActivityDraft((current) => ({
@@ -225,6 +234,8 @@ export default function CrmEmpresa({
         clientId: selectedClient.id,
         representativeProfileId: current.representativeProfileId,
         occurredAt: toLocalDateTime(new Date().toISOString()),
+        nextActionType: savedNextActionType,
+        nextActionAt: toLocalDateTime(savedNextActionAt),
       }));
       setMessage("CONTATO REGISTRADO NA LINHA DO TEMPO.");
     } catch (saveError) {
@@ -465,7 +476,7 @@ function AgendaBoard({
     { key: "overdue", label: "ATRASADOS", tone: "red", items: items.filter((item) => item.daysToAction < 0) },
     { key: "today", label: "PARA HOJE", tone: "purple", items: items.filter((item) => item.daysToAction === 0) },
     { key: "soon", label: "PROXIMOS 7 DIAS", tone: "yellow", items: items.filter((item) => item.daysToAction > 0 && item.daysToAction <= 7) },
-    { key: "unscheduled", label: "SEM PROGRAMACAO", tone: "gray", items: items.filter((item) => item.daysToAction > 7) },
+    { key: "later", label: "MAIS ADIANTE", tone: "gray", items: items.filter((item) => item.daysToAction > 7) },
   ];
 
   return (
@@ -687,7 +698,7 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
             <div>
               {items.map((item) => (
                 <article
-                  className={`crm-opportunity-card${draggedOpportunityId === item.id ? " is-dragging" : ""}`}
+                  className={`crm-opportunity-card${draggedOpportunityId === item.id ? " is-dragging" : ""}${isExpiredQuote(item) ? " is-quote-expired" : ""}`}
                   draggable={!saving}
                   key={item.id}
                   onDragStart={(event) => handleDragStart(event, item.id)}
@@ -696,7 +707,13 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
                   <button type="button" onClick={() => onSelectClient(item.clientId)}>{clientNames.get(item.clientId) || "CLIENTE"}</button>
                   <strong>{item.title}</strong>
                   <span>{money(item.estimatedValue)}</span>
-                  <small>{item.expectedCloseDate ? `PREVISAO ${displayDate(item.expectedCloseDate)}` : "SEM PREVISAO"}</small>
+                  <small className={isExpiredQuote(item) ? "crm-expired-label" : ""}>
+                    {isExpiredQuote(item)
+                      ? `ORCAMENTO VENCIDO EM ${displayDate(item.expectedCloseDate)}`
+                      : item.expectedCloseDate
+                        ? `PREVISAO ${displayDate(item.expectedCloseDate)}`
+                        : "SEM PREVISAO"}
+                  </small>
                 </article>
               ))}
               {!items.length ? <p>SEM OPORTUNIDADES.</p> : null}
@@ -706,6 +723,21 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
       })}
     </section>
   );
+}
+
+function isExpiredQuote(opportunity: CrmOpportunity) {
+  if (!opportunity.quoteId || !opportunity.expectedCloseDate) return false;
+  if (opportunity.stage === "WON" || opportunity.stage === "LOST") return false;
+  return opportunity.expectedCloseDate.slice(0, 10) < localDateKey();
+}
+
+function localDateKey() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function WhatsAppPanel({ connections, sellerCompanies, optedIn }: { connections: CrmOverview["whatsappConnections"]; sellerCompanies: SellerCompanyOption[]; optedIn: number }) {
@@ -786,8 +818,8 @@ function rankClients(clients: ClientRecord[], profiles: CrmCustomerProfile[]): R
     const profile = profileMap.get(client.id);
     const nextPurchaseAt = purchaseDate(profile);
     const health = calculateHealth(profile, nextPurchaseAt);
-    const actionDates = [profile?.nextContactAt, nextPurchaseAt].filter(Boolean) as string[];
-    const daysToAction = actionDates.length ? Math.min(...actionDates.map(daysUntil)) : 99999;
+    const actionDate = profile?.nextContactAt || nextPurchaseAt;
+    const daysToAction = actionDate ? daysUntil(actionDate) : 99999;
     return { client, profile, health, daysToAction, nextPurchaseAt };
   }).sort((a, b) => healthRank[a.health] - healthRank[b.health] || a.daysToAction - b.daysToAction || a.client.legalName.localeCompare(b.client.legalName, "pt-BR"));
 }
@@ -808,11 +840,11 @@ function calculateNextPurchaseDate(lastPurchaseAt: string, purchaseFrequencyDays
 
 function calculateHealth(profile?: CrmCustomerProfile, calculatedPurchase = ""): CrmHealth {
   if (!profile || profile.relationshipStatus === "BLOCKED") return "GRAY";
-  const dates = [profile.nextContactAt, calculatedPurchase || purchaseDate(profile)].filter(Boolean) as string[];
-  if (!dates.length) return "GRAY";
-  const closest = Math.min(...dates.map(daysUntil));
-  if (closest < 0) return "RED";
-  if (closest <= 7) return "YELLOW";
+  const actionDate = profile.nextContactAt || calculatedPurchase || purchaseDate(profile);
+  if (!actionDate) return "GRAY";
+  const actionDays = daysUntil(actionDate);
+  if (actionDays < 0) return "RED";
+  if (actionDays <= 7) return "YELLOW";
   return "GREEN";
 }
 
@@ -825,17 +857,12 @@ function nextActionLabel(item: RankedClient) {
 
 function agendaActionLabel(item: RankedClient) {
   if (item.health === "GRAY") return "PROGRAMAR PRIMEIRO CONTATO";
-  const contactDays = item.profile?.nextContactAt ? daysUntil(item.profile.nextContactAt) : 99999;
-  const purchaseDays = item.nextPurchaseAt ? daysUntil(item.nextPurchaseAt) : 99999;
-  if (contactDays <= purchaseDays) return "REALIZAR CONTATO PROGRAMADO";
-  return "ACOMPANHAR PREVISAO DE COMPRA";
+  return item.profile?.nextContactAt ? "REALIZAR CONTATO PROGRAMADO" : "ACOMPANHAR PREVISAO DE COMPRA";
 }
 
 function agendaDateLabel(item: RankedClient) {
   if (item.health === "GRAY") return "SEM DATA DEFINIDA";
-  const contactDays = item.profile?.nextContactAt ? daysUntil(item.profile.nextContactAt) : 99999;
-  const purchaseDays = item.nextPurchaseAt ? daysUntil(item.nextPurchaseAt) : 99999;
-  const value = contactDays <= purchaseDays ? item.profile?.nextContactAt : item.nextPurchaseAt;
+  const value = item.profile?.nextContactAt || item.nextPurchaseAt;
   return value ? displayDate(value) : "SEM DATA DEFINIDA";
 }
 

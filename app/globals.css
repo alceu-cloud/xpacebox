@@ -1480,6 +1480,11 @@ button {
 
 .crm-opportunity-card:active { cursor: grabbing; }
 .crm-opportunity-card.is-dragging { opacity: 0.45; transform: scale(0.98); box-shadow: none; }
+.crm-opportunity-card.is-quote-expired {
+  border-color: #ff8f9a;
+  background: #fff5f6;
+  box-shadow: inset 4px 0 0 #ff3d4f;
+}
 
 .crm-opportunity-card button {
   padding: 0;
@@ -1495,6 +1500,7 @@ button {
 .crm-opportunity-card strong { color: #171b2d; font-size: 14px; }
 .crm-opportunity-card span { color: #078c50; font-size: 16px; font-weight: 900; }
 .crm-opportunity-card small { color: #707a90; font-size: 11px; font-weight: 800; }
+.crm-opportunity-card .crm-expired-label { color: #d92238; font-weight: 900; }
 .crm-opportunity-card select { min-height: 36px; padding: 0 7px; font-size: 12px; }
 
 .crm-whatsapp-panel { padding: 22px; }
