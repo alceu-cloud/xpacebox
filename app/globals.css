@@ -1308,17 +1308,15 @@ button {
   cursor: pointer;
 }
 
-.crm-detail-tabs button.active { border-color: #e9007f; color: #171b2d; }
-
-.crm-detail-tabs button.crm-contact-tab {
+.crm-detail-tabs button.active {
   border-radius: 6px 6px 0 0;
+  border-color: #e9007f;
   background: linear-gradient(100deg, #8a2be2 0%, #e9007f 58%, #ff3b30 100%);
   box-shadow: 0 8px 18px rgba(151, 38, 201, 0.2);
   color: #fff;
 }
 
-.crm-detail-tabs button.crm-contact-tab:hover,
-.crm-detail-tabs button.crm-contact-tab.active {
+.crm-detail-tabs button.active:hover {
   border-color: #e9007f;
   background: linear-gradient(100deg, #7022c7 0%, #d50073 58%, #f52f2a 100%);
   color: #fff;

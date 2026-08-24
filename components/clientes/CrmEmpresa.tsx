@@ -178,9 +178,11 @@ export default function CrmEmpresa({
       return matchesTerm && matchesOwner;
     });
   }, [ownerFilter, rankedClients, search]);
-  const agendaClients = visibleClients.filter(
-    (item) => !activeOpportunityClientIds.has(item.client.id) && (item.health !== "GREEN" || item.daysToAction <= 7)
-  );
+  const agendaClients = visibleClients.filter((item) => {
+    const hasActiveOpportunity = activeOpportunityClientIds.has(item.client.id);
+    const hasScheduledContact = Boolean(item.profile?.nextContactAt);
+    return (!hasActiveOpportunity || hasScheduledContact) && (item.health !== "GREEN" || item.daysToAction <= 7);
+  });
   const selectedActivities = overview.activities.filter((activity) => activity.clientId === selectedClientId);
   const selectedOpportunities = overview.opportunities.filter((opportunity) => opportunity.clientId === selectedClientId);
 
@@ -306,10 +308,12 @@ export default function CrmEmpresa({
     clearFeedback();
   }
 
-  const clientsWithoutActiveOpportunity = rankedClients.filter((item) => !activeOpportunityClientIds.has(item.client.id));
-  const overdueCount = clientsWithoutActiveOpportunity.filter((item) => item.health === "RED").length;
-  const dueSoonCount = clientsWithoutActiveOpportunity.filter((item) => item.health === "YELLOW").length;
-  const noHistoryCount = clientsWithoutActiveOpportunity.filter((item) => item.health === "GRAY").length;
+  const clientsEligibleForAgenda = rankedClients.filter(
+    (item) => !activeOpportunityClientIds.has(item.client.id) || Boolean(item.profile?.nextContactAt)
+  );
+  const overdueCount = clientsEligibleForAgenda.filter((item) => item.health === "RED").length;
+  const dueSoonCount = clientsEligibleForAgenda.filter((item) => item.health === "YELLOW").length;
+  const noHistoryCount = clientsEligibleForAgenda.filter((item) => item.health === "GRAY").length;
 
   return (
     <section className="crm-shell">
