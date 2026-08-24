@@ -143,7 +143,9 @@ export default function CrmEmpresa({
       purchaseFrequencyDays: selectedProfile?.purchaseFrequencyDays ?? null,
       averagePurchaseValue: selectedProfile?.averagePurchaseValue ?? 0,
       lastPurchaseAt: selectedProfile?.lastPurchaseAt || "",
-      nextPurchaseAt: calculateNextPurchaseDate(selectedProfile?.lastPurchaseAt || "", selectedProfile?.purchaseFrequencyDays ?? null),
+      nextPurchaseAt:
+        selectedProfile?.nextPurchaseAt ||
+        calculateNextPurchaseDate(selectedProfile?.lastPurchaseAt || "", selectedProfile?.purchaseFrequencyDays ?? null),
       nextContactAt: toLocalDateTime(selectedProfile?.nextContactAt || ""),
       relationshipStatus: selectedProfile?.relationshipStatus || "ACTIVE",
       whatsappOptIn: selectedProfile?.whatsappOptIn ?? false,
@@ -190,7 +192,9 @@ export default function CrmEmpresa({
       await saveCrmProfile(slug, {
         ...profileDraft,
         clientId: selectedClient.id,
-        nextPurchaseAt: calculateNextPurchaseDate(profileDraft.lastPurchaseAt, profileDraft.purchaseFrequencyDays),
+        nextPurchaseAt:
+          profileDraft.nextPurchaseAt ||
+          calculateNextPurchaseDate(profileDraft.lastPurchaseAt, profileDraft.purchaseFrequencyDays),
         nextContactAt: toIsoDateTime(profileDraft.nextContactAt),
       });
       await refresh(true);
@@ -594,7 +598,6 @@ function ClientDetail({
             <label className="crm-textarea crm-span-2"><span>ANOTACOES DA CARTEIRA</span><textarea value={profileDraft.notes} onChange={(event) => setProfileDraft({ ...profileDraft, notes: upper(event.target.value) })} /></label>
           </div>
           <div className="crm-form-actions"><button type="button" onClick={onSaveProfile} disabled={saving}>SALVAR CARTEIRA</button></div>
-          <Timeline activities={activities} opportunities={opportunities} />
         </>
       ) : null}
 
@@ -611,6 +614,7 @@ function ClientDetail({
             <label className="crm-textarea crm-span-2"><span>RESUMO DO CONTATO</span><textarea value={activityDraft.notes} onChange={(event) => setActivityDraft({ ...activityDraft, notes: upper(event.target.value) })} /></label>
           </div>
           <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving}>REGISTRAR CONTATO</button></div>
+          <Timeline activities={activities} opportunities={opportunities} />
         </div>
       ) : null}
 
@@ -786,7 +790,7 @@ function rankClients(clients: ClientRecord[], profiles: CrmCustomerProfile[]): R
 
 function purchaseDate(profile?: CrmCustomerProfile) {
   if (!profile) return "";
-  return calculateNextPurchaseDate(profile.lastPurchaseAt, profile.purchaseFrequencyDays);
+  return profile.nextPurchaseAt || calculateNextPurchaseDate(profile.lastPurchaseAt, profile.purchaseFrequencyDays);
 }
 
 function calculateNextPurchaseDate(lastPurchaseAt: string, purchaseFrequencyDays: number | null) {

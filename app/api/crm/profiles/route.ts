@@ -15,7 +15,7 @@ export async function PUT(request: Request) {
     if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
     if (input.ownerProfileId) await requireCompanyProfile(admin, company.id, input.ownerProfileId);
     const purchaseFrequencyDays = input.purchaseFrequencyDays && input.purchaseFrequencyDays > 0 ? Math.trunc(input.purchaseFrequencyDays) : null;
-    const nextPurchaseAt = calculateNextPurchaseDate(input.lastPurchaseAt, purchaseFrequencyDays);
+    const nextPurchaseAt = input.nextPurchaseAt || calculateNextPurchaseDate(input.lastPurchaseAt, purchaseFrequencyDays);
 
     const payload = {
       tenant_company_id: company.id,
