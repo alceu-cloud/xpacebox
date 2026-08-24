@@ -2225,8 +2225,8 @@ const paginaStyle = {
 const sidebarDockStyle = {
   width: 294,
   position: "fixed" as const,
-  top: 188,
-  bottom: 20,
+  top: 168,
+  bottom: 10,
   left: 0,
   zIndex: 12,
   display: "flex",
@@ -2238,7 +2238,7 @@ const sidebarStyle = {
   width: 294,
   display: "flex",
   alignItems: "stretch",
-  maxHeight: "calc(100vh - 228px)",
+  maxHeight: "calc(100vh - 38px)",
   transition: "transform .22s ease",
   filter: "drop-shadow(0 22px 42px rgba(39,36,67,.14))",
   pointerEvents: "auto" as const,
@@ -2246,7 +2246,7 @@ const sidebarStyle = {
 
 const sidebarContentStyle = {
   width: 252,
-  maxHeight: "calc(100vh - 228px)",
+  maxHeight: "calc(100vh - 38px)",
   overflowY: "auto" as const,
   scrollbarWidth: "thin" as const,
   borderRadius: 24,
