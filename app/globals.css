@@ -882,7 +882,7 @@ button {
 
 .crm-stat span {
   color: #65708a;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -913,7 +913,7 @@ button {
   border-radius: 6px;
   background: transparent;
   color: #59657e;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -967,7 +967,7 @@ button {
 .crm-field > span,
 .crm-textarea > span {
   color: #6f2ee4;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -1004,7 +1004,7 @@ button {
   background: #fff;
   color: #171b2d;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -1070,7 +1070,7 @@ button {
 .crm-client-row span,
 .crm-client-row small {
   color: #6d768c;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -1095,7 +1095,7 @@ button {
 
 .crm-client-row-info b {
   color: #e9007f;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .crm-detail-panel { padding: 20px; }
@@ -1126,7 +1126,7 @@ button {
 .crm-customer-header p {
   margin: 0;
   color: #677189;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -1145,7 +1145,7 @@ button {
   border-radius: 6px;
   background: #7a31e8;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   place-items: center;
   text-decoration: none;
@@ -1181,7 +1181,7 @@ button {
   border-bottom: 3px solid transparent;
   background: transparent;
   color: #69738a;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -1205,8 +1205,8 @@ button {
   background: #fafbfc;
 }
 
-.crm-metric span { color: #69738a; font-size: 10px; font-weight: 900; }
-.crm-metric strong { align-self: end; color: #171b2d; font-size: 15px; }
+.crm-metric span { color: #69738a; font-size: 12px; font-weight: 900; }
+.crm-metric strong { align-self: end; color: #171b2d; font-size: 16px; }
 
 .crm-profile-grid {
   display: grid;
@@ -1237,7 +1237,7 @@ button {
   border: 1px solid #d7dbe5;
   border-radius: 6px;
   color: #59657e;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -1279,9 +1279,9 @@ button {
 }
 
 .crm-timeline article div { display: grid; gap: 4px; }
-.crm-timeline span { color: #7a31e8; font-size: 10px; font-weight: 900; }
-.crm-timeline strong { color: #171b2d; font-size: 13px; }
-.crm-timeline p { margin: 0; color: #68728a; font-size: 12px; font-weight: 700; }
+.crm-timeline span { color: #7a31e8; font-size: 12px; font-weight: 900; }
+.crm-timeline strong { color: #171b2d; font-size: 14px; }
+.crm-timeline p { margin: 0; color: #68728a; font-size: 13px; font-weight: 700; }
 
 .crm-pipeline {
   display: grid;
@@ -1311,10 +1311,10 @@ button {
   background: #fff;
 }
 
-.crm-pipeline-column > header strong { color: #171b2d; font-size: 11px; }
+.crm-pipeline-column > header strong { color: #171b2d; font-size: 12px; }
 .crm-pipeline-column > header span { color: #7a31e8; font-weight: 900; }
 .crm-pipeline-column > div { display: grid; gap: 8px; padding: 8px; }
-.crm-pipeline-column > div > p { color: #8a92a5; font-size: 10px; font-weight: 800; text-align: center; }
+.crm-pipeline-column > div > p { color: #8a92a5; font-size: 12px; font-weight: 800; text-align: center; }
 .crm-stage-contact_pending { border-top-color: #98a0b3; }
 .crm-stage-contacted { border-top-color: #4585e8; }
 .crm-stage-quote_preparation { border-top-color: #7a31e8; }
@@ -1337,16 +1337,16 @@ button {
   border: 0;
   background: transparent;
   color: #7a31e8;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 900;
   text-align: left;
   cursor: pointer;
 }
 
-.crm-opportunity-card strong { color: #171b2d; font-size: 13px; }
-.crm-opportunity-card span { color: #078c50; font-size: 15px; font-weight: 900; }
-.crm-opportunity-card small { color: #707a90; font-size: 9px; font-weight: 800; }
-.crm-opportunity-card select { min-height: 34px; padding: 0 6px; font-size: 10px; }
+.crm-opportunity-card strong { color: #171b2d; font-size: 14px; }
+.crm-opportunity-card span { color: #078c50; font-size: 16px; font-weight: 900; }
+.crm-opportunity-card small { color: #707a90; font-size: 11px; font-weight: 800; }
+.crm-opportunity-card select { min-height: 36px; padding: 0 7px; font-size: 12px; }
 
 .crm-whatsapp-panel { padding: 22px; }
 
@@ -1382,7 +1382,7 @@ button {
   width: max-content;
   padding: 6px 8px;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -1390,7 +1390,7 @@ button {
 .crm-whatsapp-grid article > div.pending { background: #fff5da; color: #9b6900; }
 .crm-whatsapp-grid h4 { margin: 4px 0 0; color: #171b2d; font-size: 18px; }
 .crm-whatsapp-grid p { margin: 0; color: #59657e; font-size: 14px; font-weight: 800; }
-.crm-whatsapp-grid span { color: #7a31e8; font-size: 10px; font-weight: 900; }
+.crm-whatsapp-grid span { color: #7a31e8; font-size: 12px; font-weight: 900; }
 
 @media (max-width: 1250px) {
   .crm-header { align-items: stretch; flex-direction: column; }
