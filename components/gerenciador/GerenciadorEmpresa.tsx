@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 import {
   defaultQuoteParametersByCompany,
@@ -368,14 +369,7 @@ export default function GerenciadorEmpresa({
             </div>
             <label style={wideLabelStyle}>
               CUSTO BASE (M2) (PRECO COM IPI)
-              <input
-                type="number"
-                step="0.01"
-                value={materialDraft.costIpi || ""}
-                onChange={(event) => setMaterialDraft({ ...materialDraft, costIpi: Number(event.target.value) || 0 })}
-                placeholder="EX: 3.20"
-                style={inputStyle}
-              />
+              <CurrencyInput value={materialDraft.costIpi || ""} onValueChange={(costIpi) => setMaterialDraft({ ...materialDraft, costIpi: costIpi || 0 })} style={inputStyle} />
             </label>
             <Actions onCancel={() => setForm(null)} onSave={saveMaterial} />
           </FormPanel>
@@ -931,7 +925,7 @@ export function ProductCatalogPanel({
     return (
       <div style={productFieldsStyle}>
         <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
-        <label style={productLabelStyle}>PRECO (R$)<input type="number" min="0" step="0.01" value={item.price || ""} onChange={(event) => update("price", Number(event.target.value) || 0)} style={productInputStyle} placeholder="0,00" /></label>
+        <label style={productLabelStyle}>PRECO (R$)<CurrencyInput value={item.price || ""} onValueChange={(price) => update("price", price || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>REVISAO<input value={item.revision} onChange={(event) => update("revision", event.target.value)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} onChange={(event) => update("company", event.target.value)} style={productInputStyle}>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
         <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => update("clientId", event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}</select></label>

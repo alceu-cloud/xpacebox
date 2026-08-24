@@ -10,6 +10,7 @@ import {
   saveClient as persistClient,
 } from "@/lib/clientes";
 import CrmEmpresa from "@/components/clientes/CrmEmpresa";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import type {
   ClientFormData,
   ClientRecord,
@@ -353,7 +354,7 @@ export default function ClientesEmpresa({
               onChange={(cfop) => setForm({ ...form, cfop })}
               options={cfops.map((item) => ({ value: item.code, label: `${item.code} - ${item.description}` }))}
             />
-            <Field label="LIMITE DE COMPRA" value={form.purchaseLimit} onChange={(purchaseLimit) => setForm({ ...form, purchaseLimit })} type="number" />
+            <Field label="LIMITE DE COMPRA" value={form.purchaseLimit} onChange={(purchaseLimit) => setForm({ ...form, purchaseLimit })} currency />
             <SelectField label="REGIME TRIBUTARIO" value={form.taxRegime} onChange={(taxRegime) => setForm({ ...form, taxRegime })} options={taxRegimes.map((item) => ({ value: item.name, label: item.name }))} />
             <SelectField label="PERFIL FISCAL" value={form.fiscalProfile} onChange={(fiscalProfile) => setForm({ ...form, fiscalProfile })} options={fiscalProfiles.map((item) => ({ value: item.name, label: item.name }))} />
             <SelectField label="BENEFICIO FISCAL ESPECIFICO" value={form.fiscalBenefit} onChange={(fiscalBenefit) => setForm({ ...form, fiscalBenefit })} options={fiscalBenefits.map((item) => ({ value: item.name, label: item.name }))} />
@@ -445,11 +446,15 @@ function FormSection({ title, children }: { title: string; children: React.React
   );
 }
 
-function Field({ label, value, onChange, type = "text", wide = false, lowercase = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean; lowercase?: boolean }) {
+function Field({ label, value, onChange, type = "text", wide = false, lowercase = false, currency = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean; lowercase?: boolean; currency?: boolean }) {
   return (
     <label className={wide ? "clients-field clients-field-wide" : "clients-field"}>
       <span>{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(lowercase ? event.target.value.toLowerCase() : event.target.value)} />
+      {currency ? (
+        <CurrencyInput value={value} onValueChange={(nextValue) => onChange(nextValue === null ? "" : String(nextValue))} />
+      ) : (
+        <input type={type} value={value} onChange={(event) => onChange(lowercase ? event.target.value.toLowerCase() : event.target.value)} />
+      )}
     </label>
   );
 }

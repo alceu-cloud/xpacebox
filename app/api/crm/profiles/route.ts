@@ -14,15 +14,17 @@ export async function PUT(request: Request) {
     const { data: client } = await admin.from("clients").select("id").eq("id", input.clientId).eq("tenant_company_id", company.id).eq("active", true).maybeSingle();
     if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
     if (input.ownerProfileId) await requireCompanyProfile(admin, company.id, input.ownerProfileId);
+    const purchaseFrequencyDays = input.purchaseFrequencyDays && input.purchaseFrequencyDays > 0 ? Math.trunc(input.purchaseFrequencyDays) : null;
+    const nextPurchaseAt = calculateNextPurchaseDate(input.lastPurchaseAt, purchaseFrequencyDays);
 
     const payload = {
       tenant_company_id: company.id,
       client_id: input.clientId,
       owner_profile_id: input.ownerProfileId || null,
-      purchase_frequency_days: input.purchaseFrequencyDays || null,
+      purchase_frequency_days: purchaseFrequencyDays,
       average_purchase_value: Math.max(0, Number(input.averagePurchaseValue || 0)),
       last_purchase_at: input.lastPurchaseAt || null,
-      next_purchase_at: input.nextPurchaseAt || null,
+      next_purchase_at: nextPurchaseAt || null,
       next_contact_at: input.nextContactAt || null,
       relationship_status: input.relationshipStatus || "ACTIVE",
       whatsapp_opt_in: Boolean(input.whatsappOptIn),
@@ -39,6 +41,15 @@ export async function PUT(request: Request) {
   } catch (error) {
     return handleError(error);
   }
+}
+
+function calculateNextPurchaseDate(lastPurchaseAt: string, purchaseFrequencyDays: number | null) {
+  if (!lastPurchaseAt || !purchaseFrequencyDays) return "";
+  const [year, month, day] = lastPurchaseAt.split("-").map(Number);
+  if (!year || !month || !day) return "";
+  const date = new Date(year, month - 1, day, 12);
+  date.setDate(date.getDate() + purchaseFrequencyDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }

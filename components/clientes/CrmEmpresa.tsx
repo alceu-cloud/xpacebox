@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { createCrmActivity, loadCrmOverview, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
   CrmActivityInput,
@@ -141,7 +142,7 @@ export default function CrmEmpresa({
       purchaseFrequencyDays: selectedProfile?.purchaseFrequencyDays ?? null,
       averagePurchaseValue: selectedProfile?.averagePurchaseValue ?? 0,
       lastPurchaseAt: selectedProfile?.lastPurchaseAt || "",
-      nextPurchaseAt: selectedProfile?.nextPurchaseAt || "",
+      nextPurchaseAt: calculateNextPurchaseDate(selectedProfile?.lastPurchaseAt || "", selectedProfile?.purchaseFrequencyDays ?? null),
       nextContactAt: toLocalDateTime(selectedProfile?.nextContactAt || ""),
       relationshipStatus: selectedProfile?.relationshipStatus || "ACTIVE",
       whatsappOptIn: selectedProfile?.whatsappOptIn ?? false,
@@ -179,6 +180,7 @@ export default function CrmEmpresa({
       await saveCrmProfile(slug, {
         ...profileDraft,
         clientId: selectedClient.id,
+        nextPurchaseAt: calculateNextPurchaseDate(profileDraft.lastPurchaseAt, profileDraft.purchaseFrequencyDays),
         nextContactAt: toIsoDateTime(profileDraft.nextContactAt),
       });
       await refresh(true);
@@ -554,10 +556,10 @@ function ClientDetail({
           </div>
           <div className="crm-profile-grid">
             <CrmSelect label="RESPONSAVEL" value={profileDraft.ownerProfileId} onChange={(ownerProfileId) => setProfileDraft({ ...profileDraft, ownerProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
-            <CrmInput label="FREQUENCIA DE COMPRA (DIAS)" type="number" value={profileDraft.purchaseFrequencyDays ?? ""} onChange={(value) => setProfileDraft({ ...profileDraft, purchaseFrequencyDays: value ? Number(value) : null })} />
-            <CrmInput label="VALOR MEDIO DE COMPRA" type="number" value={profileDraft.averagePurchaseValue || ""} onChange={(value) => setProfileDraft({ ...profileDraft, averagePurchaseValue: Number(value || 0) })} />
-            <CrmInput label="ULTIMA COMPRA" type="date" value={profileDraft.lastPurchaseAt} onChange={(lastPurchaseAt) => setProfileDraft({ ...profileDraft, lastPurchaseAt })} />
-            <CrmInput label="PROXIMA COMPRA PREVISTA" type="date" value={profileDraft.nextPurchaseAt} onChange={(nextPurchaseAt) => setProfileDraft({ ...profileDraft, nextPurchaseAt })} />
+            <CrmInput label="FREQUENCIA DE COMPRA (DIAS)" type="number" value={profileDraft.purchaseFrequencyDays ?? ""} onChange={(value) => { const purchaseFrequencyDays = value ? Number(value) : null; setProfileDraft({ ...profileDraft, purchaseFrequencyDays, nextPurchaseAt: calculateNextPurchaseDate(profileDraft.lastPurchaseAt, purchaseFrequencyDays) }); }} />
+            <CrmInput label="VALOR MEDIO DE COMPRA" value={profileDraft.averagePurchaseValue || ""} onChange={(value) => setProfileDraft({ ...profileDraft, averagePurchaseValue: Number(value || 0) })} currency />
+            <CrmInput label="ULTIMA COMPRA" type="date" value={profileDraft.lastPurchaseAt} onChange={(lastPurchaseAt) => setProfileDraft({ ...profileDraft, lastPurchaseAt, nextPurchaseAt: calculateNextPurchaseDate(lastPurchaseAt, profileDraft.purchaseFrequencyDays) })} />
+            <CrmInput label="PROXIMA COMPRA PREVISTA" type="date" value={profileDraft.nextPurchaseAt} onChange={() => undefined} readOnly />
             <CrmInput label="PROXIMO CONTATO" type="datetime-local" value={profileDraft.nextContactAt} onChange={(nextContactAt) => setProfileDraft({ ...profileDraft, nextContactAt })} />
             <CrmSelect label="SITUACAO" value={profileDraft.relationshipStatus} onChange={(relationshipStatus) => setProfileDraft({ ...profileDraft, relationshipStatus: relationshipStatus as CrmProfileInput["relationshipStatus"] })} options={[{ value: "ACTIVE", label: "ATIVO" }, { value: "DORMANT", label: "INATIVO COMERCIAL" }, { value: "BLOCKED", label: "BLOQUEADO" }]} />
             <label className="crm-check-field"><input type="checkbox" checked={profileDraft.whatsappOptIn} onChange={(event) => setProfileDraft({ ...profileDraft, whatsappOptIn: event.target.checked })} /><span>AUTORIZOU CONTATO PELO WHATSAPP</span></label>
@@ -589,7 +591,7 @@ function ClientDetail({
           <div className="crm-profile-grid">
             <CrmInput label="OPORTUNIDADE" value={opportunityDraft.title} onChange={(title) => setOpportunityDraft({ ...opportunityDraft, title: upper(title) })} />
             <CrmSelect label="ETAPA" value={opportunityDraft.stage} onChange={(stage) => setOpportunityDraft({ ...opportunityDraft, stage: stage as CrmOpportunityStage })} options={stageOptions} />
-            <CrmInput label="VALOR ESTIMADO" type="number" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} />
+            <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency />
             <CrmInput label="PREVISAO DE FECHAMENTO" type="date" value={opportunityDraft.expectedCloseDate} onChange={(expectedCloseDate) => setOpportunityDraft({ ...opportunityDraft, expectedCloseDate })} />
             <CrmSelect label="REPRESENTANTE" value={opportunityDraft.representativeProfileId} onChange={(representativeProfileId) => setOpportunityDraft({ ...opportunityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
             <label className="crm-textarea crm-span-2"><span>ANOTACOES</span><textarea value={opportunityDraft.notes} onChange={(event) => setOpportunityDraft({ ...opportunityDraft, notes: upper(event.target.value) })} /></label>
@@ -686,8 +688,8 @@ function Metric({ label, value }: { label: string; value: string }) {
   return <div className="crm-metric"><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function CrmInput({ label, value, onChange, type = "text" }: { label: string; value: string | number; onChange: (value: string) => void; type?: string }) {
-  return <label className="crm-field"><span>{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+function CrmInput({ label, value, onChange, type = "text", currency = false, readOnly = false }: { label: string; value: string | number; onChange: (value: string) => void; type?: string; currency?: boolean; readOnly?: boolean }) {
+  return <label className="crm-field"><span>{label}</span>{currency ? <CurrencyInput value={value} onValueChange={(nextValue) => onChange(nextValue === null ? "" : String(nextValue))} readOnly={readOnly} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} readOnly={readOnly} />}</label>;
 }
 
 function CrmSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
@@ -716,11 +718,17 @@ function rankClients(clients: ClientRecord[], profiles: CrmCustomerProfile[]): R
 }
 
 function purchaseDate(profile?: CrmCustomerProfile) {
-  if (profile?.nextPurchaseAt) return profile.nextPurchaseAt;
-  if (!profile?.lastPurchaseAt || !profile.purchaseFrequencyDays) return "";
-  const date = new Date(`${profile.lastPurchaseAt}T12:00:00`);
-  date.setDate(date.getDate() + profile.purchaseFrequencyDays);
-  return date.toISOString().slice(0, 10);
+  if (!profile) return "";
+  return calculateNextPurchaseDate(profile.lastPurchaseAt, profile.purchaseFrequencyDays);
+}
+
+function calculateNextPurchaseDate(lastPurchaseAt: string, purchaseFrequencyDays: number | null) {
+  if (!lastPurchaseAt || !purchaseFrequencyDays || purchaseFrequencyDays <= 0) return "";
+  const [year, month, day] = lastPurchaseAt.split("-").map(Number);
+  if (!year || !month || !day) return "";
+  const date = new Date(year, month - 1, day, 12);
+  date.setDate(date.getDate() + purchaseFrequencyDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function calculateHealth(profile?: CrmCustomerProfile, calculatedPurchase = ""): CrmHealth {
