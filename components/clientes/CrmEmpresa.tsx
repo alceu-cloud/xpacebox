@@ -305,16 +305,33 @@ export default function CrmEmpresa({
       {message && <div className="clients-feedback clients-feedback-success">{message}</div>}
       {loading ? <div className="clients-empty crm-loading">CARREGANDO CENTRAL COMERCIAL...</div> : null}
 
-      {!loading && (view === "agenda" || view === "carteira") ? (
-        <>
-          <div className="crm-workspace">
+      {!loading && view === "agenda" ? (
+        <AgendaBoard
+          items={agendaClients}
+          search={search}
+          setSearch={setSearch}
+          ownerFilter={ownerFilter}
+          setOwnerFilter={setOwnerFilter}
+          representatives={representatives}
+          isManager={overview.isManager}
+          opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
+          quoteCount={(clientId) => quoteByClient.get(clientId)?.count || 0}
+          onOpenClient={(clientId) => {
+            selectClient(clientId);
+            setView("carteira");
+          }}
+        />
+      ) : null}
+
+      {!loading && view === "carteira" ? (
+        <div className="crm-workspace">
             <section className="crm-list-panel">
               <div className="crm-panel-title">
                 <div>
-                  <span>{view === "agenda" ? "PRIORIDADES" : "CLIENTES"}</span>
-                  <strong>{view === "agenda" ? "AGENDA COMERCIAL" : "CARTEIRA COMERCIAL"}</strong>
+                  <span>CLIENTES</span>
+                  <strong>CARTEIRA COMERCIAL</strong>
                 </div>
-                <b>{view === "agenda" ? agendaClients.length : visibleClients.length}</b>
+                <b>{visibleClients.length}</b>
               </div>
               <div className="crm-list-filters">
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR CLIENTE" />
@@ -326,7 +343,7 @@ export default function CrmEmpresa({
                 ) : null}
               </div>
               <div className="crm-client-list">
-                {(view === "agenda" ? agendaClients : visibleClients).map((item) => (
+                {visibleClients.map((item) => (
                   <ClientListItem
                     key={item.client.id}
                     item={item}
@@ -336,7 +353,7 @@ export default function CrmEmpresa({
                     onClick={() => selectClient(item.client.id)}
                   />
                 ))}
-                {(view === "agenda" ? agendaClients : visibleClients).length === 0 ? (
+                {visibleClients.length === 0 ? (
                   <div className="clients-empty">NENHUM CLIENTE NESTA VISAO.</div>
                 ) : null}
               </div>
@@ -360,7 +377,6 @@ export default function CrmEmpresa({
               saving={saving}
             />
           </div>
-        </>
       ) : null}
 
       {!loading && view === "pipeline" ? (
@@ -380,6 +396,93 @@ export default function CrmEmpresa({
           optedIn={overview.profiles.filter((item) => item.whatsappOptIn).length}
         />
       ) : null}
+    </section>
+  );
+}
+
+function AgendaBoard({
+  items,
+  search,
+  setSearch,
+  ownerFilter,
+  setOwnerFilter,
+  representatives,
+  isManager,
+  opportunityCount,
+  quoteCount,
+  onOpenClient,
+}: {
+  items: RankedClient[];
+  search: string;
+  setSearch: (value: string) => void;
+  ownerFilter: string;
+  setOwnerFilter: (value: string) => void;
+  representatives: RepresentativeOption[];
+  isManager: boolean;
+  opportunityCount: (clientId: string) => number;
+  quoteCount: (clientId: string) => number;
+  onOpenClient: (clientId: string) => void;
+}) {
+  const groups = [
+    { key: "overdue", label: "ATRASADOS", tone: "red", items: items.filter((item) => item.daysToAction < 0) },
+    { key: "today", label: "PARA HOJE", tone: "purple", items: items.filter((item) => item.daysToAction === 0) },
+    { key: "soon", label: "PROXIMOS 7 DIAS", tone: "yellow", items: items.filter((item) => item.daysToAction > 0 && item.daysToAction <= 7) },
+    { key: "unscheduled", label: "SEM PROGRAMACAO", tone: "gray", items: items.filter((item) => item.daysToAction > 7) },
+  ];
+
+  return (
+    <section className="crm-agenda">
+      <header className="crm-agenda-header">
+        <div>
+          <span className="clients-eyebrow">ROTINA DO VENDEDOR</span>
+          <h3>O QUE PRECISA SER FEITO</h3>
+          <p>ATENDA AS PRIORIDADES E USE A CARTEIRA PARA CONSULTAR OU ATUALIZAR O CLIENTE.</p>
+        </div>
+        <div className="crm-list-filters crm-agenda-filters">
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR NA AGENDA" />
+          {isManager ? (
+            <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+              <option value="ALL">TODA A EQUIPE</option>
+              {representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="crm-agenda-groups">
+        {groups.map((group) => (
+          <section className={`crm-agenda-group crm-agenda-${group.tone}`} key={group.key}>
+            <header><strong>{group.label}</strong><span>{group.items.length}</span></header>
+            <div>
+              {group.items.map((item) => {
+                const phone = item.client.whatsapp || item.client.phone;
+                return (
+                  <article className="crm-agenda-item" key={item.client.id}>
+                    <i className={`crm-dot crm-dot-${item.health.toLowerCase()}`} />
+                    <div className="crm-agenda-client">
+                      <strong>{item.client.tradeName || item.client.legalName}</strong>
+                      <span>{item.profile?.ownerName || item.client.representativeName || "SEM RESPONSAVEL"}</span>
+                    </div>
+                    <div className="crm-agenda-action">
+                      <b>{agendaActionLabel(item)}</b>
+                      <span>{nextActionLabel(item)} · {agendaDateLabel(item)}</span>
+                    </div>
+                    <div className="crm-agenda-context">
+                      <span>{opportunityCount(item.client.id)} NEGOCIACAO(OES)</span>
+                      <span>{quoteCount(item.client.id)} ORCAMENTO(S)</span>
+                    </div>
+                    <div className="crm-agenda-buttons">
+                      {phone ? <a href={whatsAppLink(phone, item.client.buyerName || item.client.tradeName || item.client.legalName)} target="_blank" rel="noreferrer" title="ABRIR WHATSAPP">WHATSAPP</a> : null}
+                      <button type="button" onClick={() => onOpenClient(item.client.id)}>ATENDER</button>
+                    </div>
+                  </article>
+                );
+              })}
+              {!group.items.length ? <p>NENHUMA ACAO NESTA FAIXA.</p> : null}
+            </div>
+          </section>
+        ))}
+      </div>
     </section>
   );
 }
@@ -635,6 +738,22 @@ function nextActionLabel(item: RankedClient) {
   if (item.daysToAction < 0) return `${Math.abs(item.daysToAction)} DIA(S) ATRASADO`;
   if (item.daysToAction === 0) return "HOJE";
   return `EM ${item.daysToAction} DIA(S)`;
+}
+
+function agendaActionLabel(item: RankedClient) {
+  if (item.health === "GRAY") return "PROGRAMAR PRIMEIRO CONTATO";
+  const contactDays = item.profile?.nextContactAt ? daysUntil(item.profile.nextContactAt) : 99999;
+  const purchaseDays = item.nextPurchaseAt ? daysUntil(item.nextPurchaseAt) : 99999;
+  if (contactDays <= purchaseDays) return "REALIZAR CONTATO PROGRAMADO";
+  return "ACOMPANHAR PREVISAO DE COMPRA";
+}
+
+function agendaDateLabel(item: RankedClient) {
+  if (item.health === "GRAY") return "SEM DATA DEFINIDA";
+  const contactDays = item.profile?.nextContactAt ? daysUntil(item.profile.nextContactAt) : 99999;
+  const purchaseDays = item.nextPurchaseAt ? daysUntil(item.nextPurchaseAt) : 99999;
+  const value = contactDays <= purchaseDays ? item.profile?.nextContactAt : item.nextPurchaseAt;
+  return value ? displayDate(value) : "SEM DATA DEFINIDA";
 }
 
 function toProfile(input: CrmProfileInput): CrmCustomerProfile {

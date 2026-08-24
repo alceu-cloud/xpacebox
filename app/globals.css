@@ -928,6 +928,114 @@ button {
 
 .crm-loading { min-height: 180px; }
 
+.crm-agenda {
+  display: grid;
+  gap: 16px;
+}
+
+.crm-agenda-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 20px;
+  border: 1px solid #dfe2ea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.crm-agenda-header h3 {
+  margin: 5px 0;
+  color: #171b2d;
+  font-size: 23px;
+}
+
+.crm-agenda-header p {
+  margin: 0;
+  color: #65708a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.crm-agenda-filters {
+  min-width: min(520px, 48%);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.crm-agenda-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.crm-agenda-group {
+  overflow: hidden;
+  border: 1px solid #dfe2ea;
+  border-top: 4px solid #98a0b3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.crm-agenda-group > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e5e7ee;
+}
+
+.crm-agenda-group > header strong { color: #171b2d; font-size: 15px; }
+.crm-agenda-group > header span { color: #6f2ee4; font-size: 17px; font-weight: 900; }
+.crm-agenda-group > div { display: grid; }
+.crm-agenda-group > div > p { margin: 0; padding: 24px; color: #8a92a5; font-size: 13px; font-weight: 800; text-align: center; }
+.crm-agenda-red { border-top-color: #ff3d4f; }
+.crm-agenda-purple { border-top-color: #7a31e8; }
+.crm-agenda-yellow { border-top-color: #f6b817; }
+.crm-agenda-gray { border-top-color: #98a0b3; }
+
+.crm-agenda-item {
+  display: grid;
+  grid-template-columns: 10px minmax(150px, 1.1fr) minmax(190px, 1.3fr) minmax(130px, .8fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 88px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #eceef3;
+}
+
+.crm-agenda-item:last-child { border-bottom: 0; }
+.crm-agenda-client,
+.crm-agenda-action,
+.crm-agenda-context { display: grid; gap: 4px; min-width: 0; }
+.crm-agenda-client strong { overflow: hidden; color: #171b2d; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.crm-agenda-client span,
+.crm-agenda-action span,
+.crm-agenda-context span { color: #6d768c; font-size: 11px; font-weight: 800; }
+.crm-agenda-action b { color: #e9007f; font-size: 12px; }
+.crm-agenda-context { padding-left: 10px; border-left: 1px solid #e5e7ee; }
+.crm-agenda-buttons { display: flex; align-items: center; gap: 6px; }
+.crm-agenda-buttons a,
+.crm-agenda-buttons button {
+  display: inline-grid;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid #d9dce8;
+  border-radius: 6px;
+  background: #fff;
+  color: #59657e;
+  font-size: 11px;
+  font-weight: 900;
+  place-items: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.crm-agenda-buttons button { border-color: #7a31e8; background: #7a31e8; color: #fff; }
+.crm-agenda-buttons a:hover { border-color: #16b76e; color: #078c50; }
+.crm-agenda-buttons button:hover { background: #6221ca; }
+
 .crm-workspace {
   display: grid;
   grid-template-columns: minmax(300px, 0.72fr) minmax(600px, 1.7fr);
@@ -1398,12 +1506,19 @@ button {
   .crm-summary { width: 100%; }
   .crm-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .crm-whatsapp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crm-agenda-groups { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {
   .crm-shell { padding: 18px; }
   .crm-workspace { grid-template-columns: 1fr; }
   .crm-client-list { max-height: 380px; }
+  .crm-agenda-header { align-items: stretch; flex-direction: column; }
+  .crm-agenda-filters { min-width: 0; }
+  .crm-agenda-item { grid-template-columns: 10px minmax(0, 1fr) auto; }
+  .crm-agenda-action,
+  .crm-agenda-context { grid-column: 2; }
+  .crm-agenda-buttons { grid-column: 3; grid-row: 1 / span 3; flex-direction: column; }
 }
 
 @media (max-width: 640px) {
@@ -1422,4 +1537,9 @@ button {
   .crm-detail-tabs { grid-template-columns: 1fr; }
   .crm-metrics { grid-template-columns: 1fr; }
   .crm-span-2 { grid-column: auto; }
+  .crm-agenda-item { grid-template-columns: 10px minmax(0, 1fr); }
+  .crm-agenda-action,
+  .crm-agenda-context,
+  .crm-agenda-buttons { grid-column: 2; }
+  .crm-agenda-buttons { grid-row: auto; flex-direction: row; }
 }
