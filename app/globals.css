@@ -1420,6 +1420,13 @@ button {
   border-top: 4px solid #7a31e8;
   border-radius: 8px;
   background: #f7f8fa;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.crm-pipeline-column.is-drop-target {
+  border-color: #a43ae8;
+  background: #faf5ff;
+  box-shadow: inset 0 0 0 2px rgb(122 49 232 / 12%);
 }
 
 .crm-pipeline-column > header {
@@ -1433,7 +1440,9 @@ button {
   background: #fff;
 }
 
+.crm-pipeline-column > header > div { display: grid; gap: 4px; min-width: 0; }
 .crm-pipeline-column > header strong { color: #171b2d; font-size: 12px; }
+.crm-pipeline-column > header small { color: #078c50; font-size: 12px; font-weight: 900; }
 .crm-pipeline-column > header span { color: #7a31e8; font-weight: 900; }
 .crm-pipeline-column > div { display: grid; gap: 8px; padding: 8px; }
 .crm-pipeline-column > div > p { color: #8a92a5; font-size: 12px; font-weight: 800; text-align: center; }
@@ -1452,7 +1461,13 @@ button {
   border: 1px solid #dfe2ea;
   border-radius: 6px;
   background: #fff;
+  cursor: grab;
+  transition: opacity 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  user-select: none;
 }
+
+.crm-opportunity-card:active { cursor: grabbing; }
+.crm-opportunity-card.is-dragging { opacity: 0.45; transform: scale(0.98); box-shadow: none; }
 
 .crm-opportunity-card button {
   padding: 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { DragEvent } from "react";
 
 import { createCrmActivity, loadCrmOverview, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import CurrencyInput from "@/components/ui/CurrencyInput";
@@ -242,8 +243,13 @@ export default function CrmEmpresa({
   }
 
   async function handleStageChange(opportunity: CrmOpportunity, stage: CrmOpportunityStage) {
+    const previousStage = opportunity.stage;
     setSaving(true);
     clearFeedback();
+    setOverview((current) => ({
+      ...current,
+      opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage } : item),
+    }));
     try {
       await saveCrmOpportunity(slug, {
         id: opportunity.id,
@@ -259,6 +265,10 @@ export default function CrmEmpresa({
       await refresh(true);
       setMessage("ETAPA DA OPORTUNIDADE ATUALIZADA.");
     } catch (saveError) {
+      setOverview((current) => ({
+        ...current,
+        opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage: previousStage } : item),
+      }));
       setError(messageFrom(saveError));
     } finally {
       setSaving(false);
@@ -604,24 +614,63 @@ function ClientDetail({
 }
 
 function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, saving }: { opportunities: CrmOpportunity[]; clients: ClientRecord[]; onSelectClient: (id: string) => void; onStageChange: (opportunity: CrmOpportunity, stage: CrmOpportunityStage) => void; saving: boolean }) {
+  const [draggedOpportunityId, setDraggedOpportunityId] = useState("");
+  const [dropStage, setDropStage] = useState<CrmOpportunityStage | "">("");
   const clientNames = new Map(clients.map((client) => [client.id, client.tradeName || client.legalName]));
+
+  function handleDragStart(event: DragEvent<HTMLElement>, opportunityId: string) {
+    setDraggedOpportunityId(opportunityId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", opportunityId);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>, stage: CrmOpportunityStage) {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+    if (dropStage === stage) setDropStage("");
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>, stage: CrmOpportunityStage) {
+    event.preventDefault();
+    const opportunityId = event.dataTransfer.getData("text/plain") || draggedOpportunityId;
+    const opportunity = opportunities.find((item) => item.id === opportunityId);
+    setDraggedOpportunityId("");
+    setDropStage("");
+    if (!opportunity || opportunity.stage === stage || saving) return;
+    onStageChange(opportunity, stage);
+  }
+
   return (
     <section className="crm-pipeline">
       {stageOptions.map((stage) => {
         const items = opportunities.filter((item) => item.stage === stage.value);
+        const stageTotal = items.reduce((total, item) => total + Number(item.estimatedValue || 0), 0);
         return (
-          <div className={`crm-pipeline-column crm-stage-${stage.value.toLowerCase()}`} key={stage.value}>
-            <header><strong>{stage.label}</strong><span>{items.length}</span></header>
+          <div
+            className={`crm-pipeline-column crm-stage-${stage.value.toLowerCase()}${dropStage === stage.value ? " is-drop-target" : ""}`}
+            key={stage.value}
+            onDragEnter={(event) => { event.preventDefault(); setDropStage(stage.value); }}
+            onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }}
+            onDragLeave={(event) => handleDragLeave(event, stage.value)}
+            onDrop={(event) => handleDrop(event, stage.value)}
+          >
+            <header>
+              <div><strong>{stage.label}</strong><small>{money(stageTotal)}</small></div>
+              <span>{items.length}</span>
+            </header>
             <div>
               {items.map((item) => (
-                <article className="crm-opportunity-card" key={item.id}>
+                <article
+                  className={`crm-opportunity-card${draggedOpportunityId === item.id ? " is-dragging" : ""}`}
+                  draggable={!saving}
+                  key={item.id}
+                  onDragStart={(event) => handleDragStart(event, item.id)}
+                  onDragEnd={() => { setDraggedOpportunityId(""); setDropStage(""); }}
+                >
                   <button type="button" onClick={() => onSelectClient(item.clientId)}>{clientNames.get(item.clientId) || "CLIENTE"}</button>
                   <strong>{item.title}</strong>
                   <span>{money(item.estimatedValue)}</span>
                   <small>{item.expectedCloseDate ? `PREVISAO ${displayDate(item.expectedCloseDate)}` : "SEM PREVISAO"}</small>
-                  <select value={item.stage} onChange={(event) => onStageChange(item, event.target.value as CrmOpportunityStage)} disabled={saving}>
-                    {stageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
                 </article>
               ))}
               {!items.length ? <p>SEM OPORTUNIDADES.</p> : null}
