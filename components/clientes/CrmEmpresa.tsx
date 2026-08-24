@@ -159,6 +159,14 @@ export default function CrmEmpresa({
     setOpportunityDraft({ ...emptyOpportunity, clientId: selectedClient.id, representativeProfileId: owner });
   }, [overview.currentProfileId, selectedClient, selectedProfile]);
 
+  const activeOpportunities = useMemo(
+    () => overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST"),
+    [overview.opportunities]
+  );
+  const activeOpportunityClientIds = useMemo(
+    () => new Set(activeOpportunities.map((item) => item.clientId)),
+    [activeOpportunities]
+  );
   const rankedClients = useMemo(() => rankClients(clients, overview.profiles), [clients, overview.profiles]);
   const visibleClients = useMemo(() => {
     const term = upper(search);
@@ -168,10 +176,11 @@ export default function CrmEmpresa({
       return matchesTerm && matchesOwner;
     });
   }, [ownerFilter, rankedClients, search]);
-  const agendaClients = visibleClients.filter((item) => item.health !== "GREEN" || item.daysToAction <= 7);
+  const agendaClients = visibleClients.filter(
+    (item) => !activeOpportunityClientIds.has(item.client.id) && (item.health !== "GREEN" || item.daysToAction <= 7)
+  );
   const selectedActivities = overview.activities.filter((activity) => activity.clientId === selectedClientId);
   const selectedOpportunities = overview.opportunities.filter((opportunity) => opportunity.clientId === selectedClientId);
-  const activeOpportunities = overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST");
 
   async function handleSaveProfile() {
     if (!selectedClient) return;
@@ -227,14 +236,16 @@ export default function CrmEmpresa({
     setSaving(true);
     clearFeedback();
     try {
-      await saveCrmOpportunity(slug, { ...opportunityDraft, clientId: selectedClient.id });
+      const result = await saveCrmOpportunity(slug, { ...opportunityDraft, clientId: selectedClient.id });
       await refresh(true);
       setOpportunityDraft({
         ...emptyOpportunity,
         clientId: selectedClient.id,
         representativeProfileId: opportunityDraft.representativeProfileId,
       });
-      setMessage("OPORTUNIDADE SALVA NO FUNIL.");
+      setMessage(result.previousCycleCancelled
+        ? "OPORTUNIDADE SALVA. O AGENDAMENTO AUTOMATICO ANTERIOR FOI ENCERRADO."
+        : "OPORTUNIDADE SALVA NO FUNIL.");
     } catch (saveError) {
       setError(messageFrom(saveError));
     } finally {
@@ -291,9 +302,10 @@ export default function CrmEmpresa({
     clearFeedback();
   }
 
-  const overdueCount = rankedClients.filter((item) => item.health === "RED").length;
-  const dueSoonCount = rankedClients.filter((item) => item.health === "YELLOW").length;
-  const noHistoryCount = rankedClients.filter((item) => item.health === "GRAY").length;
+  const clientsWithoutActiveOpportunity = rankedClients.filter((item) => !activeOpportunityClientIds.has(item.client.id));
+  const overdueCount = clientsWithoutActiveOpportunity.filter((item) => item.health === "RED").length;
+  const dueSoonCount = clientsWithoutActiveOpportunity.filter((item) => item.health === "YELLOW").length;
+  const noHistoryCount = clientsWithoutActiveOpportunity.filter((item) => item.health === "GRAY").length;
 
   return (
     <section className="crm-shell">

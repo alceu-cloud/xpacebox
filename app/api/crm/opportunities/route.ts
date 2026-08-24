@@ -56,6 +56,17 @@ async function save(request: Request, editing: boolean) {
     if (error) throw error;
 
     let cycleScheduled = false;
+    let previousCycleCancelled = false;
+    if (!editing) {
+      previousCycleCancelled = await activateOpportunityCycle({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityTitle: base.title,
+        representativeId,
+        userId: user.id,
+      });
+    }
     if (editing && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
       cycleScheduled = await scheduleNextCommercialCycle({
         admin,
@@ -68,10 +79,74 @@ async function save(request: Request, editing: boolean) {
       });
     }
 
-    return NextResponse.json({ success: true, opportunity: data, cycleScheduled }, { status: editing ? 200 : 201 });
+    return NextResponse.json(
+      { success: true, opportunity: data, cycleScheduled, previousCycleCancelled },
+      { status: editing ? 200 : 201 }
+    );
   } catch (error) {
     return handleError(error);
   }
+}
+
+async function activateOpportunityCycle({
+  admin,
+  companyId,
+  clientId,
+  opportunityTitle,
+  representativeId,
+  userId,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+  opportunityTitle: string;
+  representativeId: string;
+  userId: string;
+}) {
+  const { data: profile, error: profileError } = await admin
+    .from("crm_customer_profiles")
+    .select("next_purchase_at,next_contact_at")
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+
+  const hadScheduledCycle = Boolean(profile?.next_purchase_at || profile?.next_contact_at);
+  const now = new Date().toISOString();
+  const { error: updateProfileError } = await admin
+    .from("crm_customer_profiles")
+    .update({ next_purchase_at: null, next_contact_at: null, updated_at: now })
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId);
+  if (updateProfileError) throw updateProfileError;
+
+  const { error: updateActivitiesError } = await admin
+    .from("crm_activities")
+    .update({ next_action_type: null, next_action_at: null })
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId)
+    .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
+    .not("next_action_at", "is", null);
+  if (updateActivitiesError) throw updateActivitiesError;
+
+  if (hadScheduledCycle) {
+    const { error: activityError } = await admin.from("crm_activities").insert({
+      tenant_company_id: companyId,
+      client_id: clientId,
+      representative_profile_id: representativeId,
+      activity_type: "NOTE",
+      outcome: "FOLLOW_UP",
+      subject: "CICLO COMERCIAL INICIADO",
+      notes: `NOVA OPORTUNIDADE ABERTA: ${opportunityTitle}. O AGENDAMENTO AUTOMATICO ANTERIOR FOI ENCERRADO.`,
+      occurred_at: now,
+      next_action_type: null,
+      next_action_at: null,
+      created_by: userId,
+    });
+    if (activityError) throw activityError;
+  }
+
+  return hadScheduledCycle;
 }
 
 async function scheduleNextCommercialCycle({
