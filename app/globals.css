@@ -20,6 +20,8 @@
 }
 
 :root {
+  /* Controle unico da densidade visual do sistema em telas grandes. */
+  --xb-ui-scale: 0.78;
   --xb-bg: #f7f8fc;
   --xb-panel: rgba(255, 255, 255, 0.92);
   --xb-panel-soft: rgba(255, 255, 255, 0.78);
@@ -51,6 +53,18 @@ body {
   font-family: "Poppins", Arial, sans-serif;
   overflow-x: hidden;
   text-transform: uppercase;
+}
+
+@media screen and (min-width: 901px) {
+  body {
+    zoom: var(--xb-ui-scale);
+  }
+}
+
+@media print {
+  body {
+    zoom: 1;
+  }
 }
 
 h1,
