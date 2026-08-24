@@ -475,8 +475,8 @@ function AgendaBoard({
   const groups = [
     { key: "overdue", label: "ATRASADOS", tone: "red", items: items.filter((item) => item.daysToAction < 0) },
     { key: "today", label: "PARA HOJE", tone: "purple", items: items.filter((item) => item.daysToAction === 0) },
-    { key: "soon", label: "PROXIMOS 7 DIAS", tone: "yellow", items: items.filter((item) => item.daysToAction > 0 && item.daysToAction <= 7) },
-    { key: "later", label: "MAIS ADIANTE", tone: "gray", items: items.filter((item) => item.daysToAction > 7) },
+    { key: "tomorrow", label: "AMANHA", tone: "yellow", items: items.filter((item) => item.daysToAction === 1) },
+    { key: "soon", label: "PROXIMOS 7 DIAS", tone: "gray", items: items.filter((item) => item.daysToAction >= 2 && item.daysToAction <= 7) },
   ];
 
   return (
@@ -871,10 +871,26 @@ function toProfile(input: CrmProfileInput): CrmCustomerProfile {
 }
 
 function daysUntil(value: string) {
-  const target = new Date(value.length === 10 ? `${value}T12:00:00` : value);
+  const target = crmCalendarDate(value);
+  if (!target) return 99999;
+
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
-  return Math.floor((target.getTime() - start.getTime()) / 86400000);
+  const targetDay = Date.UTC(target.getFullYear(), target.getMonth(), target.getDate());
+  const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((targetDay - todayDay) / 86400000);
+}
+
+function crmCalendarDate(value: string) {
+  if (!value) return null;
+
+  if (value.length === 10) {
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day, 12);
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function whatsAppLink(value: string, name: string) {
