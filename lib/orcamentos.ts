@@ -30,6 +30,14 @@ export async function createQuote(slug: string, quote: QuoteDraft) {
   return payload.quote as QuoteRecord;
 }
 
+export async function updateQuote(slug: string, id: string, quote: QuoteDraft) {
+  const payload = await authorizedFetch("/api/orcamentos", {
+    method: "PATCH",
+    body: JSON.stringify({ slug, id, quote }),
+  });
+  return payload.quote as QuoteRecord;
+}
+
 export async function deleteQuote(slug: string, id: string) {
   await authorizedFetch(`/api/orcamentos?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`, { method: "DELETE" });
 }

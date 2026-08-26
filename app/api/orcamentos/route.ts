@@ -124,6 +124,111 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const body = (await request.json()) as { slug?: string; id?: string; quote?: QuoteDraft };
+    const slug = body.slug?.trim() ?? "";
+    const id = body.id?.trim() ?? "";
+    const quote = body.quote;
+    if (!slug || !id || !quote || !quote.clientName?.trim() || !quote.items?.length) return failure("PREENCHA O CLIENTE E PELO MENOS UM ITEM.", 400);
+
+    const { admin, company, user } = await requireCompanyAccess(request, slug);
+    const { data: current, error: currentError } = await admin
+      .from("quotes")
+      .select("id, quote_number, kind")
+      .eq("id", id)
+      .eq("tenant_company_id", company.id)
+      .single();
+    if (currentError) throw currentError;
+    if (current.kind !== quote.kind) return failure("TIPO DO ORCAMENTO NAO PODE SER ALTERADO.", 400);
+
+    const representativeProfileId = quote.clientId
+      ? await resolveQuoteRepresentative(admin, company.id, quote.clientId, user.id)
+      : user.id;
+    const sellerIdentity = `${quote.sellerCompanySlug} ${quote.sellerCompanyName}`.toLowerCase();
+    const appliesIpi = sellerIdentity.includes("gta");
+    const normalizedItems = quote.items.map((item, index) => normalizeItem(item, index + 1, appliesIpi));
+    const totals = normalizedItems.reduce((summary, item) => ({
+      productTotal: summary.productTotal + item.quantity * item.unitPrice,
+      ipiTotal: summary.ipiTotal + item.ipiValue,
+    }), { productTotal: 0, ipiTotal: 0 });
+
+    const { data: saved, error: quoteError } = await admin.from("quotes").update({
+      recipient: quote.recipient,
+      seller_company_name: quote.sellerCompanyName,
+      seller_company_slug: quote.sellerCompanySlug,
+      client_id: quote.clientId || null,
+      client_name: quote.clientName.trim(),
+      client_cnpj: quote.clientCnpj || null,
+      buyer_name: quote.buyerName || null,
+      phone: quote.phone || null,
+      email: quote.email?.toLowerCase() || null,
+      address: quote.address || null,
+      representative_profile_id: representativeProfileId,
+      representative_name: quote.representativeName || null,
+      delivery_date: quote.deliveryDate || null,
+      valid_until: quote.validUntil || null,
+      payment_terms: quote.paymentTerms || null,
+      freight: quote.freight || null,
+      observations: quote.observations || null,
+      product_total: totals.productTotal,
+      ipi_total: totals.ipiTotal,
+      grand_total: totals.productTotal + totals.ipiTotal,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id).eq("tenant_company_id", company.id).select("*").single();
+    if (quoteError) throw quoteError;
+
+    const { error: deleteItemsError } = await admin.from("quote_items").delete().eq("quote_id", id);
+    if (deleteItemsError) throw deleteItemsError;
+
+    const { error: itemsError } = await admin.from("quote_items").insert(normalizedItems.map((item) => ({
+      quote_id: saved.id,
+      item_number: item.itemNumber,
+      ft_number: item.ftNumber || null,
+      description: item.description,
+      length: item.length,
+      width: item.width,
+      height: item.height,
+      area: item.area,
+      quality: item.quality || null,
+      box_type: item.boxType || null,
+      material: item.material || null,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      ipi_percent: item.ipiPercent,
+      ipi_value: item.ipiValue,
+      total: item.quantity * item.unitPrice + item.ipiValue,
+      snapshot: item.snapshot ?? {},
+    })));
+    if (itemsError) throw itemsError;
+
+    const { data: complete, error: completeError } = await admin
+      .from("quotes")
+      .select("*, quote_items(*)")
+      .eq("id", saved.id)
+      .single();
+    if (completeError) throw completeError;
+
+    if (quote.clientId) {
+      await syncQuoteWithCrm(admin, {
+        tenantCompanyId: company.id,
+        quoteId: String(saved.id),
+        quoteNumber: String(current.quote_number),
+        clientId: quote.clientId,
+        clientName: quote.clientName.trim(),
+        representativeProfileId,
+        grandTotal: totals.productTotal + totals.ipiTotal,
+        validUntil: quote.validUntil || "",
+        createdBy: user.id,
+      });
+    }
+
+    return NextResponse.json({ success: true, quote: mapQuote(complete) });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);

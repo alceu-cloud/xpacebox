@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { createQuote, deleteQuote, loadQuotes } from "@/lib/orcamentos";
+import { createQuote, deleteQuote, loadQuotes, updateQuote } from "@/lib/orcamentos";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { loadClientOptions, loadClients } from "@/lib/clientes";
 import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
@@ -91,6 +91,18 @@ function resolveFichaArea(ficha: ProductFicha) {
   return historicalArea ?? 0;
 }
 
+function resolveFichaQuantity(ficha: ProductFicha) {
+  const currentQuantity = Number(ficha.pricingData?.quantity);
+  if (Number.isFinite(currentQuantity) && currentQuantity > 0) return Math.trunc(currentQuantity);
+
+  const historicalQuantity = [...(ficha.priceHistory ?? [])]
+    .reverse()
+    .map((snapshot) => Number(snapshot.quantity))
+    .find((quantity) => Number.isFinite(quantity) && quantity > 0);
+
+  return historicalQuantity ? Math.trunc(historicalQuantity) : 1;
+}
+
 export default function FinanceiroEmpresa({
   companySlug,
   productFichas,
@@ -118,6 +130,7 @@ export default function FinanceiroEmpresa({
   const [items, setItems] = useState<QuoteItem[]>([emptyItem()]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedFichaId, setSelectedFichaId] = useState("");
+  const [editingQuoteId, setEditingQuoteId] = useState("");
   const [form, setForm] = useState<QuoteFormState>(() => emptyQuoteForm(resolveValidityDays("DAWOS", quoteParameters)));
 
   useEffect(() => {
@@ -179,12 +192,14 @@ export default function FinanceiroEmpresa({
     setKind(nextKind);
     setSearch("");
     setShowForm(false);
+    setEditingQuoteId("");
     setMessage("");
     void refreshQuotes(nextKind, "");
   }
 
   function startCreate() {
     setShowForm(true);
+    setEditingQuoteId("");
     setItems([emptyItem()]);
     setSelectedClientId("");
     setSelectedFichaId("");
@@ -219,7 +234,13 @@ export default function FinanceiroEmpresa({
     if (!ficha) return;
     const material = materials.find((item) => item.id === ficha.materialId);
     const formula = engineeringFormulas.find((item) => item.id === ficha.engineeringId);
-    setItems([{ ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } }]);
+    const nextItem = { ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", quantity: resolveFichaQuantity(ficha), unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } };
+    setItems((current) => {
+      const hasFilledItem = current.some((item) => item.description.trim() || item.ftNumber.trim());
+      const next = hasFilledItem ? [...current, nextItem] : [nextItem];
+      return next.map((item, index) => ({ ...item, itemNumber: index + 1 }));
+    });
+    setSelectedFichaId("");
     updateForm("company", ficha.company);
   }
 
@@ -238,7 +259,7 @@ export default function FinanceiroEmpresa({
         const ipiValue = productTotal * ipiPercent / 100;
         return { ...item, itemNumber: index + 1, quantity, unitPrice, ipiPercent, ipiValue, total: productTotal + ipiValue };
       });
-      const quote = await createQuote(companySlug, {
+      const draft: QuoteDraft = {
         kind,
         recipient: "CLIENT",
         sellerCompanyName: form.company,
@@ -258,14 +279,43 @@ export default function FinanceiroEmpresa({
         freight: form.freight,
         observations: form.observations,
         items: normalizedItems,
-      });
+      };
+      const quote = editingQuoteId
+        ? await updateQuote(companySlug, editingQuoteId, draft)
+        : await createQuote(companySlug, draft);
       setShowForm(false);
-      setMessage(`ORCAMENTO ${quote.quoteNumber} GERADO COM SUCESSO.`);
+      setEditingQuoteId("");
+      setMessage(`ORCAMENTO ${quote.quoteNumber} ${editingQuoteId ? "ATUALIZADO" : "GERADO"} COM SUCESSO.`);
       await refreshQuotes();
       printQuote(quote, quoteParameters);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL GERAR O ORCAMENTO.");
     }
+  }
+
+  function editQuote(quote: QuoteRecord) {
+    setKind(quote.kind);
+    setShowForm(true);
+    setEditingQuoteId(quote.id);
+    setSelectedClientId(quote.clientId || "");
+    setSelectedFichaId("");
+    setItems(quote.items.length ? quote.items.map((item, index) => ({ ...item, itemNumber: index + 1 })) : [emptyItem()]);
+    setForm({
+      clientName: quote.clientName,
+      buyerName: quote.buyerName,
+      phone: formatPhone(quote.phone),
+      email: quote.email,
+      cnpj: formatCnpj(quote.clientCnpj),
+      address: quote.address,
+      company: quote.sellerCompanyName,
+      representative: quote.representativeName,
+      paymentTerms: quote.paymentTerms,
+      freight: quote.freight,
+      deliveryDate: quote.deliveryDate,
+      validUntil: quote.validUntil,
+      observations: quote.observations,
+    });
+    setMessage(`EDITANDO ORCAMENTO ${quote.quoteNumber}.`);
   }
 
   async function removeQuote(quote: QuoteRecord) {
@@ -295,20 +345,20 @@ export default function FinanceiroEmpresa({
         {message && <div style={messageStyle}>{message}</div>}
       </section>
 
-      {showForm && <QuoteForm kind={kind} form={form} items={items} clients={clients} representatives={representatives} paymentConditions={paymentConditions} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))} onCancel={() => setShowForm(false)} onSave={saveQuote} />}
+      {showForm && <QuoteForm kind={kind} editing={Boolean(editingQuoteId)} form={form} items={items} clients={clients} representatives={representatives} paymentConditions={paymentConditions} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index).map((item, itemIndex) => ({ ...item, itemNumber: itemIndex + 1 })))} onCancel={() => { setShowForm(false); setEditingQuoteId(""); }} onSave={saveQuote} />}
 
-      <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
+      <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
     </section>
   );
 }
 
-function QuoteForm({ kind, form, items, clients, representatives, paymentConditions, clientFichas, selectedClientId, selectedFichaId, selectedClient, selectedFicha, updateForm, updateItem, selectClient, selectFicha, addItem, removeItem, onCancel, onSave }: any) {
+function QuoteForm({ kind, editing, form, items, clients, representatives, paymentConditions, clientFichas, selectedClientId, selectedFichaId, selectedClient, selectedFicha, updateForm, updateItem, selectClient, selectFicha, addItem, removeItem, onCancel, onSave }: any) {
   const appliesIpi = resolveCompanyKey(form.company) === "gta";
   return <section style={formPanelStyle}><div style={formHeaderStyle}><div><span style={eyebrowStyle}>{kind === "DIRECT" ? "ORCAMENTO DIRETO" : "ORCAMENTO DE ENGENHARIA"}</span><h2 style={titleStyle}>MONTAR ORCAMENTO</h2></div><button type="button" onClick={onCancel} style={closeButtonStyle}>FECHAR</button></div>
     {kind === "ENGINEERING" ? <div style={lookupGridStyle}><label style={labelStyle}>CLIENTE<select value={selectedClientId} onChange={(event) => selectClient(event.target.value)} style={inputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client: ClientRecord) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName} · {client.cnpj}</option>)}</select></label><label style={labelStyle}>FICHA TECNICA<select value={selectedFichaId} onChange={(event) => selectFicha(event.target.value)} style={inputStyle}><option value="">SELECIONE O PRODUTO</option>{clientFichas.map((ficha: ProductFicha) => <option key={ficha.id} value={ficha.id}>{ficha.ftNumber} · {ficha.reference}</option>)}</select></label></div> : <div style={noticeStyle}>NO ORCAMENTO DIRETO, OS DADOS DO CLIENTE E DO ITEM SAO PREENCHIDOS MANUALMENTE.</div>}
     <div style={formGridStyle}><Field label="NOME DO CLIENTE" value={form.clientName} onChange={(value: string) => updateForm("clientName", value)} /><Field label="COMPRADOR" value={form.buyerName} onChange={(value: string) => updateForm("buyerName", value)} /><Field label="TELEFONE" value={form.phone} onChange={(value: string) => updateForm("phone", formatPhone(value))} /><Field label="E-MAIL" value={form.email} onChange={(value: string) => updateForm("email", value.toLowerCase())} lower /><Field label="CNPJ" value={form.cnpj} onChange={(value: string) => updateForm("cnpj", formatCnpj(value))} /><Field label="EMPRESA VENDEDORA" value={form.company} onChange={(value: string) => updateForm("company", value)} /><Field label="REPRESENTANTE" value={form.representative} onChange={(value: string) => updateForm("representative", value)} options={representatives.map((item: RepresentativeOption) => ({ value: item.name, label: item.name }))} placeholder="SELECIONE O REPRESENTANTE" /><Field label="CONDICAO DE PAGAMENTO" value={form.paymentTerms} onChange={(value: string) => updateForm("paymentTerms", value)} options={paymentConditions.map((item: PaymentCondition) => ({ value: item.name, label: item.name }))} placeholder="SELECIONE A CONDICAO" /><Field label="FRETE" value={form.freight} onChange={(value: string) => updateForm("freight", value)} options={[{ value: "CIF", label: "CIF - REMETENTE" }, { value: "FOB", label: "FOB - RETIRADA / DESTINATARIO" }, { value: "SEM_FRETE", label: "SEM FRETE" }]} /><Field label="DATA DE ENTREGA" value={form.deliveryDate} onChange={(value: string) => updateForm("deliveryDate", value)} type="date" /><Field label="VALIDADE DO ORCAMENTO (AUTOMATICA)" value={form.validUntil} onChange={() => undefined} type="date" readOnly /><label style={{ ...labelStyle, gridColumn: "1 / -1" }}>ENDERECO<input value={form.address} onChange={(event) => updateForm("address", event.target.value)} style={inputStyle} /></label><label style={{ ...labelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={form.observations} onChange={(event) => updateForm("observations", event.target.value)} style={{ ...inputStyle, minHeight: 84, resize: "vertical" }} /></label></div>
-    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3>{kind === "DIRECT" && <button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ADICIONAR ITEM</button>}</div>{items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}><div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong>{items.length > 1 && <button type="button" onClick={() => removeItem(index)} style={removeButtonStyle}>REMOVER</button>}</div><div style={itemGridStyle}><Field label="FICHA TECNICA" value={item.ftNumber} onChange={(value: string) => updateItem(index, "ftNumber", value)} /><Field label="DESCRICAO" value={item.description} onChange={(value: string) => updateItem(index, "description", value)} /><Field label="TIPO DE CAIXA" value={item.boxType} onChange={(value: string) => updateItem(index, "boxType", value)} /><Field label="MATERIAL" value={item.material} onChange={(value: string) => updateItem(index, "material", value)} /><Field label="COMPRIMENTO (MM)" value={String(item.length || "")} onChange={(value: string) => updateItem(index, "length", value)} type="number" /><Field label="LARGURA (MM)" value={String(item.width || "")} onChange={(value: string) => updateItem(index, "width", value)} type="number" /><Field label="ALTURA (MM)" value={String(item.height || "")} onChange={(value: string) => updateItem(index, "height", value)} type="number" /><Field label="AREA (M2)" value={String(item.area || "")} onChange={(value: string) => updateItem(index, "area", value)} type="number" /><Field label="QUALIDADE" value={item.quality} onChange={(value: string) => updateItem(index, "quality", value)} /><Field label="QUANTIDADE" value={String(item.quantity || "")} onChange={(value: string) => updateItem(index, "quantity", value)} type="number" /><Field label="VALOR UNITARIO" value={String(item.unitPrice || "")} onChange={(value: string) => updateItem(index, "unitPrice", value)} currency /><Field label="IPI (%)" value={String(appliesIpi ? item.ipiPercent || "" : 0)} onChange={(value: string) => updateItem(index, "ipiPercent", value)} type="number" readOnly={!appliesIpi} /></div></div>)}
-    <div style={formActionsStyle}><button type="button" onClick={onCancel} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={onSave} style={primaryButtonStyle}>GERAR ORCAMENTO E PDF</button></div>
+    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3><button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ADICIONAR ITEM</button></div>{items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}><div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong>{items.length > 1 && <button type="button" onClick={() => removeItem(index)} style={removeButtonStyle}>REMOVER</button>}</div><div style={itemGridStyle}><Field label="FICHA TECNICA" value={item.ftNumber} onChange={(value: string) => updateItem(index, "ftNumber", value)} /><Field label="DESCRICAO" value={item.description} onChange={(value: string) => updateItem(index, "description", value)} /><Field label="TIPO DE CAIXA" value={item.boxType} onChange={(value: string) => updateItem(index, "boxType", value)} /><Field label="MATERIAL" value={item.material} onChange={(value: string) => updateItem(index, "material", value)} /><Field label="COMPRIMENTO (MM)" value={String(item.length || "")} onChange={(value: string) => updateItem(index, "length", value)} type="number" /><Field label="LARGURA (MM)" value={String(item.width || "")} onChange={(value: string) => updateItem(index, "width", value)} type="number" /><Field label="ALTURA (MM)" value={String(item.height || "")} onChange={(value: string) => updateItem(index, "height", value)} type="number" /><Field label="AREA (M2)" value={String(item.area || "")} onChange={(value: string) => updateItem(index, "area", value)} type="number" /><Field label="QUALIDADE" value={item.quality} onChange={(value: string) => updateItem(index, "quality", value)} /><Field label="QUANTIDADE" value={String(item.quantity || "")} onChange={(value: string) => updateItem(index, "quantity", value)} type="number" /><Field label="VALOR UNITARIO" value={String(item.unitPrice || "")} onChange={(value: string) => updateItem(index, "unitPrice", value)} currency /><Field label="IPI (%)" value={String(appliesIpi ? item.ipiPercent || "" : 0)} onChange={(value: string) => updateItem(index, "ipiPercent", value)} type="number" readOnly={!appliesIpi} /></div></div>)}
+    <div style={formActionsStyle}><button type="button" onClick={onCancel} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={onSave} style={primaryButtonStyle}>{editing ? "SALVAR ALTERACOES E PDF" : "GERAR ORCAMENTO E PDF"}</button></div>
   </section>;
 }
 
