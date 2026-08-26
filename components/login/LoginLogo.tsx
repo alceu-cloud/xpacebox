@@ -38,19 +38,6 @@ export default function LoginLogo() {
 
       <div
         style={{
-          marginBottom: 8,
-          color: "#667085",
-          textTransform: "uppercase",
-          letterSpacing: "1px",
-          fontSize: 18,
-          fontWeight: 700,
-        }}
-      >
-        TESTE DE COLABORACAO
-      </div>
-
-      <div
-        style={{
           color: "#667085",
           textTransform: "uppercase",
           letterSpacing: "1px",
