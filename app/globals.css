@@ -1575,6 +1575,28 @@ button {
   margin-bottom: 16px;
 }
 
+.crm-required-summary {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 13px 15px;
+  border: 1px solid rgba(246, 184, 23, 0.42);
+  border-radius: 12px;
+  background: #fff9e6;
+}
+
+.crm-required-summary strong {
+  color: #9b6900;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.crm-required-summary span {
+  color: #6d5d1f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .crm-metric {
   display: grid;
   min-height: 72px;

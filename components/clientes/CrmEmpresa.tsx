@@ -569,7 +569,7 @@ function ClientDetail({
   onSaveOpportunity: () => void;
   saving: boolean;
 }) {
-  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("contato");
+  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("resumo");
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
 
@@ -595,6 +595,12 @@ function ClientDetail({
 
       {detailTab === "resumo" ? (
         <>
+          {!profileDraft.notes.trim() ? (
+            <div className="crm-required-summary">
+              <strong>RESUMO DO CLIENTE PENDENTE</strong>
+              <span>ANTES DE INICIAR A ROTINA COMERCIAL, PREENCHA AS ANOTACOES DA CARTEIRA DESTE CLIENTE.</span>
+            </div>
+          ) : null}
           <div className="crm-metrics">
             <Metric label="FREQUENCIA" value={profileDraft.purchaseFrequencyDays ? `${profileDraft.purchaseFrequencyDays} DIAS` : "NAO DEFINIDA"} />
             <Metric label="COMPRA MEDIA" value={money(profileDraft.averagePurchaseValue)} />

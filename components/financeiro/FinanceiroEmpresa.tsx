@@ -91,6 +91,18 @@ function resolveFichaArea(ficha: ProductFicha) {
   return historicalArea ?? 0;
 }
 
+function resolveFichaQuantity(ficha: ProductFicha) {
+  const currentQuantity = Number(ficha.pricingData?.quantity);
+  if (Number.isFinite(currentQuantity) && currentQuantity > 0) return Math.trunc(currentQuantity);
+
+  const historicalQuantity = [...(ficha.priceHistory ?? [])]
+    .reverse()
+    .map((snapshot) => Number(snapshot.quantity))
+    .find((quantity) => Number.isFinite(quantity) && quantity > 0);
+
+  return historicalQuantity ? Math.trunc(historicalQuantity) : 1;
+}
+
 export default function FinanceiroEmpresa({
   companySlug,
   productFichas,
@@ -222,7 +234,7 @@ export default function FinanceiroEmpresa({
     if (!ficha) return;
     const material = materials.find((item) => item.id === ficha.materialId);
     const formula = engineeringFormulas.find((item) => item.id === ficha.engineeringId);
-    const nextItem = { ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } };
+    const nextItem = { ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", quantity: resolveFichaQuantity(ficha), unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } };
     setItems((current) => {
       const hasFilledItem = current.some((item) => item.description.trim() || item.ftNumber.trim());
       const next = hasFilledItem ? [...current, nextItem] : [nextItem];
