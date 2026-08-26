@@ -595,10 +595,10 @@ function ClientDetail({
 
       {detailTab === "resumo" ? (
         <>
-          {!profileDraft.notes.trim() ? (
+          {!hasCrmSummary(profileDraft) ? (
             <div className="crm-required-summary">
               <strong>RESUMO DO CLIENTE PENDENTE</strong>
-              <span>ANTES DE INICIAR A ROTINA COMERCIAL, PREENCHA AS ANOTACOES DA CARTEIRA DESTE CLIENTE.</span>
+              <span>ANTES DE INICIAR A ROTINA COMERCIAL, PREENCHA PELO MENOS A FREQUENCIA, COMPRA MEDIA, ULTIMA COMPRA, PROXIMO CONTATO OU ANOTACOES.</span>
             </div>
           ) : null}
           <div className="crm-metrics">
@@ -928,6 +928,17 @@ function agendaDateLabel(item: RankedClient) {
 
 function toProfile(input: CrmProfileInput): CrmCustomerProfile {
   return { ...input, ownerName: "", whatsappOptInAt: "", updatedAt: "" };
+}
+
+function hasCrmSummary(profile: CrmProfileInput) {
+  return Boolean(
+    profile.notes.trim() ||
+    profile.purchaseFrequencyDays ||
+    Number(profile.averagePurchaseValue || 0) > 0 ||
+    profile.lastPurchaseAt ||
+    profile.nextPurchaseAt ||
+    profile.nextContactAt
+  );
 }
 
 function daysUntil(value: string) {
