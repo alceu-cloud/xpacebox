@@ -653,7 +653,17 @@ function ClientDetail({
 function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, saving }: { opportunities: CrmOpportunity[]; clients: ClientRecord[]; onSelectClient: (id: string) => void; onStageChange: (opportunity: CrmOpportunity, stage: CrmOpportunityStage) => void; saving: boolean }) {
   const [draggedOpportunityId, setDraggedOpportunityId] = useState("");
   const [dropStage, setDropStage] = useState<CrmOpportunityStage | "">("");
+  const [closedPeriod, setClosedPeriod] = useState<"ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM">("ALL");
+  const [closedStart, setClosedStart] = useState("");
+  const [closedEnd, setClosedEnd] = useState("");
   const clientNames = new Map(clients.map((client) => [client.id, client.tradeName || client.legalName]));
+  const visibleOpportunities = useMemo(
+    () => opportunities.filter((item) => {
+      if (item.stage !== "WON" && item.stage !== "LOST") return true;
+      return isInsideClosedPeriod(item.updatedAt || item.createdAt, closedPeriod, closedStart, closedEnd);
+    }),
+    [closedEnd, closedPeriod, closedStart, opportunities]
+  );
 
   function handleDragStart(event: DragEvent<HTMLElement>, opportunityId: string) {
     setDraggedOpportunityId(opportunityId);
@@ -678,9 +688,31 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
   }
 
   return (
-    <section className="crm-pipeline">
+    <section className="crm-pipeline-shell">
+      <div className="crm-pipeline-filters">
+        <div>
+          <span className="clients-eyebrow">FILTRO DE FECHADOS</span>
+          <strong>GANHOS E PERDIDOS</strong>
+        </div>
+        <div>
+          <select value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as typeof closedPeriod)}>
+            <option value="ALL">TODOS</option>
+            <option value="MONTH">MES ATUAL</option>
+            <option value="QUARTER">TRIMESTRE ATUAL</option>
+            <option value="SEMESTER">SEMESTRE ATUAL</option>
+            <option value="CUSTOM">PERIODO DIGITADO</option>
+          </select>
+          {closedPeriod === "CUSTOM" ? (
+            <>
+              <input type="date" value={closedStart} onChange={(event) => setClosedStart(event.target.value)} />
+              <input type="date" value={closedEnd} onChange={(event) => setClosedEnd(event.target.value)} />
+            </>
+          ) : null}
+        </div>
+      </div>
+      <section className="crm-pipeline">
       {stageOptions.map((stage) => {
-        const items = opportunities.filter((item) => item.stage === stage.value);
+        const items = visibleOpportunities.filter((item) => item.stage === stage.value);
         const stageTotal = items.reduce((total, item) => total + Number(item.estimatedValue || 0), 0);
         return (
           <div
@@ -721,8 +753,30 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
           </div>
         );
       })}
+      </section>
     </section>
   );
+}
+
+function isInsideClosedPeriod(value: string, period: "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM", customStart: string, customEnd: string) {
+  if (period === "ALL") return true;
+  const dateKey = value?.slice(0, 10);
+  if (!dateKey) return false;
+  const target = new Date(`${dateKey}T12:00:00`);
+  if (Number.isNaN(target.getTime())) return false;
+
+  if (period === "CUSTOM") {
+    const startOk = !customStart || dateKey >= customStart;
+    const endOk = !customEnd || dateKey <= customEnd;
+    return startOk && endOk;
+  }
+
+  const now = new Date();
+  const startMonth = period === "MONTH" ? now.getMonth() : period === "QUARTER" ? Math.floor(now.getMonth() / 3) * 3 : now.getMonth() < 6 ? 0 : 6;
+  const endMonth = period === "MONTH" ? startMonth : period === "QUARTER" ? startMonth + 2 : startMonth + 5;
+  const start = new Date(now.getFullYear(), startMonth, 1, 0, 0, 0);
+  const end = new Date(now.getFullYear(), endMonth + 1, 0, 23, 59, 59);
+  return target >= start && target <= end;
 }
 
 function isExpiredQuote(opportunity: CrmOpportunity) {
