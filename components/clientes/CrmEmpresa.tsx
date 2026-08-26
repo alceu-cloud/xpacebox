@@ -309,6 +309,31 @@ export default function CrmEmpresa({
     }
   }
 
+  async function handleLinkOpportunityClient(opportunity: CrmOpportunity, clientId: string) {
+    if (!clientId) return;
+    setSaving(true);
+    clearFeedback();
+    try {
+      await saveCrmOpportunity(slug, {
+        id: opportunity.id,
+        clientId,
+        representativeProfileId: opportunity.representativeProfileId,
+        title: opportunity.title,
+        stage: opportunity.stage,
+        estimatedValue: opportunity.estimatedValue,
+        expectedCloseDate: opportunity.expectedCloseDate,
+        notes: opportunity.notes,
+        lostReason: opportunity.lostReason,
+      });
+      await refresh(true);
+      setMessage("OPORTUNIDADE VINCULADA AO CLIENTE. O ALERTA FOI REMOVIDO.");
+    } catch (saveError) {
+      setError(messageFrom(saveError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function clearFeedback() {
     setError("");
     setMessage("");
@@ -434,6 +459,7 @@ export default function CrmEmpresa({
           clients={clients}
           onSelectClient={(clientId) => { selectClient(clientId); setView("carteira"); }}
           onStageChange={handleStageChange}
+          onLinkClient={handleLinkOpportunityClient}
           saving={saving}
         />
       ) : null}
@@ -656,7 +682,21 @@ function ClientDetail({
   );
 }
 
-function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, saving }: { opportunities: CrmOpportunity[]; clients: ClientRecord[]; onSelectClient: (id: string) => void; onStageChange: (opportunity: CrmOpportunity, stage: CrmOpportunityStage) => void; saving: boolean }) {
+function PipelineBoard({
+  opportunities,
+  clients,
+  onSelectClient,
+  onStageChange,
+  onLinkClient,
+  saving,
+}: {
+  opportunities: CrmOpportunity[];
+  clients: ClientRecord[];
+  onSelectClient: (id: string) => void;
+  onStageChange: (opportunity: CrmOpportunity, stage: CrmOpportunityStage) => void;
+  onLinkClient: (opportunity: CrmOpportunity, clientId: string) => void;
+  saving: boolean;
+}) {
   const [draggedOpportunityId, setDraggedOpportunityId] = useState("");
   const [dropStage, setDropStage] = useState<CrmOpportunityStage | "">("");
   const [closedPeriod, setClosedPeriod] = useState<"ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM">("ALL");
@@ -736,13 +776,17 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
             <div>
               {items.map((item) => (
                 <article
-                  className={`crm-opportunity-card${draggedOpportunityId === item.id ? " is-dragging" : ""}${isExpiredQuote(item) ? " is-quote-expired" : ""}`}
+                  className={`crm-opportunity-card${draggedOpportunityId === item.id ? " is-dragging" : ""}${isExpiredQuote(item) ? " is-quote-expired" : ""}${isUnlinkedDirectQuote(item) ? " is-direct-unlinked" : ""}`}
                   draggable={!saving}
                   key={item.id}
                   onDragStart={(event) => handleDragStart(event, item.id)}
                   onDragEnd={() => { setDraggedOpportunityId(""); setDropStage(""); }}
                 >
-                  <button type="button" onClick={() => onSelectClient(item.clientId)}>{clientNames.get(item.clientId) || "CLIENTE"}</button>
+                  {item.clientId ? (
+                    <button type="button" onClick={() => onSelectClient(item.clientId)}>{clientNames.get(item.clientId) || "CLIENTE"}</button>
+                  ) : (
+                    <div className="crm-direct-alert"><b>ORCAMENTO DIRETO</b><span>CLIENTE NAO VINCULADO</span></div>
+                  )}
                   <strong>{item.title}</strong>
                   <span>{money(item.estimatedValue)}</span>
                   <small className={isExpiredQuote(item) ? "crm-expired-label" : ""}>
@@ -752,6 +796,21 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
                         ? `PREVISAO ${displayDate(item.expectedCloseDate)}`
                         : "SEM PREVISAO"}
                   </small>
+                  {!item.clientId ? (
+                    <select
+                      aria-label="VINCULAR CLIENTE"
+                      disabled={saving}
+                      value=""
+                      onChange={(event) => onLinkClient(item, event.target.value)}
+                    >
+                      <option value="">VINCULAR CLIENTE</option>
+                      {clients.map((client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.tradeName || client.legalName}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                 </article>
               ))}
               {!items.length ? <p>SEM OPORTUNIDADES.</p> : null}
@@ -762,6 +821,10 @@ function PipelineBoard({ opportunities, clients, onSelectClient, onStageChange, 
       </section>
     </section>
   );
+}
+
+function isUnlinkedDirectQuote(opportunity: CrmOpportunity) {
+  return Boolean(opportunity.quoteId && !opportunity.clientId);
 }
 
 function isInsideClosedPeriod(value: string, period: "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM", customStart: string, customEnd: string) {

@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { syncExistingDirectQuotesWithCrm } from "@/lib/server/quote-crm";
 
 export async function GET(request: Request) {
   try {
     const slug = new URL(request.url).searchParams.get("slug")?.trim() ?? "";
     if (!slug) return failure("EMPRESA NAO INFORMADA.", 400);
 
-    const { admin, company, profile } = await requireCompanyAccess(request, slug);
+    const { admin, company, profile, user } = await requireCompanyAccess(request, slug);
+    await syncExistingDirectQuotesWithCrm(admin, company.id, user.id).catch((error) => {
+      console.error("DIRECT QUOTES CRM BACKFILL ERROR", error);
+    });
     const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult] = await Promise.all([
       admin.from("crm_customer_profiles").select("*").eq("tenant_company_id", company.id),
       admin.from("crm_activities").select("*").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),

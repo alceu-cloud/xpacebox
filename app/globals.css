@@ -1796,6 +1796,29 @@ button {
   box-shadow: inset 4px 0 0 #ff3d4f;
 }
 
+.crm-opportunity-card.is-direct-unlinked {
+  border-color: rgba(230,128,25,.56);
+  background: linear-gradient(135deg,#fff7ed,#ffffff);
+  box-shadow: inset 4px 0 0 #e68019, 0 12px 24px rgba(230,128,25,.10);
+}
+
+.crm-direct-alert {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffedd5;
+  color: #c45f00;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .6px;
+}
+
+.crm-direct-alert span {
+  color: #9a4d00;
+  font-size: 10px;
+}
+
 .crm-opportunity-card button {
   padding: 0;
   border: 0;

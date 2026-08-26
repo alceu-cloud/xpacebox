@@ -74,7 +74,7 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
   } else {
     const { error } = await admin.from("crm_opportunities").insert({
       tenant_company_id: input.tenantCompanyId,
-      client_id: input.clientId,
+      client_id: input.clientId || null,
       quote_id: input.quoteId,
       stage: "QUOTE_SENT",
       notes: `ORCAMENTO ENVIADO PELO SISTEMA.${validityText}`,
@@ -83,21 +83,25 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
     });
     if (error) throw error;
 
-    const { error: activityError } = await admin.from("crm_activities").insert({
-      tenant_company_id: input.tenantCompanyId,
-      client_id: input.clientId,
-      representative_profile_id: input.representativeProfileId,
-      activity_type: "QUOTE",
-      outcome: "FOLLOW_UP",
-      subject: `ORCAMENTO ${input.quoteNumber} ENVIADO`,
-      notes: `VALOR: ${money(input.grandTotal)}.${validityText}`,
-      occurred_at: now,
-      next_action_type: "FOLLOW_UP",
-      next_action_at: nextActionAt,
-      created_by: input.createdBy,
-    });
-    if (activityError) throw activityError;
+    if (input.clientId) {
+      const { error: activityError } = await admin.from("crm_activities").insert({
+        tenant_company_id: input.tenantCompanyId,
+        client_id: input.clientId,
+        representative_profile_id: input.representativeProfileId,
+        activity_type: "QUOTE",
+        outcome: "FOLLOW_UP",
+        subject: `ORCAMENTO ${input.quoteNumber} ENVIADO`,
+        notes: `VALOR: ${money(input.grandTotal)}.${validityText}`,
+        occurred_at: now,
+        next_action_type: "FOLLOW_UP",
+        next_action_at: nextActionAt,
+        created_by: input.createdBy,
+      });
+      if (activityError) throw activityError;
+    }
   }
+
+  if (!input.clientId) return;
 
   const { data: profile, error: profileError } = await admin
     .from("crm_customer_profiles")
@@ -129,6 +133,50 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
     });
     if (error) throw error;
   }
+}
+
+export async function syncExistingDirectQuotesWithCrm(
+  admin: SupabaseClient,
+  tenantCompanyId: string,
+  createdBy: string
+) {
+  const { data: quotes, error: quotesError } = await admin
+    .from("quotes")
+    .select("id, quote_number, client_id, client_name, representative_profile_id, grand_total, valid_until")
+    .eq("tenant_company_id", tenantCompanyId)
+    .eq("kind", "DIRECT")
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (quotesError) throw quotesError;
+
+  const quoteIds = (quotes ?? []).map((quote) => quote.id).filter(Boolean);
+  if (!quoteIds.length) return 0;
+
+  const { data: existing, error: existingError } = await admin
+    .from("crm_opportunities")
+    .select("quote_id")
+    .eq("tenant_company_id", tenantCompanyId)
+    .in("quote_id", quoteIds);
+  if (existingError) throw existingError;
+
+  const existingQuoteIds = new Set((existing ?? []).map((row) => String(row.quote_id || "")));
+  let created = 0;
+  for (const quote of quotes ?? []) {
+    if (!quote.id || existingQuoteIds.has(String(quote.id))) continue;
+    await syncQuoteWithCrm(admin, {
+      tenantCompanyId,
+      quoteId: String(quote.id),
+      quoteNumber: String(quote.quote_number),
+      clientId: String(quote.client_id || ""),
+      clientName: String(quote.client_name || "CLIENTE NAO CADASTRADO"),
+      representativeProfileId: String(quote.representative_profile_id || createdBy),
+      grandTotal: Number(quote.grand_total || 0),
+      validUntil: String(quote.valid_until || ""),
+      createdBy,
+    });
+    created += 1;
+  }
+  return created;
 }
 
 function nextBusinessMorning() {

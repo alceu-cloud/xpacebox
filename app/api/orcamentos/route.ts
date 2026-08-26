@@ -104,19 +104,17 @@ export async function POST(request: Request) {
       .single();
     if (completeError) throw completeError;
 
-    if (quote.clientId) {
-      await syncQuoteWithCrm(admin, {
-        tenantCompanyId: company.id,
-        quoteId: String(saved.id),
-        quoteNumber: String(saved.quote_number),
-        clientId: quote.clientId,
-        clientName: quote.clientName.trim(),
-        representativeProfileId,
-        grandTotal: totals.productTotal + totals.ipiTotal,
-        validUntil: quote.validUntil || "",
-        createdBy: user.id,
-      });
-    }
+    await syncQuoteWithCrmSafely(admin, quote.kind, {
+      tenantCompanyId: company.id,
+      quoteId: String(saved.id),
+      quoteNumber: String(saved.quote_number),
+      clientId: quote.clientId || "",
+      clientName: quote.clientName.trim(),
+      representativeProfileId,
+      grandTotal: totals.productTotal + totals.ipiTotal,
+      validUntil: quote.validUntil || "",
+      createdBy: user.id,
+    });
 
     return NextResponse.json({ success: true, quote: mapQuote(complete) }, { status: 201 });
   } catch (error) {
@@ -209,19 +207,17 @@ export async function PATCH(request: Request) {
       .single();
     if (completeError) throw completeError;
 
-    if (quote.clientId) {
-      await syncQuoteWithCrm(admin, {
-        tenantCompanyId: company.id,
-        quoteId: String(saved.id),
-        quoteNumber: String(current.quote_number),
-        clientId: quote.clientId,
-        clientName: quote.clientName.trim(),
-        representativeProfileId,
-        grandTotal: totals.productTotal + totals.ipiTotal,
-        validUntil: quote.validUntil || "",
-        createdBy: user.id,
-      });
-    }
+    await syncQuoteWithCrmSafely(admin, quote.kind, {
+      tenantCompanyId: company.id,
+      quoteId: String(saved.id),
+      quoteNumber: String(current.quote_number),
+      clientId: quote.clientId || "",
+      clientName: quote.clientName.trim(),
+      representativeProfileId,
+      grandTotal: totals.productTotal + totals.ipiTotal,
+      validUntil: quote.validUntil || "",
+      createdBy: user.id,
+    });
 
     return NextResponse.json({ success: true, quote: mapQuote(complete) });
   } catch (error) {
@@ -256,6 +252,19 @@ function normalizeItem(item: QuoteDraft["items"][number], itemNumber: number, ap
   const unitPrice = Number(item.unitPrice) || 0;
   const ipiPercent = appliesIpi ? Number(item.ipiPercent) || 0 : 0;
   return { ...item, itemNumber, quantity, unitPrice, ipiPercent, ipiValue: quantity * unitPrice * ipiPercent / 100, total: quantity * unitPrice * (1 + ipiPercent / 100) };
+}
+
+async function syncQuoteWithCrmSafely(
+  admin: Parameters<typeof syncQuoteWithCrm>[0],
+  kind: QuoteDraft["kind"],
+  input: Parameters<typeof syncQuoteWithCrm>[1]
+) {
+  try {
+    await syncQuoteWithCrm(admin, input);
+  } catch (error) {
+    if (kind === "ENGINEERING") throw error;
+    console.error("DIRECT QUOTE CRM SYNC ERROR", error);
+  }
 }
 
 function mapQuote(row: Record<string, unknown>) {

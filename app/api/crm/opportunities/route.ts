@@ -11,17 +11,20 @@ async function save(request: Request, editing: boolean) {
     const body = (await request.json()) as { slug?: string; opportunity?: CrmOpportunityInput };
     const slug = body.slug?.trim() ?? "";
     const input = body.opportunity;
-    if (!slug || !input?.clientId || !input.title || (editing && !input.id)) return failure("PREENCHA OS DADOS DA OPORTUNIDADE.", 400);
+    if (!slug || !input?.title || (editing && !input.id)) return failure("PREENCHA OS DADOS DA OPORTUNIDADE.", 400);
 
     const { admin, company, user } = await requireCompanyAccess(request, slug);
-    const { data: client } = await admin
-      .from("clients")
-      .select("id")
-      .eq("id", input.clientId)
-      .eq("tenant_company_id", company.id)
-      .eq("active", true)
-      .maybeSingle();
-    if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
+    if (!input.clientId && !editing) return failure("SELECIONE UM CLIENTE PARA CRIAR A OPORTUNIDADE.", 400);
+    if (input.clientId) {
+      const { data: client } = await admin
+        .from("clients")
+        .select("id")
+        .eq("id", input.clientId)
+        .eq("tenant_company_id", company.id)
+        .eq("active", true)
+        .maybeSingle();
+      if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
+    }
 
     const representativeId = input.representativeProfileId || user.id;
     await requireCompanyProfile(admin, company.id, representativeId);
@@ -38,7 +41,7 @@ async function save(request: Request, editing: boolean) {
     }
 
     const base = {
-      client_id: input.clientId,
+      client_id: input.clientId || null,
       representative_profile_id: representativeId,
       title: upper(input.title),
       stage: input.stage,
@@ -57,7 +60,7 @@ async function save(request: Request, editing: boolean) {
 
     let cycleScheduled = false;
     let previousCycleCancelled = false;
-    if (!editing) {
+    if (!editing && input.clientId) {
       previousCycleCancelled = await activateOpportunityCycle({
         admin,
         companyId: company.id,
@@ -67,7 +70,7 @@ async function save(request: Request, editing: boolean) {
         userId: user.id,
       });
     }
-    if (editing && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
+    if (editing && input.clientId && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
       cycleScheduled = await scheduleNextCommercialCycle({
         admin,
         companyId: company.id,
