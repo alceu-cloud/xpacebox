@@ -186,6 +186,22 @@ export function calculatePriceResult(
   return calculatePriceResultWithCommission(price, analysis, commissionPercent, preliminaryMcPercent);
 }
 
+export function calculatePriceResultAtCurrentCommission(
+  price: number,
+  analysis: ReturnType<typeof calculatePriceAnalysis>
+) {
+  const expensesPercent = getExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    analysis.commissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
+  const netPrice = price * (1 - expensesPercent / 100);
+  const marginValue = netPrice - analysis.pricingMaterialCost;
+  const mcPercent = netPrice !== 0 ? (marginValue / netPrice) * 100 : 0;
+  return calculatePriceResultWithCommission(price, analysis, analysis.commissionPercent, mcPercent);
+}
+
 function calculatePriceResultWithCommission(
   price: number,
   analysis: ReturnType<typeof calculatePriceAnalysis>,
@@ -274,7 +290,7 @@ export function calculateRequiredLotForHourlyTarget(
   targetMch: number,
   analysis: ReturnType<typeof calculatePriceAnalysis>
 ) {
-  const priceResult = calculatePriceResult(price, analysis);
+  const priceResult = calculatePriceResultAtCurrentCommission(price, analysis);
   const maximumMch = priceResult.marginValue * analysis.boxesPerHour;
 
   if (analysis.setupMinutes <= 0 && analysis.boxesPerHour > 0) {
