@@ -12,7 +12,7 @@ import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOpe
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
-import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculatePriceResultAtCurrentCommission, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
+import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
 import { supabase } from "@/lib/supabase";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
@@ -1458,7 +1458,7 @@ function PriceSummaryStep({
     ignoreAdditionalCosts,
     manualBoxesPerHour,
   });
-  const simulatorA = calculatePriceResultAtCurrentCommission(simulatorPrice, analysis);
+  const simulatorA = calculatePriceResult(simulatorPrice, analysis);
   const simulatorBPrice = calculatePriceForMarginTarget(targetMcPercent, analysis);
   const simulatorB = calculatePriceResult(simulatorBPrice, analysis);
   const simulatorCHourlyTarget = calculatePriceForHourlyTarget(targetMch, analysis);
@@ -1714,7 +1714,7 @@ function PriceSummaryStep({
         <div style={priceAnalysisGridStyle}>
           <div style={priceHighlightStackStyle}>
             <PriceHighlight label={`PRECO PADRAO PELA MC% (${formatNumber(analysis.mcDefault, 0)}%)`} value={formatCurrency(analysis.standardPrice)} tone="pink" />
-            <PriceHighlight label={`PRECO SUGERIDO PELA MC HORA (${formatCurrency(analysis.mcrHour)}/H)`} value={analysis.productionDataReady ? formatCurrency(analysis.mchSuggestedPrice) : "AGUARDANDO CX/H"} tone="blue" />
+            <PriceHighlight label={`PRECO SUGERIDO PELA MC HORA (${formatCurrency(analysis.mcrHour)}/H)`} value={analysis.productionDataReady ? formatCurrency(simulatorCPrice) : "AGUARDANDO CX/H"} tone="blue" />
             <PriceMetric label="MC H" value={analysis.productionDataReady ? `${formatCurrency(analysis.mchStandard)}/H` : "AGUARDANDO CX/H"} />
             <PriceMetric label="PRECO R$/KG" value={`${formatCurrency(analysis.pricePerKg)}/KG`} />
           </div>

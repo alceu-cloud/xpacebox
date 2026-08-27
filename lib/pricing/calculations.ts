@@ -112,12 +112,6 @@ export function calculatePriceAnalysis({
   const totalMinutes = productionDataReady ? setupMinutes + productionMinutes : 0;
   const mchStandard = totalMinutes > 0 ? marginValue * lotQuantity * (60 / totalMinutes) : 0;
   const mcrHour = calculateMonthlyMcrHour(pricingOperationalParams, params.mcrHour);
-  const targetMarginTotal = mcrHour * (totalMinutes / 60);
-  const targetMarginUnit = lotQuantity > 0 ? targetMarginTotal / lotQuantity : 0;
-  const mchSuggestedPrice = productionDataReady && 1 - expensesRate > 0
-    ? (pricingMaterialCost + targetMarginUnit) / (1 - expensesRate)
-    : 0;
-
   return {
     mcDefault: params.mcDefault,
     mcrHour,
@@ -145,7 +139,6 @@ export function calculatePriceAnalysis({
     commissionValue,
     pricePerKg,
     mchStandard,
-    mchSuggestedPrice,
     configuredSetupMinutes,
     setupMinutes,
     setupIgnored: ignoreSetup,
@@ -184,22 +177,6 @@ export function calculatePriceResult(
     analysis.unitWeightKg
   );
   return calculatePriceResultWithCommission(price, analysis, commissionPercent, preliminaryMcPercent);
-}
-
-export function calculatePriceResultAtCurrentCommission(
-  price: number,
-  analysis: ReturnType<typeof calculatePriceAnalysis>
-) {
-  const expensesPercent = getExpensesPercent(
-    analysis.sellerCompanyKey,
-    analysis.pricingParams,
-    analysis.commissionPercent,
-    analysis.ignoreAdditionalCosts
-  );
-  const netPrice = price * (1 - expensesPercent / 100);
-  const marginValue = netPrice - analysis.pricingMaterialCost;
-  const mcPercent = netPrice !== 0 ? (marginValue / netPrice) * 100 : 0;
-  return calculatePriceResultWithCommission(price, analysis, analysis.commissionPercent, mcPercent);
 }
 
 function calculatePriceResultWithCommission(
@@ -254,18 +231,30 @@ export function calculatePriceForHourlyTarget(
     return { price: 0, result: calculatePriceResultWithCommission(0, analysis, analysis.commissionPercent, analysis.mcDefault) };
   }
 
-  // Keep the same dynamic commission tier used by the standard price calculation.
-  const commissionPercent = analysis.commissionPercent;
-  const expensesPercent = getExpensesPercent(
-    analysis.sellerCompanyKey,
-    analysis.pricingParams,
-    commissionPercent,
-    analysis.ignoreAdditionalCosts
+  // The commission tier follows the MC% reached by each tested price.
+  let minimumPrice = 0;
+  let maximumPrice = Math.max(
+    1,
+    calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, analysis.expensesPercent)
   );
-  const price = calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, expensesPercent);
+
+  while (calculatePriceResult(maximumPrice, analysis).mch < targetMch && maximumPrice < 1_000_000) {
+    maximumPrice *= 2;
+  }
+
+  for (let iteration = 0; iteration < 60; iteration += 1) {
+    const candidatePrice = (minimumPrice + maximumPrice) / 2;
+    if (calculatePriceResult(candidatePrice, analysis).mch < targetMch) {
+      minimumPrice = candidatePrice;
+    } else {
+      maximumPrice = candidatePrice;
+    }
+  }
+
+  const price = maximumPrice;
   return {
     price,
-    result: calculatePriceResultWithCommission(price, analysis, commissionPercent, analysis.mcDefault),
+    result: calculatePriceResult(price, analysis),
   };
 }
 
@@ -290,7 +279,7 @@ export function calculateRequiredLotForHourlyTarget(
   targetMch: number,
   analysis: ReturnType<typeof calculatePriceAnalysis>
 ) {
-  const priceResult = calculatePriceResultAtCurrentCommission(price, analysis);
+  const priceResult = calculatePriceResult(price, analysis);
   const maximumMch = priceResult.marginValue * analysis.boxesPerHour;
 
   if (analysis.setupMinutes <= 0 && analysis.boxesPerHour > 0) {
