@@ -171,7 +171,7 @@ async function scheduleNextCommercialCycle({
 }) {
   const { data: profile, error: profileError } = await admin
     .from("crm_customer_profiles")
-    .select("purchase_frequency_days")
+    .select("purchase_frequency_days,average_purchase_value")
     .eq("tenant_company_id", companyId)
     .eq("client_id", clientId)
     .maybeSingle();
@@ -213,6 +213,20 @@ async function scheduleNextCommercialCycle({
     created_by: userId,
   });
   if (activityError) throw activityError;
+  if (stage === "WON") {
+    const { error: nextOpportunityError } = await admin.from("crm_opportunities").insert({
+      tenant_company_id: companyId,
+      client_id: clientId,
+      representative_profile_id: representativeId,
+      title: "PROXIMA COMPRA PREVISTA",
+      stage: "CONTACT_PENDING",
+      estimated_value: Math.max(0, Number(profile?.average_purchase_value || 0)),
+      expected_close_date: nextCycleDate,
+      notes: `OPORTUNIDADE GERADA AUTOMATICAMENTE APOS GANHO: ${opportunityTitle}.`,
+      created_by: userId,
+    });
+    if (nextOpportunityError) throw nextOpportunityError;
+  }
   return true;
 }
 
