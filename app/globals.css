@@ -1692,8 +1692,9 @@ button {
 
 .crm-pipeline-filters {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 14px 16px;
   border: 1px solid rgba(111, 50, 210, 0.16);
@@ -1709,11 +1710,16 @@ button {
   font-weight: 900;
 }
 
-.crm-pipeline-filters > div:last-child {
+.crm-pipeline-filter-group,
+.crm-pipeline-filter-controls {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
+.crm-pipeline-filter-group { flex-wrap: wrap; }
+
+.crm-pipeline-filter-group > div:first-child { min-width: 148px; }
 
 .crm-pipeline-filters select,
 .crm-pipeline-filters input {

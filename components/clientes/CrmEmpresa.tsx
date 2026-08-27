@@ -499,6 +499,7 @@ export default function CrmEmpresa({
         <PipelineBoard
           opportunities={overview.opportunities}
           clients={clients}
+          sellerCompanies={sellerCompanies}
           onSelectClient={(clientId) => { selectClient(clientId); setView("carteira"); }}
           onStageChange={handleStageChange}
           onLinkClient={handleLinkOpportunityClient}
@@ -817,6 +818,7 @@ function ClientDetail({
 function PipelineBoard({
   opportunities,
   clients,
+  sellerCompanies,
   onSelectClient,
   onStageChange,
   onLinkClient,
@@ -824,6 +826,7 @@ function PipelineBoard({
 }: {
   opportunities: CrmOpportunity[];
   clients: ClientRecord[];
+  sellerCompanies: SellerCompanyOption[];
   onSelectClient: (id: string) => void;
   onStageChange: (opportunity: CrmOpportunity, stage: CrmOpportunityStage) => void;
   onLinkClient: (opportunity: CrmOpportunity, clientId: string) => void;
@@ -834,13 +837,17 @@ function PipelineBoard({
   const [closedPeriod, setClosedPeriod] = useState<"ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM">("ALL");
   const [closedStart, setClosedStart] = useState("");
   const [closedEnd, setClosedEnd] = useState("");
+  const [openCompanyFilter, setOpenCompanyFilter] = useState("ALL");
   const clientNames = new Map(clients.map((client) => [client.id, client.tradeName || client.legalName]));
+  const clientCompanyIds = new Map(clients.map((client) => [client.id, client.sellerCompanyId]));
   const visibleOpportunities = useMemo(
     () => opportunities.filter((item) => {
-      if (item.stage !== "WON" && item.stage !== "LOST") return true;
+      if (item.stage !== "WON" && item.stage !== "LOST") {
+        return openCompanyFilter === "ALL" || clientCompanyIds.get(item.clientId) === openCompanyFilter;
+      }
       return isInsideClosedPeriod(item.updatedAt || item.createdAt, closedPeriod, closedStart, closedEnd);
     }),
-    [closedEnd, closedPeriod, closedStart, opportunities]
+    [clientCompanyIds, closedEnd, closedPeriod, closedStart, openCompanyFilter, opportunities]
   );
 
   function handleDragStart(event: DragEvent<HTMLElement>, opportunityId: string) {
@@ -868,24 +875,36 @@ function PipelineBoard({
   return (
     <section className="crm-pipeline-shell">
       <div className="crm-pipeline-filters">
-        <div>
-          <span className="clients-eyebrow">FILTRO DE FECHADOS</span>
-          <strong>GANHOS E PERDIDOS</strong>
-        </div>
-        <div>
-          <select value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as typeof closedPeriod)}>
-            <option value="ALL">TODOS</option>
-            <option value="MONTH">MES ATUAL</option>
-            <option value="QUARTER">TRIMESTRE ATUAL</option>
-            <option value="SEMESTER">SEMESTRE ATUAL</option>
-            <option value="CUSTOM">PERIODO DIGITADO</option>
+        <div className="crm-pipeline-filter-group">
+          <div>
+            <span className="clients-eyebrow">FILTRO DE ABERTAS</span>
+            <strong>EMPRESA</strong>
+          </div>
+          <select value={openCompanyFilter} onChange={(event) => setOpenCompanyFilter(event.target.value)}>
+            <option value="ALL">TODAS AS EMPRESAS</option>
+            {sellerCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
           </select>
-          {closedPeriod === "CUSTOM" ? (
-            <>
-              <input type="date" value={closedStart} onChange={(event) => setClosedStart(event.target.value)} />
-              <input type="date" value={closedEnd} onChange={(event) => setClosedEnd(event.target.value)} />
-            </>
-          ) : null}
+        </div>
+        <div className="crm-pipeline-filter-group">
+          <div>
+            <span className="clients-eyebrow">FILTRO DE FECHADOS</span>
+            <strong>GANHOS E PERDIDOS</strong>
+          </div>
+          <div className="crm-pipeline-filter-controls">
+            <select value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as typeof closedPeriod)}>
+              <option value="ALL">TODOS</option>
+              <option value="MONTH">MES ATUAL</option>
+              <option value="QUARTER">TRIMESTRE ATUAL</option>
+              <option value="SEMESTER">SEMESTRE ATUAL</option>
+              <option value="CUSTOM">PERIODO DIGITADO</option>
+            </select>
+            {closedPeriod === "CUSTOM" ? (
+              <>
+                <input type="date" value={closedStart} onChange={(event) => setClosedStart(event.target.value)} />
+                <input type="date" value={closedEnd} onChange={(event) => setClosedEnd(event.target.value)} />
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
       <section className="crm-pipeline">
