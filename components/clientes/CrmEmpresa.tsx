@@ -16,6 +16,7 @@ import type {
   CrmOverview,
   CrmProfileInput,
 } from "@/types/crm";
+import type { ProductFicha } from "@/types/gerenciador";
 
 type CrmView = "agenda" | "carteira" | "pipeline" | "whatsapp";
 
@@ -70,6 +71,10 @@ const emptyOpportunity: CrmOpportunityInput = {
   clientId: "",
   linkedActivityId: "",
   reuseExistingAgenda: false,
+  productFichaId: "",
+  productReference: "",
+  productQuantity: 1,
+  productUnitPrice: 0,
   representativeProfileId: "",
   title: "",
   stage: "CONTACT_PENDING",
@@ -86,11 +91,13 @@ export default function CrmEmpresa({
   clients,
   representatives,
   sellerCompanies,
+  productFichas,
 }: {
   slug: string;
   clients: ClientRecord[];
   representatives: RepresentativeOption[];
   sellerCompanies: SellerCompanyOption[];
+  productFichas: ProductFicha[];
 }) {
   const [overview, setOverview] = useState<CrmOverview>(emptyOverview);
   const [view, setView] = useState<CrmView>("agenda");
@@ -303,6 +310,10 @@ export default function CrmEmpresa({
         clientId: opportunity.clientId,
         representativeProfileId: opportunity.representativeProfileId,
         title: opportunity.title,
+        productFichaId: opportunity.productFichaId,
+        productReference: opportunity.productReference,
+        productQuantity: opportunity.productQuantity,
+        productUnitPrice: opportunity.productUnitPrice,
         stage,
         estimatedValue: opportunity.estimatedValue,
         expectedCloseDate: opportunity.expectedCloseDate,
@@ -338,6 +349,10 @@ export default function CrmEmpresa({
         clientId,
         representativeProfileId: opportunity.representativeProfileId,
         title: opportunity.title,
+        productFichaId: opportunity.productFichaId,
+        productReference: opportunity.productReference,
+        productQuantity: opportunity.productQuantity,
+        productUnitPrice: opportunity.productUnitPrice,
         stage: opportunity.stage,
         estimatedValue: opportunity.estimatedValue,
         expectedCloseDate: opportunity.expectedCloseDate,
@@ -466,6 +481,7 @@ export default function CrmEmpresa({
               setOpportunityDraft={setOpportunityDraft}
               scheduledActivity={scheduledActivity}
               scheduledAgendaAt={scheduledAgendaAt}
+              productFichas={productFichas}
               onSaveProfile={handleSaveProfile}
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
@@ -597,6 +613,7 @@ function ClientDetail({
   setOpportunityDraft,
   scheduledActivity,
   scheduledAgendaAt,
+  productFichas,
   onSaveProfile,
   onSaveActivity,
   onSaveOpportunity,
@@ -615,6 +632,7 @@ function ClientDetail({
   setOpportunityDraft: (value: CrmOpportunityInput) => void;
   scheduledActivity?: CrmOverview["activities"][number];
   scheduledAgendaAt: string;
+  productFichas: ProductFicha[];
   onSaveProfile: () => void;
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
@@ -624,6 +642,8 @@ function ClientDetail({
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
   const isUsingExistingAgenda = Boolean(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda);
+  const availableProducts = productFichas.filter((item) => item.clientId === client.id && item.status !== "INATIVO" && Number(item.price) > 0);
+  const selectedProduct = availableProducts.find((item) => item.id === opportunityDraft.productFichaId);
 
   return (
     <section className="crm-detail-panel">
@@ -696,7 +716,30 @@ function ClientDetail({
           <div className="crm-profile-grid">
             <CrmInput label="OPORTUNIDADE" value={opportunityDraft.title} onChange={(title) => setOpportunityDraft({ ...opportunityDraft, title: upper(title) })} />
             <CrmSelect label="ETAPA" value={opportunityDraft.stage} onChange={(stage) => setOpportunityDraft({ ...opportunityDraft, stage: stage as CrmOpportunityStage })} options={stageOptions} />
-            <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency />
+            <CrmSelect label="PRODUTO CADASTRADO" value={opportunityDraft.productFichaId || ""} onChange={(productFichaId) => {
+              const product = availableProducts.find((item) => item.id === productFichaId);
+              if (!product) {
+                setOpportunityDraft({ ...opportunityDraft, productFichaId: "", productReference: "", productQuantity: 1, productUnitPrice: 0, estimatedValue: 0 });
+                return;
+              }
+              const quantity = opportunityQuantity(product);
+              const reference = productLabel(product);
+              setOpportunityDraft({
+                ...opportunityDraft,
+                title: opportunityDraft.title || reference,
+                productFichaId: product.id,
+                productReference: reference,
+                productQuantity: quantity,
+                productUnitPrice: Number(product.price),
+                estimatedValue: quantity * Number(product.price),
+              });
+            }} options={availableProducts.map((item) => ({ value: item.id, label: `${productLabel(item)} · ${money(item.price)}` }))} />
+            <CrmInput label="QUANTIDADE" type="number" value={opportunityDraft.productQuantity || ""} onChange={(value) => {
+              const productQuantity = Number(value || 0);
+              setOpportunityDraft({ ...opportunityDraft, productQuantity, estimatedValue: productQuantity * Number(opportunityDraft.productUnitPrice || 0) });
+            }} />
+            {selectedProduct ? <CrmInput label="PRECO UNITARIO" value={opportunityDraft.productUnitPrice || ""} onChange={() => undefined} currency readOnly /> : null}
+            <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency readOnly={Boolean(selectedProduct)} />
             <CrmInput label="PREVISAO DE FECHAMENTO" type="date" value={opportunityDraft.expectedCloseDate} onChange={(expectedCloseDate) => setOpportunityDraft({ ...opportunityDraft, expectedCloseDate })} />
             <CrmSelect label="REPRESENTANTE" value={opportunityDraft.representativeProfileId} onChange={(representativeProfileId) => setOpportunityDraft({ ...opportunityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
             {!isUsingExistingAgenda ? <>
@@ -822,6 +865,7 @@ function PipelineBoard({
                     <div className="crm-direct-alert"><b>ORCAMENTO DIRETO</b><span>CLIENTE NAO VINCULADO</span></div>
                   )}
                   <strong>{item.title}</strong>
+                  {item.productReference ? <small>{item.productReference} · {item.productQuantity || 0} UN.</small> : null}
                   <span>{money(item.estimatedValue)}</span>
                   <small className={isExpiredQuote(item) ? "crm-expired-label" : ""}>
                     {isExpiredQuote(item)
@@ -933,7 +977,7 @@ function Timeline({ activities, opportunities }: { activities: CrmOverview["acti
         type: "CONTATO",
       };
     }),
-    ...opportunities.map((item) => ({ id: item.id, date: item.updatedAt, title: item.title, detail: `${stageOptions.find((stage) => stage.value === item.stage)?.label || item.stage} · ${money(item.estimatedValue)}`, type: "NEGOCIO" })),
+    ...opportunities.map((item) => ({ id: item.id, date: item.updatedAt, title: item.title, detail: `${item.productReference ? `${item.productReference} · ` : ""}${stageOptions.find((stage) => stage.value === item.stage)?.label || item.stage} · ${money(item.estimatedValue)}`, type: "NEGOCIO" })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
   return (
     <section className="crm-timeline">
@@ -1035,6 +1079,20 @@ function agendaDateLabel(item: RankedClient) {
 
 function toProfile(input: CrmProfileInput): CrmCustomerProfile {
   return { ...input, ownerName: "", whatsappOptInAt: "", updatedAt: "" };
+}
+
+function productLabel(product: ProductFicha) {
+  return [product.ftNumber, product.reference].filter(Boolean).join(" - ") || "PRODUTO SEM REFERENCIA";
+}
+
+function opportunityQuantity(product: ProductFicha) {
+  const current = Number(product.pricingData?.quantity || 0);
+  if (Number.isFinite(current) && current > 0) return current;
+  const last = [...(product.priceHistory ?? [])]
+    .reverse()
+    .map((item) => Number(item.quantity || 0))
+    .find((item) => Number.isFinite(item) && item > 0);
+  return last || 1;
 }
 
 function hasCrmSummary(profile: CrmProfileInput) {

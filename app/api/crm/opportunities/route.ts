@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/server/company-access";
+import type { ProductFicha } from "@/types/gerenciador";
 import type { CrmOpportunityInput } from "@/types/crm";
 
 export async function POST(request: Request) { return save(request, false); }
@@ -30,24 +31,39 @@ async function save(request: Request, editing: boolean) {
     await requireCompanyProfile(admin, company.id, representativeId);
     let previousStage = "";
     let previousClientId = "";
+    let existingProduct: { id: string; reference: string; quantity: number; unitPrice: number; total: number } | null = null;
     if (editing) {
       const { data: currentOpportunity, error: currentOpportunityError } = await admin
         .from("crm_opportunities")
-        .select("stage,client_id")
+        .select("stage,client_id,product_ficha_id,product_reference,product_quantity,product_unit_price,estimated_value")
         .eq("id", input.id)
         .eq("tenant_company_id", company.id)
         .single();
       if (currentOpportunityError) throw currentOpportunityError;
       previousStage = currentOpportunity.stage || "";
       previousClientId = currentOpportunity.client_id || "";
+      if (currentOpportunity.product_ficha_id) {
+        existingProduct = {
+          id: currentOpportunity.product_ficha_id,
+          reference: currentOpportunity.product_reference || "",
+          quantity: Number(currentOpportunity.product_quantity || 0),
+          unitPrice: Number(currentOpportunity.product_unit_price || 0),
+          total: Number(currentOpportunity.estimated_value || 0),
+        };
+      }
     }
 
+    const product = editing ? existingProduct : await resolveOpportunityProduct(admin, company.id, input);
     const base = {
       client_id: input.clientId || null,
       representative_profile_id: representativeId,
       title: upper(input.title),
+      product_ficha_id: product?.id || null,
+      product_reference: product?.reference || null,
+      product_quantity: product?.quantity || null,
+      product_unit_price: product?.unitPrice || null,
       stage: input.stage,
-      estimated_value: Math.max(0, Number(input.estimatedValue || 0)),
+      estimated_value: product?.total ?? Math.max(0, Number(input.estimatedValue || 0)),
       expected_close_date: input.expectedCloseDate || null,
       notes: upper(input.notes) || null,
       lost_reason: input.stage === "LOST" ? upper(input.lostReason) || null : null,
@@ -108,6 +124,40 @@ async function save(request: Request, editing: boolean) {
   } catch (error) {
     return handleError(error);
   }
+}
+
+async function resolveOpportunityProduct(
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"],
+  companyId: string,
+  input: CrmOpportunityInput
+) {
+  if (!input.productFichaId) return null;
+
+  const { data, error } = await admin
+    .from("company_manager_settings")
+    .select("data")
+    .eq("tenant_company_id", companyId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const fichas = Array.isArray((data?.data as { productFichas?: unknown } | null)?.productFichas)
+    ? (data?.data as { productFichas: ProductFicha[] }).productFichas
+    : [];
+  const ficha = fichas.find((item) => item.id === input.productFichaId && item.clientId === input.clientId && item.status !== "INATIVO");
+  if (!ficha) throw new Error("PRODUTO NAO ENCONTRADO PARA ESTE CLIENTE.");
+
+  const unitPrice = Number(ficha.price || 0);
+  const quantity = Number(input.productQuantity || 0);
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error("O PRODUTO SELECIONADO NAO POSSUI PRECO VALIDO.");
+  if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("INFORME UMA QUANTIDADE VALIDA PARA O PRODUTO.");
+
+  return {
+    id: ficha.id,
+    reference: productReference(ficha),
+    quantity,
+    unitPrice,
+    total: unitPrice * quantity,
+  };
 }
 
 async function activateOpportunityCycle({
@@ -360,6 +410,10 @@ function nextBusinessMorning() {
   const cursor = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + 1, 12));
   while (cursor.getUTCDay() === 0 || cursor.getUTCDay() === 6) cursor.setUTCDate(cursor.getUTCDate() + 1);
   return cursor.toISOString();
+}
+
+function productReference(product: ProductFicha) {
+  return [product.ftNumber, product.reference].filter(Boolean).join(" - ") || "PRODUTO SEM REFERENCIA";
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }

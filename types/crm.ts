@@ -43,6 +43,10 @@ export type CrmOpportunity = {
   representativeProfileId: string;
   representativeName: string;
   title: string;
+  productFichaId: string;
+  productReference: string;
+  productQuantity: number;
+  productUnitPrice: number;
   stage: CrmOpportunityStage;
   estimatedValue: number;
   expectedCloseDate: string;
@@ -114,6 +118,10 @@ export type CrmOpportunityInput = {
   reuseExistingAgenda?: boolean;
   representativeProfileId: string;
   title: string;
+  productFichaId?: string;
+  productReference?: string;
+  productQuantity?: number;
+  productUnitPrice?: number;
   stage: CrmOpportunityStage;
   estimatedValue: number;
   expectedCloseDate: string;

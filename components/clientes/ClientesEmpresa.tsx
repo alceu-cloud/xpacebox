@@ -19,6 +19,7 @@ import type {
   SellerCompanyOption,
 } from "@/types/clientes";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
+import type { ProductFicha } from "@/types/gerenciador";
 
 const emptyForm: ClientFormData = {
   legalName: "",
@@ -56,6 +57,7 @@ export default function ClientesEmpresa({
   taxRegimes = [],
   fiscalProfiles = [],
   fiscalBenefits = [],
+  productFichas = [],
 }: {
   slug: string;
   paymentConditions?: PaymentCondition[];
@@ -63,6 +65,7 @@ export default function ClientesEmpresa({
   taxRegimes?: GeneralOption[];
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
+  productFichas?: ProductFicha[];
 }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [sellerCompanies, setSellerCompanies] = useState<SellerCompanyOption[]>([]);
@@ -244,6 +247,7 @@ export default function ClientesEmpresa({
           clients={clients}
           representatives={representatives}
           sellerCompanies={sellerCompanies}
+          productFichas={productFichas}
         />
       )}
 

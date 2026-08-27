@@ -292,7 +292,7 @@ export default function EmpresaPage() {
             onProductColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloAtivo === "clientes" ? (
-          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} />
+          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} productFichas={productFichas} />
         ) : moduloAtivo === "produtos" ? (
           <ProductCatalogPanel
             companySlug={slug}
