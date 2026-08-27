@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { createQuote, deleteQuote, loadQuotes, updateQuote } from "@/lib/orcamentos";
+import { createQuote, deleteQuote, loadLinkableCrmOpportunities, loadQuotes, updateQuote } from "@/lib/orcamentos";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { loadClientOptions, loadClients } from "@/lib/clientes";
 import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
 import type { EngineeringFormula, ProductFicha, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial } from "@/types/gerenciador";
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
 import type { PaymentCondition } from "@/types/cadastros-gerais";
-import type { PricingQuotePrefill, QuoteDraft, QuoteItem, QuoteRecord } from "@/types/orcamentos";
+import type { CrmOpportunityLinkCandidate, PricingQuotePrefill, QuoteDraft, QuoteItem, QuoteRecord } from "@/types/orcamentos";
 
 const companies = [
   { name: "DAWOS", slug: "dawos" },
@@ -132,6 +132,8 @@ export default function FinanceiroEmpresa({
   const [selectedFichaId, setSelectedFichaId] = useState("");
   const [editingQuoteId, setEditingQuoteId] = useState("");
   const [form, setForm] = useState<QuoteFormState>(() => emptyQuoteForm(resolveValidityDays("DAWOS", quoteParameters)));
+  const [pendingQuoteDraft, setPendingQuoteDraft] = useState<QuoteDraft | null>(null);
+  const [linkableOpportunities, setLinkableOpportunities] = useState<CrmOpportunityLinkCandidate[]>([]);
 
   useEffect(() => {
     Promise.all([loadClients(companySlug), loadClientOptions(companySlug)])
@@ -193,6 +195,8 @@ export default function FinanceiroEmpresa({
     setSearch("");
     setShowForm(false);
     setEditingQuoteId("");
+    setPendingQuoteDraft(null);
+    setLinkableOpportunities([]);
     setMessage("");
     void refreshQuotes(nextKind, "");
   }
@@ -204,6 +208,8 @@ export default function FinanceiroEmpresa({
     setSelectedClientId("");
     setSelectedFichaId("");
     setForm(emptyQuoteForm(resolveValidityDays("DAWOS", quoteParameters)));
+    setPendingQuoteDraft(null);
+    setLinkableOpportunities([]);
   }
 
   function updateForm(key: keyof typeof form, value: string) { setForm((current) => ({ ...current, [key]: value })); }
@@ -280,17 +286,41 @@ export default function FinanceiroEmpresa({
         observations: form.observations,
         items: normalizedItems,
       };
-      const quote = editingQuoteId
+      if (!editingQuoteId && selectedClientId) {
+        const opportunities = await loadLinkableCrmOpportunities(companySlug, selectedClientId);
+        if (opportunities.length) {
+          setPendingQuoteDraft(draft);
+          setLinkableOpportunities(opportunities);
+          return;
+        }
+      }
+      await persistQuote(draft);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL GERAR O ORCAMENTO.");
+    }
+  }
+
+  async function persistQuote(draft: QuoteDraft) {
+    const editing = Boolean(editingQuoteId);
+    try {
+      const quote = editing
         ? await updateQuote(companySlug, editingQuoteId, draft)
         : await createQuote(companySlug, draft);
       setShowForm(false);
       setEditingQuoteId("");
-      setMessage(`ORCAMENTO ${quote.quoteNumber} ${editingQuoteId ? "ATUALIZADO" : "GERADO"} COM SUCESSO.`);
+      setPendingQuoteDraft(null);
+      setLinkableOpportunities([]);
+      setMessage(`ORCAMENTO ${quote.quoteNumber} ${editing ? "ATUALIZADO" : "GERADO"} COM SUCESSO.`);
       await refreshQuotes();
       printQuote(quote, quoteParameters);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL GERAR O ORCAMENTO.");
     }
+  }
+
+  async function linkPendingQuote(opportunityId?: string) {
+    if (!pendingQuoteDraft) return;
+    await persistQuote({ ...pendingQuoteDraft, ...(opportunityId ? { crmOpportunityId: opportunityId } : {}) });
   }
 
   function editQuote(quote: QuoteRecord) {
@@ -345,7 +375,12 @@ export default function FinanceiroEmpresa({
         {message && <div style={messageStyle}>{message}</div>}
       </section>
 
-      {showForm && <QuoteForm kind={kind} editing={Boolean(editingQuoteId)} form={form} items={items} clients={clients} representatives={representatives} paymentConditions={paymentConditions} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index).map((item, itemIndex) => ({ ...item, itemNumber: itemIndex + 1 })))} onCancel={() => { setShowForm(false); setEditingQuoteId(""); }} onSave={saveQuote} />}
+      {showForm && <><QuoteForm kind={kind} editing={Boolean(editingQuoteId)} form={form} items={items} clients={clients} representatives={representatives} paymentConditions={paymentConditions} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index).map((item, itemIndex) => ({ ...item, itemNumber: itemIndex + 1 })))} onCancel={() => { setShowForm(false); setEditingQuoteId(""); setPendingQuoteDraft(null); setLinkableOpportunities([]); }} onSave={saveQuote} />
+        {pendingQuoteDraft && <section style={opportunityLinkPanelStyle}>
+          <div><span style={eyebrowStyle}>OPORTUNIDADE EM ABERTO</span><h3 style={opportunityLinkTitleStyle}>VINCULAR ESTE ORCAMENTO?</h3><p style={opportunityLinkDescriptionStyle}>ESCOLHA UMA OPORTUNIDADE PARA MANTER A MESMA AGENDA OU CRIE UMA NOVA NEGOCIACAO.</p></div>
+          <div style={opportunityLinkListStyle}>{linkableOpportunities.map((opportunity) => <article key={opportunity.id} style={opportunityLinkItemStyle}><div style={opportunityLinkDetailsStyle}><strong>{opportunity.title}</strong><span>{opportunity.productReference || "PRODUTO NAO INFORMADO"}</span><small>{formatCurrency(opportunity.estimatedValue)} · {formatOpportunityStage(opportunity.stage)}</small></div><button type="button" onClick={() => linkPendingQuote(opportunity.id)} style={secondaryButtonStyle}>VINCULAR</button></article>)}</div>
+          <div style={opportunityLinkActionsStyle}><button type="button" onClick={() => { setPendingQuoteDraft(null); setLinkableOpportunities([]); }} style={cancelButtonStyle}>VOLTAR</button><button type="button" onClick={() => linkPendingQuote()} style={primaryButtonStyle}>CRIAR NOVA OPORTUNIDADE</button></div>
+        </section>}</>}
 
       <section style={panelStyle}><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>ORCAMENTOS SALVOS</h2><span style={countStyle}>{quotes.length} REGISTRO(S)</span></div>{quotes.length === 0 ? <div style={emptyStyle}>NENHUM ORCAMENTO ENCONTRADO.</div> : <div style={quoteListStyle}>{quotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
     </section>
@@ -367,6 +402,7 @@ function Field({ label, value, onChange, type = "text", lower = false, options, 
 }
 
 function formatCurrency(value: number) { return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+function formatOpportunityStage(value: string) { return ({ CONTACT_PENDING: "CONTATO PENDENTE", CONTACTED: "CONTATADO", QUOTE_PREPARATION: "ORCAMENTO EM PREPARACAO", QUOTE_SENT: "ORCAMENTO ENVIADO", NEGOTIATION: "NEGOCIACAO" } as Record<string, string>)[value] || value; }
 
 function resolveQuoteCompanyKey(quote: QuoteRecord): QuoteCompanyKey {
   const company = `${quote.sellerCompanySlug} ${quote.sellerCompanyName}`.toLowerCase();
@@ -614,3 +650,10 @@ const itemCardHeaderStyle = { display: "flex", justifyContent: "space-between", 
 const removeButtonStyle = { border: "none", background: "transparent", color: "#ff3b25", fontSize: 11, fontWeight: 900, cursor: "pointer" };
 const formActionsStyle = { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 };
 const cancelButtonStyle = { ...secondaryButtonStyle, color: "#667085" };
+const opportunityLinkPanelStyle = { display: "grid", gap: 16, marginTop: 18, padding: 22, border: "1px solid rgba(111,50,210,.32)", borderRadius: 14, background: "#f8f5ff" };
+const opportunityLinkTitleStyle = { margin: "6px 0 0", color: "#141827", fontSize: 19, fontWeight: 900 };
+const opportunityLinkDescriptionStyle = { margin: "7px 0 0", color: "#667085", fontSize: 13, fontWeight: 800 };
+const opportunityLinkListStyle = { display: "grid", gap: 9 };
+const opportunityLinkItemStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, padding: "14px 16px", border: "1px solid rgba(111,50,210,.16)", borderRadius: 10, background: "#fff" };
+const opportunityLinkDetailsStyle = { display: "grid", gap: 4, minWidth: 0, color: "#344054", fontSize: 13, fontWeight: 800 };
+const opportunityLinkActionsStyle = { display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" as const };

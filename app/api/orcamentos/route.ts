@@ -114,6 +114,7 @@ export async function POST(request: Request) {
       grandTotal: totals.productTotal + totals.ipiTotal,
       validUntil: quote.validUntil || "",
       createdBy: user.id,
+      existingOpportunityId: quote.crmOpportunityId || "",
     });
 
     return NextResponse.json({ success: true, quote: mapQuote(complete) }, { status: 201 });
@@ -233,6 +234,22 @@ export async function DELETE(request: Request) {
     if (!slug || !id) return failure("ORCAMENTO INVALIDO.", 400);
 
     const { admin, company } = await requireCompanyAccess(request, slug);
+    const { data: linkedOpportunities, error: linkedOpportunitiesError } = await admin
+      .from("crm_opportunities")
+      .select("id")
+      .eq("tenant_company_id", company.id)
+      .eq("quote_id", id)
+      .eq("quote_linked_existing", true);
+    if (linkedOpportunitiesError) throw linkedOpportunitiesError;
+    const linkedOpportunityIds = (linkedOpportunities ?? []).map((item) => item.id);
+    if (linkedOpportunityIds.length) {
+      const { error: unlinkError } = await admin
+        .from("crm_opportunities")
+        .update({ quote_id: null, quote_linked_existing: false, updated_at: new Date().toISOString() })
+        .in("id", linkedOpportunityIds)
+        .eq("tenant_company_id", company.id);
+      if (unlinkError) throw unlinkError;
+    }
     const { error: crmError } = await admin
       .from("crm_opportunities")
       .delete()

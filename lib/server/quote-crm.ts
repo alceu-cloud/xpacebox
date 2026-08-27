@@ -10,6 +10,7 @@ type QuoteCrmInput = {
   grandTotal: number;
   validUntil: string;
   createdBy: string;
+  existingOpportunityId?: string;
 };
 
 export async function resolveQuoteRepresentative(
@@ -46,6 +47,55 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
   const now = new Date().toISOString();
   const validityText = input.validUntil ? ` VALIDADE: ${displayDate(input.validUntil)}.` : "";
 
+  const opportunityPayload = {
+    representative_profile_id: input.representativeProfileId,
+    title: `ORCAMENTO ${input.quoteNumber} - ${input.clientName}`,
+    estimated_value: input.grandTotal,
+    expected_close_date: input.validUntil || null,
+    updated_at: now,
+  };
+
+  if (input.existingOpportunityId) {
+    const { data: existingOpportunity, error: existingOpportunityError } = await admin
+      .from("crm_opportunities")
+      .select("id,notes")
+      .eq("id", input.existingOpportunityId)
+      .eq("tenant_company_id", input.tenantCompanyId)
+      .eq("client_id", input.clientId)
+      .is("quote_id", null)
+      .not("stage", "in", "(WON,LOST)")
+      .maybeSingle();
+    if (existingOpportunityError) throw existingOpportunityError;
+    if (!existingOpportunity) throw new Error("A OPORTUNIDADE ESCOLHIDA NAO ESTA MAIS DISPONIVEL PARA VINCULO.");
+
+    const notes = [existingOpportunity.notes, `ORCAMENTO ${input.quoteNumber} VINCULADO.${validityText}`]
+      .filter(Boolean)
+      .join("\n");
+    const { error: updateError } = await admin
+      .from("crm_opportunities")
+      .update({ ...opportunityPayload, quote_id: input.quoteId, stage: "QUOTE_SENT", notes, quote_linked_existing: true })
+      .eq("id", existingOpportunity.id)
+      .eq("tenant_company_id", input.tenantCompanyId);
+    if (updateError) throw updateError;
+
+    const { error: activityError } = await admin.from("crm_activities").insert({
+      tenant_company_id: input.tenantCompanyId,
+      client_id: input.clientId,
+      opportunity_id: existingOpportunity.id,
+      representative_profile_id: input.representativeProfileId,
+      activity_type: "QUOTE",
+      outcome: "FOLLOW_UP",
+      subject: `ORCAMENTO ${input.quoteNumber} VINCULADO`,
+      notes: `VALOR: ${money(input.grandTotal)}.${validityText}`,
+      occurred_at: now,
+      next_action_type: null,
+      next_action_at: null,
+      created_by: input.createdBy,
+    });
+    if (activityError) throw activityError;
+    return;
+  }
+
   const { data: existing, error: existingError } = await admin
     .from("crm_opportunities")
     .select("id, stage")
@@ -54,14 +104,6 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
     .maybeSingle();
 
   if (existingError) throw existingError;
-
-  const opportunityPayload = {
-    representative_profile_id: input.representativeProfileId,
-    title: `ORCAMENTO ${input.quoteNumber} - ${input.clientName}`,
-    estimated_value: input.grandTotal,
-    expected_close_date: input.validUntil || null,
-    updated_at: now,
-  };
 
   if (existing) {
     const closed = existing.stage === "WON" || existing.stage === "LOST";

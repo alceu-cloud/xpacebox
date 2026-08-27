@@ -49,8 +49,18 @@ export type QuoteRecord = {
   items: QuoteItem[];
 };
 
+export type CrmOpportunityLinkCandidate = {
+  id: string;
+  title: string;
+  stage: string;
+  estimatedValue: number;
+  productReference: string;
+  expectedCloseDate: string;
+};
+
 export type QuoteDraft = Omit<QuoteRecord, "id" | "quoteNumber" | "status" | "productTotal" | "ipiTotal" | "grandTotal" | "items"> & {
   items: QuoteItem[];
+  crmOpportunityId?: string;
 };
 
 export type PricingQuotePrefill = {

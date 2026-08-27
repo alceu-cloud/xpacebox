@@ -1,4 +1,4 @@
-import type { QuoteDraft, QuoteRecord } from "@/types/orcamentos";
+import type { CrmOpportunityLinkCandidate, QuoteDraft, QuoteRecord } from "@/types/orcamentos";
 
 async function authorizedFetch(path: string, init?: RequestInit) {
   const { supabase } = await import("@/lib/supabase");
@@ -20,6 +20,12 @@ export async function loadQuotes(slug: string, kind: "DIRECT" | "ENGINEERING", s
   if (search.trim()) params.set("search", search.trim());
   const payload = await authorizedFetch(`/api/orcamentos?${params.toString()}`);
   return payload.quotes as QuoteRecord[];
+}
+
+export async function loadLinkableCrmOpportunities(slug: string, clientId: string) {
+  const params = new URLSearchParams({ slug, clientId });
+  const payload = await authorizedFetch(`/api/orcamentos/oportunidades?${params.toString()}`);
+  return payload.opportunities as CrmOpportunityLinkCandidate[];
 }
 
 export async function createQuote(slug: string, quote: QuoteDraft) {
