@@ -29,15 +29,17 @@ async function save(request: Request, editing: boolean) {
     const representativeId = input.representativeProfileId || user.id;
     await requireCompanyProfile(admin, company.id, representativeId);
     let previousStage = "";
+    let previousClientId = "";
     if (editing) {
       const { data: currentOpportunity, error: currentOpportunityError } = await admin
         .from("crm_opportunities")
-        .select("stage")
+        .select("stage,client_id")
         .eq("id", input.id)
         .eq("tenant_company_id", company.id)
         .single();
       if (currentOpportunityError) throw currentOpportunityError;
       previousStage = currentOpportunity.stage || "";
+      previousClientId = currentOpportunity.client_id || "";
     }
 
     const base = {
@@ -60,7 +62,9 @@ async function save(request: Request, editing: boolean) {
 
     let cycleScheduled = false;
     let previousCycleCancelled = false;
-    if (!editing && input.clientId) {
+    let agendaLinked = false;
+    const startsOpportunityCycle = Boolean(input.clientId && (!editing || !previousClientId));
+    if (startsOpportunityCycle && input.clientId) {
       previousCycleCancelled = await activateOpportunityCycle({
         admin,
         companyId: company.id,
@@ -68,6 +72,19 @@ async function save(request: Request, editing: boolean) {
         opportunityTitle: base.title,
         representativeId,
         userId: user.id,
+        preservedActivityId: input.linkedActivityId || "",
+      });
+      agendaLinked = await scheduleOpportunityAgenda({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityId: data.id,
+        representativeId,
+        userId: user.id,
+        title: base.title,
+        linkedActivityId: input.linkedActivityId || "",
+        nextActionType: input.nextActionType || "FOLLOW_UP",
+        nextActionAt: input.nextActionAt || nextBusinessMorning(),
       });
     }
     if (editing && input.clientId && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
@@ -75,6 +92,7 @@ async function save(request: Request, editing: boolean) {
         admin,
         companyId: company.id,
         clientId: input.clientId,
+        opportunityId: data.id,
         opportunityTitle: base.title,
         representativeId,
         stage: input.stage,
@@ -83,7 +101,7 @@ async function save(request: Request, editing: boolean) {
     }
 
     return NextResponse.json(
-      { success: true, opportunity: data, cycleScheduled, previousCycleCancelled },
+      { success: true, opportunity: data, cycleScheduled, previousCycleCancelled, agendaLinked },
       { status: editing ? 200 : 201 }
     );
   } catch (error) {
@@ -98,6 +116,7 @@ async function activateOpportunityCycle({
   opportunityTitle,
   representativeId,
   userId,
+  preservedActivityId,
 }: {
   admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
   companyId: string;
@@ -105,6 +124,7 @@ async function activateOpportunityCycle({
   opportunityTitle: string;
   representativeId: string;
   userId: string;
+  preservedActivityId: string;
 }) {
   const { data: profile, error: profileError } = await admin
     .from("crm_customer_profiles")
@@ -115,6 +135,7 @@ async function activateOpportunityCycle({
   if (profileError) throw profileError;
 
   const hadScheduledCycle = Boolean(profile?.next_purchase_at || profile?.next_contact_at);
+  const previousCycleCancelled = hadScheduledCycle && !preservedActivityId;
   const now = new Date().toISOString();
   const { error: updateProfileError } = await admin
     .from("crm_customer_profiles")
@@ -123,16 +144,18 @@ async function activateOpportunityCycle({
     .eq("client_id", clientId);
   if (updateProfileError) throw updateProfileError;
 
-  const { error: updateActivitiesError } = await admin
+  let scheduledActivities = admin
     .from("crm_activities")
     .update({ next_action_type: null, next_action_at: null })
     .eq("tenant_company_id", companyId)
     .eq("client_id", clientId)
     .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
     .not("next_action_at", "is", null);
+  if (preservedActivityId) scheduledActivities = scheduledActivities.neq("id", preservedActivityId);
+  const { error: updateActivitiesError } = await scheduledActivities;
   if (updateActivitiesError) throw updateActivitiesError;
 
-  if (hadScheduledCycle) {
+  if (previousCycleCancelled) {
     const { error: activityError } = await admin.from("crm_activities").insert({
       tenant_company_id: companyId,
       client_id: clientId,
@@ -149,13 +172,89 @@ async function activateOpportunityCycle({
     if (activityError) throw activityError;
   }
 
-  return hadScheduledCycle;
+  return previousCycleCancelled;
+}
+
+async function scheduleOpportunityAgenda({
+  admin,
+  companyId,
+  clientId,
+  opportunityId,
+  representativeId,
+  userId,
+  title,
+  linkedActivityId,
+  nextActionType,
+  nextActionAt,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+  opportunityId: string;
+  representativeId: string;
+  userId: string;
+  title: string;
+  linkedActivityId: string;
+  nextActionType: string;
+  nextActionAt: string;
+}) {
+  const now = new Date().toISOString();
+  let scheduledAt = nextActionAt;
+
+  if (linkedActivityId) {
+    const { data: activity, error: activityError } = await admin
+      .from("crm_activities")
+      .select("id,next_action_at")
+      .eq("id", linkedActivityId)
+      .eq("tenant_company_id", companyId)
+      .eq("client_id", clientId)
+      .is("opportunity_id", null)
+      .maybeSingle();
+    if (activityError) throw activityError;
+    if (!activity?.next_action_at) throw new Error("A AGENDA SELECIONADA NAO ESTA MAIS ABERTA.");
+
+    scheduledAt = activity.next_action_at;
+    const { error: linkError } = await admin
+      .from("crm_activities")
+      .update({ opportunity_id: opportunityId })
+      .eq("id", activity.id)
+      .eq("tenant_company_id", companyId);
+    if (linkError) throw linkError;
+  } else {
+    const { error: activityError } = await admin.from("crm_activities").insert({
+      tenant_company_id: companyId,
+      client_id: clientId,
+      opportunity_id: opportunityId,
+      representative_profile_id: representativeId,
+      activity_type: "NOTE",
+      outcome: "FOLLOW_UP",
+      subject: `ACOMPANHAMENTO DA OPORTUNIDADE: ${title}`,
+      notes: "OPORTUNIDADE ABERTA NO FUNIL.",
+      occurred_at: now,
+      next_action_type: nextActionType,
+      next_action_at: scheduledAt,
+      created_by: userId,
+    });
+    if (activityError) throw activityError;
+  }
+
+  const { error: profileError } = await admin.from("crm_customer_profiles").upsert({
+    tenant_company_id: companyId,
+    client_id: clientId,
+    owner_profile_id: representativeId,
+    next_contact_at: scheduledAt,
+    updated_at: now,
+    created_by: userId,
+  }, { onConflict: "tenant_company_id,client_id" });
+  if (profileError) throw profileError;
+  return true;
 }
 
 async function scheduleNextCommercialCycle({
   admin,
   companyId,
   clientId,
+  opportunityId,
   opportunityTitle,
   representativeId,
   stage,
@@ -164,11 +263,20 @@ async function scheduleNextCommercialCycle({
   admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
   companyId: string;
   clientId: string;
+  opportunityId: string;
   opportunityTitle: string;
   representativeId: string;
   stage: CrmOpportunityInput["stage"];
   userId: string;
 }) {
+  const { error: clearAgendaError } = await admin
+    .from("crm_activities")
+    .update({ next_action_type: null, next_action_at: null })
+    .eq("tenant_company_id", companyId)
+    .eq("opportunity_id", opportunityId)
+    .not("next_action_at", "is", null);
+  if (clearAgendaError) throw clearAgendaError;
+
   const { data: profile, error: profileError } = await admin
     .from("crm_customer_profiles")
     .select("purchase_frequency_days")
@@ -236,6 +344,19 @@ function addDays(dateValue: string, days: number) {
   const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+function nextBusinessMorning() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const cursor = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + 1, 12));
+  while (cursor.getUTCDay() === 0 || cursor.getUTCDay() === 6) cursor.setUTCDate(cursor.getUTCDate() + 1);
+  return cursor.toISOString();
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }

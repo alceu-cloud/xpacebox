@@ -79,6 +79,7 @@ export async function GET(request: Request) {
         activities: (activitiesResult.data ?? []).map((row) => ({
           id: row.id,
           clientId: row.client_id,
+          opportunityId: row.opportunity_id || "",
           representativeProfileId: row.representative_profile_id || "",
           representativeName: people.get(row.representative_profile_id) || "",
           activityType: row.activity_type,

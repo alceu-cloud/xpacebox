@@ -68,6 +68,7 @@ const emptyActivity: CrmActivityInput = {
 
 const emptyOpportunity: CrmOpportunityInput = {
   clientId: "",
+  linkedActivityId: "",
   representativeProfileId: "",
   title: "",
   stage: "CONTACT_PENDING",
@@ -75,6 +76,8 @@ const emptyOpportunity: CrmOpportunityInput = {
   expectedCloseDate: "",
   notes: "",
   lostReason: "",
+  nextActionType: "FOLLOW_UP",
+  nextActionAt: "",
 };
 
 export default function CrmEmpresa({
@@ -133,15 +136,19 @@ export default function CrmEmpresa({
   );
   const selectedClient = clients.find((client) => client.id === selectedClientId) ?? null;
   const selectedProfile = selectedClient ? profileByClient.get(selectedClient.id) : undefined;
+  const scheduledActivity = useMemo(() => {
+    if (!selectedClient) return undefined;
+    const nextContactAt = selectedProfile?.nextContactAt || "";
+    return overview.activities.find((activity) => {
+      if (activity.clientId !== selectedClient.id || !activity.nextActionAt || activity.opportunityId) return false;
+      return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
+    });
+  }, [overview.activities, selectedClient, selectedProfile?.nextContactAt]);
 
   useEffect(() => {
     if (!selectedClient) return;
     const owner = selectedProfile?.ownerProfileId || selectedClient.representativeUserId || overview.currentProfileId;
     const nextContactAt = selectedProfile?.nextContactAt || "";
-    const scheduledActivity = overview.activities.find((activity) => {
-      if (activity.clientId !== selectedClient.id || !activity.nextActionAt) return false;
-      return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
-    });
     setProfileDraft({
       clientId: selectedClient.id,
       ownerProfileId: owner,
@@ -166,7 +173,7 @@ export default function CrmEmpresa({
       nextActionAt: toLocalDateTime(nextContactAt || scheduledActivity?.nextActionAt || ""),
     });
     setOpportunityDraft({ ...emptyOpportunity, clientId: selectedClient.id, representativeProfileId: owner });
-  }, [overview.activities, overview.currentProfileId, selectedClient, selectedProfile]);
+  }, [overview.currentProfileId, selectedClient, selectedProfile, scheduledActivity]);
 
   const activeOpportunities = useMemo(
     () => overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST"),
@@ -250,19 +257,29 @@ export default function CrmEmpresa({
       setError("INFORME O TITULO DA OPORTUNIDADE.");
       return;
     }
+    if (!opportunityDraft.linkedActivityId && (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt)) {
+      setError("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.");
+      return;
+    }
     setSaving(true);
     clearFeedback();
     try {
-      const result = await saveCrmOpportunity(slug, { ...opportunityDraft, clientId: selectedClient.id });
+      const result = await saveCrmOpportunity(slug, {
+        ...opportunityDraft,
+        clientId: selectedClient.id,
+        nextActionAt: toIsoDateTime(opportunityDraft.nextActionAt || ""),
+      });
       await refresh(true);
       setOpportunityDraft({
         ...emptyOpportunity,
         clientId: selectedClient.id,
         representativeProfileId: opportunityDraft.representativeProfileId,
       });
-      setMessage(result.previousCycleCancelled
+      setMessage(opportunityDraft.linkedActivityId
+        ? "OPORTUNIDADE SALVA E VINCULADA A AGENDA JA EXISTENTE."
+        : result.previousCycleCancelled
         ? "OPORTUNIDADE SALVA. O AGENDAMENTO AUTOMATICO ANTERIOR FOI ENCERRADO."
-        : "OPORTUNIDADE SALVA NO FUNIL.");
+        : "OPORTUNIDADE SALVA NO FUNIL E COM AGENDA PROGRAMADA.");
     } catch (saveError) {
       setError(messageFrom(saveError));
     } finally {
@@ -445,6 +462,7 @@ export default function CrmEmpresa({
               setActivityDraft={setActivityDraft}
               opportunityDraft={opportunityDraft}
               setOpportunityDraft={setOpportunityDraft}
+              scheduledActivity={scheduledActivity}
               onSaveProfile={handleSaveProfile}
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
@@ -574,6 +592,7 @@ function ClientDetail({
   setActivityDraft,
   opportunityDraft,
   setOpportunityDraft,
+  scheduledActivity,
   onSaveProfile,
   onSaveActivity,
   onSaveOpportunity,
@@ -590,6 +609,7 @@ function ClientDetail({
   setActivityDraft: (value: CrmActivityInput) => void;
   opportunityDraft: CrmOpportunityInput;
   setOpportunityDraft: (value: CrmOpportunityInput) => void;
+  scheduledActivity?: CrmOverview["activities"][number];
   onSaveProfile: () => void;
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
@@ -673,9 +693,17 @@ function ClientDetail({
             <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency />
             <CrmInput label="PREVISAO DE FECHAMENTO" type="date" value={opportunityDraft.expectedCloseDate} onChange={(expectedCloseDate) => setOpportunityDraft({ ...opportunityDraft, expectedCloseDate })} />
             <CrmSelect label="REPRESENTANTE" value={opportunityDraft.representativeProfileId} onChange={(representativeProfileId) => setOpportunityDraft({ ...opportunityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
+            {!opportunityDraft.linkedActivityId ? <>
+              <CrmSelect label="PROXIMA ACAO" value={opportunityDraft.nextActionType || ""} onChange={(nextActionType) => setOpportunityDraft({ ...opportunityDraft, nextActionType: nextActionType as CrmOpportunityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
+              <CrmInput label="DATA DA PROXIMA ACAO" type="datetime-local" value={opportunityDraft.nextActionAt || ""} onChange={(nextActionAt) => setOpportunityDraft({ ...opportunityDraft, nextActionAt })} />
+            </> : <div className="crm-linked-agenda">AGENDA JA VINCULADA: {displayDateTime(scheduledActivity?.nextActionAt || "")}</div>}
             <label className="crm-textarea crm-span-2"><span>ANOTACOES</span><textarea value={opportunityDraft.notes} onChange={(event) => setOpportunityDraft({ ...opportunityDraft, notes: upper(event.target.value) })} /></label>
           </div>
-          <div className="crm-form-actions"><button type="button" onClick={onSaveOpportunity} disabled={saving}>CRIAR OPORTUNIDADE</button></div>
+          <div className="crm-form-actions">
+            {scheduledActivity && !opportunityDraft.linkedActivityId ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity.id, nextActionType: scheduledActivity.nextActionType, nextActionAt: toLocalDateTime(scheduledActivity.nextActionAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
+            {opportunityDraft.linkedActivityId ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "" })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
+            <button type="button" onClick={onSaveOpportunity} disabled={saving}>CRIAR OPORTUNIDADE</button>
+          </div>
         </div>
       ) : null}
     </section>
@@ -887,8 +915,18 @@ function WhatsAppPanel({ connections, sellerCompanies, optedIn }: { connections:
 }
 
 function Timeline({ activities, opportunities }: { activities: CrmOverview["activities"]; opportunities: CrmOpportunity[] }) {
+  const opportunitiesById = new Map(opportunities.map((item) => [item.id, item]));
   const rows = [
-    ...activities.map((item) => ({ id: item.id, date: item.occurredAt, title: `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`, detail: item.notes || item.subject || "CONTATO REGISTRADO", type: "CONTATO" })),
+    ...activities.map((item) => {
+      const opportunity = opportunitiesById.get(item.opportunityId);
+      return {
+        id: item.id,
+        date: item.occurredAt,
+        title: opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
+        detail: item.notes || item.subject || "CONTATO REGISTRADO",
+        type: "CONTATO",
+      };
+    }),
     ...opportunities.map((item) => ({ id: item.id, date: item.updatedAt, title: item.title, detail: `${stageOptions.find((stage) => stage.value === item.stage)?.label || item.stage} · ${money(item.estimatedValue)}`, type: "NEGOCIO" })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
   return (

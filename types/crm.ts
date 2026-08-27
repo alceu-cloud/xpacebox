@@ -25,6 +25,7 @@ export type CrmCustomerProfile = {
 export type CrmActivity = {
   id: string;
   clientId: string;
+  opportunityId: string;
   representativeProfileId: string;
   representativeName: string;
   activityType: CrmActivityType;
@@ -109,6 +110,7 @@ export type CrmActivityInput = {
 export type CrmOpportunityInput = {
   id?: string;
   clientId: string;
+  linkedActivityId?: string;
   representativeProfileId: string;
   title: string;
   stage: CrmOpportunityStage;
@@ -116,4 +118,6 @@ export type CrmOpportunityInput = {
   expectedCloseDate: string;
   notes: string;
   lostReason: string;
+  nextActionType?: CrmNextActionType | "";
+  nextActionAt?: string;
 };

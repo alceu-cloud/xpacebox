@@ -72,7 +72,7 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
       .eq("tenant_company_id", input.tenantCompanyId);
     if (error) throw error;
   } else {
-    const { error } = await admin.from("crm_opportunities").insert({
+    const { data: opportunity, error } = await admin.from("crm_opportunities").insert({
       tenant_company_id: input.tenantCompanyId,
       client_id: input.clientId || null,
       quote_id: input.quoteId,
@@ -80,13 +80,14 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
       notes: `ORCAMENTO ENVIADO PELO SISTEMA.${validityText}`,
       created_by: input.createdBy,
       ...opportunityPayload,
-    });
+    }).select("id").single();
     if (error) throw error;
 
     if (input.clientId) {
       const { error: activityError } = await admin.from("crm_activities").insert({
         tenant_company_id: input.tenantCompanyId,
         client_id: input.clientId,
+        opportunity_id: opportunity.id,
         representative_profile_id: input.representativeProfileId,
         activity_type: "QUOTE",
         outcome: "FOLLOW_UP",

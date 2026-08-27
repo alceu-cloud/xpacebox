@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       activity: {
         id: data.id,
         clientId: data.client_id,
+        opportunityId: data.opportunity_id || "",
         representativeProfileId: representativeId,
         representativeName: representative.full_name || representative.email || "USUARIO",
         activityType: data.activity_type,

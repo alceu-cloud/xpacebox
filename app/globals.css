@@ -1835,6 +1835,9 @@ button {
 .crm-opportunity-card small { color: #707a90; font-size: 11px; font-weight: 800; }
 .crm-opportunity-card .crm-expired-label { color: #d92238; font-weight: 900; }
 .crm-opportunity-card select { min-height: 36px; padding: 0 7px; font-size: 12px; }
+.crm-linked-agenda { display: flex; align-items: flex-end; min-height: 42px; color: #078c50; font-size: 12px; font-weight: 900; }
+.crm-form-actions .crm-secondary-action { border-color: #6f2ee4; background: #fff; color: #6f2ee4; }
+.crm-form-actions .crm-secondary-action:hover { background: #f3edff; }
 
 .crm-whatsapp-panel { padding: 22px; }
 
