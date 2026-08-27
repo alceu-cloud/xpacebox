@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     await syncExistingDirectQuotesWithCrm(admin, company.id, user.id).catch((error) => {
       console.error("DIRECT QUOTES CRM BACKFILL ERROR", error);
     });
+    await activateDueCommercialCycles({ admin, companyId: company.id, userId: user.id });
     const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult] = await Promise.all([
       admin.from("crm_customer_profiles").select("*").eq("tenant_company_id", company.id),
       admin.from("crm_activities").select("*").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),
@@ -123,6 +124,110 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     return handleError(error);
+  }
+}
+
+async function activateDueCommercialCycles({
+  admin,
+  companyId,
+  userId,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  userId: string;
+}) {
+  const now = new Date().toISOString();
+  const { data: cycles, error: cyclesError } = await admin
+    .from("crm_activities")
+    .select("id,client_id,representative_profile_id,next_action_at")
+    .eq("tenant_company_id", companyId)
+    .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
+    .is("opportunity_id", null)
+    .not("next_action_at", "is", null)
+    .lte("next_action_at", now)
+    .order("next_action_at", { ascending: true })
+    .limit(100);
+  if (cyclesError) throw cyclesError;
+
+  for (const cycle of cycles ?? []) {
+    const { count: activeCount, error: activeError } = await admin
+      .from("crm_opportunities")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_company_id", companyId)
+      .eq("client_id", cycle.client_id)
+      .not("stage", "in", "(WON,LOST)");
+    if (activeError) throw activeError;
+
+    if (Number(activeCount || 0) > 0) {
+      const { error: dismissError } = await admin
+        .from("crm_activities")
+        .update({ next_action_type: null, next_action_at: null })
+        .eq("id", cycle.id)
+        .eq("tenant_company_id", companyId)
+        .is("opportunity_id", null);
+      if (dismissError) throw dismissError;
+
+      const { error: profileError } = await admin
+        .from("crm_customer_profiles")
+        .update({ next_purchase_at: null, updated_at: now })
+        .eq("tenant_company_id", companyId)
+        .eq("client_id", cycle.client_id);
+      if (profileError) throw profileError;
+      continue;
+    }
+
+    const { data: customerProfile, error: profileError } = await admin
+      .from("crm_customer_profiles")
+      .select("owner_profile_id,average_purchase_value")
+      .eq("tenant_company_id", companyId)
+      .eq("client_id", cycle.client_id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    const representativeId = customerProfile?.owner_profile_id || cycle.representative_profile_id || userId;
+    const { data: opportunity, error: opportunityError } = await admin
+      .from("crm_opportunities")
+      .insert({
+        tenant_company_id: companyId,
+        client_id: cycle.client_id,
+        representative_profile_id: representativeId,
+        title: "RECOMPRA PROGRAMADA",
+        stage: "CONTACT_PENDING",
+        estimated_value: Number(customerProfile?.average_purchase_value || 0),
+        notes: "OPORTUNIDADE CRIADA AUTOMATICAMENTE NO DIA PROGRAMADO PARA O NOVO CICLO DE COMPRA.",
+        created_by: userId,
+        updated_at: now,
+      })
+      .select("id")
+      .single();
+    if (opportunityError) throw opportunityError;
+
+    const { data: linkedActivity, error: linkError } = await admin
+      .from("crm_activities")
+      .update({ opportunity_id: opportunity.id })
+      .eq("id", cycle.id)
+      .eq("tenant_company_id", companyId)
+      .is("opportunity_id", null)
+      .select("id")
+      .maybeSingle();
+    if (linkError) throw linkError;
+
+    if (!linkedActivity) {
+      const { error: deleteError } = await admin
+        .from("crm_opportunities")
+        .delete()
+        .eq("id", opportunity.id)
+        .eq("tenant_company_id", companyId);
+      if (deleteError) throw deleteError;
+      continue;
+    }
+
+    const { error: updateProfileError } = await admin
+      .from("crm_customer_profiles")
+      .update({ next_purchase_at: null, updated_at: now })
+      .eq("tenant_company_id", companyId)
+      .eq("client_id", cycle.client_id);
+    if (updateProfileError) throw updateProfileError;
   }
 }
 

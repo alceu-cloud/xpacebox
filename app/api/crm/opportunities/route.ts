@@ -77,6 +77,7 @@ async function save(request: Request, editing: boolean) {
     if (error) throw error;
 
     let cycleScheduled = false;
+    let cycleSkippedBecauseActiveOpportunity = false;
     let previousCycleCancelled = false;
     let agendaLinked = false;
     const startsOpportunityCycle = Boolean(input.clientId && (!editing || !previousClientId));
@@ -105,20 +106,36 @@ async function save(request: Request, editing: boolean) {
       });
     }
     if (editing && input.clientId && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
-      cycleScheduled = await scheduleNextCommercialCycle({
+      await clearOpportunityAgenda(admin, company.id, data.id);
+      const anotherActiveOpportunityExists = await hasAnotherActiveOpportunity({
         admin,
         companyId: company.id,
         clientId: input.clientId,
         opportunityId: data.id,
-        opportunityTitle: base.title,
-        representativeId,
-        stage: input.stage,
-        userId: user.id,
       });
+
+      if (anotherActiveOpportunityExists) {
+        cycleSkippedBecauseActiveOpportunity = true;
+        await syncNextContactWithActiveOpportunities({
+          admin,
+          companyId: company.id,
+          clientId: input.clientId,
+        });
+      } else {
+        cycleScheduled = await scheduleNextCommercialCycle({
+          admin,
+          companyId: company.id,
+          clientId: input.clientId,
+          opportunityTitle: base.title,
+          representativeId,
+          stage: input.stage,
+          userId: user.id,
+        });
+      }
     }
 
     return NextResponse.json(
-      { success: true, opportunity: data, cycleScheduled, previousCycleCancelled, agendaLinked },
+      { success: true, opportunity: data, cycleScheduled, cycleSkippedBecauseActiveOpportunity, previousCycleCancelled, agendaLinked },
       { status: editing ? 200 : 201 }
     );
   } catch (error) {
@@ -307,11 +324,88 @@ async function scheduleOpportunityAgenda({
   return true;
 }
 
-async function scheduleNextCommercialCycle({
+async function clearOpportunityAgenda(
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"],
+  companyId: string,
+  opportunityId: string
+) {
+  const { error } = await admin
+    .from("crm_activities")
+    .update({ next_action_type: null, next_action_at: null })
+    .eq("tenant_company_id", companyId)
+    .eq("opportunity_id", opportunityId)
+    .not("next_action_at", "is", null);
+  if (error) throw error;
+}
+
+async function hasAnotherActiveOpportunity({
   admin,
   companyId,
   clientId,
   opportunityId,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+  opportunityId: string;
+}) {
+  const { count, error } = await admin
+    .from("crm_opportunities")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId)
+    .neq("id", opportunityId)
+    .not("stage", "in", "(WON,LOST)");
+  if (error) throw error;
+  return Number(count || 0) > 0;
+}
+
+async function syncNextContactWithActiveOpportunities({
+  admin,
+  companyId,
+  clientId,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+}) {
+  const { data: activeOpportunities, error: opportunitiesError } = await admin
+    .from("crm_opportunities")
+    .select("id")
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId)
+    .not("stage", "in", "(WON,LOST)");
+  if (opportunitiesError) throw opportunitiesError;
+
+  const opportunityIds = (activeOpportunities ?? []).map((item) => item.id);
+  let nextActionAt: string | null = null;
+  if (opportunityIds.length) {
+    const { data: agenda, error: agendaError } = await admin
+      .from("crm_activities")
+      .select("next_action_at")
+      .eq("tenant_company_id", companyId)
+      .eq("client_id", clientId)
+      .in("opportunity_id", opportunityIds)
+      .not("next_action_at", "is", null)
+      .order("next_action_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (agendaError) throw agendaError;
+    nextActionAt = agenda?.next_action_at || null;
+  }
+
+  const { error: profileError } = await admin
+    .from("crm_customer_profiles")
+    .update({ next_contact_at: nextActionAt, updated_at: new Date().toISOString() })
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId);
+  if (profileError) throw profileError;
+}
+
+async function scheduleNextCommercialCycle({
+  admin,
+  companyId,
+  clientId,
   opportunityTitle,
   representativeId,
   stage,
@@ -320,7 +414,6 @@ async function scheduleNextCommercialCycle({
   admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
   companyId: string;
   clientId: string;
-  opportunityId: string;
   opportunityTitle: string;
   representativeId: string;
   stage: CrmOpportunityInput["stage"];
@@ -330,7 +423,8 @@ async function scheduleNextCommercialCycle({
     .from("crm_activities")
     .update({ next_action_type: null, next_action_at: null })
     .eq("tenant_company_id", companyId)
-    .eq("opportunity_id", opportunityId)
+    .eq("client_id", clientId)
+    .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
     .not("next_action_at", "is", null);
   if (clearAgendaError) throw clearAgendaError;
 

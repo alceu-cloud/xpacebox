@@ -49,6 +49,7 @@ export async function saveCrmOpportunity(slug: string, opportunity: CrmOpportuni
   return {
     opportunity: payload.opportunity,
     cycleScheduled: Boolean(payload.cycleScheduled),
+    cycleSkippedBecauseActiveOpportunity: Boolean(payload.cycleSkippedBecauseActiveOpportunity),
     previousCycleCancelled: Boolean(payload.previousCycleCancelled),
     agendaLinked: Boolean(payload.agendaLinked),
   };

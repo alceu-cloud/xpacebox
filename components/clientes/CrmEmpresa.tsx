@@ -266,7 +266,8 @@ export default function CrmEmpresa({
       setError("INFORME O TITULO DA OPORTUNIDADE.");
       return;
     }
-    if (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt) {
+    const editingExistingOpportunity = Boolean(opportunityDraft.id);
+    if (!editingExistingOpportunity && (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt)) {
       setError("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.");
       return;
     }
@@ -284,7 +285,9 @@ export default function CrmEmpresa({
         clientId: selectedClient.id,
         representativeProfileId: opportunityDraft.representativeProfileId,
       });
-      setMessage(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda
+      setMessage(editingExistingOpportunity
+        ? "OPORTUNIDADE EXISTENTE ATUALIZADA."
+        : opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda
         ? "OPORTUNIDADE SALVA E VINCULADA A AGENDA JA EXISTENTE."
         : result.previousCycleCancelled
         ? "OPORTUNIDADE SALVA. O AGENDAMENTO AUTOMATICO ANTERIOR FOI ENCERRADO."
@@ -324,6 +327,8 @@ export default function CrmEmpresa({
       if (stage === "WON" || stage === "LOST") {
         setMessage(result.cycleScheduled
           ? "ETAPA ATUALIZADA. O PROXIMO CICLO FOI AGENDADO AUTOMATICAMENTE."
+          : result.cycleSkippedBecauseActiveOpportunity
+          ? "ETAPA ATUALIZADA. HA OUTRA OPORTUNIDADE ABERTA PARA ESTE CLIENTE; O PROXIMO CICLO SERA GERADO QUANDO A ULTIMA FOR ENCERRADA."
           : "ETAPA ATUALIZADA. DEFINA A FREQUENCIA DE COMPRA PARA AUTOMATIZAR O PROXIMO CICLO.");
       } else {
         setMessage("ETAPA DA OPORTUNIDADE ATUALIZADA.");
@@ -639,11 +644,41 @@ function ClientDetail({
   saving: boolean;
 }) {
   const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("resumo");
+  const [showExistingOpportunityWarning, setShowExistingOpportunityWarning] = useState(false);
+  useEffect(() => {
+    setShowExistingOpportunityWarning(false);
+  }, [client?.id, opportunityDraft.id]);
+
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
   const isUsingExistingAgenda = Boolean(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda);
   const availableProducts = productFichas.filter((item) => item.clientId === client.id && item.status !== "INATIVO" && Number(item.price) > 0);
   const selectedProduct = availableProducts.find((item) => item.id === opportunityDraft.productFichaId);
+  const activeOpportunities = opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST");
+
+  function useExistingOpportunity(opportunity: CrmOpportunity) {
+    const agenda = activities.find((activity) => activity.opportunityId === opportunity.id && activity.nextActionAt);
+    setOpportunityDraft({
+      id: opportunity.id,
+      clientId: opportunity.clientId,
+      linkedActivityId: "",
+      reuseExistingAgenda: false,
+      representativeProfileId: opportunity.representativeProfileId,
+      title: opportunity.title,
+      productFichaId: opportunity.productFichaId,
+      productReference: opportunity.productReference,
+      productQuantity: opportunity.productQuantity,
+      productUnitPrice: opportunity.productUnitPrice,
+      stage: opportunity.stage,
+      estimatedValue: opportunity.estimatedValue,
+      expectedCloseDate: opportunity.expectedCloseDate,
+      notes: opportunity.notes,
+      lostReason: opportunity.lostReason,
+      nextActionType: agenda?.nextActionType || "",
+      nextActionAt: toLocalDateTime(agenda?.nextActionAt || ""),
+    });
+    setShowExistingOpportunityWarning(false);
+  }
 
   return (
     <section className="crm-detail-panel">
@@ -747,10 +782,31 @@ function ClientDetail({
             <CrmInput label="DATA DA PROXIMA ACAO" type="datetime-local" value={opportunityDraft.nextActionAt || ""} onChange={(nextActionAt) => setOpportunityDraft({ ...opportunityDraft, nextActionAt })} />
             <label className="crm-textarea crm-span-2"><span>ANOTACOES</span><textarea value={opportunityDraft.notes} onChange={(event) => setOpportunityDraft({ ...opportunityDraft, notes: upper(event.target.value) })} /></label>
           </div>
+          {showExistingOpportunityWarning && !opportunityDraft.id && activeOpportunities.length ? (
+            <div className="crm-existing-opportunity-warning">
+              <strong>ESTE CLIENTE JA POSSUI OPORTUNIDADE EM ABERTO.</strong>
+              <div className="crm-existing-opportunity-list">
+                {activeOpportunities.map((opportunity) => (
+                  <button type="button" key={opportunity.id} onClick={() => useExistingOpportunity(opportunity)} disabled={saving}>
+                    <span>{opportunity.title}</span>
+                    <small>{stageOptions.find((item) => item.value === opportunity.stage)?.label} · {money(opportunity.estimatedValue)}</small>
+                    <b>USAR ESTA</b>
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="crm-create-separate-opportunity" onClick={() => { setShowExistingOpportunityWarning(false); onSaveOpportunity(); }} disabled={saving}>CRIAR OUTRA MESMO ASSIM</button>
+            </div>
+          ) : null}
           <div className="crm-form-actions">
             {scheduledAgendaAt && !isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity?.id || "", reuseExistingAgenda: true, nextActionType: scheduledActivity?.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
             {isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "", reuseExistingAgenda: false })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
-            <button type="button" onClick={onSaveOpportunity} disabled={saving}>CRIAR OPORTUNIDADE</button>
+            <button type="button" onClick={() => {
+              if (!opportunityDraft.id && activeOpportunities.length) {
+                setShowExistingOpportunityWarning(true);
+                return;
+              }
+              onSaveOpportunity();
+            }} disabled={saving}>{opportunityDraft.id ? "ATUALIZAR OPORTUNIDADE" : "CRIAR OPORTUNIDADE"}</button>
           </div>
         </div>
       ) : null}

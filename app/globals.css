@@ -1838,6 +1838,17 @@ button {
 .crm-linked-agenda { display: flex; align-items: flex-end; min-height: 42px; color: #078c50; font-size: 12px; font-weight: 900; }
 .crm-form-actions .crm-secondary-action { border-color: #6f2ee4; background: #fff; color: #6f2ee4; }
 .crm-form-actions .crm-secondary-action:hover { background: #f3edff; }
+.crm-existing-opportunity-warning { display: grid; gap: 10px; margin-top: 14px; padding: 13px; border: 1px solid #efaa29; border-radius: 6px; background: #fff8e9; }
+.crm-existing-opportunity-warning > strong { color: #9a4d00; font-size: 12px; }
+.crm-existing-opportunity-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.crm-existing-opportunity-list button { display: grid; min-width: 210px; gap: 3px; padding: 9px 10px; border: 1px solid #edc373; border-radius: 5px; background: #fff; color: #252b3b; text-align: left; cursor: pointer; }
+.crm-existing-opportunity-list button:hover { border-color: #7a31e8; background: #f8f3ff; }
+.crm-existing-opportunity-list button:disabled, .crm-create-separate-opportunity:disabled { cursor: wait; opacity: .58; }
+.crm-existing-opportunity-list span { font-size: 12px; font-weight: 900; }
+.crm-existing-opportunity-list small { color: #6d7280; font-size: 10px; font-weight: 800; }
+.crm-existing-opportunity-list b { color: #6f2ee4; font-size: 10px; }
+.crm-create-separate-opportunity { justify-self: start; min-height: 34px; padding: 0 11px; border: 1px solid #c97800; border-radius: 5px; background: #fff; color: #9a4d00; font-size: 11px; font-weight: 900; cursor: pointer; }
+.crm-create-separate-opportunity:hover { background: #fff0cb; }
 
 .crm-whatsapp-panel { padding: 22px; }
 
