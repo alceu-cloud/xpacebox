@@ -1629,7 +1629,7 @@ function ParamField({ label, value, color, onChange, prefix, suffix, wide = fals
           step="0.01"
           value={value}
           onChange={(event) => onChange(Number(event.target.value) || 0)}
-          style={{ ...paramInputStyle, ...(wide ? { width: 164 } : {}), color, borderColor: `${color}55` }}
+          style={{ ...paramInputStyle, ...(wide ? { width: 230 } : {}), color, borderColor: `${color}55` }}
         />
         {suffix && <strong style={{ ...paramAffixStyle, color }}>{suffix}</strong>}
       </span>
