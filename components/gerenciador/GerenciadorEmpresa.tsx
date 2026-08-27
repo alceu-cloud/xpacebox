@@ -1314,7 +1314,7 @@ function PricingParamsPanel({
           <span style={greenBadgeStyle}>META CALCULADA: R$ {monthlyMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</span>
         </div>
         <div style={pricingFieldsStyle}>
-          <ParamField label="META MC TOTAL MENSAL (R$)" value={operationalParams.monthlyMcTarget} color="#16a34a" onChange={(monthlyMcTarget) => onOperationalParamsChange({ ...operationalParams, monthlyMcTarget })} />
+          <ParamField label="META MC TOTAL MENSAL (R$)" value={operationalParams.monthlyMcTarget} color="#16a34a" wide onChange={(monthlyMcTarget) => onOperationalParamsChange({ ...operationalParams, monthlyMcTarget })} />
           <ParamField label="HORAS DISPONIVEIS NO MES" value={operationalParams.monthlyAvailableHours} color="#0284c7" onChange={(monthlyAvailableHours) => onOperationalParamsChange({ ...operationalParams, monthlyAvailableHours })} />
           <ParamField label="PRODUTIVIDADE (%)" value={operationalParams.productivityPercent} color="#f59e0b" onChange={(productivityPercent) => onOperationalParamsChange({ ...operationalParams, productivityPercent })} />
         </div>
@@ -1618,7 +1618,7 @@ function GoalRangeCard({
   );
 }
 
-function ParamField({ label, value, color, onChange, prefix, suffix }: { label: string; value: number; color: string; onChange: (value: number) => void; prefix?: string; suffix?: string }) {
+function ParamField({ label, value, color, onChange, prefix, suffix, wide = false }: { label: string; value: number; color: string; onChange: (value: number) => void; prefix?: string; suffix?: string; wide?: boolean }) {
   return (
     <label style={paramLabelStyle}>
       {label}
@@ -1629,7 +1629,7 @@ function ParamField({ label, value, color, onChange, prefix, suffix }: { label: 
           step="0.01"
           value={value}
           onChange={(event) => onChange(Number(event.target.value) || 0)}
-          style={{ ...paramInputStyle, color, borderColor: `${color}55` }}
+          style={{ ...paramInputStyle, ...(wide ? { width: 164 } : {}), color, borderColor: `${color}55` }}
         />
         {suffix && <strong style={{ ...paramAffixStyle, color }}>{suffix}</strong>}
       </span>
