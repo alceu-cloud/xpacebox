@@ -4,3 +4,5 @@
 *.log
 .vercel
 .env*
+supabase/.temp/*
+!supabase/.temp/cli-latest
