@@ -1298,9 +1298,10 @@ function PricingParamsPanel({
     ? companyParams.commission + companyParams.freight + companyParams.otherCosts + companyParams.clientIcms + companyParams.additionalCosts
     : company === "carcat"
       ? companyParams.simplesTax + companyParams.commission + companyParams.freight + companyParams.otherCosts
-      : companyParams.outputIcms + companyParams.outputPisCofins + companyParams.outputIpi + companyParams.commission + companyParams.freight + companyParams.otherCosts;
+      : companyParams.outputIcms + companyParams.outputPisCofins + companyParams.outputIpi + companyParams.commission + companyParams.freight;
   const productiveHours = operationalParams.monthlyAvailableHours * (operationalParams.productivityPercent / 100);
-  const monthlyMcrHour = productiveHours > 0 ? operationalParams.monthlyMcTarget / productiveHours : 0;
+  const minimumMcrHour = productiveHours > 0 ? operationalParams.monthlyMcTarget / productiveHours : 0;
+  const targetMcrHour = productiveHours > 0 ? operationalParams.monthlyFixedCostsDesiredProfit / productiveHours : 0;
 
   function updateCompanyParams(nextParams: PricingParams) {
     onChange({ ...params, [company]: nextParams });
@@ -1311,10 +1312,11 @@ function PricingParamsPanel({
       <section style={pricingPanelStyle}>
         <div style={pricingPanelHeaderStyle}>
           <h4 style={subPanelTitleStyle}>META MC/HORA COMUM AS 3 EMPRESAS</h4>
-          <span style={greenBadgeStyle}>META CALCULADA: R$ {monthlyMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</span>
+          <span style={greenBadgeStyle}>MC MINIMA: R$ {minimumMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H · META: R$ {targetMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</span>
         </div>
-        <div style={pricingFieldsStyle}>
+        <div style={pricingOperationalFieldsStyle}>
           <ParamField label="META MC TOTAL MENSAL (R$)" value={operationalParams.monthlyMcTarget} color="#16a34a" wide onChange={(monthlyMcTarget) => onOperationalParamsChange({ ...operationalParams, monthlyMcTarget })} />
+          <ParamField label="CF + DF + LD MENSAL (R$)" value={operationalParams.monthlyFixedCostsDesiredProfit} color="#e6007e" wide onChange={(monthlyFixedCostsDesiredProfit) => onOperationalParamsChange({ ...operationalParams, monthlyFixedCostsDesiredProfit })} />
           <ParamField label="HORAS DISPONIVEIS NO MES" value={operationalParams.monthlyAvailableHours} color="#0284c7" onChange={(monthlyAvailableHours) => onOperationalParamsChange({ ...operationalParams, monthlyAvailableHours })} />
           <ParamField label="PRODUTIVIDADE (%)" value={operationalParams.productivityPercent} color="#f59e0b" onChange={(productivityPercent) => onOperationalParamsChange({ ...operationalParams, productivityPercent })} />
         </div>
@@ -1340,7 +1342,7 @@ function PricingParamsPanel({
           <div style={dividerStyle} />
           <label style={highlightParamLabelStyle}>
             MCR$ HORA PADRAO
-            <strong style={{ color: "#0284c7", fontSize: 27 }}>R$ {monthlyMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</strong>
+            <strong style={{ color: "#0284c7", fontSize: 27 }}>R$ {targetMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</strong>
           </label>
         </section>
 
@@ -1352,7 +1354,7 @@ function PricingParamsPanel({
           <div style={pricingFieldsStyle}>
             <ParamField label="COMISSAO PREVIA (%)" value={companyParams.commission} color="#ff5a00" onChange={(commission) => updateCompanyParams({ ...companyParams, commission })} />
             <ParamField label="FRETE (%)" value={companyParams.freight} color="#0ea5e9" onChange={(freight) => updateCompanyParams({ ...companyParams, freight })} />
-            <ParamField label="OUTROS CUSTOS (%)" value={companyParams.otherCosts} color="#8b5cf6" onChange={(otherCosts) => updateCompanyParams({ ...companyParams, otherCosts })} />
+            {company !== "gta" && <ParamField label="OUTROS CUSTOS (%)" value={companyParams.otherCosts} color="#8b5cf6" onChange={(otherCosts) => updateCompanyParams({ ...companyParams, otherCosts })} />}
             {company === "dawos" && <>
               <ParamField label="ICMS DO CLIENTE (%)" value={companyParams.clientIcms} color="#14b8a6" onChange={(clientIcms) => updateCompanyParams({ ...companyParams, clientIcms })} />
               <ParamField label="DEMAIS CUSTOS (%)" value={companyParams.additionalCosts} color="#ef4444" onChange={(additionalCosts) => updateCompanyParams({ ...companyParams, additionalCosts })} />
@@ -1877,6 +1879,7 @@ const pricingPanelHeaderStyle = { display: "grid", justifyItems: "center", gap: 
 const subPanelTitleStyle = { margin: 0, color: "#e68019", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
 const greenBadgeStyle = { color: "#22c55e", fontSize: 15, fontWeight: 900 };
 const pricingFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(190px,1fr))", gap: 24, alignItems: "center" };
+const pricingOperationalFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(4,minmax(190px,1fr))", gap: 24, alignItems: "center" };
 const paramLabelStyle = { display: "grid", justifyItems: "center", gap: 12, color: "#667085", fontSize: 18, fontWeight: 900, textAlign: "center" as const };
 const paramInlineStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10 };
 const paramInputStyle = { width: 126, height: 64, borderRadius: 12, border: "1px solid rgba(52,64,84,.18)", background: "#fff", textAlign: "center" as const, fontSize: 25, fontWeight: 900, outline: "none", boxShadow: "0 10px 24px rgba(39,36,67,.06)" };

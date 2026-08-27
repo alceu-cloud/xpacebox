@@ -339,7 +339,7 @@ function getExpensesPercent(
   }
 
   if (company === "gta") {
-    return params.outputIcms + params.outputPisCofins + params.outputIpi + commissionPercent + params.freight + params.otherCosts;
+    return params.outputIcms + params.outputPisCofins + params.outputIpi + commissionPercent + params.freight;
   }
 
   const additionalCosts = ignoreAdditionalCosts ? 0 : params.additionalCosts;
@@ -353,7 +353,7 @@ function calculateDynamicCommission(mcPercent: number, lotQuantity: number, unit
 function calculateMonthlyMcrHour(params: PricingOperationalParams | undefined, fallback: number) {
   if (!params) return fallback;
   const productiveHours = params.monthlyAvailableHours * (params.productivityPercent / 100);
-  return productiveHours > 0 ? params.monthlyMcTarget / productiveHours : fallback;
+  return productiveHours > 0 ? params.monthlyFixedCostsDesiredProfit / productiveHours : fallback;
 }
 
 function commissionByMc(mcPercent: number) {

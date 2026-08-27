@@ -153,13 +153,20 @@ export const defaultPricingParamsByCompany: PricingParamsByCompany = {
 
 export const defaultPricingOperationalParams: PricingOperationalParams = {
   monthlyMcTarget: 223000,
+  monthlyFixedCostsDesiredProfit: 255000,
   monthlyAvailableHours: 188,
   productivityPercent: 90,
 };
 
 export function normalizePricingOperationalParams(value: unknown): PricingOperationalParams {
   const params = value && typeof value === "object" ? value as Partial<PricingOperationalParams> : {};
-  return { ...defaultPricingOperationalParams, ...params };
+  const hasSeparatedTargets = typeof params.monthlyFixedCostsDesiredProfit === "number";
+  return {
+    ...defaultPricingOperationalParams,
+    ...params,
+    monthlyMcTarget: hasSeparatedTargets ? params.monthlyMcTarget ?? defaultPricingOperationalParams.monthlyMcTarget : defaultPricingOperationalParams.monthlyMcTarget,
+    monthlyFixedCostsDesiredProfit: params.monthlyFixedCostsDesiredProfit ?? params.monthlyMcTarget ?? defaultPricingOperationalParams.monthlyFixedCostsDesiredProfit,
+  };
 }
 
 export function normalizePricingParamsByCompany(value: unknown): PricingParamsByCompany {

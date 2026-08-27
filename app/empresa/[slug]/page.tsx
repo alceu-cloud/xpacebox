@@ -1291,7 +1291,7 @@ function CompanyStep({
           { label: "PIS/COFINS", value: `${formatNumber(pricingParams.outputPisCofins, 2)}%`, color: "#8b36e8" },
           { label: "IPI", value: `${formatNumber(pricingParams.outputIpi, 2)}%`, color: "#ff3b25" },
           { label: "COMISSAO PREVIA", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
-          { label: "FRETE / OUTROS", value: `${formatNumber(pricingParams.freight, 2)}% / ${formatNumber(pricingParams.otherCosts, 2)}%`, color: "#e68019" },
+          { label: "FRETE", value: `${formatNumber(pricingParams.freight, 2)}%`, color: "#e68019" },
         ];
 
   return (
@@ -1429,7 +1429,7 @@ function PriceSummaryStep({
   const [simulatorPrice, setSimulatorPrice] = useState(1.72);
   const [targetMcPercent, setTargetMcPercent] = useState(pricingParams.mcDefault);
   const calculatedMcrHour = pricingOperationalParams.monthlyAvailableHours > 0 && pricingOperationalParams.productivityPercent > 0
-    ? pricingOperationalParams.monthlyMcTarget / (pricingOperationalParams.monthlyAvailableHours * (pricingOperationalParams.productivityPercent / 100))
+    ? pricingOperationalParams.monthlyFixedCostsDesiredProfit / (pricingOperationalParams.monthlyAvailableHours * (pricingOperationalParams.productivityPercent / 100))
     : pricingParams.mcrHour;
   const [targetMch, setTargetMch] = useState(calculatedMcrHour);
   const [ignoreSetup, setIgnoreSetup] = useState(false);

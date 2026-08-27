@@ -58,6 +58,7 @@ export type PricingParamsByCompany = Record<PricingGoalCompany, PricingParams>;
 
 export type PricingOperationalParams = {
   monthlyMcTarget: number;
+  monthlyFixedCostsDesiredProfit: number;
   monthlyAvailableHours: number;
   productivityPercent: number;
 };
