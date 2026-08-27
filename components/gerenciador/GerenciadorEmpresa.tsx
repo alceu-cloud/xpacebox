@@ -8,6 +8,7 @@ import {
   defaultPricingParamsByCompany,
   defaultPricingGoalsByCompany,
   defaultPaperCostParams,
+  defaultPricingOperationalParams,
   initialEngineeringFormulas,
   initialMaterials,
   initialPaperTypes,
@@ -18,7 +19,7 @@ import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
 import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
@@ -79,6 +80,7 @@ type GerenciadorEmpresaProps = {
   engineeringFormulas?: EngineeringFormula[];
   paperCostParams?: PaperCostParams;
   pricingParams?: PricingParamsByCompany;
+  pricingOperationalParams?: PricingOperationalParams;
   pricingGoalsByCompany?: PricingGoalsByCompany;
   quoteParameters?: QuoteParametersByCompany;
   productionTimes?: ProductionTime[];
@@ -95,6 +97,7 @@ type GerenciadorEmpresaProps = {
   onEngineeringFormulasChange?: (formulas: EngineeringFormula[]) => void;
   onPaperCostParamsChange?: (params: PaperCostParams) => void;
   onPricingParamsChange?: (params: PricingParamsByCompany) => void;
+  onPricingOperationalParamsChange?: (params: PricingOperationalParams) => void;
   onPricingGoalsByCompanyChange?: (goals: PricingGoalsByCompany) => void;
   onQuoteParametersChange?: (params: QuoteParametersByCompany) => void;
   onProductionTimesChange?: (times: ProductionTime[]) => void;
@@ -115,6 +118,7 @@ export default function GerenciadorEmpresa({
   engineeringFormulas: controlledEngineeringFormulas,
   paperCostParams: controlledPaperCostParams,
   pricingParams: controlledPricingParams,
+  pricingOperationalParams: controlledPricingOperationalParams,
   pricingGoalsByCompany: controlledPricingGoalsByCompany,
   quoteParameters: controlledQuoteParameters,
   productionTimes: controlledProductionTimes,
@@ -131,6 +135,7 @@ export default function GerenciadorEmpresa({
   onEngineeringFormulasChange,
   onPaperCostParamsChange,
   onPricingParamsChange,
+  onPricingOperationalParamsChange,
   onPricingGoalsByCompanyChange,
   onQuoteParametersChange,
   onProductionTimesChange,
@@ -152,6 +157,7 @@ export default function GerenciadorEmpresa({
   const [localEngineeringFormulas, setLocalEngineeringFormulas] = useState(initialEngineeringFormulas);
   const [localPaperCostParams, setLocalPaperCostParams] = useState(defaultPaperCostParams);
   const [localPricingParams, setLocalPricingParams] = useState(defaultPricingParamsByCompany);
+  const [localPricingOperationalParams, setLocalPricingOperationalParams] = useState(defaultPricingOperationalParams);
   const [localPricingGoalsByCompany, setLocalPricingGoalsByCompany] = useState(defaultPricingGoalsByCompany);
   const [localQuoteParameters, setLocalQuoteParameters] = useState(defaultQuoteParametersByCompany);
   const [localProductionTimes, setLocalProductionTimes] = useState(defaultProductionTimes);
@@ -175,6 +181,7 @@ export default function GerenciadorEmpresa({
   const productColors = controlledProductColors ?? localProductColors;
   const paperCostParams = controlledPaperCostParams ?? localPaperCostParams;
   const pricingParams = controlledPricingParams ?? localPricingParams;
+  const pricingOperationalParams = controlledPricingOperationalParams ?? localPricingOperationalParams;
   const pricingGoalsByCompany = controlledPricingGoalsByCompany ?? localPricingGoalsByCompany;
   const quoteParameters = controlledQuoteParameters ?? localQuoteParameters;
   const productionTimes = controlledProductionTimes ?? localProductionTimes;
@@ -189,6 +196,7 @@ export default function GerenciadorEmpresa({
   const setEngineeringFormulas = onEngineeringFormulasChange ?? setLocalEngineeringFormulas;
   const setPaperCostParams = onPaperCostParamsChange ?? setLocalPaperCostParams;
   const setPricingParams = onPricingParamsChange ?? setLocalPricingParams;
+  const setPricingOperationalParams = onPricingOperationalParamsChange ?? setLocalPricingOperationalParams;
   const setPricingGoalsByCompany = onPricingGoalsByCompanyChange ?? setLocalPricingGoalsByCompany;
   const setQuoteParameters = onQuoteParametersChange ?? setLocalQuoteParameters;
   const setProductionTimes = onProductionTimesChange ?? setLocalProductionTimes;
@@ -597,7 +605,12 @@ export default function GerenciadorEmpresa({
           )}
 
           {activeTab === "parametros" && (
-            <PricingParamsPanel params={pricingParams} onChange={setPricingParams} />
+            <PricingParamsPanel
+              params={pricingParams}
+              operationalParams={pricingOperationalParams}
+              onChange={setPricingParams}
+              onOperationalParamsChange={setPricingOperationalParams}
+            />
           )}
 
           {activeTab === "metas" && (
@@ -1268,7 +1281,17 @@ function LimitMetric({ label, value, color }: { label: string; value: string; co
   return <div style={{ ...limitMetricStyle, borderTopColor: color }}><span>{label}</span><strong style={{ color }}>{value}</strong></div>;
 }
 
-function PricingParamsPanel({ params, onChange }: { params: PricingParamsByCompany; onChange: (params: PricingParamsByCompany) => void }) {
+function PricingParamsPanel({
+  params,
+  operationalParams,
+  onChange,
+  onOperationalParamsChange,
+}: {
+  params: PricingParamsByCompany;
+  operationalParams: PricingOperationalParams;
+  onChange: (params: PricingParamsByCompany) => void;
+  onOperationalParamsChange: (params: PricingOperationalParams) => void;
+}) {
   const [company, setCompany] = useState<PricingGoalCompany>("dawos");
   const companyParams = params[company] ?? defaultPricingParamsByCompany[company];
   const operationalTotal = company === "dawos"
@@ -1276,6 +1299,8 @@ function PricingParamsPanel({ params, onChange }: { params: PricingParamsByCompa
     : company === "carcat"
       ? companyParams.simplesTax + companyParams.commission + companyParams.freight + companyParams.otherCosts
       : companyParams.outputIcms + companyParams.outputPisCofins + companyParams.outputIpi + companyParams.commission + companyParams.freight + companyParams.otherCosts;
+  const productiveHours = operationalParams.monthlyAvailableHours * (operationalParams.productivityPercent / 100);
+  const monthlyMcrHour = productiveHours > 0 ? operationalParams.monthlyMcTarget / productiveHours : 0;
 
   function updateCompanyParams(nextParams: PricingParams) {
     onChange({ ...params, [company]: nextParams });
@@ -1283,6 +1308,17 @@ function PricingParamsPanel({ params, onChange }: { params: PricingParamsByCompa
 
   return (
     <div style={goalsPanelStyle}>
+      <section style={pricingPanelStyle}>
+        <div style={pricingPanelHeaderStyle}>
+          <h4 style={subPanelTitleStyle}>META MC/HORA COMUM AS 3 EMPRESAS</h4>
+          <span style={greenBadgeStyle}>META CALCULADA: R$ {monthlyMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</span>
+        </div>
+        <div style={pricingFieldsStyle}>
+          <ParamField label="META MC TOTAL MENSAL (R$)" value={operationalParams.monthlyMcTarget} color="#16a34a" onChange={(monthlyMcTarget) => onOperationalParamsChange({ ...operationalParams, monthlyMcTarget })} />
+          <ParamField label="HORAS DISPONIVEIS NO MES" value={operationalParams.monthlyAvailableHours} color="#0284c7" onChange={(monthlyAvailableHours) => onOperationalParamsChange({ ...operationalParams, monthlyAvailableHours })} />
+          <ParamField label="PRODUTIVIDADE (%)" value={operationalParams.productivityPercent} color="#f59e0b" onChange={(productivityPercent) => onOperationalParamsChange({ ...operationalParams, productivityPercent })} />
+        </div>
+      </section>
       <div style={goalCompanyTabsStyle}>
         {(["dawos", "carcat", "gta"] as PricingGoalCompany[]).map((key) => (
           <button
@@ -1302,7 +1338,10 @@ function PricingParamsPanel({ params, onChange }: { params: PricingParamsByCompa
         <section style={pricingHighlightStyle}>
           <HighlightParamField label="MC% PADRAO" value={companyParams.mcDefault} suffix="%" color="#16a34a" onChange={(mcDefault) => updateCompanyParams({ ...companyParams, mcDefault })} />
           <div style={dividerStyle} />
-          <HighlightParamField label="MCR$ HORA PADRAO" value={companyParams.mcrHour} prefix="R$" suffix="/H" color="#0284c7" onChange={(mcrHour) => updateCompanyParams({ ...companyParams, mcrHour })} />
+          <label style={highlightParamLabelStyle}>
+            MCR$ HORA PADRAO
+            <strong style={{ color: "#0284c7", fontSize: 27 }}>R$ {monthlyMcrHour.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/H</strong>
+          </label>
         </section>
 
         <section style={pricingPanelStyle}>

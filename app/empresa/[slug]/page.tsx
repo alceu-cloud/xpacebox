@@ -8,14 +8,14 @@ import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
 import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
 import { loadClients } from "@/lib/clientes";
-import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingParamsByCompany } from "@/lib/gerenciador/data";
+import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
 import { supabase } from "@/lib/supabase";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
@@ -108,6 +108,7 @@ export default function EmpresaPage() {
   const [engineeringFormulas, setEngineeringFormulas] = useState<EngineeringFormula[]>(initialEngineeringFormulas);
   const [paperCostParams, setPaperCostParams] = useState<PaperCostParams>(defaultPaperCostParams);
   const [pricingParamsByCompany, setPricingParamsByCompany] = useState<PricingParamsByCompany>(defaultPricingParamsByCompany);
+  const [pricingOperationalParams, setPricingOperationalParams] = useState<PricingOperationalParams>(defaultPricingOperationalParams);
   const [pricingGoalsByCompany, setPricingGoalsByCompany] = useState<PricingGoalsByCompany>(defaultPricingGoalsByCompany);
   const [quoteParameters, setQuoteParameters] = useState<QuoteParametersByCompany>(defaultQuoteParametersByCompany);
   const [productionTimes, setProductionTimes] = useState<ProductionTime[]>(defaultProductionTimes);
@@ -159,6 +160,7 @@ export default function EmpresaPage() {
         if (settings.engineeringFormulas) setEngineeringFormulas(settings.engineeringFormulas);
         if (settings.paperCostParams) setPaperCostParams(settings.paperCostParams);
         if (settings.pricingParams) setPricingParamsByCompany(normalizePricingParamsByCompany(settings.pricingParams));
+        if (settings.pricingOperationalParams) setPricingOperationalParams(normalizePricingOperationalParams(settings.pricingOperationalParams));
         if (settings.pricingGoalsByCompany) setPricingGoalsByCompany(settings.pricingGoalsByCompany);
         if (settings.quoteParameters) setQuoteParameters(settings.quoteParameters);
         if (settings.productionTimes) setProductionTimes(settings.productionTimes);
@@ -265,6 +267,7 @@ export default function EmpresaPage() {
             engineeringFormulas={engineeringFormulas}
             paperCostParams={paperCostParams}
             pricingParams={pricingParamsByCompany}
+            pricingOperationalParams={pricingOperationalParams}
             pricingGoalsByCompany={pricingGoalsByCompany}
             quoteParameters={quoteParameters}
             productionTimes={productionTimes}
@@ -276,6 +279,7 @@ export default function EmpresaPage() {
             onEngineeringFormulasChange={(value) => persistManagerChange("engineeringFormulas", value, setEngineeringFormulas)}
             onPaperCostParamsChange={(value) => persistManagerChange("paperCostParams", value, setPaperCostParams)}
             onPricingParamsChange={(value) => persistManagerChange("pricingParams", value, setPricingParamsByCompany)}
+            onPricingOperationalParamsChange={(value) => persistManagerChange("pricingOperationalParams", value, setPricingOperationalParams)}
             onPricingGoalsByCompanyChange={(value) => persistManagerChange("pricingGoalsByCompany", value, setPricingGoalsByCompany)}
             onQuoteParametersChange={(value) => persistManagerChange("quoteParameters", value, setQuoteParameters)}
             onProductionTimesChange={(value) => persistManagerChange("productionTimes", value, setProductionTimes)}
@@ -314,6 +318,7 @@ export default function EmpresaPage() {
             engineeringFormulas={engineeringFormulas}
             paperCostParams={paperCostParams}
             pricingParamsByCompany={pricingParamsByCompany}
+            pricingOperationalParams={pricingOperationalParams}
             pricingGoalsByCompany={pricingGoalsByCompany}
             productionTimes={productionTimes}
             productFichas={productFichas}
@@ -475,6 +480,7 @@ function PricingPreview({
   engineeringFormulas,
   paperCostParams,
   pricingParamsByCompany,
+  pricingOperationalParams,
   pricingGoalsByCompany,
   productionTimes,
   productFichas,
@@ -487,6 +493,7 @@ function PricingPreview({
   engineeringFormulas: EngineeringFormula[];
   paperCostParams: PaperCostParams;
   pricingParamsByCompany: PricingParamsByCompany;
+  pricingOperationalParams: PricingOperationalParams;
   pricingGoalsByCompany: PricingGoalsByCompany;
   productionTimes: ProductionTime[];
   productFichas: ProductFicha[];
@@ -846,6 +853,7 @@ function PricingPreview({
           lotQuantity={lotQuantity}
           paperCostParams={paperCostParams}
           pricingParams={pricingParams}
+          pricingOperationalParams={pricingOperationalParams}
           pricingGoals={pricingGoalsByCompany[sellerCompanyKey]}
           productionTimes={productionTimes}
           pricingMode={pricingMode}
@@ -1386,6 +1394,7 @@ function PriceSummaryStep({
   lotQuantity,
   paperCostParams,
   pricingParams,
+  pricingOperationalParams,
   pricingGoals,
   productionTimes,
   pricingMode,
@@ -1409,6 +1418,7 @@ function PriceSummaryStep({
   lotQuantity: number;
   paperCostParams: PaperCostParams;
   pricingParams: PricingParams;
+  pricingOperationalParams: PricingOperationalParams;
   pricingGoals: PricingGoals;
   productionTimes: ProductionTime[];
   pricingMode: PricingMode;
@@ -1418,15 +1428,18 @@ function PriceSummaryStep({
 }) {
   const [simulatorPrice, setSimulatorPrice] = useState(1.72);
   const [targetMcPercent, setTargetMcPercent] = useState(pricingParams.mcDefault);
-  const [targetMch, setTargetMch] = useState(pricingParams.mcrHour);
+  const calculatedMcrHour = pricingOperationalParams.monthlyAvailableHours > 0 && pricingOperationalParams.productivityPercent > 0
+    ? pricingOperationalParams.monthlyMcTarget / (pricingOperationalParams.monthlyAvailableHours * (pricingOperationalParams.productivityPercent / 100))
+    : pricingParams.mcrHour;
+  const [targetMch, setTargetMch] = useState(calculatedMcrHour);
   const [ignoreSetup, setIgnoreSetup] = useState(false);
   const [ignoreAdditionalCosts, setIgnoreAdditionalCosts] = useState(false);
   const [manualBoxesPerHour, setManualBoxesPerHour] = useState(0);
   const [sendMessage, setSendMessage] = useState("");
   useEffect(() => {
     setTargetMcPercent(pricingParams.mcDefault);
-    setTargetMch(pricingParams.mcrHour);
-  }, [pricingParams.mcDefault, pricingParams.mcrHour]);
+    setTargetMch(calculatedMcrHour);
+  }, [pricingParams.mcDefault, calculatedMcrHour]);
   useEffect(() => {
     setManualBoxesPerHour(0);
   }, [selectedMaterial?.id]);
@@ -1439,6 +1452,7 @@ function PriceSummaryStep({
     lotQuantity,
     paperCostParams,
     pricingParams,
+    pricingOperationalParams,
     productionTimes,
     ignoreSetup,
     ignoreAdditionalCosts,

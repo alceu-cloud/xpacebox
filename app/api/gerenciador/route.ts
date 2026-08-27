@@ -9,6 +9,7 @@ const allowedKeys = new Set([
   "engineeringFormulas",
   "paperCostParams",
   "pricingParams",
+  "pricingOperationalParams",
   "pricingGoalsByCompany",
   "productionTimes",
   "paymentConditions",

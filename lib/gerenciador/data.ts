@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ReminderFormula, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ReminderFormula, SpecificMaterial, Supplier } from "@/types/gerenciador";
 
 export const initialSuppliers: Supplier[] = [
   "COCELPA",
@@ -150,6 +150,17 @@ export const defaultPricingParamsByCompany: PricingParamsByCompany = {
   carcat: clonePricingParams(),
   gta: clonePricingParams(),
 };
+
+export const defaultPricingOperationalParams: PricingOperationalParams = {
+  monthlyMcTarget: 223000,
+  monthlyAvailableHours: 188,
+  productivityPercent: 90,
+};
+
+export function normalizePricingOperationalParams(value: unknown): PricingOperationalParams {
+  const params = value && typeof value === "object" ? value as Partial<PricingOperationalParams> : {};
+  return { ...defaultPricingOperationalParams, ...params };
+}
 
 export function normalizePricingParamsByCompany(value: unknown): PricingParamsByCompany {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};

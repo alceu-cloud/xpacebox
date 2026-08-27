@@ -56,6 +56,12 @@ export type PricingParams = {
 
 export type PricingParamsByCompany = Record<PricingGoalCompany, PricingParams>;
 
+export type PricingOperationalParams = {
+  monthlyMcTarget: number;
+  monthlyAvailableHours: number;
+  productivityPercent: number;
+};
+
 export type PricingGoalRange = {
   redMax: number;
   greenMin: number;

@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingParamsByCompany, ProductFicha, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingOperationalParams, PricingParamsByCompany, ProductFicha, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 
 export type ManagerSettings = {
@@ -8,6 +8,7 @@ export type ManagerSettings = {
   engineeringFormulas?: EngineeringFormula[];
   paperCostParams?: PaperCostParams;
   pricingParams?: PricingParamsByCompany;
+  pricingOperationalParams?: PricingOperationalParams;
   pricingGoalsByCompany?: PricingGoalsByCompany;
   productionTimes?: ProductionTime[];
   paymentConditions?: PaymentCondition[];

@@ -1,6 +1,7 @@
 import type {
   EngineeringFormula,
   PaperCostParams,
+  PricingOperationalParams,
   PricingParams,
   ProductionTime,
   SpecificMaterial,
@@ -24,6 +25,7 @@ type PriceAnalysisInput = {
   lotQuantity: number;
   paperCostParams: PaperCostParams;
   pricingParams: PricingParams;
+  pricingOperationalParams?: PricingOperationalParams;
   productionTimes: ProductionTime[];
   ignoreSetup?: boolean;
   ignoreAdditionalCosts?: boolean;
@@ -38,6 +40,7 @@ export function calculatePriceAnalysis({
   lotQuantity,
   paperCostParams,
   pricingParams,
+  pricingOperationalParams,
   productionTimes,
   ignoreSetup = false,
   ignoreAdditionalCosts = false,
@@ -108,7 +111,8 @@ export function calculatePriceAnalysis({
   const productionMinutes = productionDataReady ? (lotQuantity / boxesPerHour) * 60 : 0;
   const totalMinutes = productionDataReady ? setupMinutes + productionMinutes : 0;
   const mchStandard = totalMinutes > 0 ? marginValue * lotQuantity * (60 / totalMinutes) : 0;
-  const targetMarginTotal = params.mcrHour * (totalMinutes / 60);
+  const mcrHour = calculateMonthlyMcrHour(pricingOperationalParams, params.mcrHour);
+  const targetMarginTotal = mcrHour * (totalMinutes / 60);
   const targetMarginUnit = lotQuantity > 0 ? targetMarginTotal / lotQuantity : 0;
   const mchSuggestedPrice = productionDataReady && 1 - expensesRate > 0
     ? (pricingMaterialCost + targetMarginUnit) / (1 - expensesRate)
@@ -116,7 +120,7 @@ export function calculatePriceAnalysis({
 
   return {
     mcDefault: params.mcDefault,
-    mcrHour: params.mcrHour,
+    mcrHour,
     commissionPercent,
     preliminaryCommissionPercent: params.commission,
     commissionReferenceMcPercent: params.mcDefault,
@@ -344,6 +348,12 @@ function getExpensesPercent(
 
 function calculateDynamicCommission(mcPercent: number, lotQuantity: number, unitWeightKg: number) {
   return commissionByMc(mcPercent) + commissionByVolume(lotQuantity) + commissionByWeight(unitWeightKg);
+}
+
+function calculateMonthlyMcrHour(params: PricingOperationalParams | undefined, fallback: number) {
+  if (!params) return fallback;
+  const productiveHours = params.monthlyAvailableHours * (params.productivityPercent / 100);
+  return productiveHours > 0 ? params.monthlyMcTarget / productiveHours : fallback;
 }
 
 function commissionByMc(mcPercent: number) {
