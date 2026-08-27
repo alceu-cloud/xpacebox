@@ -73,6 +73,7 @@ async function save(request: Request, editing: boolean) {
         representativeId,
         userId: user.id,
         preservedActivityId: input.linkedActivityId || "",
+        preservesExistingAgenda: Boolean(input.linkedActivityId || input.reuseExistingAgenda),
       });
       agendaLinked = await scheduleOpportunityAgenda({
         admin,
@@ -117,6 +118,7 @@ async function activateOpportunityCycle({
   representativeId,
   userId,
   preservedActivityId,
+  preservesExistingAgenda,
 }: {
   admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
   companyId: string;
@@ -125,6 +127,7 @@ async function activateOpportunityCycle({
   representativeId: string;
   userId: string;
   preservedActivityId: string;
+  preservesExistingAgenda: boolean;
 }) {
   const { data: profile, error: profileError } = await admin
     .from("crm_customer_profiles")
@@ -135,7 +138,7 @@ async function activateOpportunityCycle({
   if (profileError) throw profileError;
 
   const hadScheduledCycle = Boolean(profile?.next_purchase_at || profile?.next_contact_at);
-  const previousCycleCancelled = hadScheduledCycle && !preservedActivityId;
+  const previousCycleCancelled = hadScheduledCycle && !preservesExistingAgenda;
   const now = new Date().toISOString();
   const { error: updateProfileError } = await admin
     .from("crm_customer_profiles")

@@ -111,6 +111,7 @@ export type CrmOpportunityInput = {
   id?: string;
   clientId: string;
   linkedActivityId?: string;
+  reuseExistingAgenda?: boolean;
   representativeProfileId: string;
   title: string;
   stage: CrmOpportunityStage;

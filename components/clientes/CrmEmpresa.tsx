@@ -69,6 +69,7 @@ const emptyActivity: CrmActivityInput = {
 const emptyOpportunity: CrmOpportunityInput = {
   clientId: "",
   linkedActivityId: "",
+  reuseExistingAgenda: false,
   representativeProfileId: "",
   title: "",
   stage: "CONTACT_PENDING",
@@ -144,6 +145,7 @@ export default function CrmEmpresa({
       return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
     });
   }, [overview.activities, selectedClient, selectedProfile?.nextContactAt]);
+  const scheduledAgendaAt = scheduledActivity?.nextActionAt || selectedProfile?.nextContactAt || "";
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -257,7 +259,7 @@ export default function CrmEmpresa({
       setError("INFORME O TITULO DA OPORTUNIDADE.");
       return;
     }
-    if (!opportunityDraft.linkedActivityId && (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt)) {
+    if (!opportunityDraft.linkedActivityId && !opportunityDraft.reuseExistingAgenda && (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt)) {
       setError("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.");
       return;
     }
@@ -275,7 +277,7 @@ export default function CrmEmpresa({
         clientId: selectedClient.id,
         representativeProfileId: opportunityDraft.representativeProfileId,
       });
-      setMessage(opportunityDraft.linkedActivityId
+      setMessage(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda
         ? "OPORTUNIDADE SALVA E VINCULADA A AGENDA JA EXISTENTE."
         : result.previousCycleCancelled
         ? "OPORTUNIDADE SALVA. O AGENDAMENTO AUTOMATICO ANTERIOR FOI ENCERRADO."
@@ -463,6 +465,7 @@ export default function CrmEmpresa({
               opportunityDraft={opportunityDraft}
               setOpportunityDraft={setOpportunityDraft}
               scheduledActivity={scheduledActivity}
+              scheduledAgendaAt={scheduledAgendaAt}
               onSaveProfile={handleSaveProfile}
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
@@ -593,6 +596,7 @@ function ClientDetail({
   opportunityDraft,
   setOpportunityDraft,
   scheduledActivity,
+  scheduledAgendaAt,
   onSaveProfile,
   onSaveActivity,
   onSaveOpportunity,
@@ -610,6 +614,7 @@ function ClientDetail({
   opportunityDraft: CrmOpportunityInput;
   setOpportunityDraft: (value: CrmOpportunityInput) => void;
   scheduledActivity?: CrmOverview["activities"][number];
+  scheduledAgendaAt: string;
   onSaveProfile: () => void;
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
@@ -618,6 +623,7 @@ function ClientDetail({
   const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("resumo");
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
+  const isUsingExistingAgenda = Boolean(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda);
 
   return (
     <section className="crm-detail-panel">
@@ -693,15 +699,15 @@ function ClientDetail({
             <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency />
             <CrmInput label="PREVISAO DE FECHAMENTO" type="date" value={opportunityDraft.expectedCloseDate} onChange={(expectedCloseDate) => setOpportunityDraft({ ...opportunityDraft, expectedCloseDate })} />
             <CrmSelect label="REPRESENTANTE" value={opportunityDraft.representativeProfileId} onChange={(representativeProfileId) => setOpportunityDraft({ ...opportunityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
-            {!opportunityDraft.linkedActivityId ? <>
+            {!isUsingExistingAgenda ? <>
               <CrmSelect label="PROXIMA ACAO" value={opportunityDraft.nextActionType || ""} onChange={(nextActionType) => setOpportunityDraft({ ...opportunityDraft, nextActionType: nextActionType as CrmOpportunityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
               <CrmInput label="DATA DA PROXIMA ACAO" type="datetime-local" value={opportunityDraft.nextActionAt || ""} onChange={(nextActionAt) => setOpportunityDraft({ ...opportunityDraft, nextActionAt })} />
-            </> : <div className="crm-linked-agenda">AGENDA JA VINCULADA: {displayDateTime(scheduledActivity?.nextActionAt || "")}</div>}
+            </> : <div className="crm-linked-agenda">AGENDA JA VINCULADA: {displayDateTime(scheduledAgendaAt)}</div>}
             <label className="crm-textarea crm-span-2"><span>ANOTACOES</span><textarea value={opportunityDraft.notes} onChange={(event) => setOpportunityDraft({ ...opportunityDraft, notes: upper(event.target.value) })} /></label>
           </div>
           <div className="crm-form-actions">
-            {scheduledActivity && !opportunityDraft.linkedActivityId ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity.id, nextActionType: scheduledActivity.nextActionType, nextActionAt: toLocalDateTime(scheduledActivity.nextActionAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
-            {opportunityDraft.linkedActivityId ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "" })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
+            {scheduledAgendaAt && !isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity?.id || "", reuseExistingAgenda: true, nextActionType: scheduledActivity?.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
+            {isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "", reuseExistingAgenda: false })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
             <button type="button" onClick={onSaveOpportunity} disabled={saving}>CRIAR OPORTUNIDADE</button>
           </div>
         </div>
