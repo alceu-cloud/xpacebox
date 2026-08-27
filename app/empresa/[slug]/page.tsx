@@ -538,7 +538,18 @@ function PricingPreview({
   const wave = pricingMaterial?.paperType.includes("BC") || pricingMaterial?.paperType.includes("BB") ? "BC" : "B";
   const currentModels = modelOptions[category];
   const selectedModel = currentModels.find((model) => model.key === modelKey) ?? currentModels[0];
-  const selectedFormula = findFormulaForModel(engineeringFormulas, selectedModel.formulaId, wave);
+  const modelFormula = findFormulaForModel(engineeringFormulas, selectedModel.formulaId, wave);
+  const engineeringClientFichas = productFichas.filter((ficha) => ficha.clientId === engineeringClientId);
+  const selectedEngineeringFicha = productFichas.find((ficha) => ficha.id === engineeringFichaId);
+  const selectedEngineeringMaterial = selectedEngineeringFicha?.materialId
+    ? availableMaterials.find((material) => material.id === selectedEngineeringFicha.materialId)
+    : undefined;
+  const selectedEngineeringFormula = selectedEngineeringFicha?.engineeringId
+    ? engineeringFormulas.find((formula) => formula.id === selectedEngineeringFicha.engineeringId)
+    : undefined;
+  const selectedFormula = pricingMode === "engineering" && selectedEngineeringFormula
+    ? selectedEngineeringFormula
+    : modelFormula;
   const selectedSellerCompany = sellerCompanies.find((company) => company.key === sellerCompanyKey) ?? sellerCompanies[0];
   const pricingParams = pricingParamsByCompany[sellerCompanyKey] ?? defaultPricingParamsByCompany.dawos;
   const numericDimensions = {
@@ -551,14 +562,6 @@ function PricingPreview({
   const sheetArea = sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
   const boxWeight = pricingMaterial ? sheetArea * parseDecimal(pricingMaterial.grammage) : 0;
   const maletaInvalid = category === "maleta" && numericDimensions.C > 0 && numericDimensions.L > 0 && numericDimensions.C < numericDimensions.L;
-  const engineeringClientFichas = productFichas.filter((ficha) => ficha.clientId === engineeringClientId);
-  const selectedEngineeringFicha = productFichas.find((ficha) => ficha.id === engineeringFichaId);
-  const selectedEngineeringMaterial = selectedEngineeringFicha?.materialId
-    ? availableMaterials.find((material) => material.id === selectedEngineeringFicha.materialId)
-    : undefined;
-  const selectedEngineeringFormula = selectedEngineeringFicha?.engineeringId
-    ? engineeringFormulas.find((formula) => formula.id === selectedEngineeringFicha.engineeringId)
-    : undefined;
   const filteredEngineeringClients = clients.filter((client) => {
     const term = engineeringClientSearch.trim().toUpperCase();
     if (!term) return true;
@@ -620,20 +623,18 @@ function PricingPreview({
 
     if (formula) {
       const formulaId = formula.id.toLowerCase();
-      const nextCategory: BoxCategory = formulaId.startsWith("mn-") || formulaId.startsWith("mt-")
-        ? "maleta"
-        : formulaId.startsWith("tab-")
-          ? "tabuleiro"
-          : "corte-vinco";
-      const nextModel: BoxModelKey = formulaId.startsWith("mn-")
-        ? "caixa-4-abas"
-        : formulaId.startsWith("mt-")
-          ? "caixa-4-abas-transpasse"
-          : formulaId.startsWith("sedex-")
-            ? "caixa-sedex"
-            : formulaId.startsWith("tab-")
-              ? "tabuleiro"
-              : "corte-vinco-geral";
+      const formulaText = `${formula.style} ${formula.description} ${formula.category}`.toUpperCase();
+      const isMaleta = formula.category.toUpperCase() === "MALETA" || formulaText.includes("MALETA");
+      const isTabuleiro = formulaId.startsWith("tab-") || formulaText.includes("TABULEIRO");
+      const isTranspasse = formulaId.startsWith("mt-") || formulaText.includes("TRANSPASSE");
+      const nextCategory: BoxCategory = isMaleta ? "maleta" : isTabuleiro ? "tabuleiro" : "corte-vinco";
+      const nextModel: BoxModelKey = isMaleta
+        ? isTranspasse ? "caixa-4-abas-transpasse" : "caixa-4-abas"
+        : formulaId.startsWith("sedex-")
+          ? "caixa-sedex"
+          : isTabuleiro
+            ? "tabuleiro"
+            : "corte-vinco-geral";
       setCategory(nextCategory);
       setModelKey(nextModel);
     }
