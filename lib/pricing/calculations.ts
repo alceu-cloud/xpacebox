@@ -234,33 +234,23 @@ export function calculatePriceForHourlyTarget(
   targetMch: number,
   analysis: ReturnType<typeof calculatePriceAnalysis>
 ) {
-  if (!analysis.productionDataReady) return 0;
+  if (!analysis.productionDataReady) {
+    return { price: 0, result: calculatePriceResultWithCommission(0, analysis, analysis.commissionPercent, analysis.mcDefault) };
+  }
 
-  const preliminaryExpensesPercent = getExpensesPercent(
-    analysis.sellerCompanyKey,
-    analysis.pricingParams,
-    analysis.preliminaryCommissionPercent,
-    analysis.ignoreAdditionalCosts
-  );
-  const preliminaryPrice = calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, preliminaryExpensesPercent);
-  const preliminaryResult = calculatePriceResultWithCommission(
-    preliminaryPrice,
-    analysis,
-    analysis.preliminaryCommissionPercent,
-    0
-  );
-  const commissionPercent = calculateDynamicCommission(
-    preliminaryResult.mcPercent,
-    analysis.lotQuantity,
-    analysis.unitWeightKg
-  );
+  // Keep the same dynamic commission tier used by the standard price calculation.
+  const commissionPercent = analysis.commissionPercent;
   const expensesPercent = getExpensesPercent(
     analysis.sellerCompanyKey,
     analysis.pricingParams,
     commissionPercent,
     analysis.ignoreAdditionalCosts
   );
-  return calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, expensesPercent);
+  const price = calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, expensesPercent);
+  return {
+    price,
+    result: calculatePriceResultWithCommission(price, analysis, commissionPercent, analysis.mcDefault),
+  };
 }
 
 function calculatePriceForHourlyTargetWithExpenses(

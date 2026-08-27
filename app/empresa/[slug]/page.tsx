@@ -1461,8 +1461,9 @@ function PriceSummaryStep({
   const simulatorA = calculatePriceResult(simulatorPrice, analysis);
   const simulatorBPrice = calculatePriceForMarginTarget(targetMcPercent, analysis);
   const simulatorB = calculatePriceResult(simulatorBPrice, analysis);
-  const simulatorCPrice = calculatePriceForHourlyTarget(targetMch, analysis);
-  const simulatorC = calculatePriceResult(simulatorCPrice, analysis);
+  const simulatorCHourlyTarget = calculatePriceForHourlyTarget(targetMch, analysis);
+  const simulatorCPrice = simulatorCHourlyTarget.price;
+  const simulatorC = simulatorCHourlyTarget.result;
   const requiredLot = calculateRequiredLotForHourlyTarget(simulatorPrice, analysis.mcrHour, analysis);
   const targetMcTone = getSimulatorTone(targetMcPercent, pricingGoals.mcPercent);
   const targetMchTone = getSimulatorTone(targetMch, pricingGoals.mcrHour);
