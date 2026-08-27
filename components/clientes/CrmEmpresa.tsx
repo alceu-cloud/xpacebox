@@ -838,16 +838,27 @@ function PipelineBoard({
   const [closedStart, setClosedStart] = useState("");
   const [closedEnd, setClosedEnd] = useState("");
   const [openCompanyFilter, setOpenCompanyFilter] = useState("ALL");
+  const [openClientFilter, setOpenClientFilter] = useState("ALL");
   const clientNames = new Map(clients.map((client) => [client.id, client.tradeName || client.legalName]));
   const clientCompanyIds = new Map(clients.map((client) => [client.id, client.sellerCompanyId]));
+  const openClients = useMemo(() => {
+    const activeClientIds = new Set(opportunities
+      .filter((item) => item.clientId && item.stage !== "WON" && item.stage !== "LOST")
+      .map((item) => item.clientId));
+    return clients
+      .filter((client) => activeClientIds.has(client.id))
+      .sort((first, second) => (first.tradeName || first.legalName).localeCompare(second.tradeName || second.legalName, "pt-BR"));
+  }, [clients, opportunities]);
   const visibleOpportunities = useMemo(
     () => opportunities.filter((item) => {
       if (item.stage !== "WON" && item.stage !== "LOST") {
-        return openCompanyFilter === "ALL" || clientCompanyIds.get(item.clientId) === openCompanyFilter;
+        const matchesCompany = openCompanyFilter === "ALL" || clientCompanyIds.get(item.clientId) === openCompanyFilter;
+        const matchesClient = openClientFilter === "ALL" || item.clientId === openClientFilter;
+        return matchesCompany && matchesClient;
       }
       return isInsideClosedPeriod(item.updatedAt || item.createdAt, closedPeriod, closedStart, closedEnd);
     }),
-    [clientCompanyIds, closedEnd, closedPeriod, closedStart, openCompanyFilter, opportunities]
+    [clientCompanyIds, closedEnd, closedPeriod, closedStart, openClientFilter, openCompanyFilter, opportunities]
   );
 
   function handleDragStart(event: DragEvent<HTMLElement>, opportunityId: string) {
@@ -883,6 +894,16 @@ function PipelineBoard({
           <select value={openCompanyFilter} onChange={(event) => setOpenCompanyFilter(event.target.value)}>
             <option value="ALL">TODAS AS EMPRESAS</option>
             {sellerCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+          </select>
+        </div>
+        <div className="crm-pipeline-filter-group">
+          <div>
+            <span className="clients-eyebrow">FILTRO DE ABERTAS</span>
+            <strong>CLIENTE</strong>
+          </div>
+          <select value={openClientFilter} onChange={(event) => setOpenClientFilter(event.target.value)}>
+            <option value="ALL">TODOS OS CLIENTES</option>
+            {openClients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}
           </select>
         </div>
         <div className="crm-pipeline-filter-group">
