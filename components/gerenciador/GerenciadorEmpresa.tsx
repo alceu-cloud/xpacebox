@@ -17,6 +17,7 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
+import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
@@ -57,6 +58,9 @@ const emptyMaterial: SpecificMaterial = {
   grammage: "",
   pressure: "",
   costIpi: 0,
+  specialCondition: false,
+  specialValidUntil: "",
+  specialNotes: "",
 };
 const emptyEngineering: EngineeringFormula = {
   id: "",
@@ -209,7 +213,14 @@ export default function GerenciadorEmpresa({
   }, [activeTab]);
 
   const materialsBySupplier = useMemo(() => {
-    return materials.reduce<Record<string, SpecificMaterial[]>>((groups, material) => {
+    return materials.filter((material) => !material.specialCondition).reduce<Record<string, SpecificMaterial[]>>((groups, material) => {
+      const supplier = material.supplier || "SEM FORNECEDOR";
+      groups[supplier] = groups[supplier] ? [...groups[supplier], material] : [material];
+      return groups;
+    }, {});
+  }, [materials]);
+  const specialMaterialsBySupplier = useMemo(() => {
+    return materials.filter((material) => material.specialCondition).reduce<Record<string, SpecificMaterial[]>>((groups, material) => {
       const supplier = material.supplier || "SEM FORNECEDOR";
       groups[supplier] = groups[supplier] ? [...groups[supplier], material] : [material];
       return groups;
@@ -371,6 +382,16 @@ export default function GerenciadorEmpresa({
               CUSTO BASE (M2) (PRECO COM IPI)
               <CurrencyInput value={materialDraft.costIpi || ""} onValueChange={(costIpi) => setMaterialDraft({ ...materialDraft, costIpi: costIpi || 0 })} style={inputStyle} />
             </label>
+            <label style={specialConditionToggleStyle}>
+              <input type="checkbox" checked={Boolean(materialDraft.specialCondition)} onChange={(event) => setMaterialDraft({ ...materialDraft, specialCondition: event.target.checked, specialValidUntil: event.target.checked ? materialDraft.specialValidUntil : "", specialNotes: event.target.checked ? materialDraft.specialNotes : "" })} />
+              <span>CONDICAO ESPECIAL DE PRECO</span>
+            </label>
+            {materialDraft.specialCondition ? (
+              <div style={twoColumnsStyle}>
+                <label style={wideLabelStyle}>VALIDADE DA CONDICAO<input type="date" value={materialDraft.specialValidUntil || ""} onChange={(event) => setMaterialDraft({ ...materialDraft, specialValidUntil: event.target.value })} style={inputStyle} /></label>
+                <label style={wideLabelStyle}>OBSERVACAO<input value={materialDraft.specialNotes || ""} onChange={(event) => setMaterialDraft({ ...materialDraft, specialNotes: event.target.value })} placeholder="EX: NEGOCIACAO COM FORNECEDOR" style={inputStyle} /></label>
+              </div>
+            ) : null}
             <Actions onCancel={() => setForm(null)} onSave={saveMaterial} />
           </FormPanel>
         )}
@@ -455,9 +476,9 @@ export default function GerenciadorEmpresa({
           )}
 
           {activeTab === "materiais" && (
-            <Table headers={["CODIGO", "MATERIAL", "TIPO", "FORNECEDOR", "GRAMATURA", "RES. PRESSAO", "PRECO C/ IPI", "ACOES"]}>
+            <Table headers={["CODIGO", "MATERIAL", "TIPO", "FORNECEDOR", "GRAMATURA", "RES. PRESSAO", "PRECO C/ IPI", "CONDICAO", "ACOES"]}>
               {materials.map((material) => (
-                <tr key={material.id}>
+                <tr key={material.id} style={material.specialCondition ? specialMaterialRowStyle : undefined}>
                   <td style={strongCellStyle}>{material.code}</td>
                   <td style={centerCellStyle}>{material.name}</td>
                   <td style={centerCellStyle}><span style={tagStyle}>{material.paperType}</span></td>
@@ -467,6 +488,9 @@ export default function GerenciadorEmpresa({
                   <td style={priceCellStyle}>
                     {material.costIpi.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     <small style={priceHintStyle}>PRECO C/ IPI</small>
+                  </td>
+                  <td style={centerCellStyle}>
+                    {material.specialCondition ? <span style={specialMaterialTagStyle}>{isSpecialMaterialActive(material) ? `ESPECIAL ATE ${displayDate(material.specialValidUntil || "")}` : "ESPECIAL VENCIDA"}</span> : "PADRAO"}
                   </td>
                   <td style={actionCellStyle}>
                     <EditButton onClick={() => openMaterialEdit(material)} />
@@ -539,6 +563,36 @@ export default function GerenciadorEmpresa({
                   </Fragment>
                 ))}
               </Table>
+              {Object.keys(specialMaterialsBySupplier).length ? (
+                <section style={specialCostSectionStyle}>
+                  <h3 style={specialCostTitleStyle}>CONDICOES ESPECIAIS</h3>
+                  <Table headers={["CODIGO", "FORNECEDOR", "PRECO C/ IPI", "VALIDADE", "STATUS", "COMPRA S/ IPI", "COMPRA NO REAL", "CUSTO S/ NOTA"]}>
+                    {Object.entries(specialMaterialsBySupplier).map(([supplier, items]) => (
+                      <Fragment key={`${supplier}-especial`}>
+                        <tr key={`${supplier}-especial-grupo`}>
+                          <td colSpan={8} style={specialGroupCellStyle}>{supplier}</td>
+                        </tr>
+                        {items.map((material) => {
+                          const cost = calculatePaperCost(material, paperCostParams);
+                          const active = isSpecialMaterialActive(material);
+                          return (
+                            <tr key={material.id} style={active ? specialMaterialRowStyle : expiredSpecialMaterialRowStyle}>
+                              <td style={strongCellStyle}>{material.code}</td>
+                              <td style={centerCellStyle}>{material.supplier}</td>
+                              <td style={moneyCellStyle}><CurrencyInput value={material.costIpi || ""} onValueChange={(costIpi) => updateMaterialCost(material.id, costIpi || 0)} style={costPriceInputStyle} /></td>
+                              <td style={centerCellStyle}>{displayDate(material.specialValidUntil || "")}</td>
+                              <td style={centerCellStyle}><span style={active ? specialMaterialTagStyle : expiredSpecialMaterialTagStyle}>{active ? "ATIVA" : "VENCIDA"}</span></td>
+                              <td style={moneyCellStyle}>{formatMoney(cost.purchaseWithoutIpi)}</td>
+                              <td style={moneyCellStyle}>{formatMoney(cost.realPurchase)}</td>
+                              <td style={moneyCellStyle}>{formatMoney(cost.costWithoutInvoice)}</td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </Table>
+                </section>
+              ) : null}
             </>
           )}
 
@@ -683,6 +737,10 @@ export default function GerenciadorEmpresa({
   function saveMaterial() {
     const code = materialDraft.code.trim().toUpperCase();
     if (!code) return;
+    if (materialDraft.specialCondition && !materialDraft.specialValidUntil) {
+      window.alert("INFORME A VALIDADE DA CONDICAO ESPECIAL.");
+      return;
+    }
     const next = {
       ...materialDraft,
       id: form?.id ?? crypto.randomUUID(),
@@ -692,6 +750,9 @@ export default function GerenciadorEmpresa({
       paperType: materialDraft.paperType.trim().toUpperCase(),
       grammage: materialDraft.grammage.trim().toUpperCase(),
       pressure: materialDraft.pressure.trim().toUpperCase(),
+      specialCondition: Boolean(materialDraft.specialCondition),
+      specialValidUntil: materialDraft.specialCondition ? materialDraft.specialValidUntil || "" : "",
+      specialNotes: materialDraft.specialCondition ? materialDraft.specialNotes?.trim().toUpperCase() || "" : "",
     };
     setMaterials(form?.mode === "edit" ? materials.map((item) => (item.id === form.id ? next : item)) : [...materials, next]);
     setForm(null);
@@ -925,7 +986,7 @@ export function ProductCatalogPanel({
     const materialSupplier = materials.find((material) => material.id === item.materialId)?.supplier ?? "";
     const selectedSupplier = supplierSelection[item.id] ?? materialSupplier;
     const filteredMaterials = selectedSupplier
-      ? materials.filter((material) => material.supplier === selectedSupplier)
+      ? materials.filter((material) => material.supplier === selectedSupplier && isMaterialAvailableForUse(material))
       : [];
     const selectedMaterial = materials.find((material) => material.id === item.materialId);
     const selectedWave = selectedMaterial ? getMaterialWave(selectedMaterial.paperType) : "";
@@ -1694,6 +1755,11 @@ function formatMoney(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
+function displayDate(value: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(`${value}T12:00:00`));
+}
+
 function formatGeneralMoney(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -1753,6 +1819,14 @@ const priceHintStyle = { display: "block", color: "#667085", fontSize: 12, margi
 const formulaCellStyle = { ...centerCellStyle, fontFamily: "monospace", fontSize: 18, lineHeight: 1.35 };
 const moneyCellStyle = { ...centerCellStyle, minWidth: 150 };
 const costPriceInputStyle = { width: 118, minHeight: 36, padding: "0 9px", textAlign: "right" as const, fontWeight: 900 };
+const specialConditionToggleStyle = { display: "flex", alignItems: "center", gap: 10, marginTop: 18, color: "#a21caf", fontSize: 16, fontWeight: 900, cursor: "pointer" };
+const specialMaterialRowStyle = { background: "#fff3fb" };
+const expiredSpecialMaterialRowStyle = { background: "#f3f4f6", opacity: 0.7 };
+const specialMaterialTagStyle = { display: "inline-flex", padding: "5px 8px", borderRadius: 8, background: "#fce7f3", color: "#be185d", fontSize: 11, fontWeight: 900 };
+const expiredSpecialMaterialTagStyle = { display: "inline-flex", padding: "5px 8px", borderRadius: 8, background: "#e5e7eb", color: "#6b7280", fontSize: 11, fontWeight: 900 };
+const specialCostSectionStyle = { marginTop: 28, paddingTop: 26, borderTop: "2px solid rgba(190,24,93,.2)" };
+const specialCostTitleStyle = { margin: "0 0 18px", color: "#a21caf", fontSize: 19, fontWeight: 900, letterSpacing: 1 };
+const specialGroupCellStyle = { padding: "18px 20px", background: "#fce7f3", color: "#9d174d", fontSize: 18, fontWeight: 900, borderBottom: "1px solid rgba(190,24,93,.16)" };
 const groupCellStyle = { padding: "18px 20px", background: "rgba(230,128,25,.08)", color: "#141827", fontSize: 18, fontWeight: 900, borderBottom: "1px solid rgba(255,0,135,.10)" };
 const costControlsStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr)) auto", alignItems: "end", gap: 22, marginBottom: 28, padding: 24, border: "1px solid rgba(52,64,84,.12)", borderRadius: 16, background: "rgba(255,255,255,.72)" };
 const costLabelStyle = { display: "grid", gap: 10, color: "#344054", fontSize: 16, fontWeight: 900, textAlign: "center" as const };

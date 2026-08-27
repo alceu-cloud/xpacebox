@@ -18,6 +18,9 @@ export type SpecificMaterial = {
   grammage: string;
   pressure: string;
   costIpi: number;
+  specialCondition?: boolean;
+  specialValidUntil?: string;
+  specialNotes?: string;
 };
 
 export type EngineeringFormula = {

@@ -13,6 +13,7 @@ import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
+import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
 import { supabase } from "@/lib/supabase";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
@@ -512,8 +513,9 @@ function PricingPreview({
     loadClients(companySlug).then(setClients).catch(() => setClients([]));
   }, [companySlug]);
 
+  const availableMaterials = materials.filter((material) => isMaterialAvailableForUse(material));
   const supplier = suppliers.find((item) => item.id === supplierId) ?? suppliers[0];
-  const materialsBySupplier = materials.filter((material) => material.supplier === supplier?.name);
+  const materialsBySupplier = availableMaterials.filter((material) => material.supplier === supplier?.name);
   const paperTypesBySupplier = paperTypes.filter((paperType) =>
     materialsBySupplier.some((material) => material.paperType === paperType.code)
   );
@@ -523,11 +525,11 @@ function PricingPreview({
   const selectedMaterialId = materialId || materialsByPaperType[0]?.id || "";
   const selectedMaterial = materialsByPaperType.find((material) => material.id === selectedMaterialId) ?? materialsByPaperType[0];
   const simulatedMaterial = simulatedMaterialId
-    ? materials.find((material) => material.id === simulatedMaterialId)
+    ? availableMaterials.find((material) => material.id === simulatedMaterialId)
     : undefined;
   const pricingMaterial = simulatedMaterial ?? selectedMaterial;
   const cheapestAlternatives = selectedMaterial
-    ? materials
+      ? availableMaterials
         .filter((material) => material.paperType === selectedMaterial.paperType && material.costIpi < selectedMaterial.costIpi)
         .sort((a, b) => a.costIpi - b.costIpi)
         .slice(0, 3)
@@ -552,7 +554,7 @@ function PricingPreview({
   const engineeringClientFichas = productFichas.filter((ficha) => ficha.clientId === engineeringClientId);
   const selectedEngineeringFicha = productFichas.find((ficha) => ficha.id === engineeringFichaId);
   const selectedEngineeringMaterial = selectedEngineeringFicha?.materialId
-    ? materials.find((material) => material.id === selectedEngineeringFicha.materialId)
+    ? availableMaterials.find((material) => material.id === selectedEngineeringFicha.materialId)
     : undefined;
   const selectedEngineeringFormula = selectedEngineeringFicha?.engineeringId
     ? engineeringFormulas.find((formula) => formula.id === selectedEngineeringFicha.engineeringId)
@@ -575,7 +577,7 @@ function PricingPreview({
 
   function chooseSupplier(nextSupplierId: string) {
     const nextSupplier = suppliers.find((item) => item.id === nextSupplierId);
-    const nextMaterials = materials.filter((material) => material.supplier === nextSupplier?.name);
+    const nextMaterials = availableMaterials.filter((material) => material.supplier === nextSupplier?.name);
     const nextPaperType = paperTypes.find((paperType) => nextMaterials.some((material) => material.paperType === paperType.code));
     const nextMaterial = nextMaterials.find((material) => material.paperType === nextPaperType?.code);
 
@@ -605,7 +607,7 @@ function PricingPreview({
   }
 
   function applyEngineeringFicha(ficha: ProductFicha) {
-    const material = ficha.materialId ? materials.find((item) => item.id === ficha.materialId) : undefined;
+    const material = ficha.materialId ? availableMaterials.find((item) => item.id === ficha.materialId) : undefined;
     const formula = ficha.engineeringId ? engineeringFormulas.find((item) => item.id === ficha.engineeringId) : undefined;
     if (material) {
       const nextSupplier = suppliers.find((item) => item.name === material.supplier);
