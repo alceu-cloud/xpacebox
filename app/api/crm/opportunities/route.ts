@@ -257,7 +257,7 @@ async function scheduleOpportunityAgenda({
   if (linkedActivityId) {
     const { data: activity, error: activityError } = await admin
       .from("crm_activities")
-      .select("id,next_action_at")
+      .select("id,next_action_type,next_action_at")
       .eq("id", linkedActivityId)
       .eq("tenant_company_id", companyId)
       .eq("client_id", clientId)
@@ -266,10 +266,14 @@ async function scheduleOpportunityAgenda({
     if (activityError) throw activityError;
     if (!activity?.next_action_at) throw new Error("A AGENDA SELECIONADA NAO ESTA MAIS ABERTA.");
 
-    scheduledAt = activity.next_action_at;
+    scheduledAt = nextActionAt || activity.next_action_at;
     const { error: linkError } = await admin
       .from("crm_activities")
-      .update({ opportunity_id: opportunityId })
+      .update({
+        opportunity_id: opportunityId,
+        next_action_type: nextActionType || activity.next_action_type || "FOLLOW_UP",
+        next_action_at: scheduledAt,
+      })
       .eq("id", activity.id)
       .eq("tenant_company_id", companyId);
     if (linkError) throw linkError;

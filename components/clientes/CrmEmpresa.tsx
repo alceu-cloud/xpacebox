@@ -266,7 +266,7 @@ export default function CrmEmpresa({
       setError("INFORME O TITULO DA OPORTUNIDADE.");
       return;
     }
-    if (!opportunityDraft.linkedActivityId && !opportunityDraft.reuseExistingAgenda && (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt)) {
+    if (!opportunityDraft.nextActionType || !opportunityDraft.nextActionAt) {
       setError("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.");
       return;
     }
@@ -742,10 +742,9 @@ function ClientDetail({
             <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency readOnly={Boolean(selectedProduct)} />
             <CrmInput label="PREVISAO DE FECHAMENTO" type="date" value={opportunityDraft.expectedCloseDate} onChange={(expectedCloseDate) => setOpportunityDraft({ ...opportunityDraft, expectedCloseDate })} />
             <CrmSelect label="REPRESENTANTE" value={opportunityDraft.representativeProfileId} onChange={(representativeProfileId) => setOpportunityDraft({ ...opportunityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
-            {!isUsingExistingAgenda ? <>
-              <CrmSelect label="PROXIMA ACAO" value={opportunityDraft.nextActionType || ""} onChange={(nextActionType) => setOpportunityDraft({ ...opportunityDraft, nextActionType: nextActionType as CrmOpportunityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
-              <CrmInput label="DATA DA PROXIMA ACAO" type="datetime-local" value={opportunityDraft.nextActionAt || ""} onChange={(nextActionAt) => setOpportunityDraft({ ...opportunityDraft, nextActionAt })} />
-            </> : <div className="crm-linked-agenda">AGENDA JA VINCULADA: {displayDateTime(scheduledAgendaAt)}</div>}
+            {isUsingExistingAgenda ? <div className="crm-linked-agenda crm-span-2">AGENDA VINCULADA</div> : null}
+            <CrmSelect label="PROXIMA ACAO" value={opportunityDraft.nextActionType || ""} onChange={(nextActionType) => setOpportunityDraft({ ...opportunityDraft, nextActionType: nextActionType as CrmOpportunityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
+            <CrmInput label="DATA DA PROXIMA ACAO" type="datetime-local" value={opportunityDraft.nextActionAt || ""} onChange={(nextActionAt) => setOpportunityDraft({ ...opportunityDraft, nextActionAt })} />
             <label className="crm-textarea crm-span-2"><span>ANOTACOES</span><textarea value={opportunityDraft.notes} onChange={(event) => setOpportunityDraft({ ...opportunityDraft, notes: upper(event.target.value) })} /></label>
           </div>
           <div className="crm-form-actions">
