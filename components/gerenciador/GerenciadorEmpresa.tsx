@@ -520,7 +520,13 @@ export default function GerenciadorEmpresa({
                         <tr key={material.id}>
                           <td style={strongCellStyle}>{material.code}</td>
                           <td style={centerCellStyle}>{material.supplier}</td>
-                          <td style={moneyCellStyle}>{formatMoney(material.costIpi)}</td>
+                          <td style={moneyCellStyle}>
+                            <CurrencyInput
+                              value={material.costIpi || ""}
+                              onValueChange={(costIpi) => updateMaterialCost(material.id, costIpi || 0)}
+                              style={costPriceInputStyle}
+                            />
+                          </td>
                           <td style={moneyCellStyle}>{formatMoney(cost.purchaseWithoutIpi)}</td>
                           <td style={moneyCellStyle}>{formatMoney(cost.purchaseLp)}</td>
                           <td style={moneyCellStyle}>{formatMoney(cost.pisCofinsValue)}</td>
@@ -689,6 +695,11 @@ export default function GerenciadorEmpresa({
     };
     setMaterials(form?.mode === "edit" ? materials.map((item) => (item.id === form.id ? next : item)) : [...materials, next]);
     setForm(null);
+  }
+
+  function updateMaterialCost(materialId: string, costIpi: number) {
+    const value = Math.max(0, Number(costIpi || 0));
+    setMaterials(materials.map((material) => material.id === materialId ? { ...material, costIpi: value } : material));
   }
 
   function saveEngineering() {
@@ -1741,6 +1752,7 @@ const priceCellStyle = { ...centerCellStyle, color: "#22c55e" };
 const priceHintStyle = { display: "block", color: "#667085", fontSize: 12, marginTop: 4 };
 const formulaCellStyle = { ...centerCellStyle, fontFamily: "monospace", fontSize: 18, lineHeight: 1.35 };
 const moneyCellStyle = { ...centerCellStyle, minWidth: 150 };
+const costPriceInputStyle = { width: 118, minHeight: 36, padding: "0 9px", textAlign: "right" as const, fontWeight: 900 };
 const groupCellStyle = { padding: "18px 20px", background: "rgba(230,128,25,.08)", color: "#141827", fontSize: 18, fontWeight: 900, borderBottom: "1px solid rgba(255,0,135,.10)" };
 const costControlsStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr)) auto", alignItems: "end", gap: 22, marginBottom: 28, padding: 24, border: "1px solid rgba(52,64,84,.12)", borderRadius: 16, background: "rgba(255,255,255,.72)" };
 const costLabelStyle = { display: "grid", gap: 10, color: "#344054", fontSize: 16, fontWeight: 900, textAlign: "center" as const };
