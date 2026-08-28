@@ -60,6 +60,15 @@ function isPendingQuote(quote: QuoteRecord) {
   return Boolean(quote.crmOpportunityId) && !closedCrmStages.has(quote.crmStage ?? "");
 }
 
+function isWonQuote(quote: QuoteRecord) {
+  return quote.crmStage === "WON";
+}
+
+function isQuoteWithinDateRange(quote: QuoteRecord, from: string, until: string) {
+  const issueDate = quote.issueDate.slice(0, 10);
+  return (!from || issueDate >= from) && (!until || issueDate <= until);
+}
+
 type QuoteFormState = {
   clientName: string;
   buyerName: string;
@@ -130,7 +139,9 @@ export default function FinanceiroEmpresa({
 }) {
   const [kind, setKind] = useState<"DIRECT" | "ENGINEERING">("DIRECT");
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
-  const [quoteListTab, setQuoteListTab] = useState<"PENDING" | "ALL">("PENDING");
+  const [quoteListTab, setQuoteListTab] = useState<"PENDING" | "WON" | "ALL">("PENDING");
+  const [quoteDateFrom, setQuoteDateFrom] = useState("");
+  const [quoteDateUntil, setQuoteDateUntil] = useState("");
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -190,7 +201,12 @@ export default function FinanceiroEmpresa({
   const clientFichas = useMemo(() => productFichas.filter((ficha) => ficha.clientId === selectedClientId), [productFichas, selectedClientId]);
   const selectedFicha = productFichas.find((ficha) => ficha.id === selectedFichaId);
   const pendingQuotes = useMemo(() => quotes.filter(isPendingQuote), [quotes]);
-  const visibleQuotes = quoteListTab === "PENDING" ? pendingQuotes : quotes;
+  const wonQuotes = useMemo(() => quotes.filter(isWonQuote), [quotes]);
+  const selectedQuoteList = quoteListTab === "PENDING" ? pendingQuotes : quoteListTab === "WON" ? wonQuotes : quotes;
+  const visibleQuotes = useMemo(
+    () => selectedQuoteList.filter((quote) => isQuoteWithinDateRange(quote, quoteDateFrom, quoteDateUntil)),
+    [selectedQuoteList, quoteDateFrom, quoteDateUntil],
+  );
 
   async function refreshQuotes(nextKind = kind, nextSearch = search) {
     try {
@@ -393,7 +409,25 @@ export default function FinanceiroEmpresa({
           <div style={opportunityLinkActionsStyle}><button type="button" onClick={() => { setPendingQuoteDraft(null); setLinkableOpportunities([]); }} style={cancelButtonStyle}>VOLTAR</button><button type="button" onClick={() => linkPendingQuote()} style={primaryButtonStyle}>CRIAR NOVA OPORTUNIDADE</button></div>
         </section>}</>}
 
-      <section style={panelStyle}><div style={quoteListTabsStyle}><button type="button" onClick={() => setQuoteListTab("PENDING")} style={{ ...quoteListTabStyle, ...(quoteListTab === "PENDING" ? activeQuoteListTabStyle : {}) }}>PENDENTES ({pendingQuotes.length})</button><button type="button" onClick={() => setQuoteListTab("ALL")} style={{ ...quoteListTabStyle, ...(quoteListTab === "ALL" ? activeQuoteListTabStyle : {}) }}>TODOS OS ORCAMENTOS ({quotes.length})</button></div><div style={listHeadingStyle}><h2 style={sectionTitleStyle}>{quoteListTab === "PENDING" ? "ORCAMENTOS PENDENTES" : "ORCAMENTOS SALVOS"}</h2><span style={countStyle}>{visibleQuotes.length} REGISTRO(S)</span></div>{visibleQuotes.length === 0 ? <div style={emptyStyle}>{quoteListTab === "PENDING" ? "NENHUM ORCAMENTO PENDENTE." : "NENHUM ORCAMENTO ENCONTRADO."}</div> : <div style={quoteListStyle}>{visibleQuotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}</section>
+      <section style={panelStyle}>
+        <div style={quoteListToolbarStyle}>
+          <div style={quoteListTabsStyle}>
+            <button type="button" onClick={() => setQuoteListTab("PENDING")} style={{ ...quoteListTabStyle, ...(quoteListTab === "PENDING" ? activeQuoteListTabStyle : {}) }}>PENDENTES ({pendingQuotes.length})</button>
+            <button type="button" onClick={() => setQuoteListTab("WON")} style={{ ...quoteListTabStyle, ...(quoteListTab === "WON" ? activeQuoteListTabStyle : {}) }}>GANHOS ({wonQuotes.length})</button>
+            <button type="button" onClick={() => setQuoteListTab("ALL")} style={{ ...quoteListTabStyle, ...(quoteListTab === "ALL" ? activeQuoteListTabStyle : {}) }}>TODOS OS ORCAMENTOS ({quotes.length})</button>
+          </div>
+          <div style={quoteDateFilterStyle}>
+            <label style={quoteDateFilterLabelStyle}>DE<input type="date" value={quoteDateFrom} onChange={(event) => setQuoteDateFrom(event.target.value)} style={quoteDateInputStyle} /></label>
+            <label style={quoteDateFilterLabelStyle}>ATE<input type="date" value={quoteDateUntil} onChange={(event) => setQuoteDateUntil(event.target.value)} style={quoteDateInputStyle} /></label>
+            {(quoteDateFrom || quoteDateUntil) && <button type="button" onClick={() => { setQuoteDateFrom(""); setQuoteDateUntil(""); }} style={quoteDateClearButtonStyle} title="LIMPAR FILTRO DE DATA" aria-label="LIMPAR FILTRO DE DATA">X</button>}
+          </div>
+        </div>
+        <div style={listHeadingStyle}>
+          <h2 style={sectionTitleStyle}>{quoteListTab === "PENDING" ? "ORCAMENTOS PENDENTES" : quoteListTab === "WON" ? "ORCAMENTOS GANHOS" : "ORCAMENTOS SALVOS"}</h2>
+          <span style={countStyle}>{visibleQuotes.length} REGISTRO(S)</span>
+        </div>
+        {visibleQuotes.length === 0 ? <div style={emptyStyle}>{quoteListTab === "PENDING" ? "NENHUM ORCAMENTO PENDENTE." : quoteListTab === "WON" ? "NENHUM ORCAMENTO GANHO." : "NENHUM ORCAMENTO ENCONTRADO."}</div> : <div style={quoteListStyle}>{visibleQuotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}
+      </section>
     </section>
   );
 }
@@ -641,9 +675,14 @@ const searchRowStyle = { display: "grid", gridTemplateColumns: "1fr auto", gap: 
 const inputStyle = { width: "100%", minHeight: 46, padding: "0 14px", border: "1px solid rgba(52,64,84,.20)", borderRadius: 10, background: "#fff", color: "#141827", fontSize: 14, fontWeight: 800, outline: "none" };
 const messageStyle = { marginTop: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(255,189,0,.10)", color: "#9a5b00", fontSize: 13, fontWeight: 900 };
 const listHeadingStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 };
-const quoteListTabsStyle = { display: "flex", gap: 10, paddingBottom: 16, marginBottom: 18, borderBottom: "1px solid rgba(52,64,84,.12)", flexWrap: "wrap" as const };
+const quoteListToolbarStyle = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, paddingBottom: 16, marginBottom: 18, borderBottom: "1px solid rgba(52,64,84,.12)", flexWrap: "wrap" as const };
+const quoteListTabsStyle = { display: "flex", gap: 10, flexWrap: "wrap" as const };
 const quoteListTabStyle = { minHeight: 40, padding: "0 16px", border: "1px solid rgba(111,50,210,.24)", borderRadius: 8, color: "#667085", background: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer" };
 const activeQuoteListTabStyle = { color: "#fff", borderColor: "#6f32d2", background: "#6f32d2" };
+const quoteDateFilterStyle = { display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" as const };
+const quoteDateFilterLabelStyle = { display: "grid", gap: 5, color: "#667085", fontSize: 10, fontWeight: 900, letterSpacing: .7 };
+const quoteDateInputStyle = { minHeight: 40, padding: "0 10px", border: "1px solid rgba(111,50,210,.24)", borderRadius: 8, background: "#fff", color: "#344054", fontSize: 12, fontWeight: 800, outline: "none" };
+const quoteDateClearButtonStyle = { width: 40, minHeight: 40, padding: 0, border: "1px solid rgba(255,59,37,.28)", borderRadius: 8, background: "#fff4f2", color: "#ff3b25", fontSize: 13, fontWeight: 900, cursor: "pointer" };
 const countStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900 };
 const emptyStyle = { padding: 30, textAlign: "center" as const, color: "#667085", fontSize: 15, fontWeight: 800 };
 const quoteListStyle = { display: "grid", gap: 10 };
