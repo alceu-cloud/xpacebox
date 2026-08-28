@@ -137,6 +137,7 @@ export type ProductComponent = {
   color2: string;
   engineeringId: string;
   observations: string;
+  areaM2?: number;
 };
 
 export type ProductPriceSnapshot = {

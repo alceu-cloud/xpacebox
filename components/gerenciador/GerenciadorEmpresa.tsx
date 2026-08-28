@@ -815,7 +815,7 @@ function emptyProductComponent(): ProductComponent {
   return {
     id: crypto.randomUUID(), reference: "", price: 0, revision: "", company: "", clientId: "", materialId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
     status: "DESENVOLVIMENTO", length: 0, width: 0, height: 0, topOverlap: 0, bottomOverlap: 0, knifeWidth: 0, knifeWidthBoxes: 1,
-    knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "",
+    knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "", areaM2: 0,
   };
 }
 
@@ -1043,6 +1043,7 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>COR 2<select value={item.color2} onChange={(event) => update("color2", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-2-${color}`}>{color}</option>)}</select></label>
         <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
+        <label style={productLabelStyle}>AREA (M2)<input type="number" min="0" step="0.0001" value={item.areaM2 || ""} onChange={(event) => update("areaM2", Number(event.target.value) || 0)} style={productInputStyle} /></label>
       </div>
     );
   }
