@@ -80,6 +80,9 @@ function emptyItem(): QuoteItem {
 }
 
 function resolveFichaArea(ficha: ProductFicha) {
+  const configuredArea = Number(ficha.areaM2);
+  if (Number.isFinite(configuredArea) && configuredArea > 0) return configuredArea;
+
   const currentArea = Number(ficha.pricingData?.areaM2);
   if (Number.isFinite(currentArea) && currentArea > 0) return currentArea;
 

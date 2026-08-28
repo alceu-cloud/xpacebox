@@ -845,6 +845,34 @@ function productClientName(client?: ClientRecord) {
   return (client?.tradeName || client?.legalName || "").toLocaleUpperCase("pt-BR");
 }
 
+function evaluateProductFormula(formula: string, values: { C: number; L: number; A: number }) {
+  const normalized = formula
+    .replaceAll(",", ".")
+    .replace(/[CLA]/g, (variable) => String(values[variable as keyof typeof values]));
+
+  if (!/^[\d+\-*/().\s]+$/.test(normalized)) return 0;
+
+  try {
+    const result = Number(Function(`"use strict"; return (${normalized});`)());
+    return Number.isFinite(result) && result > 0 ? result : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function calculateProductArea(item: ProductComponent, formulas: EngineeringFormula[]) {
+  const formula = formulas.find((candidate) => candidate.id === item.engineeringId);
+  if (!formula) return 0;
+
+  const dimensions = { C: item.length, L: item.width, A: item.height };
+  const requiredDimensions = new Set(`${formula.widthFormula}${formula.lengthFormula}`.match(/[CLA]/g) ?? []);
+  if ([...requiredDimensions].some((dimension) => !dimensions[dimension as keyof typeof dimensions])) return 0;
+
+  const sheetWidth = evaluateProductFormula(formula.widthFormula, dimensions);
+  const sheetLength = evaluateProductFormula(formula.lengthFormula, dimensions);
+  return sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
+}
+
 export function ProductCatalogPanel({
   companySlug, fichas, colors, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
 }: {
@@ -936,7 +964,13 @@ export function ProductCatalogPanel({
 
   function save() {
     if (!draft?.ftNumber.trim() || !draft.reference.trim() || !draft.clientId) return;
-    const next = { ...draft, ftNumber: draft.ftNumber.trim().toUpperCase(), reference: draft.reference.trim().toUpperCase() };
+    const next = {
+      ...draft,
+      ftNumber: draft.ftNumber.trim().toUpperCase(),
+      reference: draft.reference.trim().toUpperCase(),
+      areaM2: calculateProductArea(draft, engineeringFormulas),
+      accessories: draft.accessories.map((accessory) => ({ ...accessory, areaM2: calculateProductArea(accessory, engineeringFormulas) })),
+    };
     onChange(editingId ? fichas.map((item) => item.id === editingId ? next : item) : [...fichas, next]);
     setDraft(null);
     setEditingId(null);
@@ -1016,6 +1050,7 @@ export function ProductCatalogPanel({
     const filteredEngineeringFormulas = selectedWave
       ? engineeringFormulas.filter((formula) => formula.wave.split("/").map((wave) => wave.trim().toUpperCase()).includes(selectedWave))
       : [];
+    const calculatedArea = calculateProductArea(item, engineeringFormulas);
     const supplierNames = suppliers.map((supplier) => supplier.name).filter(Boolean);
     return (
       <div style={productFieldsStyle}>
@@ -1043,7 +1078,7 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>COR 2<select value={item.color2} onChange={(event) => update("color2", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-2-${color}`}>{color}</option>)}</select></label>
         <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
-        <label style={productLabelStyle}>AREA (M2)<input type="number" min="0" step="0.0001" value={item.areaM2 || ""} onChange={(event) => update("areaM2", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>AREA CALCULADA (M2)<input value={calculatedArea ? calculatedArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label>
       </div>
     );
   }
