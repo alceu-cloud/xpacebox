@@ -160,9 +160,21 @@ export type ProductPriceSnapshot = {
   totalOrder?: number;
 };
 
+export type ProductChangeLog = {
+  id: string;
+  revision: string;
+  changedAt: string;
+  changes: Array<{
+    label: string;
+    previousValue: string;
+    nextValue: string;
+  }>;
+};
+
 export type ProductFicha = ProductComponent & {
   ftNumber: string;
   accessories: ProductComponent[];
   pricingData?: ProductPriceSnapshot;
   priceHistory?: ProductPriceSnapshot[];
+  changeHistory?: ProductChangeLog[];
 };

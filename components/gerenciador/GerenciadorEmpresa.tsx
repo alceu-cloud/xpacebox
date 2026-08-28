@@ -19,7 +19,7 @@ import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
 import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
@@ -813,7 +813,7 @@ const productStatuses: ProductComponent["status"][] = ["INATIVO", "DESENVOLVIMEN
 
 function emptyProductComponent(): ProductComponent {
   return {
-    id: crypto.randomUUID(), reference: "", price: 0, revision: "", company: "", clientId: "", materialId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
+    id: crypto.randomUUID(), reference: "", price: 0, revision: "1", company: "", clientId: "", materialId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
     status: "DESENVOLVIMENTO", length: 0, width: 0, height: 0, topOverlap: 0, bottomOverlap: 0, knifeWidth: 0, knifeWidthBoxes: 1,
     knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "", areaM2: 0,
   };
@@ -873,6 +873,21 @@ function calculateProductArea(item: ProductComponent, formulas: EngineeringFormu
   return sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
 }
 
+const productChangeFields: Array<keyof ProductComponent> = [
+  "reference", "price", "clientId", "company", "materialId", "laudo", "palete", "tieCount", "status",
+  "length", "width", "height", "topOverlap", "bottomOverlap", "knifeWidth", "knifeWidthBoxes", "knifeLength",
+  "knifeLengthBoxes", "supplierQuality", "color1", "color2", "engineeringId", "observations", "areaM2",
+];
+
+const productChangeLabels: Partial<Record<keyof ProductComponent, string>> = {
+  reference: "REFERENCIA", price: "PRECO", clientId: "CLIENTE", company: "EMPRESA", materialId: "MATERIAL",
+  laudo: "LAUDO", palete: "PALETE", tieCount: "NUMERO DE AMARRADOS", status: "STATUS", length: "COMPRIMENTO",
+  width: "LARGURA", height: "ALTURA", topOverlap: "TRANSPASSE SUPERIOR", bottomOverlap: "TRANSPASSE INFERIOR",
+  knifeWidth: "LARGURA DA FACA", knifeWidthBoxes: "CAIXAS NA LARGURA", knifeLength: "COMPRIMENTO DA FACA",
+  knifeLengthBoxes: "CAIXAS NO COMPRIMENTO", supplierQuality: "QUALIDADE", color1: "COR 1", color2: "COR 2",
+  engineeringId: "ENGENHARIA", observations: "OBSERVACOES", areaM2: "AREA CALCULADA",
+};
+
 export function ProductCatalogPanel({
   companySlug, fichas, colors, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
 }: {
@@ -893,7 +908,7 @@ export function ProductCatalogPanel({
   const [fichaSearch, setFichaSearch] = useState("");
   const [supplierSelection, setSupplierSelection] = useState<Record<string, string>>({});
   const [productMenuOpen, setProductMenuOpen] = useState(false);
-  const [productPanel, setProductPanel] = useState<"dados" | "arte" | "historico" | null>(null);
+  const [productPanel, setProductPanel] = useState<"dados" | "arte" | "historico" | "alteracoes" | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -962,14 +977,80 @@ export function ProductCatalogPanel({
     setDraft((current) => current ? { ...current, accessories: current.accessories.map((item) => item.id === id ? { ...item, [key]: value } as ProductComponent : item) } : current);
   }
 
+  function describeChangeValue(key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) {
+    if (key === "clientId") return productClientName(clientsById.get(String(value))) || "NAO INFORMADO";
+    if (key === "materialId") {
+      const material = materials.find((item) => item.id === value);
+      return material ? `${material.code} - ${material.name || material.supplier}` : "NAO INFORMADO";
+    }
+    if (key === "engineeringId") {
+      const formula = engineeringFormulas.find((item) => item.id === value);
+      return formula ? `${formula.style} - ${formula.description}` : "NAO INFORMADO";
+    }
+    if (key === "price") return `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (key === "areaM2") return `${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} M2`;
+    if (typeof value === "number") return value.toLocaleString("pt-BR");
+    return String(value ?? "").trim() || "NAO INFORMADO";
+  }
+
+  function collectComponentChanges(previous: ProductComponent, next: ProductComponent, prefix: string) {
+    const changes: ProductChangeLog["changes"] = [];
+    for (const field of productChangeFields) {
+      const previousValue = previous[field];
+      const nextValue = next[field];
+      if (field === "areaM2" && previousValue === undefined) continue;
+      if (previousValue === nextValue) continue;
+      changes.push({
+        label: `${prefix} - ${productChangeLabels[field] ?? field.toUpperCase()}`,
+        previousValue: describeChangeValue(field, previousValue),
+        nextValue: describeChangeValue(field, nextValue),
+      });
+    }
+    return changes;
+  }
+
+  function collectFichaChanges(previous: ProductFicha, next: ProductFicha) {
+    const changes = collectComponentChanges(previous, next, "CAIXA PRINCIPAL");
+    const previousAccessories = new Map(previous.accessories.map((accessory) => [accessory.id, accessory]));
+    const nextAccessoryIds = new Set(next.accessories.map((accessory) => accessory.id));
+
+    next.accessories.forEach((accessory, index) => {
+      const previousAccessory = previousAccessories.get(accessory.id);
+      const prefix = `ACESSORIO ${index + 1}`;
+      if (!previousAccessory) {
+        changes.push({ label: prefix, previousValue: "", nextValue: `ADICIONADO: ${accessory.reference || "SEM REFERENCIA"}` });
+        return;
+      }
+      changes.push(...collectComponentChanges(previousAccessory, accessory, prefix));
+    });
+
+    previous.accessories.forEach((accessory, index) => {
+      if (!nextAccessoryIds.has(accessory.id)) {
+        changes.push({ label: `ACESSORIO ${index + 1}`, previousValue: accessory.reference || "SEM REFERENCIA", nextValue: "REMOVIDO" });
+      }
+    });
+    return changes;
+  }
+
   function save() {
     if (!draft?.ftNumber.trim() || !draft.reference.trim() || !draft.clientId) return;
-    const next = {
+    const baseNext = {
       ...draft,
       ftNumber: draft.ftNumber.trim().toUpperCase(),
       reference: draft.reference.trim().toUpperCase(),
       areaM2: calculateProductArea(draft, engineeringFormulas),
       accessories: draft.accessories.map((accessory) => ({ ...accessory, areaM2: calculateProductArea(accessory, engineeringFormulas) })),
+    };
+    const previous = editingId ? fichas.find((item) => item.id === editingId) : undefined;
+    const changes = previous ? collectFichaChanges(previous, baseNext) : [{ label: "FICHA TECNICA", previousValue: "", nextValue: "CADASTRO INICIAL" }];
+    const revision = previous && changes.length === 0
+      ? previous.revision || "1"
+      : String((previous ? Math.max(Number(previous.revision) || 1, 1) : 0) + 1);
+    const next = {
+      ...baseNext,
+      revision,
+      accessories: baseNext.accessories.map((accessory) => ({ ...accessory, revision })),
+      changeHistory: changes.length === 0 ? previous?.changeHistory ?? [] : [...(previous?.changeHistory ?? []), { id: crypto.randomUUID(), revision, changedAt: new Date().toISOString(), changes }],
     };
     onChange(editingId ? fichas.map((item) => item.id === editingId ? next : item) : [...fichas, next]);
     setDraft(null);
@@ -981,7 +1062,7 @@ export function ProductCatalogPanel({
     setSelectedHistoryId(null);
   }
 
-  function selectProductPanel(panel: "dados" | "arte" | "historico") {
+  function selectProductPanel(panel: "dados" | "arte" | "historico" | "alteracoes") {
     setProductPanel(panel);
     setProductMenuOpen(false);
     if (panel !== "historico") setSelectedHistoryId(null);
@@ -1056,7 +1137,7 @@ export function ProductCatalogPanel({
       <div style={productFieldsStyle}>
         <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
         <label style={productLabelStyle}>PRECO (R$)<CurrencyInput value={item.price || ""} onValueChange={(price) => update("price", price || 0)} style={productInputStyle} /></label>
-        <label style={productLabelStyle}>REVISAO<input value={item.revision} onChange={(event) => update("revision", event.target.value)} style={productInputStyle} /></label>
+        <label style={productLabelStyle}>REVISAO<input value={item.revision || "1"} readOnly style={{ ...productInputStyle, background: "#f2f4f7", color: "#667085", cursor: "default" }} /></label>
         <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => updateClient(update, event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{productClientName(client)}</option>)}</select></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} disabled style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
         <label style={productLabelStyle}>FORNECEDOR<select value={selectedSupplier} onChange={(event) => { const value = event.target.value; setSupplierSelection((current) => ({ ...current, [item.id]: value })); update("materialId", ""); update("engineeringId", ""); }} style={productInputStyle}><option value="">SELECIONE O FORNECEDOR</option>{supplierNames.map((supplier) => <option key={`${prefix}-supplier-${supplier}`} value={supplier}>{supplier}</option>)}</select></label>
@@ -1101,15 +1182,17 @@ export function ProductCatalogPanel({
                     <button type="button" onClick={() => selectProductPanel("dados")} style={productOptionButtonStyle}>DADOS DA FORMACAO DE PRECO</button>
                     <button type="button" onClick={() => selectProductPanel("arte")} style={productOptionButtonStyle}>ARTE</button>
                     <button type="button" onClick={() => selectProductPanel("historico")} style={productOptionButtonStyle}>HISTORICO DE PRECOS</button>
+                    <button type="button" onClick={() => selectProductPanel("alteracoes")} style={productOptionButtonStyle}>ALTERACOES</button>
                   </div>}
                 </div>
               </div>
               {productPanel === "dados" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>DADOS DA FORMACAO DE PRECO</strong><span>ULTIMA FORMACAO ENVIADA PARA ESTA FICHA</span></div><PriceSnapshotDetails snapshot={draft.pricingData} /></section>}
               {productPanel === "arte" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>ARTE</strong><span>ESTE ESPACO FICARA DISPONIVEL PARA A ARTE DO PRODUTO.</span></div><div style={productPanelEmptyStyle}>MODULO DE ARTE EM PREPARACAO.</div></section>}
               {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <div key={snapshot.id} style={productHistoryItemWrapStyle}><button type="button" onClick={() => setSelectedHistoryId((current) => current === snapshot.id ? null : snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }} aria-expanded={selectedHistoryId === snapshot.id}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source}</span><small>{formatSnapshotDate(snapshot.createdAt)}</small></button><button type="button" onClick={() => removeHistorySnapshot(snapshot.id)} style={productHistoryDeleteStyle} aria-label={`EXCLUIR HISTORICO DE ${formatCurrencyValue(snapshot.price)}`} title="EXCLUIR DO HISTORICO">X</button></div>)}</div>{selectedHistoryId && <PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId)} />}</div>}</section>}
+              {productPanel === "alteracoes" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE ALTERACOES</strong><span>REVISOES E CAMPOS ALTERADOS NESTA FICHA.</span></div>{(draft.changeHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUMA ALTERACAO REGISTRADA AINDA.</div> : <div style={productChangeListStyle}>{[...(draft.changeHistory ?? [])].reverse().map((entry) => <article key={entry.id} style={productChangeEntryStyle}><div style={productChangeEntryHeaderStyle}><strong>REVISAO {entry.revision}</strong><small>{formatSnapshotDate(entry.changedAt)}</small></div><div style={productChangeDetailsStyle}>{entry.changes.map((change, index) => <div key={`${entry.id}-${index}`} style={productChangeDetailStyle}><strong>{change.label}</strong><span>{change.previousValue ? `${change.previousValue} > ${change.nextValue}` : change.nextValue}</span></div>)}</div></article>)}</div>}</section>}
               <fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}</fieldset>
             </section>
-            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong>{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button>}</div><fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</fieldset></article>)}{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, { ...emptyProductComponent(), clientId: draft.clientId, company: draft.company }] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button>}</section>
+            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong>{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button>}</div><fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</fieldset></article>)}{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, { ...emptyProductComponent(), revision: draft.revision || "1", clientId: draft.clientId, company: draft.company }] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button>}</section>
           </div>
           {!viewOnly && <div style={formActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button></div>}
         </FormPanel>
@@ -1997,6 +2080,11 @@ const productHistoryItemWrapStyle = { position: "relative" as const, minWidth: 0
 const productHistoryItemStyle = { width: "100%", minHeight: 82, display: "grid", alignContent: "center", gap: 4, padding: "12px 34px 12px 13px", border: "1px solid rgba(111,50,210,.14)", borderRadius: 9, background: "#fff", color: "#344054", textAlign: "left" as const, cursor: "pointer" };
 const productHistoryItemActiveStyle = { borderColor: "#e6007e", boxShadow: "0 0 0 2px rgba(230,0,126,.1)" };
 const productHistoryDeleteStyle = { position: "absolute" as const, top: 7, right: 7, width: 24, height: 24, display: "grid", placeItems: "center", padding: 0, border: "1px solid rgba(255,61,70,.24)", borderRadius: "50%", background: "#fff1f2", color: "#ff3d46", fontSize: 11, fontWeight: 900, cursor: "pointer" };
+const productChangeListStyle = { display: "grid", gap: 10, maxHeight: 320, overflowY: "auto" as const, padding: "2px" };
+const productChangeEntryStyle = { display: "grid", gap: 10, padding: "13px 14px", border: "1px solid rgba(111,50,210,.15)", borderRadius: 9, background: "#fff" };
+const productChangeEntryHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, color: "#6f32d2", fontSize: 12, fontWeight: 900 };
+const productChangeDetailsStyle = { display: "grid", gap: 7 };
+const productChangeDetailStyle = { display: "grid", gap: 3, color: "#475467", fontSize: 11, fontWeight: 800, lineHeight: 1.4 };
 const productFieldsStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 15 };
 const productLabelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 13, fontWeight: 900, letterSpacing: .7 };
 const productInputStyle = { width: "100%", minHeight: 46, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 13px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
