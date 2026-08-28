@@ -17,7 +17,26 @@ export async function GET(request: Request) {
     if (search) query = query.or(`quote_number.ilike.%${search}%,client_name.ilike.%${search}%,client_cnpj.ilike.%${search}%`);
     const { data, error } = await query;
     if (error) throw error;
-    return NextResponse.json({ success: true, quotes: (data ?? []).map(mapQuote) });
+
+    const quoteIds = (data ?? []).map((quote) => String(quote.id));
+    const opportunitiesByQuoteId = new Map<string, { id: string; stage: string }>();
+    if (quoteIds.length) {
+      const { data: opportunities, error: opportunitiesError } = await admin
+        .from("crm_opportunities")
+        .select("id,quote_id,stage")
+        .eq("tenant_company_id", company.id)
+        .in("quote_id", quoteIds)
+        .order("updated_at", { ascending: false });
+      if (opportunitiesError) throw opportunitiesError;
+      for (const opportunity of opportunities ?? []) {
+        const quoteId = String(opportunity.quote_id ?? "");
+        if (quoteId && !opportunitiesByQuoteId.has(quoteId)) {
+          opportunitiesByQuoteId.set(quoteId, { id: String(opportunity.id), stage: String(opportunity.stage) });
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, quotes: (data ?? []).map((quote) => mapQuote(quote, opportunitiesByQuoteId.get(String(quote.id)))) });
   } catch (error) {
     return handleError(error);
   }
@@ -284,12 +303,14 @@ async function syncQuoteWithCrmSafely(
   }
 }
 
-function mapQuote(row: Record<string, unknown>) {
+function mapQuote(row: Record<string, unknown>, crmOpportunity?: { id: string; stage: string }) {
   return {
     id: row.id,
     quoteNumber: row.quote_number,
     kind: row.kind,
     status: row.status,
+    crmOpportunityId: crmOpportunity?.id ?? "",
+    crmStage: crmOpportunity?.stage ?? "",
     recipient: row.recipient,
     sellerCompanyName: row.seller_company_name,
     sellerCompanySlug: row.seller_company_slug,

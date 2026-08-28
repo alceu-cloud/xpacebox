@@ -26,6 +26,8 @@ export type QuoteRecord = {
   quoteNumber: string;
   kind: QuoteKind;
   status: "DRAFT" | "FINALIZED";
+  crmOpportunityId?: string;
+  crmStage?: string;
   recipient: QuoteRecipient;
   sellerCompanyName: string;
   sellerCompanySlug: string;
