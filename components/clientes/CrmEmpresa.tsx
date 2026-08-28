@@ -590,7 +590,7 @@ function AgendaBoard({
                       <span>{quoteCount(item.client.id)} ORCAMENTO(S)</span>
                     </div>
                     <div className="crm-agenda-buttons">
-                      {phone ? <a href={whatsAppLink(phone, item.client.buyerName || item.client.tradeName || item.client.legalName)} target="xpace-whatsapp" referrerPolicy="no-referrer" title="ABRIR WHATSAPP">WHATSAPP</a> : null}
+                      {phone ? <a href={whatsAppLink(phone, item.client.buyerName || item.client.tradeName || item.client.legalName)} title="ABRIR WHATSAPP">WHATSAPP</a> : null}
                       <button type="button" onClick={() => onOpenClient(item.client.id)}>ATENDER</button>
                     </div>
                   </article>
@@ -690,7 +690,7 @@ function ClientDetail({
           <p>{client.buyerName || "COMPRADOR NAO INFORMADO"} · {phone || "SEM TELEFONE"}</p>
         </div>
         <div className="crm-customer-actions">
-          {phone ? <a href={whatsAppLink(phone, client.buyerName || client.tradeName || client.legalName)} target="xpace-whatsapp" referrerPolicy="no-referrer">ABRIR WHATSAPP</a> : null}
+          {phone ? <a href={whatsAppLink(phone, client.buyerName || client.tradeName || client.legalName)}>ABRIR WHATSAPP</a> : null}
           <span className={`crm-health crm-health-${calculateHealth(toProfile(profileDraft)).toLowerCase()}`}>{healthLabel(calculateHealth(toProfile(profileDraft)))}</span>
         </div>
       </header>
@@ -1227,7 +1227,7 @@ function crmCalendarDate(value: string) {
 function whatsAppLink(value: string, name: string) {
   const clean = value.replace(/\D/g, "");
   const phone = clean.startsWith("55") ? clean : `55${clean}`;
-  return `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(`OLA ${name}, TUDO BEM?`)}`;
+  return `whatsapp://send?phone=${phone}&text=${encodeURIComponent(`OLA ${name}, TUDO BEM?`)}`;
 }
 
 function healthLabel(value: CrmHealth) {
