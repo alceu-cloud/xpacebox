@@ -117,6 +117,19 @@ async function save(request: Request, editing: boolean) {
         nextActionType: input.nextActionType || "FOLLOW_UP",
         nextActionAt: input.nextActionAt || nextBusinessMorning(),
       });
+    } else if (editing && input.clientId && !isClosedStage(input.stage) && input.nextActionAt) {
+      await scheduleOpportunityAgenda({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityId: data.id,
+        representativeId,
+        userId: user.id,
+        title: base.title,
+        linkedActivityId: "",
+        nextActionType: input.nextActionType || "FOLLOW_UP",
+        nextActionAt: input.nextActionAt,
+      });
     }
     if (editing && input.clientId && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
       await clearOpportunityAgenda(admin, company.id, data.id);
@@ -297,6 +310,13 @@ async function scheduleOpportunityAgenda({
     if (!activity?.next_action_at) throw new Error("A AGENDA SELECIONADA NAO ESTA MAIS ABERTA.");
 
     scheduledAt = nextActionAt || activity.next_action_at;
+    const { error: clearPreviousAgendaError } = await admin
+      .from("crm_activities")
+      .update({ next_action_type: null, next_action_at: null })
+      .eq("tenant_company_id", companyId)
+      .eq("opportunity_id", opportunityId)
+      .not("next_action_at", "is", null);
+    if (clearPreviousAgendaError) throw clearPreviousAgendaError;
     const { error: linkError } = await admin
       .from("crm_activities")
       .update({
@@ -308,21 +328,41 @@ async function scheduleOpportunityAgenda({
       .eq("tenant_company_id", companyId);
     if (linkError) throw linkError;
   } else {
-    const { error: activityError } = await admin.from("crm_activities").insert({
-      tenant_company_id: companyId,
-      client_id: clientId,
-      opportunity_id: opportunityId,
-      representative_profile_id: representativeId,
-      activity_type: "NOTE",
-      outcome: "FOLLOW_UP",
-      subject: `ACOMPANHAMENTO DA OPORTUNIDADE: ${title}`,
-      notes: "OPORTUNIDADE ABERTA NO FUNIL.",
-      occurred_at: now,
-      next_action_type: nextActionType,
-      next_action_at: scheduledAt,
-      created_by: userId,
-    });
-    if (activityError) throw activityError;
+    const { data: currentAgenda, error: currentAgendaError } = await admin
+      .from("crm_activities")
+      .select("id")
+      .eq("tenant_company_id", companyId)
+      .eq("opportunity_id", opportunityId)
+      .not("next_action_at", "is", null)
+      .order("occurred_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (currentAgendaError) throw currentAgendaError;
+
+    if (currentAgenda) {
+      const { error: updateAgendaError } = await admin
+        .from("crm_activities")
+        .update({ next_action_type: nextActionType, next_action_at: scheduledAt })
+        .eq("id", currentAgenda.id)
+        .eq("tenant_company_id", companyId);
+      if (updateAgendaError) throw updateAgendaError;
+    } else {
+      const { error: activityError } = await admin.from("crm_activities").insert({
+        tenant_company_id: companyId,
+        client_id: clientId,
+        opportunity_id: opportunityId,
+        representative_profile_id: representativeId,
+        activity_type: "NOTE",
+        outcome: "FOLLOW_UP",
+        subject: `ACOMPANHAMENTO DA OPORTUNIDADE: ${title}`,
+        notes: "OPORTUNIDADE ABERTA NO FUNIL.",
+        occurred_at: now,
+        next_action_type: nextActionType,
+        next_action_at: scheduledAt,
+        created_by: userId,
+      });
+      if (activityError) throw activityError;
+    }
   }
 
   const { error: profileError } = await admin.from("crm_customer_profiles").upsert({
@@ -462,13 +502,6 @@ async function scheduleNextCommercialCycle({
   };
   if (stage === "WON") profileUpdate.last_purchase_at = today;
 
-  const { error: updateError } = await admin
-    .from("crm_customer_profiles")
-    .update(profileUpdate)
-    .eq("tenant_company_id", companyId)
-    .eq("client_id", clientId);
-  if (updateError) throw updateError;
-
   const outcome = stage === "WON" ? "PURCHASE_EXPECTED" : "FOLLOW_UP";
   const resultLabel = stage === "WON" ? "GANHA" : "PERDIDA";
   const { error: activityError } = await admin.from("crm_activities").insert({
@@ -485,6 +518,13 @@ async function scheduleNextCommercialCycle({
     created_by: userId,
   });
   if (activityError) throw activityError;
+
+  const { error: updateError } = await admin
+    .from("crm_customer_profiles")
+    .update(profileUpdate)
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId);
+  if (updateError) throw updateError;
   return true;
 }
 

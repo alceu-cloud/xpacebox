@@ -17,9 +17,38 @@ export async function POST(request: Request) {
     const representativeId = input.representativeProfileId || user.id;
     const representative = await requireCompanyProfile(admin, company.id, representativeId);
     const occurredAt = input.occurredAt || new Date().toISOString();
+    const nextActionAt = input.nextActionAt || null;
+    const { data: activeOpportunities, error: activeOpportunitiesError } = await admin
+      .from("crm_opportunities")
+      .select("id")
+      .eq("tenant_company_id", company.id)
+      .eq("client_id", input.clientId)
+      .not("stage", "in", "(WON,LOST)");
+    if (activeOpportunitiesError) throw activeOpportunitiesError;
+    const opportunityId = activeOpportunities?.length === 1 ? activeOpportunities[0].id : null;
+
+    const { error: clearDirectAgendaError } = await admin
+      .from("crm_activities")
+      .update({ next_action_type: null, next_action_at: null })
+      .eq("tenant_company_id", company.id)
+      .eq("client_id", input.clientId)
+      .is("opportunity_id", null)
+      .not("next_action_at", "is", null);
+    if (clearDirectAgendaError) throw clearDirectAgendaError;
+    if (opportunityId) {
+      const { error: clearOpportunityAgendaError } = await admin
+        .from("crm_activities")
+        .update({ next_action_type: null, next_action_at: null })
+        .eq("tenant_company_id", company.id)
+        .eq("opportunity_id", opportunityId)
+        .not("next_action_at", "is", null);
+      if (clearOpportunityAgendaError) throw clearOpportunityAgendaError;
+    }
+
     const { data, error } = await admin.from("crm_activities").insert({
       tenant_company_id: company.id,
       client_id: input.clientId,
+      opportunity_id: opportunityId,
       representative_profile_id: representativeId,
       activity_type: input.activityType,
       outcome: input.outcome,
@@ -27,7 +56,7 @@ export async function POST(request: Request) {
       notes: upper(input.notes) || null,
       occurred_at: occurredAt,
       next_action_type: input.nextActionType || null,
-      next_action_at: input.nextActionAt || null,
+      next_action_at: nextActionAt,
       created_by: user.id,
     }).select("*").single();
     if (error) throw error;
@@ -36,7 +65,7 @@ export async function POST(request: Request) {
       tenant_company_id: company.id,
       client_id: input.clientId,
       owner_profile_id: representativeId,
-      next_contact_at: input.nextActionAt || null,
+      next_contact_at: nextActionAt,
       created_by: user.id,
       updated_at: new Date().toISOString(),
     }, { onConflict: "tenant_company_id,client_id" });

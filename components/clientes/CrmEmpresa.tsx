@@ -179,8 +179,8 @@ export default function CrmEmpresa({
       clientId: selectedClient.id,
       representativeProfileId: owner,
       occurredAt: toLocalDateTime(new Date().toISOString()),
-      nextActionType: scheduledActivity?.nextActionType || (nextContactAt ? "FOLLOW_UP" : ""),
-      nextActionAt: toLocalDateTime(nextContactAt || scheduledActivity?.nextActionAt || ""),
+      nextActionType: "",
+      nextActionAt: "",
     });
     setOpportunityDraft({ ...emptyOpportunity, clientId: selectedClient.id, representativeProfileId: owner });
   }, [overview.currentProfileId, selectedClient, selectedProfile, scheduledActivity]);
@@ -238,7 +238,6 @@ export default function CrmEmpresa({
     clearFeedback();
     try {
       const savedNextActionAt = toIsoDateTime(activityDraft.nextActionAt);
-      const savedNextActionType = activityDraft.nextActionType;
       await createCrmActivity(slug, {
         ...activityDraft,
         clientId: selectedClient.id,
@@ -251,8 +250,8 @@ export default function CrmEmpresa({
         clientId: selectedClient.id,
         representativeProfileId: current.representativeProfileId,
         occurredAt: toLocalDateTime(new Date().toISOString()),
-        nextActionType: savedNextActionType,
-        nextActionAt: toLocalDateTime(savedNextActionAt),
+        nextActionType: "",
+        nextActionAt: "",
       }));
       setMessage("CONTATO REGISTRADO NA LINHA DO TEMPO.");
     } catch (saveError) {
