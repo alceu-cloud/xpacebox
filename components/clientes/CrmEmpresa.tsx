@@ -825,7 +825,7 @@ function ClientDetail({
             </div>
           ) : null}
           <div className="crm-form-actions">
-            {scheduledAgendaAt && !isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity?.id || "", reuseExistingAgenda: true, nextActionType: scheduledActivity?.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
+            {scheduledActivity && !isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity.id, reuseExistingAgenda: true, nextActionType: scheduledActivity.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
             {isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "", reuseExistingAgenda: false })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
             <button type="button" onClick={() => {
               if (!opportunityDraft.id && activeOpportunities.length) {
