@@ -287,7 +287,9 @@ export default function CrmEmpresa({
         representativeProfileId: opportunityDraft.representativeProfileId,
       });
       setMessage(editingExistingOpportunity
-        ? "OPORTUNIDADE EXISTENTE ATUALIZADA."
+        ? result.agendaLinked
+        ? "OPORTUNIDADE ATUALIZADA E AGENDA VINCULADA."
+        : "OPORTUNIDADE EXISTENTE ATUALIZADA."
         : opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda
         ? "OPORTUNIDADE SALVA E VINCULADA A AGENDA JA EXISTENTE."
         : result.previousCycleCancelled
@@ -679,6 +681,8 @@ function ClientDetail({
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
   const isUsingExistingAgenda = Boolean(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda);
+  const isPreparingOpportunity = Boolean(opportunityDraft.id || opportunityDraft.title.trim());
+  const scheduledActivityToLink = scheduledActivity && !isUsingExistingAgenda && isPreparingOpportunity ? scheduledActivity : undefined;
   const availableProducts = productFichas.filter((item) => item.clientId === client.id && item.status !== "INATIVO" && Number(item.price) > 0);
   const selectedProduct = availableProducts.find((item) => item.id === opportunityDraft.productFichaId);
   const activeOpportunities = opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST");
@@ -825,7 +829,7 @@ function ClientDetail({
             </div>
           ) : null}
           <div className="crm-form-actions">
-            {scheduledActivity && !isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivity.id, reuseExistingAgenda: true, nextActionType: scheduledActivity.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
+            {scheduledActivityToLink ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivityToLink.id, reuseExistingAgenda: true, nextActionType: scheduledActivityToLink.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
             {isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "", reuseExistingAgenda: false })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
             <button type="button" onClick={() => {
               if (!opportunityDraft.id && activeOpportunities.length) {

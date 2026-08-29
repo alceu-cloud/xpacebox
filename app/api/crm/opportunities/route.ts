@@ -104,6 +104,19 @@ async function save(request: Request, editing: boolean) {
         nextActionType: input.nextActionType || "FOLLOW_UP",
         nextActionAt: input.nextActionAt || nextBusinessMorning(),
       });
+    } else if (editing && input.clientId && input.linkedActivityId && input.reuseExistingAgenda) {
+      agendaLinked = await scheduleOpportunityAgenda({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityId: data.id,
+        representativeId,
+        userId: user.id,
+        title: base.title,
+        linkedActivityId: input.linkedActivityId,
+        nextActionType: input.nextActionType || "FOLLOW_UP",
+        nextActionAt: input.nextActionAt || nextBusinessMorning(),
+      });
     }
     if (editing && input.clientId && isClosedStage(input.stage) && !isClosedStage(previousStage)) {
       await clearOpportunityAgenda(admin, company.id, data.id);
