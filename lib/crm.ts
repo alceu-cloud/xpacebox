@@ -41,6 +41,17 @@ export async function createCrmActivity(slug: string, activity: CrmActivityInput
   return payload.activity;
 }
 
+export async function postponeCrmAgenda(slug: string, clientId: string) {
+  const payload = await authorizedFetch("/api/crm/agenda/postpone", {
+    method: "POST",
+    body: JSON.stringify({ slug, clientId }),
+  });
+  return {
+    nextActionAt: payload.nextActionAt as string,
+    postponementCount: Number(payload.postponementCount || 0),
+  };
+}
+
 export async function saveCrmOpportunity(slug: string, opportunity: CrmOpportunityInput) {
   const payload = await authorizedFetch("/api/crm/opportunities", {
     method: opportunity.id ? "PATCH" : "POST",

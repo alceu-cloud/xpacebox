@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 
-import { createCrmActivity, loadCrmOverview, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
+import { createCrmActivity, loadCrmOverview, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
@@ -108,6 +108,7 @@ export default function CrmEmpresa({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [postponingClientId, setPostponingClientId] = useState("");
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
   const [activityDraft, setActivityDraft] = useState<CrmActivityInput>(emptyActivity);
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
@@ -344,6 +345,20 @@ export default function CrmEmpresa({
     }
   }
 
+  async function handlePostponeAgenda(clientId: string) {
+    setPostponingClientId(clientId);
+    clearFeedback();
+    try {
+      await postponeCrmAgenda(slug, clientId);
+      await refresh(true);
+      setMessage("AGENDA ADIADA PARA O PROXIMO DIA UTIL.");
+    } catch (postponeError) {
+      setError(messageFrom(postponeError));
+    } finally {
+      setPostponingClientId("");
+    }
+  }
+
   async function handleLinkOpportunityClient(opportunity: CrmOpportunity, clientId: string) {
     if (!clientId) return;
     setSaving(true);
@@ -429,6 +444,8 @@ export default function CrmEmpresa({
           isManager={overview.isManager}
           opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
           quoteCount={(clientId) => quoteByClient.get(clientId)?.count || 0}
+          onPostpone={handlePostponeAgenda}
+          postponingClientId={postponingClientId}
           onOpenClient={(clientId) => {
             selectClient(clientId);
             setView("carteira");
@@ -528,6 +545,8 @@ function AgendaBoard({
   isManager,
   opportunityCount,
   quoteCount,
+  onPostpone,
+  postponingClientId,
   onOpenClient,
 }: {
   items: RankedClient[];
@@ -539,8 +558,11 @@ function AgendaBoard({
   isManager: boolean;
   opportunityCount: (clientId: string) => number;
   quoteCount: (clientId: string) => number;
+  onPostpone: (clientId: string) => void;
+  postponingClientId: string;
   onOpenClient: (clientId: string) => void;
 }) {
+  const [postponeMenuClientId, setPostponeMenuClientId] = useState("");
   const groups = [
     { key: "overdue", label: "ATRASADOS", tone: "red", items: items.filter((item) => item.daysToAction < 0) },
     { key: "today", label: "PARA HOJE", tone: "purple", items: items.filter((item) => item.daysToAction === 0) },
@@ -592,6 +614,10 @@ function AgendaBoard({
                     <div className="crm-agenda-buttons">
                       {phone ? <a href={whatsAppLink(phone, item.client.buyerName || item.client.tradeName || item.client.legalName)} title="ABRIR WHATSAPP">WHATSAPP</a> : null}
                       <button type="button" onClick={() => onOpenClient(item.client.id)}>ATENDER</button>
+                      {group.key === "overdue" ? <div className="crm-agenda-postpone-menu">
+                        <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuClientId((current) => current === item.client.id ? "" : item.client.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.client.tradeName || item.client.legalName}`} aria-expanded={postponeMenuClientId === item.client.id}>...</button>
+                        {postponeMenuClientId === item.client.id ? <div className="crm-agenda-postpone-options"><button type="button" onClick={() => { setPostponeMenuClientId(""); onPostpone(item.client.id); }} disabled={postponingClientId === item.client.id}>ADIAR PARA PROXIMO DIA UTIL</button></div> : null}
+                      </div> : null}
                     </div>
                   </article>
                 );
@@ -1064,12 +1090,13 @@ function Timeline({ activities, opportunities }: { activities: CrmOverview["acti
   const rows = [
     ...activities.map((item) => {
       const opportunity = opportunitiesById.get(item.opportunityId);
+      const isAgendaPostponement = item.subject.startsWith("AGENDA_ADIADA:");
       return {
         id: item.id,
         date: item.occurredAt,
-        title: opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
+        title: isAgendaPostponement ? "AGENDA ADIADA" : opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
         detail: item.notes || item.subject || "CONTATO REGISTRADO",
-        type: "CONTATO",
+        type: isAgendaPostponement ? "AGENDA" : "CONTATO",
       };
     }),
     ...opportunities.map((item) => ({ id: item.id, date: item.updatedAt, title: item.title, detail: `${item.productReference ? `${item.productReference} · ` : ""}${stageOptions.find((stage) => stage.value === item.stage)?.label || item.stage} · ${money(item.estimatedValue)}`, type: "NEGOCIO" })),

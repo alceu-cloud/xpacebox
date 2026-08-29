@@ -1277,6 +1277,7 @@ button {
 .crm-agenda-action b { color: #e9007f; font-size: 12px; }
 .crm-agenda-context { padding-left: 10px; border-left: 1px solid #e5e7ee; }
 .crm-agenda-buttons { display: flex; align-items: center; gap: 6px; }
+.crm-agenda-postpone-menu { position: relative; }
 .crm-agenda-buttons a,
 .crm-agenda-buttons button {
   display: inline-grid;
@@ -1293,8 +1294,42 @@ button {
   cursor: pointer;
 }
 .crm-agenda-buttons button { border-color: #7a31e8; background: #7a31e8; color: #fff; }
+.crm-agenda-buttons .crm-agenda-more-button {
+  width: 30px;
+  min-height: 36px;
+  padding: 0;
+  border-color: #d9dce8;
+  background: #fff;
+  color: #59657e;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+.crm-agenda-postpone-options {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: calc(100% + 6px);
+  min-width: 208px;
+  padding: 6px;
+  border: 1px solid rgba(111, 50, 210, 0.2);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(20, 24, 39, 0.16);
+}
+.crm-agenda-buttons .crm-agenda-postpone-options button {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: #f7f2ff;
+  color: #6f2ee4;
+  font-size: 10px;
+}
+.crm-agenda-buttons .crm-agenda-postpone-options button:hover { background: #eee3ff; }
+.crm-agenda-buttons .crm-agenda-postpone-options button:disabled { cursor: wait; opacity: 0.58; }
 .crm-agenda-buttons a:hover { border-color: #16b76e; color: #078c50; }
 .crm-agenda-buttons button:hover { background: #6221ca; }
+.crm-agenda-buttons .crm-agenda-more-button:hover { border-color: #7a31e8; background: #f7f2ff; color: #6f2ee4; }
 
 .crm-workspace {
   display: grid;
