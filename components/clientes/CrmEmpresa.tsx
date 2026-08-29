@@ -18,7 +18,7 @@ import type {
 } from "@/types/crm";
 import type { ProductFicha } from "@/types/gerenciador";
 
-type CrmView = "agenda" | "carteira" | "pipeline" | "whatsapp";
+type CrmView = "agenda" | "carteira" | "pipeline";
 
 const stageOptions: Array<{ value: CrmOpportunityStage; label: string }> = [
   { value: "CONTACT_PENDING", label: "CONTATO PENDENTE" },
@@ -424,9 +424,9 @@ export default function CrmEmpresa({
       </header>
 
       <nav className="crm-nav" aria-label="VISOES DO CRM">
-        {(["agenda", "carteira", "pipeline", "whatsapp"] as CrmView[]).map((item) => (
+        {(["agenda", "carteira", "pipeline"] as CrmView[]).map((item) => (
           <button key={item} type="button" className={view === item ? "crm-nav-active" : ""} onClick={() => setView(item)}>
-            {item === "agenda" ? "AGENDA" : item === "carteira" ? "CARTEIRA" : item === "pipeline" ? "OPORTUNIDADES" : "WHATSAPP"}
+            {item === "agenda" ? "AGENDA" : item === "carteira" ? "CARTEIRA" : "OPORTUNIDADES"}
           </button>
         ))}
       </nav>
@@ -526,13 +526,6 @@ export default function CrmEmpresa({
         />
       ) : null}
 
-      {!loading && view === "whatsapp" ? (
-        <WhatsAppPanel
-          connections={overview.whatsappConnections}
-          sellerCompanies={sellerCompanies}
-          optedIn={overview.profiles.filter((item) => item.whatsappOptIn).length}
-        />
-      ) : null}
     </section>
   );
 }
@@ -1064,29 +1057,6 @@ function localDateKey() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-}
-
-function WhatsAppPanel({ connections, sellerCompanies, optedIn }: { connections: CrmOverview["whatsappConnections"]; sellerCompanies: SellerCompanyOption[]; optedIn: number }) {
-  const bySeller = new Map(connections.map((item) => [item.sellerCompanyId, item]));
-  return (
-    <section className="crm-whatsapp-panel">
-      <header><div><span className="clients-eyebrow">CANAIS OFICIAIS</span><h3>WHATSAPP BUSINESS</h3></div><strong>{optedIn} CLIENTES COM AUTORIZACAO</strong></header>
-      <div className="crm-whatsapp-grid">
-        {sellerCompanies.map((seller) => {
-          const connection = bySeller.get(seller.id);
-          const connected = connection?.status === "CONNECTED";
-          return (
-            <article key={seller.id}>
-              <div className={connected ? "connected" : "pending"}>{connected ? "ATIVO" : "AGUARDANDO CONEXAO"}</div>
-              <h4>{seller.name}</h4>
-              <p>{connection?.displayPhoneNumber || "NUMERO NAO CONECTADO"}</p>
-              <span>{connected ? connection?.displayName || "WHATSAPP BUSINESS" : "META EMBEDDED SIGNUP"}</span>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
 }
 
 function Timeline({ activities, opportunities }: { activities: CrmOverview["activities"]; opportunities: CrmOpportunity[] }) {
