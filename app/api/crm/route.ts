@@ -137,6 +137,7 @@ async function activateDueCommercialCycles({
   userId: string;
 }) {
   const now = new Date().toISOString();
+  const activationCutoff = endOfSaoPauloDay();
   const { data: cycles, error: cyclesError } = await admin
     .from("crm_activities")
     .select("id,client_id,representative_profile_id,next_action_at")
@@ -144,7 +145,7 @@ async function activateDueCommercialCycles({
     .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
     .is("opportunity_id", null)
     .not("next_action_at", "is", null)
-    .lte("next_action_at", now)
+    .lte("next_action_at", activationCutoff)
     .order("next_action_at", { ascending: true })
     .limit(100);
   if (cyclesError) throw cyclesError;
@@ -229,6 +230,17 @@ async function activateDueCommercialCycles({
       .eq("client_id", cycle.client_id);
     if (updateProfileError) throw updateProfileError;
   }
+}
+
+function endOfSaoPauloDay() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}T23:59:59.999-03:00`;
 }
 
 function failure(message: string, status: number) {
