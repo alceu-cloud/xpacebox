@@ -233,7 +233,14 @@ function summarizePayload(value: unknown) {
   if (Array.isArray(value)) {
     return { type: "array", length: value.length, firstKeys: Object.keys(object(value[0])).slice(0, 20) };
   }
-  return { type: "object", keys: Object.keys(value).slice(0, 30) };
+  const payload = object(value);
+  return {
+    type: "object",
+    code: text(payload.code),
+    status: text(payload.status),
+    message: text(payload.message).slice(0, 500),
+    keys: Object.keys(payload).slice(0, 30),
+  };
 }
 function text(value: unknown) {
   return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
