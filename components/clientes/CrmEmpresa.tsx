@@ -20,6 +20,7 @@ import type {
 import type { ProductFicha } from "@/types/gerenciador";
 
 type CrmView = "agenda" | "carteira" | "pipeline";
+type CrmClosedPeriod = "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM";
 
 const stageOptions: Array<{ value: CrmOpportunityStage; label: string }> = [
   { value: "CONTACT_PENDING", label: "CONTATO PENDENTE" },
@@ -108,6 +109,11 @@ export default function CrmEmpresa({
   const [selectedClientId, setSelectedClientId] = useState("");
   const [search, setSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("ALL");
+  const [pipelineClosedPeriod, setPipelineClosedPeriod] = useState<CrmClosedPeriod>("ALL");
+  const [pipelineClosedStart, setPipelineClosedStart] = useState("");
+  const [pipelineClosedEnd, setPipelineClosedEnd] = useState("");
+  const [pipelineOpenCompanyFilter, setPipelineOpenCompanyFilter] = useState("ALL");
+  const [pipelineOpenClientFilter, setPipelineOpenClientFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -200,9 +206,6 @@ export default function CrmEmpresa({
     () => overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST"),
     [overview.opportunities]
   );
-  const quoteSentCount = overview.opportunities.filter((item) => item.stage === "QUOTE_SENT").length;
-  const negotiationCount = overview.opportunities.filter((item) => item.stage === "NEGOTIATION").length;
-  const wonOpportunityCount = overview.opportunities.filter((item) => item.stage === "WON").length;
   const activeOpportunityClientIds = useMemo(
     () => new Set(activeOpportunities.map((item) => item.clientId)),
     [activeOpportunities]
@@ -225,6 +228,25 @@ export default function CrmEmpresa({
   const agendaTodayCount = agendaClients.filter((item) => item.daysToAction === 0).length;
   const agendaTomorrowCount = agendaClients.filter((item) => item.daysToAction === 1).length;
   const agendaUpcomingCount = agendaClients.filter((item) => item.daysToAction >= 2 && item.daysToAction <= 7).length;
+  const pipelineClientCompanyIds = useMemo(
+    () => new Map(clients.map((client) => [client.id, client.sellerCompanyId])),
+    [clients]
+  );
+  const visiblePipelineOpportunities = useMemo(
+    () => overview.opportunities.filter((item) => {
+      if (item.stage !== "WON" && item.stage !== "LOST") {
+        const matchesCompany = pipelineOpenCompanyFilter === "ALL" || pipelineClientCompanyIds.get(item.clientId) === pipelineOpenCompanyFilter;
+        const matchesClient = pipelineOpenClientFilter === "ALL" || item.clientId === pipelineOpenClientFilter;
+        return matchesCompany && matchesClient;
+      }
+      return isInsideClosedPeriod(item.updatedAt || item.createdAt, pipelineClosedPeriod, pipelineClosedStart, pipelineClosedEnd);
+    }),
+    [overview.opportunities, pipelineClientCompanyIds, pipelineClosedEnd, pipelineClosedPeriod, pipelineClosedStart, pipelineOpenClientFilter, pipelineOpenCompanyFilter]
+  );
+  const visiblePipelineActiveOpportunities = visiblePipelineOpportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST");
+  const quoteSentCount = visiblePipelineOpportunities.filter((item) => item.stage === "QUOTE_SENT").length;
+  const negotiationCount = visiblePipelineOpportunities.filter((item) => item.stage === "NEGOTIATION").length;
+  const wonOpportunityCount = visiblePipelineOpportunities.filter((item) => item.stage === "WON").length;
   const selectedActivities = overview.activities.filter((activity) => activity.clientId === selectedClientId);
   const selectedOpportunities = overview.opportunities.filter((opportunity) => opportunity.clientId === selectedClientId);
 
@@ -441,7 +463,7 @@ export default function CrmEmpresa({
         ) : null}
         {view === "pipeline" ? (
           <div className="crm-summary" aria-label="RESUMO DO FUNIL">
-            <SummaryStat label="EM ABERTO" value={activeOpportunities.length} tone="purple" />
+            <SummaryStat label="EM ABERTO" value={visiblePipelineActiveOpportunities.length} tone="purple" />
             <SummaryStat label="ORCAMENTOS ENVIADOS" value={quoteSentCount} tone="yellow" />
             <SummaryStat label="EM NEGOCIACAO" value={negotiationCount} tone="purple" />
             <SummaryStat label="GANHOS" value={wonOpportunityCount} tone="green" />
@@ -546,8 +568,19 @@ export default function CrmEmpresa({
       {!loading && view === "pipeline" ? (
         <PipelineBoard
           opportunities={overview.opportunities}
+          visibleOpportunities={visiblePipelineOpportunities}
           clients={clients}
           sellerCompanies={sellerCompanies}
+          closedPeriod={pipelineClosedPeriod}
+          setClosedPeriod={setPipelineClosedPeriod}
+          closedStart={pipelineClosedStart}
+          setClosedStart={setPipelineClosedStart}
+          closedEnd={pipelineClosedEnd}
+          setClosedEnd={setPipelineClosedEnd}
+          openCompanyFilter={pipelineOpenCompanyFilter}
+          setOpenCompanyFilter={setPipelineOpenCompanyFilter}
+          openClientFilter={pipelineOpenClientFilter}
+          setOpenClientFilter={setPipelineOpenClientFilter}
           onSelectClient={(clientId) => { selectClient(clientId); setView("carteira"); }}
           onStageChange={handleStageChange}
           onLinkClient={handleLinkOpportunityClient}
@@ -887,16 +920,38 @@ function ClientDetail({
 
 function PipelineBoard({
   opportunities,
+  visibleOpportunities,
   clients,
   sellerCompanies,
+  closedPeriod,
+  setClosedPeriod,
+  closedStart,
+  setClosedStart,
+  closedEnd,
+  setClosedEnd,
+  openCompanyFilter,
+  setOpenCompanyFilter,
+  openClientFilter,
+  setOpenClientFilter,
   onSelectClient,
   onStageChange,
   onLinkClient,
   saving,
 }: {
   opportunities: CrmOpportunity[];
+  visibleOpportunities: CrmOpportunity[];
   clients: ClientRecord[];
   sellerCompanies: SellerCompanyOption[];
+  closedPeriod: CrmClosedPeriod;
+  setClosedPeriod: (value: CrmClosedPeriod) => void;
+  closedStart: string;
+  setClosedStart: (value: string) => void;
+  closedEnd: string;
+  setClosedEnd: (value: string) => void;
+  openCompanyFilter: string;
+  setOpenCompanyFilter: (value: string) => void;
+  openClientFilter: string;
+  setOpenClientFilter: (value: string) => void;
   onSelectClient: (id: string) => void;
   onStageChange: (opportunity: CrmOpportunity, stage: CrmOpportunityStage) => void;
   onLinkClient: (opportunity: CrmOpportunity, clientId: string) => void;
@@ -904,13 +959,7 @@ function PipelineBoard({
 }) {
   const [draggedOpportunityId, setDraggedOpportunityId] = useState("");
   const [dropStage, setDropStage] = useState<CrmOpportunityStage | "">("");
-  const [closedPeriod, setClosedPeriod] = useState<"ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM">("ALL");
-  const [closedStart, setClosedStart] = useState("");
-  const [closedEnd, setClosedEnd] = useState("");
-  const [openCompanyFilter, setOpenCompanyFilter] = useState("ALL");
-  const [openClientFilter, setOpenClientFilter] = useState("ALL");
   const clientNames = new Map(clients.map((client) => [client.id, client.tradeName || client.legalName]));
-  const clientCompanyIds = new Map(clients.map((client) => [client.id, client.sellerCompanyId]));
   const openClients = useMemo(() => {
     const activeClientIds = new Set(opportunities
       .filter((item) => item.clientId && item.stage !== "WON" && item.stage !== "LOST")
@@ -919,18 +968,6 @@ function PipelineBoard({
       .filter((client) => activeClientIds.has(client.id))
       .sort((first, second) => (first.tradeName || first.legalName).localeCompare(second.tradeName || second.legalName, "pt-BR"));
   }, [clients, opportunities]);
-  const visibleOpportunities = useMemo(
-    () => opportunities.filter((item) => {
-      if (item.stage !== "WON" && item.stage !== "LOST") {
-        const matchesCompany = openCompanyFilter === "ALL" || clientCompanyIds.get(item.clientId) === openCompanyFilter;
-        const matchesClient = openClientFilter === "ALL" || item.clientId === openClientFilter;
-        return matchesCompany && matchesClient;
-      }
-      return isInsideClosedPeriod(item.updatedAt || item.createdAt, closedPeriod, closedStart, closedEnd);
-    }),
-    [clientCompanyIds, closedEnd, closedPeriod, closedStart, openClientFilter, openCompanyFilter, opportunities]
-  );
-
   function handleDragStart(event: DragEvent<HTMLElement>, opportunityId: string) {
     setDraggedOpportunityId(opportunityId);
     event.dataTransfer.effectAllowed = "move";
@@ -982,7 +1019,7 @@ function PipelineBoard({
             <strong>GANHOS E PERDIDOS</strong>
           </div>
           <div className="crm-pipeline-filter-controls">
-            <select value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as typeof closedPeriod)}>
+            <select value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as CrmClosedPeriod)}>
               <option value="ALL">TODOS</option>
               <option value="MONTH">MES ATUAL</option>
               <option value="QUARTER">TRIMESTRE ATUAL</option>
