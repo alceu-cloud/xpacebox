@@ -23,6 +23,29 @@ npx vercel ls --yes
 
 Site de producao: https://xpacebox.com.br
 
+## Trabalho em dois computadores
+
+Antes de iniciar qualquer alteracao, confira se o seu diretorio esta limpo e baixe o trabalho feito no outro computador:
+
+```bash
+git status
+git pull --rebase origin main
+```
+
+Se o `git status` mostrar arquivos alterados que voce nao reconhece, nao apague nem sobrescreva nada: confira primeiro com a outra pessoa.
+
+Ao terminar uma alteracao, valide, registre e envie nesta ordem:
+
+```bash
+npm run build
+git add <arquivos-alterados>
+git commit -m "descricao curta da alteracao"
+git pull --rebase origin main
+git push origin main
+```
+
+O `git pull --rebase` antes do `push` evita publicar por cima de uma alteracao que o outro computador acabou de enviar.
+
 ## Estrutura principal
 
 - `app/empresa/[slug]/page.tsx`: modulos da empresa.
