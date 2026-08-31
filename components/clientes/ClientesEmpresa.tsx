@@ -58,6 +58,8 @@ export default function ClientesEmpresa({
   fiscalProfiles = [],
   fiscalBenefits = [],
   productFichas = [],
+  forceCrm = false,
+  forcedClientId = "",
 }: {
   slug: string;
   paymentConditions?: PaymentCondition[];
@@ -66,6 +68,8 @@ export default function ClientesEmpresa({
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
   productFichas?: ProductFicha[];
+  forceCrm?: boolean;
+  forcedClientId?: string;
 }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [sellerCompanies, setSellerCompanies] = useState<SellerCompanyOption[]>([]);
@@ -79,6 +83,10 @@ export default function ClientesEmpresa({
   const [lookingUp, setLookingUp] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (forceCrm) setActiveTab("crm");
+  }, [forceCrm]);
 
   useEffect(() => {
     let active = true;
@@ -236,9 +244,9 @@ export default function ClientesEmpresa({
   return (
     <section className="clients-module">
       <nav className="clients-tabs" aria-label="ETAPAS DO MODULO CLIENTES">
-        <button type="button" className={`clients-tab ${activeTab === "cadastro" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("cadastro")}>CADASTRO</button>
+        {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "cadastro" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("cadastro")}>CADASTRO</button> : null}
         <button type="button" className={`clients-tab ${activeTab === "crm" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("crm")}>CRM</button>
-        <button type="button" className={`clients-tab ${activeTab === "amostras" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("amostras")}>AMOSTRAS</button>
+        {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "amostras" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("amostras")}>AMOSTRAS</button> : null}
       </nav>
 
       {activeTab === "crm" && (
@@ -248,6 +256,7 @@ export default function ClientesEmpresa({
           representatives={representatives}
           sellerCompanies={sellerCompanies}
           productFichas={productFichas}
+          forcedClientId={forcedClientId}
         />
       )}
 

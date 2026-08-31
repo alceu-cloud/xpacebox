@@ -1,4 +1,4 @@
-import type { CrmActivityInput, CrmOpportunityInput, CrmOverview, CrmProfileInput } from "@/types/crm";
+import type { CrmActivityInput, CrmOperationalLock, CrmOpportunityInput, CrmOverview, CrmProfileInput } from "@/types/crm";
 
 async function authorizedFetch(path: string, init?: RequestInit) {
   const { supabase } = await import("@/lib/supabase");
@@ -23,6 +23,11 @@ async function authorizedFetch(path: string, init?: RequestInit) {
 export async function loadCrmOverview(slug: string): Promise<CrmOverview> {
   const payload = await authorizedFetch(`/api/crm?slug=${encodeURIComponent(slug)}`);
   return payload.overview;
+}
+
+export async function loadCrmOperationalLock(slug: string): Promise<CrmOperationalLock | null> {
+  const payload = await authorizedFetch(`/api/crm/lock?slug=${encodeURIComponent(slug)}`);
+  return payload.lock ?? null;
 }
 
 export async function saveCrmProfile(slug: string, profile: CrmProfileInput) {

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const clientId = body.clientId?.trim() ?? "";
     if (!slug || !clientId) return failure("CLIENTE NAO INFORMADO.", 400);
 
-    const { admin, company, user } = await requireCompanyAccess(request, slug);
+    const { admin, company, profile: currentProfile, user } = await requireCompanyAccess(request, slug);
     const { data: profile, error: profileError } = await admin
       .from("crm_customer_profiles")
       .select("next_contact_at,owner_profile_id")
@@ -36,6 +36,9 @@ export async function POST(request: Request) {
     if (agendaError) throw agendaError;
     const agenda = agendas?.[0];
     if (!agenda) return failure("A AGENDA DESTE CLIENTE NAO FOI ENCONTRADA.", 404);
+    if (agenda.representative_profile_id && agenda.representative_profile_id !== currentProfile.id) {
+      return failure("ESTA AGENDA PERTENCE A OUTRO REPRESENTANTE.", 403);
+    }
 
     const postponementSubject = `${postponementPrefix}${agenda.id}`;
     const { count, error: countError } = await admin

@@ -85,6 +85,19 @@ export type CrmOverview = {
   whatsappConnections: WhatsAppConnection[];
 };
 
+export type CrmOperationalLock = {
+  activityId: string;
+  clientId: string;
+  clientName: string;
+  representativeProfileId: string;
+  opportunityId: string;
+  opportunityTitle: string;
+  nextActionType: CrmNextActionType | "";
+  nextActionAt: string;
+  postponementCount: number;
+  canPostpone: boolean;
+};
+
 export type CrmProfileInput = {
   clientId: string;
   ownerProfileId: string;

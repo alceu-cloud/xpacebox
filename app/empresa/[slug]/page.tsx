@@ -5,6 +5,7 @@ import type { KeyboardEvent } from "react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
+import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
 import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
 import { loadClients } from "@/lib/clientes";
@@ -99,6 +100,7 @@ const modelOptions: Record<BoxCategory, Array<{
 
 export default function EmpresaPage() {
   const params = useParams();
+  const { isBlocked: crmBlocked, lock: crmLock } = useCrmOperationalLock();
   const [podeGerenciar, setPodeGerenciar] = useState(false);
   const [moduloAtivo, setModuloAtivo] = useState<ModuloKey | null>(null);
   const [menuAberto, setMenuAberto] = useState(false);
@@ -188,7 +190,18 @@ export default function EmpresaPage() {
     [podeGerenciar]
   );
 
-  const moduloSelecionado = modulos.find((modulo) => modulo.key === moduloAtivo);
+  useEffect(() => {
+    if (!crmBlocked) return;
+    setModuloAtivo("clientes");
+    setMenuAberto(false);
+  }, [crmBlocked]);
+
+  const modulosDisponiveis = crmBlocked
+    ? modulosVisiveis.filter((modulo) => modulo.key === "clientes")
+    : modulosVisiveis;
+  const moduloEmExibicao: ModuloKey | null = crmBlocked ? "clientes" : moduloAtivo;
+
+  const moduloSelecionado = modulos.find((modulo) => modulo.key === moduloEmExibicao);
 
   return (
     <main
@@ -213,8 +226,8 @@ export default function EmpresaPage() {
             </div>
 
             <nav style={moduleListStyle}>
-              {modulosVisiveis.map((modulo) => {
-                const ativo = modulo.key === moduloAtivo;
+              {modulosDisponiveis.map((modulo) => {
+                const ativo = modulo.key === moduloEmExibicao;
                 return (
                   <button
                     key={modulo.key}
@@ -258,7 +271,7 @@ export default function EmpresaPage() {
           </div>
         )}
 
-        {moduloAtivo === "gerenciador" ? (
+        {moduloEmExibicao === "gerenciador" ? (
           <GerenciadorEmpresa
             companySlug={slug}
             suppliers={suppliers}
@@ -296,9 +309,9 @@ export default function EmpresaPage() {
             onProductFichasChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}
             onProductColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
-        ) : moduloAtivo === "clientes" ? (
-          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} productFichas={productFichas} />
-        ) : moduloAtivo === "produtos" ? (
+        ) : moduloEmExibicao === "clientes" ? (
+          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} />
+        ) : moduloEmExibicao === "produtos" ? (
           <ProductCatalogPanel
             companySlug={slug}
             fichas={productFichas}
@@ -309,7 +322,7 @@ export default function EmpresaPage() {
             onChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}
             onColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
-        ) : moduloAtivo === "formacao-preco" ? (
+        ) : moduloEmExibicao === "formacao-preco" ? (
           <PricingPreview
             companySlug={slug}
             suppliers={suppliers}
@@ -371,7 +384,7 @@ export default function EmpresaPage() {
               window.alert("PRECO E DADOS DA FORMACAO ENVIADOS PARA A FICHA TECNICA.");
             }}
           />
-        ) : moduloAtivo === "financeiro" ? (
+        ) : moduloEmExibicao === "financeiro" ? (
           <FinanceiroEmpresa
             companySlug={slug}
             productFichas={productFichas}

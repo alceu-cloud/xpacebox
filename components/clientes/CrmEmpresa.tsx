@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 
 import { createCrmActivity, loadCrmOverview, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
+import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
@@ -92,13 +93,16 @@ export default function CrmEmpresa({
   representatives,
   sellerCompanies,
   productFichas,
+  forcedClientId = "",
 }: {
   slug: string;
   clients: ClientRecord[];
   representatives: RepresentativeOption[];
   sellerCompanies: SellerCompanyOption[];
   productFichas: ProductFicha[];
+  forcedClientId?: string;
 }) {
+  const { isBlocked: crmBlocked, lock: crmLock, refreshOperationalLock } = useCrmOperationalLock();
   const [overview, setOverview] = useState<CrmOverview>(emptyOverview);
   const [view, setView] = useState<CrmView>("agenda");
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -112,6 +116,13 @@ export default function CrmEmpresa({
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
   const [activityDraft, setActivityDraft] = useState<CrmActivityInput>(emptyActivity);
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
+
+  useEffect(() => {
+    if (!forcedClientId) return;
+    setSelectedClientId(forcedClientId);
+    setView("carteira");
+    setSearch("");
+  }, [forcedClientId]);
 
   async function refresh(silent = false) {
     if (!silent) setLoading(true);
@@ -224,6 +235,7 @@ export default function CrmEmpresa({
         nextContactAt: toIsoDateTime(profileDraft.nextContactAt),
       });
       await refresh(true);
+      await refreshOperationalLock();
       setMessage("CARTEIRA DO CLIENTE ATUALIZADA.");
     } catch (saveError) {
       setError(messageFrom(saveError));
@@ -245,6 +257,7 @@ export default function CrmEmpresa({
         nextActionAt: savedNextActionAt,
       });
       await refresh(true);
+      await refreshOperationalLock();
       setActivityDraft((current) => ({
         ...emptyActivity,
         clientId: selectedClient.id,
@@ -280,6 +293,7 @@ export default function CrmEmpresa({
         nextActionAt: toIsoDateTime(opportunityDraft.nextActionAt || ""),
       });
       await refresh(true);
+      await refreshOperationalLock();
       setOpportunityDraft({
         ...emptyOpportunity,
         clientId: selectedClient.id,
@@ -326,6 +340,7 @@ export default function CrmEmpresa({
         lostReason: opportunity.lostReason,
       });
       await refresh(true);
+      await refreshOperationalLock();
       if (stage === "WON" || stage === "LOST") {
         setMessage(result.cycleScheduled
           ? "ETAPA ATUALIZADA. O PROXIMO CICLO FOI AGENDADO AUTOMATICAMENTE."
@@ -352,6 +367,7 @@ export default function CrmEmpresa({
     try {
       await postponeCrmAgenda(slug, clientId);
       await refresh(true);
+      await refreshOperationalLock();
       setMessage("AGENDA ADIADA PARA O PROXIMO DIA UTIL.");
     } catch (postponeError) {
       setError(messageFrom(postponeError));
@@ -381,6 +397,7 @@ export default function CrmEmpresa({
         lostReason: opportunity.lostReason,
       });
       await refresh(true);
+      await refreshOperationalLock();
       setMessage("OPORTUNIDADE VINCULADA AO CLIENTE. O ALERTA FOI REMOVIDO.");
     } catch (saveError) {
       setError(messageFrom(saveError));
@@ -509,6 +526,9 @@ export default function CrmEmpresa({
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
               saving={saving}
+              operationalLockClientId={crmBlocked ? crmLock?.clientId || "" : ""}
+              operationalLockRepresentativeId={crmBlocked ? crmLock?.representativeProfileId || "" : ""}
+              operationalLockActionAt={crmBlocked ? crmLock?.nextActionAt || "" : ""}
             />
           </div>
       ) : null}
@@ -644,6 +664,9 @@ function ClientDetail({
   onSaveActivity,
   onSaveOpportunity,
   saving,
+  operationalLockClientId,
+  operationalLockRepresentativeId,
+  operationalLockActionAt,
 }: {
   client: ClientRecord | null;
   profileDraft: CrmProfileInput;
@@ -663,12 +686,20 @@ function ClientDetail({
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
   saving: boolean;
+  operationalLockClientId: string;
+  operationalLockRepresentativeId: string;
+  operationalLockActionAt: string;
 }) {
   const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("resumo");
   const [showExistingOpportunityWarning, setShowExistingOpportunityWarning] = useState(false);
   useEffect(() => {
     setShowExistingOpportunityWarning(false);
   }, [client?.id, opportunityDraft.id]);
+
+  const mustResolveOverdueAgenda = Boolean(client?.id && operationalLockClientId === client.id);
+  useEffect(() => {
+    if (mustResolveOverdueAgenda) setDetailTab("contato");
+  }, [mustResolveOverdueAgenda]);
 
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
@@ -717,13 +748,20 @@ function ClientDetail({
         </div>
       </header>
 
+      {mustResolveOverdueAgenda ? (
+        <div className="crm-required-summary">
+          <strong>ATENDIMENTO ATRASADO EM {displayDateTime(operationalLockActionAt)}</strong>
+          <span>REGISTRE O CONTATO OU ATUALIZE A OPORTUNIDADE PARA LIBERAR OS DEMAIS MODULOS.</span>
+        </div>
+      ) : null}
+
       <nav className="crm-detail-tabs">
         <button type="button" className={`crm-contact-tab ${detailTab === "contato" ? "active" : ""}`} onClick={() => setDetailTab("contato")}>REGISTRAR CONTATO</button>
-        <button type="button" className={detailTab === "resumo" ? "active" : ""} onClick={() => setDetailTab("resumo")}>RESUMO</button>
-        <button type="button" className={detailTab === "negocio" ? "active" : ""} onClick={() => setDetailTab("negocio")}>NOVA OPORTUNIDADE</button>
+        {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "resumo" ? "active" : ""} onClick={() => setDetailTab("resumo")}>RESUMO</button> : null}
+        {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "negocio" ? "active" : ""} onClick={() => setDetailTab("negocio")}>NOVA OPORTUNIDADE</button> : null}
       </nav>
 
-      {detailTab === "resumo" ? (
+      {detailTab === "resumo" && !mustResolveOverdueAgenda ? (
         <>
           {!hasCrmSummary(profileDraft) ? (
             <div className="crm-required-summary">
@@ -757,14 +795,14 @@ function ClientDetail({
           <div className="crm-profile-grid">
             <CrmSelect label="CANAL" value={activityDraft.activityType} onChange={(activityType) => setActivityDraft({ ...activityDraft, activityType: activityType as CrmActivityInput["activityType"] })} options={[{ value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGACAO" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITA" }, { value: "NOTE", label: "ANOTACAO" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
             <CrmSelect label="RESULTADO" value={activityDraft.outcome} onChange={(outcome) => setActivityDraft({ ...activityDraft, outcome: outcome as CrmActivityInput["outcome"] })} options={[{ value: "CONTACTED", label: "CONTATO REALIZADO" }, { value: "NO_RESPONSE", label: "SEM RESPOSTA" }, { value: "QUOTE_REQUESTED", label: "SOLICITOU ORCAMENTO" }, { value: "PURCHASE_EXPECTED", label: "COMPRA PREVISTA" }, { value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "NO_INTEREST", label: "SEM INTERESSE" }, { value: "OTHER", label: "OUTRO" }]} />
-            <CrmSelect label="REPRESENTANTE" value={activityDraft.representativeProfileId} onChange={(representativeProfileId) => setActivityDraft({ ...activityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
+            <CrmSelect label="REPRESENTANTE" value={mustResolveOverdueAgenda ? operationalLockRepresentativeId : activityDraft.representativeProfileId} onChange={(representativeProfileId) => setActivityDraft({ ...activityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} disabled={mustResolveOverdueAgenda} />
             <CrmInput label="DATA DO CONTATO" type="datetime-local" value={activityDraft.occurredAt} onChange={(occurredAt) => setActivityDraft({ ...activityDraft, occurredAt })} />
             <CrmInput label="ASSUNTO" value={activityDraft.subject} onChange={(subject) => setActivityDraft({ ...activityDraft, subject: upper(subject) })} />
             <CrmSelect label="PROXIMA ACAO" value={activityDraft.nextActionType} onChange={(nextActionType) => setActivityDraft({ ...activityDraft, nextActionType: nextActionType as CrmActivityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
             <CrmInput label="DATA DA PROXIMA ACAO" type="datetime-local" value={activityDraft.nextActionAt} onChange={(nextActionAt) => setActivityDraft({ ...activityDraft, nextActionAt })} />
             <label className="crm-textarea crm-span-2"><span>RESUMO DO CONTATO</span><textarea value={activityDraft.notes} onChange={(event) => setActivityDraft({ ...activityDraft, notes: upper(event.target.value) })} /></label>
           </div>
-          <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving}>REGISTRAR CONTATO</button></div>
+          <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving || (mustResolveOverdueAgenda && !activityDraft.notes.trim())}>REGISTRAR CONTATO</button></div>
           <Timeline activities={activities} opportunities={opportunities} />
         </div>
       ) : null}
@@ -1105,8 +1143,8 @@ function CrmInput({ label, value, onChange, type = "text", currency = false, rea
   return <label className="crm-field"><span>{label}</span>{currency ? <CurrencyInput value={value} onValueChange={(nextValue) => onChange(nextValue === null ? "" : String(nextValue))} readOnly={readOnly} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} readOnly={readOnly} />}</label>;
 }
 
-function CrmSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  return <label className="crm-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">SELECIONE</option>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>;
+function CrmSelect({ label, value, onChange, options, disabled = false }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; disabled?: boolean }) {
+  return <label className="crm-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}><option value="">SELECIONE</option>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>;
 }
 
 type RankedClient = {

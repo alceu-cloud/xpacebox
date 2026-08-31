@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { CrmOperationalLockProvider } from "@/components/clientes/CrmOperationalLock";
 
 type EmpresaLayoutProps = {
   children: ReactNode;
@@ -55,6 +56,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
   }
 
   return (
+    <CrmOperationalLockProvider>
     <div style={paginaStyle}>
       <header style={headerStyle}>
         <div style={logoAreaStyle}>
@@ -128,6 +130,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
         </div>
       </div>
     </div>
+    </CrmOperationalLockProvider>
   );
 }
 
