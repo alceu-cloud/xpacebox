@@ -223,7 +223,8 @@ export default function CrmEmpresa({
   });
   const agendaOverdueCount = agendaClients.filter((item) => item.daysToAction < 0).length;
   const agendaTodayCount = agendaClients.filter((item) => item.daysToAction === 0).length;
-  const agendaUpcomingCount = agendaClients.filter((item) => item.daysToAction >= 1 && item.daysToAction <= 7).length;
+  const agendaTomorrowCount = agendaClients.filter((item) => item.daysToAction === 1).length;
+  const agendaUpcomingCount = agendaClients.filter((item) => item.daysToAction >= 2 && item.daysToAction <= 7).length;
   const selectedActivities = overview.activities.filter((activity) => activity.clientId === selectedClientId);
   const selectedOpportunities = overview.opportunities.filter((opportunity) => opportunity.clientId === selectedClientId);
 
@@ -434,7 +435,8 @@ export default function CrmEmpresa({
           <div className="crm-summary" aria-label="RESUMO DA AGENDA">
             <SummaryStat label="ATRASADOS" value={agendaOverdueCount} tone="red" />
             <SummaryStat label="HOJE" value={agendaTodayCount} tone="purple" />
-            <SummaryStat label="PROXIMOS 7 DIAS" value={agendaUpcomingCount} tone="yellow" />
+            <SummaryStat label="AMANHA" value={agendaTomorrowCount} tone="yellow" />
+            <SummaryStat label="PROXIMOS 7 DIAS" value={agendaUpcomingCount} tone="gray" />
           </div>
         ) : null}
         {view === "pipeline" ? (
