@@ -6,6 +6,7 @@ import { createSupabaseAuth } from "@/lib/server/supabase-admin";
 export const preferredRegion = "gru1";
 
 let tokenCache: { value: string; expiresAt: number } | null = null;
+const emptyTaxLookup = { stateRegistration: "", taxRegime: "" };
 
 export async function GET(request: Request, context: { params: Promise<{ cnpj: string }> }) {
   try {
@@ -18,11 +19,22 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
       ? await lookupSerpro(cnpj)
       : await lookupBrasilApi(cnpj);
     const company = mapCompany(source, cnpj);
-    const stateRegistration =
-      company.stateRegistration ||
-      await lookupSintegraStateRegistration(cnpj) ||
-      await lookupCnpjWsStateRegistration(cnpj);
-    return NextResponse.json({ success: true, company: { ...company, stateRegistration } });
+    const sintegra = company.stateRegistration && company.taxRegime
+      ? emptyTaxLookup
+      : await lookupSintegraTaxData(cnpj);
+    const stateRegistration = company.stateRegistration || sintegra.stateRegistration;
+    const taxRegime = company.taxRegime || sintegra.taxRegime;
+    const cnpjWs = stateRegistration && taxRegime
+      ? emptyTaxLookup
+      : await lookupCnpjWsTaxData(cnpj);
+    return NextResponse.json({
+      success: true,
+      company: {
+        ...company,
+        stateRegistration: stateRegistration || cnpjWs.stateRegistration,
+        taxRegime: taxRegime || cnpjWs.taxRegime,
+      },
+    });
   } catch (error) {
     if (error instanceof AccessError) return failure(error.message, error.status);
     console.error("CNPJ LOOKUP ERROR", error);
@@ -30,9 +42,9 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
   }
 }
 
-async function lookupSintegraStateRegistration(cnpj: string) {
+async function lookupSintegraTaxData(cnpj: string) {
   const token = process.env.SINTEGRA_WS_TOKEN;
-  if (!token) return "";
+  if (!token) return emptyTaxLookup;
 
   const params = new URLSearchParams({ token, cnpj, plugin: "ST" });
   try {
@@ -43,22 +55,23 @@ async function lookupSintegraStateRegistration(cnpj: string) {
     const body = await response.text();
     if (!response.ok) {
       console.error("SINTEGRA IE HTTP ERROR", response.status, body.slice(0, 500));
-      return "";
+      return emptyTaxLookup;
     }
 
     const payload = parseJson(body);
     const stateRegistration = findStateRegistration(payload);
-    if (!stateRegistration) {
+    const taxRegime = findTaxRegime(payload);
+    if (!stateRegistration && !taxRegime) {
       console.error("SINTEGRA IE EMPTY", summarizePayload(payload));
     }
-    return stateRegistration;
+    return { stateRegistration, taxRegime };
   } catch (error) {
     console.error("SINTEGRA IE ERROR", error);
-    return "";
+    return emptyTaxLookup;
   }
 }
 
-async function lookupCnpjWsStateRegistration(cnpj: string) {
+async function lookupCnpjWsTaxData(cnpj: string) {
   try {
     const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
       headers: { Accept: "application/json" },
@@ -66,15 +79,17 @@ async function lookupCnpjWsStateRegistration(cnpj: string) {
     });
     if (!response.ok) {
       console.error("CNPJ WS IE HTTP ERROR", response.status);
-      return "";
+      return emptyTaxLookup;
     }
 
-    const stateRegistration = findStateRegistration(await response.json());
-    if (!stateRegistration) console.error("CNPJ WS IE EMPTY", cnpj);
-    return stateRegistration;
+    const payload = await response.json();
+    const stateRegistration = findStateRegistration(payload);
+    const taxRegime = findCnpjWsTaxRegime(payload);
+    if (!stateRegistration && !taxRegime) console.error("CNPJ WS IE EMPTY", cnpj);
+    return { stateRegistration, taxRegime };
   } catch (error) {
     console.error("CNPJ WS IE ERROR", error);
-    return "";
+    return emptyTaxLookup;
   }
 }
 
@@ -171,6 +186,7 @@ function mapCompany(source: Record<string, unknown>, cnpj: string) {
     status: text(status.descricao ?? status.codigo ?? source.situacao ?? source.descricao_situacao_cadastral),
     openedAt: text(source.dataAbertura ?? source.data_inicio_atividade ?? source.openedAt),
     stateRegistration: text(source.inscricaoEstadual ?? source.stateRegistration),
+    taxRegime: findTaxRegime(source),
     phone:
       [text(firstPhone.ddd), text(firstPhone.numero)].filter(Boolean).join(" ") ||
       text(source.telefone ?? source.ddd_telefone_1),
@@ -216,6 +232,21 @@ function findStateRegistration(value: unknown): string {
   return normalizeStateRegistration(directValue);
 }
 
+function findTaxRegime(value: unknown): string {
+  const directValue = findValueByKey(value, new Set([
+    "regime_tributacao",
+    "regimetributacao",
+  ]));
+  return normalizeTaxRegime(directValue);
+}
+
+function findCnpjWsTaxRegime(value: unknown): string {
+  const simples = object(object(value).simples);
+  if (!text(simples.simples)) return "";
+  if (isAffirmative(simples.mei)) return "MEI";
+  return isAffirmative(simples.simples) ? "SIMPLES NACIONAL" : "NAO OPTANTE DO SIMPLES";
+}
+
 function findValueByKey(value: unknown, targetKeys: Set<string>): unknown {
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -243,6 +274,20 @@ function normalizeStateRegistration(value: unknown) {
   const result = text(value);
   if (!result || ["ISENTO", "ISENTA", "NAO CONTRIBUINTE"].includes(result.toUpperCase())) return result;
   return result.replace(/[^\d.-]/g, "").trim() || result;
+}
+
+function normalizeTaxRegime(value: unknown): string {
+  const normalized = normalizeKey(text(value));
+  if (!normalized) return "";
+  if (normalized.includes("naooptante")) return "NAO OPTANTE DO SIMPLES";
+  if (normalized.includes("simei") || normalized === "mei") return "MEI";
+  if (normalized.includes("simples")) return "SIMPLES NACIONAL";
+  if (normalized.includes("normal")) return "NORMAL";
+  return "";
+}
+
+function isAffirmative(value: unknown) {
+  return ["sim", "s", "true"].includes(normalizeKey(text(value)));
 }
 
 function normalizeKey(value: string) {

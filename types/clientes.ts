@@ -83,6 +83,7 @@ export type CnpjLookupResult = {
   status: string;
   openedAt: string;
   stateRegistration?: string;
+  taxRegime?: string;
   phone: string;
   email: string;
   street: string;

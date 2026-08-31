@@ -136,6 +136,11 @@ export default function ClientesEmpresa({
         .includes(term)
     ).slice(0, 8);
   }, [clients, clientNameSearch]);
+  const taxRegimeOptions = useMemo(() => {
+    const automaticOptions = ["SIMPLES NACIONAL", "MEI", "NORMAL", "NAO OPTANTE DO SIMPLES"];
+    const names = [...taxRegimes.map((item) => item.name), ...automaticOptions];
+    return [...new Set(names)].map((name) => ({ value: name, label: name }));
+  }, [taxRegimes]);
 
   async function handleLookup() {
     if (digits(form.cnpj).length !== 14) {
@@ -154,6 +159,7 @@ export default function ClientesEmpresa({
         legalName: company.legalName || current.legalName,
         tradeName: company.tradeName || current.tradeName,
         stateRegistration: company.stateRegistration || current.stateRegistration,
+        taxRegime: company.taxRegime || current.taxRegime,
         phone: formatPhone(company.phone) || current.phone,
         purchaseEmail: company.email || current.purchaseEmail,
         invoiceEmail: company.email || current.invoiceEmail,
@@ -332,6 +338,7 @@ export default function ClientesEmpresa({
             <Field label="NOME FANTASIA" value={form.tradeName} onChange={(tradeName) => setForm({ ...form, tradeName })} />
             <SelectField label="EMPRESA ATENDENTE" value={form.sellerCompanyId} onChange={(sellerCompanyId) => setForm({ ...form, sellerCompanyId })} options={sellerCompanies.map((item) => ({ value: item.id, label: item.name }))} />
             <Field label="INSCRICAO ESTADUAL" value={form.stateRegistration} onChange={(stateRegistration) => setForm({ ...form, stateRegistration })} />
+            <SelectField label="REGIME TRIBUTARIO (CONSULTA)" value={form.taxRegime} onChange={(taxRegime) => setForm({ ...form, taxRegime })} options={taxRegimeOptions} />
           </div>
         </FormSection>
 
@@ -379,7 +386,6 @@ export default function ClientesEmpresa({
               options={cfops.map((item) => ({ value: item.code, label: `${item.code} - ${item.description}` }))}
             />
             <Field label="LIMITE DE COMPRA" value={form.purchaseLimit} onChange={(purchaseLimit) => setForm({ ...form, purchaseLimit })} currency />
-            <SelectField label="REGIME TRIBUTARIO" value={form.taxRegime} onChange={(taxRegime) => setForm({ ...form, taxRegime })} options={taxRegimes.map((item) => ({ value: item.name, label: item.name }))} />
             <SelectField label="PERFIL FISCAL" value={form.fiscalProfile} onChange={(fiscalProfile) => setForm({ ...form, fiscalProfile })} options={fiscalProfiles.map((item) => ({ value: item.name, label: item.name }))} />
             <SelectField label="BENEFICIO FISCAL ESPECIFICO" value={form.fiscalBenefit} onChange={(fiscalBenefit) => setForm({ ...form, fiscalBenefit })} options={fiscalBenefits.map((item) => ({ value: item.name, label: item.name }))} />
             <Field label="ICMS (%)" value={form.icms} onChange={(icms) => setForm({ ...form, icms })} type="number" />
