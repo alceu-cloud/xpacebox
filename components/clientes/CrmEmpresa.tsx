@@ -200,6 +200,9 @@ export default function CrmEmpresa({
     () => overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST"),
     [overview.opportunities]
   );
+  const quoteSentCount = overview.opportunities.filter((item) => item.stage === "QUOTE_SENT").length;
+  const negotiationCount = overview.opportunities.filter((item) => item.stage === "NEGOTIATION").length;
+  const wonOpportunityCount = overview.opportunities.filter((item) => item.stage === "WON").length;
   const activeOpportunityClientIds = useMemo(
     () => new Set(activeOpportunities.map((item) => item.clientId)),
     [activeOpportunities]
@@ -416,13 +419,6 @@ export default function CrmEmpresa({
     clearFeedback();
   }
 
-  const clientsEligibleForAgenda = rankedClients.filter(
-    (item) => !activeOpportunityClientIds.has(item.client.id) || Boolean(item.profile?.nextContactAt)
-  );
-  const overdueCount = clientsEligibleForAgenda.filter((item) => item.health === "RED").length;
-  const dueSoonCount = clientsEligibleForAgenda.filter((item) => item.health === "YELLOW").length;
-  const noHistoryCount = clientsEligibleForAgenda.filter((item) => item.health === "GRAY").length;
-
   return (
     <section className="crm-shell">
       <header className="crm-header">
@@ -432,10 +428,10 @@ export default function CrmEmpresa({
           <p>AGENDA, CARTEIRA E OPORTUNIDADES DA EMPRESA.</p>
         </div>
         <div className="crm-summary" aria-label="RESUMO COMERCIAL">
-          <SummaryStat label="ATRASADOS" value={overdueCount} tone="red" />
-          <SummaryStat label="PROXIMOS" value={dueSoonCount} tone="yellow" />
-          <SummaryStat label="EM NEGOCIACAO" value={activeOpportunities.length} tone="purple" />
-          <SummaryStat label="SEM HISTORICO" value={noHistoryCount} tone="gray" />
+          <SummaryStat label="EM ABERTO" value={activeOpportunities.length} tone="purple" />
+          <SummaryStat label="ORCAMENTOS ENVIADOS" value={quoteSentCount} tone="yellow" />
+          <SummaryStat label="EM NEGOCIACAO" value={negotiationCount} tone="purple" />
+          <SummaryStat label="GANHOS" value={wonOpportunityCount} tone="green" />
         </div>
       </header>
 
