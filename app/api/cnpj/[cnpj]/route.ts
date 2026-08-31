@@ -35,9 +35,18 @@ async function lookupSintegraStateRegistration(cnpj: string) {
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
-    if (!response.ok) return "";
-    const payload = (await response.json()) as Record<string, unknown>;
-    return text(payload.inscricao_estadual ?? payload.inscricaoEstadual);
+    const body = await response.text();
+    if (!response.ok) {
+      console.error("SINTEGRA IE HTTP ERROR", response.status, body.slice(0, 500));
+      return "";
+    }
+
+    const payload = parseJson(body);
+    const stateRegistration = findStateRegistration(payload);
+    if (!stateRegistration) {
+      console.error("SINTEGRA IE EMPTY", summarizePayload(payload));
+    }
+    return stateRegistration;
   } catch (error) {
     console.error("SINTEGRA IE ERROR", error);
     return "";
@@ -79,6 +88,7 @@ async function lookupBrasilApi(cnpj: string) {
   });
 
   if (response.status === 404) throw new AccessError("CNPJ NAO ENCONTRADO NA BASE PUBLICA.", 404);
+  if (response.status === 400) throw new AccessError("CNPJ INVALIDO. CONFIRA OS NUMEROS DIGITADOS.", 400);
   if (!response.ok) {
     console.error("BRASIL API CNPJ ERROR", response.status, await response.text());
     throw new AccessError("A CONSULTA PUBLICA DE CNPJ ESTA INDISPONIVEL AGORA.", 502);
@@ -162,6 +172,69 @@ function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function findStateRegistration(value: unknown): string {
+  const directValue = findValueByKey(value, new Set([
+    "inscricao_estadual",
+    "inscricaoestadual",
+    "ie",
+    "i_e",
+    "estadual",
+  ]));
+  return normalizeStateRegistration(directValue);
+}
+
+function findValueByKey(value: unknown, targetKeys: Set<string>): unknown {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findValueByKey(item, targetKeys);
+      if (text(found)) return found;
+    }
+    return "";
+  }
+
+  if (!value || typeof value !== "object") return "";
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (targetKeys.has(normalizeKey(key)) && text(entry)) return entry;
+  }
+
+  for (const entry of Object.values(value)) {
+    const found = findValueByKey(entry, targetKeys);
+    if (text(found)) return found;
+  }
+
+  return "";
+}
+
+function normalizeStateRegistration(value: unknown) {
+  const result = text(value);
+  if (!result || ["ISENTO", "ISENTA", "NAO CONTRIBUINTE"].includes(result.toUpperCase())) return result;
+  return result.replace(/[^\d.-]/g, "").trim() || result;
+}
+
+function normalizeKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+function summarizePayload(value: unknown) {
+  if (!value || typeof value !== "object") return text(value).slice(0, 500);
+  if (Array.isArray(value)) {
+    return { type: "array", length: value.length, firstKeys: Object.keys(object(value[0])).slice(0, 20) };
+  }
+  return { type: "object", keys: Object.keys(value).slice(0, 30) };
+}
 function text(value: unknown) {
   return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
 }
