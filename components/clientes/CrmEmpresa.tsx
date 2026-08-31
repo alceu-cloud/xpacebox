@@ -436,7 +436,7 @@ export default function CrmEmpresa({
             <SummaryStat label="ATRASADOS" value={agendaOverdueCount} tone="red" />
             <SummaryStat label="HOJE" value={agendaTodayCount} tone="purple" />
             <SummaryStat label="AMANHA" value={agendaTomorrowCount} tone="yellow" />
-            <SummaryStat label="PROXIMOS 7 DIAS" value={agendaUpcomingCount} tone="gray" />
+            <SummaryStat label="PROXIMOS 7 DIAS" note="NAO INCLUI AMANHA" value={agendaUpcomingCount} tone="gray" />
           </div>
         ) : null}
         {view === "pipeline" ? (
@@ -1141,8 +1141,8 @@ function ClientListItem({ item, active, opportunityCount, quoteCount, onClick }:
   );
 }
 
-function SummaryStat({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return <div className={`crm-stat crm-stat-${tone}`}><span>{label}</span><strong>{value}</strong></div>;
+function SummaryStat({ label, note, value, tone }: { label: string; note?: string; value: number; tone: string }) {
+  return <div className={`crm-stat crm-stat-${tone}`}><span>{label}</span>{note ? <small>{note}</small> : null}<strong>{value}</strong></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
