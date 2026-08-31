@@ -159,7 +159,8 @@ export default function ClientesEmpresa({
         legalName: company.legalName || current.legalName,
         tradeName: company.tradeName || current.tradeName,
         stateRegistration: company.stateRegistration || current.stateRegistration,
-        taxRegime: company.taxRegime || current.taxRegime,
+        // O regime depende do CNPJ consultado; nao reutilize o resultado fiscal anterior.
+        taxRegime: company.taxRegime || "",
         phone: formatPhone(company.phone) || current.phone,
         purchaseEmail: company.email || current.purchaseEmail,
         invoiceEmail: company.email || current.invoiceEmail,

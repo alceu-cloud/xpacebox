@@ -24,7 +24,11 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
       : await lookupSintegraTaxData(cnpj);
     const stateRegistration = company.stateRegistration || sintegra.stateRegistration;
     const taxRegime = company.taxRegime || sintegra.taxRegime;
-    const cnpjWs = stateRegistration && taxRegime
+    const simpleNational = taxRegime
+      ? emptyTaxLookup
+      : await lookupSimpleNationalTaxData(cnpj);
+    const resolvedTaxRegime = taxRegime || simpleNational.taxRegime;
+    const cnpjWs = stateRegistration && resolvedTaxRegime
       ? emptyTaxLookup
       : await lookupCnpjWsTaxData(cnpj);
     return NextResponse.json({
@@ -32,7 +36,7 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
       company: {
         ...company,
         stateRegistration: stateRegistration || cnpjWs.stateRegistration,
-        taxRegime: taxRegime || cnpjWs.taxRegime,
+        taxRegime: resolvedTaxRegime || cnpjWs.taxRegime,
       },
     });
   } catch (error) {
@@ -83,12 +87,38 @@ async function lookupCnpjWsTaxData(cnpj: string) {
     }
 
     const payload = await response.json();
-    const stateRegistration = findStateRegistration(payload);
+    const stateRegistration = findCnpjWsStateRegistration(payload);
     const taxRegime = findCnpjWsTaxRegime(payload);
     if (!stateRegistration && !taxRegime) console.error("CNPJ WS IE EMPTY", cnpj);
     return { stateRegistration, taxRegime };
   } catch (error) {
     console.error("CNPJ WS IE ERROR", error);
+    return emptyTaxLookup;
+  }
+}
+
+async function lookupSimpleNationalTaxData(cnpj: string) {
+  const token = process.env.SINTEGRA_WS_TOKEN;
+  if (!token) return emptyTaxLookup;
+
+  const params = new URLSearchParams({ token, cnpj, plugin: "SN" });
+  try {
+    const response = await fetch(`https://www.sintegraws.com.br/api/v1/execute-api.php?${params}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const body = await response.text();
+    if (!response.ok) {
+      console.error("SINTEGRA SN HTTP ERROR", response.status, body.slice(0, 500));
+      return emptyTaxLookup;
+    }
+
+    const payload = parseJson(body);
+    const taxRegime = findSimpleNationalTaxRegime(payload);
+    if (!taxRegime) console.error("SINTEGRA SN EMPTY", summarizePayload(payload));
+    return { ...emptyTaxLookup, taxRegime };
+  } catch (error) {
+    console.error("SINTEGRA SN ERROR", error);
     return emptyTaxLookup;
   }
 }
@@ -245,6 +275,28 @@ function findCnpjWsTaxRegime(value: unknown): string {
   if (!text(simples.simples)) return "";
   if (isAffirmative(simples.mei)) return "MEI";
   return isAffirmative(simples.simples) ? "SIMPLES NACIONAL" : "NAO OPTANTE DO SIMPLES";
+}
+
+function findCnpjWsStateRegistration(value: unknown): string {
+  const establishment = object(object(value).estabelecimento);
+  const state = text(object(establishment.estado).sigla);
+  const registrations = Array.isArray(establishment.inscricoes_estaduais)
+    ? establishment.inscricoes_estaduais.map(object)
+    : [];
+  const matchingRegistration = registrations.find((registration) => {
+    const registrationState = text(object(registration.estado).sigla);
+    return registrationState === state && registration.ativo !== false;
+  });
+
+  return normalizeStateRegistration(matchingRegistration?.inscricao_estadual);
+}
+
+function findSimpleNationalTaxRegime(value: unknown): string {
+  const directValue = findValueByKey(value, new Set([
+    "situacao_simples_nacional",
+    "situacaosimplesnacional",
+  ]));
+  return normalizeTaxRegime(directValue);
 }
 
 function findValueByKey(value: unknown, targetKeys: Set<string>): unknown {
