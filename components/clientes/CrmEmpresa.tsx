@@ -221,6 +221,9 @@ export default function CrmEmpresa({
     const hasScheduledContact = Boolean(item.profile?.nextContactAt);
     return (!hasActiveOpportunity || hasScheduledContact) && (item.health !== "GREEN" || item.daysToAction <= 7);
   });
+  const agendaOverdueCount = agendaClients.filter((item) => item.daysToAction < 0).length;
+  const agendaTodayCount = agendaClients.filter((item) => item.daysToAction === 0).length;
+  const agendaUpcomingCount = agendaClients.filter((item) => item.daysToAction >= 1 && item.daysToAction <= 7).length;
   const selectedActivities = overview.activities.filter((activity) => activity.clientId === selectedClientId);
   const selectedOpportunities = overview.opportunities.filter((opportunity) => opportunity.clientId === selectedClientId);
 
@@ -427,12 +430,21 @@ export default function CrmEmpresa({
           <h2>CRM</h2>
           <p>AGENDA, CARTEIRA E OPORTUNIDADES DA EMPRESA.</p>
         </div>
-        <div className="crm-summary" aria-label="RESUMO COMERCIAL">
-          <SummaryStat label="EM ABERTO" value={activeOpportunities.length} tone="purple" />
-          <SummaryStat label="ORCAMENTOS ENVIADOS" value={quoteSentCount} tone="yellow" />
-          <SummaryStat label="EM NEGOCIACAO" value={negotiationCount} tone="purple" />
-          <SummaryStat label="GANHOS" value={wonOpportunityCount} tone="green" />
-        </div>
+        {view === "agenda" ? (
+          <div className="crm-summary" aria-label="RESUMO DA AGENDA">
+            <SummaryStat label="ATRASADOS" value={agendaOverdueCount} tone="red" />
+            <SummaryStat label="HOJE" value={agendaTodayCount} tone="purple" />
+            <SummaryStat label="PROXIMOS 7 DIAS" value={agendaUpcomingCount} tone="yellow" />
+          </div>
+        ) : null}
+        {view === "pipeline" ? (
+          <div className="crm-summary" aria-label="RESUMO DO FUNIL">
+            <SummaryStat label="EM ABERTO" value={activeOpportunities.length} tone="purple" />
+            <SummaryStat label="ORCAMENTOS ENVIADOS" value={quoteSentCount} tone="yellow" />
+            <SummaryStat label="EM NEGOCIACAO" value={negotiationCount} tone="purple" />
+            <SummaryStat label="GANHOS" value={wonOpportunityCount} tone="green" />
+          </div>
+        ) : null}
       </header>
 
       <nav className="crm-nav" aria-label="VISOES DO CRM">
