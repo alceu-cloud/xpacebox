@@ -18,7 +18,10 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
       ? await lookupSerpro(cnpj)
       : await lookupBrasilApi(cnpj);
     const company = mapCompany(source, cnpj);
-    const stateRegistration = company.stateRegistration || await lookupSintegraStateRegistration(cnpj);
+    const stateRegistration =
+      company.stateRegistration ||
+      await lookupSintegraStateRegistration(cnpj) ||
+      await lookupCnpjWsStateRegistration(cnpj);
     return NextResponse.json({ success: true, company: { ...company, stateRegistration } });
   } catch (error) {
     if (error instanceof AccessError) return failure(error.message, error.status);
@@ -51,6 +54,26 @@ async function lookupSintegraStateRegistration(cnpj: string) {
     return stateRegistration;
   } catch (error) {
     console.error("SINTEGRA IE ERROR", error);
+    return "";
+  }
+}
+
+async function lookupCnpjWsStateRegistration(cnpj: string) {
+  try {
+    const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.error("CNPJ WS IE HTTP ERROR", response.status);
+      return "";
+    }
+
+    const stateRegistration = findStateRegistration(await response.json());
+    if (!stateRegistration) console.error("CNPJ WS IE EMPTY", cnpj);
+    return stateRegistration;
+  } catch (error) {
+    console.error("CNPJ WS IE ERROR", error);
     return "";
   }
 }
