@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { AccessError } from "@/lib/server/company-access";
 import { createSupabaseAuth } from "@/lib/server/supabase-admin";
 
+export const preferredRegion = "gru1";
+
 let tokenCache: { value: string; expiresAt: number } | null = null;
 
 export async function GET(request: Request, context: { params: Promise<{ cnpj: string }> }) {
