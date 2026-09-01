@@ -179,6 +179,7 @@ export default function GerenciadorEmpresa({
   const [localLostReasons, setLocalLostReasons] = useState(initialLostReasons);
   const [localSalesGoals, setLocalSalesGoals] = useState<SalesGoals>({ byRepresentative: {} });
   const [productionFilter, setProductionFilter] = useState("");
+  const [materialSupplierFilter, setMaterialSupplierFilter] = useState("ALL");
   const [form, setForm] = useState<null | { type: Tab; mode: Mode; id?: string }>(null);
   const [supplierDraft, setSupplierDraft] = useState(emptySupplier);
   const [paperDraft, setPaperDraft] = useState(emptyPaper);
@@ -250,6 +251,11 @@ export default function GerenciadorEmpresa({
       return groups;
     }, {});
   }, [materials]);
+  const materialSuppliers = useMemo(() => Array.from(new Set(materials.map((material) => material.supplier || "SEM FORNECEDOR"))).sort((a, b) => a.localeCompare(b, "pt-BR")), [materials]);
+  const filteredMaterials = useMemo(
+    () => materialSupplierFilter === "ALL" ? materials : materials.filter((material) => (material.supplier || "SEM FORNECEDOR") === materialSupplierFilter),
+    [materialSupplierFilter, materials]
+  );
 
   const filteredProductionTimes = useMemo(() => {
     const term = productionFilter.trim().toUpperCase();
@@ -502,8 +508,18 @@ export default function GerenciadorEmpresa({
           )}
 
           {activeTab === "materiais" && (
-            <Table headers={["CODIGO", "MATERIAL", "TIPO", "FORNECEDOR", "GRAMATURA", "RES. PRESSAO", "PRECO C/ IPI", "CONDICAO", "ACOES"]}>
-              {materials.map((material) => (
+            <>
+              <div style={materialFilterToolbarStyle}>
+                <label style={materialFilterLabelStyle}>FORNECEDOR
+                  <select value={materialSupplierFilter} onChange={(event) => setMaterialSupplierFilter(event.target.value)} style={materialFilterSelectStyle}>
+                    <option value="ALL">TODOS OS FORNECEDORES</option>
+                    {materialSuppliers.map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
+                  </select>
+                </label>
+                <span style={materialFilterResultStyle}>{filteredMaterials.length} MATERIAL(IS)</span>
+              </div>
+              <Table headers={["CODIGO", "MATERIAL", "TIPO", "FORNECEDOR", "GRAMATURA", "RES. PRESSAO", "PRECO C/ IPI", "CONDICAO", "ACOES"]}>
+              {filteredMaterials.map((material) => (
                 <tr key={material.id} style={material.specialCondition ? specialMaterialRowStyle : undefined}>
                   <td style={strongCellStyle}>{material.code}</td>
                   <td style={centerCellStyle}>{material.name}</td>
@@ -524,7 +540,8 @@ export default function GerenciadorEmpresa({
                   </td>
                 </tr>
               ))}
-            </Table>
+              </Table>
+            </>
           )}
 
           {activeTab === "engenharia" && (
@@ -2076,6 +2093,10 @@ const goalInputRowStyle = { display: "flex", alignItems: "center", justifyConten
 const goalInputStyle = { width: 112, height: 48, borderRadius: 10, border: "1px solid currentColor", background: "rgba(255,255,255,.92)", color: "inherit", textAlign: "center" as const, fontSize: 21, fontWeight: 900, outline: "none" };
 const timeToolbarStyle = { display: "flex", gap: 14, alignItems: "center", marginBottom: 24, flexWrap: "wrap" as const };
 const filterInputStyle = { minWidth: 310, height: 50, borderRadius: 10, border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", padding: "0 18px", fontSize: 16, fontWeight: 800, outline: "none", boxSizing: "border-box" as const };
+const materialFilterToolbarStyle = { display: "flex", alignItems: "end", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" as const };
+const materialFilterLabelStyle = { display: "grid", gap: 7, color: "#6f32d2", fontSize: 11, fontWeight: 900, letterSpacing: 1 };
+const materialFilterSelectStyle = { minWidth: 300, height: 44, borderRadius: 7, border: "1px solid rgba(111,50,210,.24)", background: "#fff", color: "#141827", padding: "0 12px", fontSize: 13, fontWeight: 800, outline: "none" };
+const materialFilterResultStyle = { minHeight: 44, display: "inline-flex", alignItems: "center", padding: "0 13px", borderRadius: 7, background: "rgba(111,50,210,.08)", color: "#6f32d2", fontSize: 12, fontWeight: 900, letterSpacing: .7 };
 const timeInputStyle = { width: 110, height: 48, borderRadius: 9, border: "1px solid rgba(14,165,233,.28)", color: "#0284c7", background: "#fff", textAlign: "center" as const, fontSize: 18, fontWeight: 900, outline: "none" };
 const timeInputGreenStyle = { ...timeInputStyle, border: "1px solid rgba(34,197,94,.30)", color: "#16a34a" };
 const pinkCellStyle = { ...centerCellStyle, color: "#e6007e", fontSize: 22 };
