@@ -110,8 +110,10 @@ export default function CrmEmpresa({
   const [overview, setOverview] = useState<CrmOverview>(emptyOverview);
   const [view, setView] = useState<CrmView>("agenda");
   const [selectedClientId, setSelectedClientId] = useState("");
-  const [search, setSearch] = useState("");
-  const [ownerFilter, setOwnerFilter] = useState("ALL");
+  const [agendaSearch, setAgendaSearch] = useState("");
+  const [agendaOwnerFilter, setAgendaOwnerFilter] = useState("ALL");
+  const [portfolioSearch, setPortfolioSearch] = useState("");
+  const [portfolioOwnerFilter, setPortfolioOwnerFilter] = useState("ALL");
   const [pipelineClosedPeriod, setPipelineClosedPeriod] = useState<CrmClosedPeriod>("ALL");
   const [pipelineClosedStart, setPipelineClosedStart] = useState("");
   const [pipelineClosedEnd, setPipelineClosedEnd] = useState("");
@@ -132,7 +134,7 @@ export default function CrmEmpresa({
     if (!forcedClientId) return;
     setSelectedClientId(forcedClientId);
     setView("carteira");
-    setSearch("");
+    setPortfolioSearch("");
   }, [forcedClientId]);
 
   async function refresh(silent = false) {
@@ -216,15 +218,23 @@ export default function CrmEmpresa({
     [activeOpportunities]
   );
   const rankedClients = useMemo(() => rankClients(clients, overview.profiles), [clients, overview.profiles]);
-  const visibleClients = useMemo(() => {
-    const term = upper(search);
+  const agendaFilteredClients = useMemo(() => {
+    const term = upper(agendaSearch);
     return rankedClients.filter(({ client, profile }) => {
       const matchesTerm = !term || upper(`${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`).includes(term);
-      const matchesOwner = ownerFilter === "ALL" || (profile?.ownerProfileId || client.representativeUserId) === ownerFilter;
+      const matchesOwner = agendaOwnerFilter === "ALL" || (profile?.ownerProfileId || client.representativeUserId) === agendaOwnerFilter;
       return matchesTerm && matchesOwner;
     });
-  }, [ownerFilter, rankedClients, search]);
-  const agendaClients = visibleClients.filter((item) => {
+  }, [agendaOwnerFilter, agendaSearch, rankedClients]);
+  const portfolioFilteredClients = useMemo(() => {
+    const term = upper(portfolioSearch);
+    return rankedClients.filter(({ client, profile }) => {
+      const matchesTerm = !term || upper(`${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`).includes(term);
+      const matchesOwner = portfolioOwnerFilter === "ALL" || (profile?.ownerProfileId || client.representativeUserId) === portfolioOwnerFilter;
+      return matchesTerm && matchesOwner;
+    });
+  }, [portfolioOwnerFilter, portfolioSearch, rankedClients]);
+  const agendaClients = agendaFilteredClients.filter((item) => {
     const hasActiveOpportunity = activeOpportunityClientIds.has(item.client.id);
     const hasScheduledContact = Boolean(item.profile?.nextContactAt);
     return (!hasActiveOpportunity || hasScheduledContact) && (item.health !== "GREEN" || item.daysToAction <= 7);
@@ -505,10 +515,10 @@ export default function CrmEmpresa({
       {!loading && view === "agenda" ? (
         <AgendaBoard
           items={agendaClients}
-          search={search}
-          setSearch={setSearch}
-          ownerFilter={ownerFilter}
-          setOwnerFilter={setOwnerFilter}
+          search={agendaSearch}
+          setSearch={setAgendaSearch}
+          ownerFilter={agendaOwnerFilter}
+          setOwnerFilter={setAgendaOwnerFilter}
           representatives={representatives}
           isManager={overview.isManager}
           opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
@@ -530,19 +540,19 @@ export default function CrmEmpresa({
                   <span>CLIENTES</span>
                   <strong>CARTEIRA COMERCIAL</strong>
                 </div>
-                <b>{visibleClients.length}</b>
+                <b>{portfolioFilteredClients.length}</b>
               </div>
               <div className="crm-list-filters">
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR CLIENTE" />
+                <input value={portfolioSearch} onChange={(event) => setPortfolioSearch(event.target.value)} placeholder="BUSCAR CLIENTE" />
                 {overview.isManager ? (
-                  <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+                  <select value={portfolioOwnerFilter} onChange={(event) => setPortfolioOwnerFilter(event.target.value)}>
                     <option value="ALL">TODA A EQUIPE</option>
                     {representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                   </select>
                 ) : null}
               </div>
               <div className="crm-client-list">
-                {visibleClients.map((item) => (
+                {portfolioFilteredClients.map((item) => (
                   <ClientListItem
                     key={item.client.id}
                     item={item}
@@ -552,7 +562,7 @@ export default function CrmEmpresa({
                     onClick={() => selectClient(item.client.id)}
                   />
                 ))}
-                {visibleClients.length === 0 ? (
+                {portfolioFilteredClients.length === 0 ? (
                   <div className="clients-empty">NENHUM CLIENTE NESTA VISAO.</div>
                 ) : null}
               </div>
