@@ -23,6 +23,15 @@ import type { GeneralOption } from "@/types/cadastros-gerais";
 type CrmView = "agenda" | "carteira" | "pipeline";
 type CrmClosedPeriod = "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM";
 type CrmDetailEntryTab = "resumo" | "contato";
+type PurchaseAverageAlert = {
+  clientId: string;
+  clientName: string;
+  opportunityValue: number;
+  averageValue: number;
+  differencePercent: number;
+};
+
+const purchaseAverageAlertThreshold = 0.3;
 
 const stageOptions: Array<{ value: CrmOpportunityStage; label: string }> = [
   { value: "CONTACT_PENDING", label: "CONTATO PENDENTE" },
@@ -132,6 +141,7 @@ export default function CrmEmpresa({
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
   const [lostStagePrompt, setLostStagePrompt] = useState<CrmOpportunity | null>(null);
   const [lostStageReason, setLostStageReason] = useState("");
+  const [purchaseAverageAlert, setPurchaseAverageAlert] = useState<PurchaseAverageAlert | null>(null);
 
   useEffect(() => {
     if (!forcedClientId) return;
@@ -383,6 +393,14 @@ export default function CrmEmpresa({
     }
     const previousStage = opportunity.stage;
     const lostReason = stage === "LOST" ? selectedLostReason || opportunity.lostReason : opportunity.lostReason;
+    const client = clients.find((item) => item.id === opportunity.clientId);
+    const averageValue = Number(profileByClient.get(opportunity.clientId)?.averagePurchaseValue || 0);
+    const opportunityValue = Number(opportunity.estimatedValue || 0);
+    const differencePercent = averageValue > 0 ? Math.abs(opportunityValue - averageValue) / averageValue : 0;
+    const shouldAlertPurchaseAverage = stage === "WON"
+      && previousStage !== "WON"
+      && averageValue > 0
+      && differencePercent >= purchaseAverageAlertThreshold;
     setSaving(true);
     clearFeedback();
     setOverview((current) => ({
@@ -407,6 +425,15 @@ export default function CrmEmpresa({
       });
       await refresh(true);
       await refreshOperationalLock();
+      if (shouldAlertPurchaseAverage) {
+        setPurchaseAverageAlert({
+          clientId: opportunity.clientId,
+          clientName: client?.tradeName || client?.legalName || "CLIENTE",
+          opportunityValue,
+          averageValue,
+          differencePercent,
+        });
+      }
       if (stage === "WON" || stage === "LOST") {
         setMessage(result.cycleScheduled
           ? "ETAPA ATUALIZADA. O PROXIMO CICLO FOI AGENDADO AUTOMATICAMENTE."
@@ -646,6 +673,16 @@ export default function CrmEmpresa({
         }}
       /> : null}
 
+      {purchaseAverageAlert ? <PurchaseAverageAlertModal
+        alert={purchaseAverageAlert}
+        onClose={() => setPurchaseAverageAlert(null)}
+        onReview={() => {
+          selectClient(purchaseAverageAlert.clientId);
+          setView("carteira");
+          setPurchaseAverageAlert(null);
+        }}
+      /> : null}
+
     </section>
   );
 }
@@ -660,6 +697,19 @@ function LostReasonModal({ reasons, value, onChange, onCancel, onConfirm }: { re
         {reasons.map((reason) => <option key={reason.id} value={reason.name}>{reason.name}</option>)}
       </select>
       <div><button type="button" onClick={onCancel}>CANCELAR</button><button type="button" disabled={!value} onClick={onConfirm}>CONFIRMAR PERDA</button></div>
+    </section>
+  </div>;
+}
+
+function PurchaseAverageAlertModal({ alert, onClose, onReview }: { alert: PurchaseAverageAlert; onClose: () => void; onReview: () => void }) {
+  const direction = alert.opportunityValue > alert.averageValue ? "MAIOR" : "MENOR";
+  return <div className="crm-lost-reason-overlay" role="presentation">
+    <section className="crm-lost-reason-modal crm-purchase-average-modal" role="dialog" aria-modal="true" aria-label="REVISAR COMPRA MEDIA">
+      <span>REVISAO CADASTRAL</span>
+      <h3>OPORTUNIDADE GANHA FORA DO PADRAO</h3>
+      <p><strong>{alert.clientName}</strong> fechou em {money(alert.opportunityValue)}, valor {Math.round(alert.differencePercent * 100)}% {direction} que a compra media cadastrada de {money(alert.averageValue)}.</p>
+      <p>CONFIRA SE A COMPRA MEDIA DO CLIENTE AINDA REPRESENTA O TICKET REAL.</p>
+      <div><button type="button" onClick={onClose}>DEPOIS</button><button type="button" onClick={onReview}>REVISAR CADASTRO</button></div>
     </section>
   </div>;
 }
