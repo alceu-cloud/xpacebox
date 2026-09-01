@@ -60,6 +60,36 @@ body {
   gap: 10px;
 }
 
+.reports-domain-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid #d8dee9;
+  border-radius: 8px;
+  background: #edf1f5;
+  box-shadow: inset 0 1px 2px rgba(20, 24, 39, 0.08);
+}
+
+.reports-domain-button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #475467;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.reports-domain-button.is-active { color: #fff; box-shadow: 0 6px 14px rgba(20, 24, 39, 0.16); }
+.reports-domain-button.is-commercial { background: #6f32d2; }
+.reports-domain-button.is-purchases { background: #1685c9; }
+.reports-domain-button.is-production { background: #df7a16; }
+.reports-domain-button.is-restricted { color: #98a2b3; cursor: not-allowed; }
+
 .reports-category-nav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -103,6 +133,7 @@ body {
 .reports-navigation-panel.is-carteira { border-left-color: #1685c9; }
 .reports-navigation-panel.is-operacao { border-left-color: #df7a16; }
 .reports-navigation-panel.is-gestao { border-left-color: #d92f8c; }
+.reports-navigation-panel.is-purchases { border-left-color: #1685c9; }
 
 .reports-navigation-panel-header {
   display: flex;
@@ -179,6 +210,7 @@ body {
 .reports-navigation-panel.is-carteira .reports-navigation-button.is-active { border-color: #1685c9; background: #eef9ff; color: #086aa7; box-shadow: inset 3px 0 0 #1685c9; }
 .reports-navigation-panel.is-operacao .reports-navigation-button.is-active { border-color: #df7a16; background: #fff7ed; color: #b85d06; box-shadow: inset 3px 0 0 #df7a16; }
 .reports-navigation-panel.is-gestao .reports-navigation-button.is-active { border-color: #d92f8c; background: #fff1f8; color: #bd1c75; box-shadow: inset 3px 0 0 #d92f8c; }
+.reports-navigation-panel.is-purchases .reports-navigation-button.is-active { border-color: #1685c9; background: #eef9ff; color: #086aa7; box-shadow: inset 3px 0 0 #1685c9; }
 .reports-navigation-button.is-restricted { color: #98a2b3; cursor: not-allowed; opacity: 0.64; background: #f8fafc; }
 .reports-navigation-button.is-restricted span { background: #eef1f5; color: #98a2b3; }
 
@@ -2095,6 +2127,7 @@ button {
 }
 
 @media (max-width: 640px) {
+  .reports-domain-nav { grid-template-columns: 1fr; }
   .reports-category-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reports-navigation-list { grid-template-columns: 1fr; }
   .reports-navigation-button { min-height: 52px; border-radius: 6px; }

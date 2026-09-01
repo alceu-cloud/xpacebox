@@ -41,6 +41,14 @@ export async function GET(request: Request) {
       const ficha = item as { clientId?: string };
       return isManager || visibleClientIds.has(ficha.clientId || "");
     }) : [];
+    const materials = Array.isArray(settings.materials)
+      ? isManager
+        ? settings.materials
+        : settings.materials.map((item) => {
+          const material = item as { id?: string; code?: string; paperType?: string };
+          return { id: material.id, code: material.code, paperType: material.paperType };
+        })
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -67,7 +75,7 @@ export async function GET(request: Request) {
         opportunities,
         quotes,
         productFichas,
-        materials: Array.isArray(settings.materials) ? settings.materials : [],
+        materials,
         salesGoals: isManager ? settings.salesGoals ?? null : null,
       },
     });

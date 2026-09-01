@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 
 type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive";
 type PeriodPreset = "CURRENT" | "PREVIOUS" | "CUSTOM";
 type ReportCategory = "RESULTADOS" | "CARTEIRA" | "OPERACAO" | "GESTAO";
+type ReportArea = "COMMERCIAL" | "PURCHASES" | "PRODUCTION";
 
 type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
@@ -15,7 +16,7 @@ type Activity = { id: string; client_id: string; opportunity_id: string | null; 
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string };
 type MaterialSnapshot = { materialId?: string; materialCode?: string; paperType?: string; createdAt?: string };
 type ProductFicha = { id?: string; clientId?: string; reference?: string; materialId?: string; company?: string; pricingData?: MaterialSnapshot; priceHistory?: MaterialSnapshot[] };
-type Material = { id?: string; code?: string; paperType?: string };
+type Material = { id?: string; code?: string; paperType?: string; supplier?: string; pressure?: string; costIpi?: number };
 type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; productFichas: ProductFicha[]; materials: Material[]; salesGoals: { byRepresentative?: Record<string, number> } | null };
 
 const reports: Array<{ key: ReportKey; number: number; title: string; managerOnly?: boolean }> = [
@@ -46,6 +47,7 @@ const stageLabels: Record<string, string> = {
 
 export default function RelatoriosEmpresa({ slug }: { slug: string }) {
   const [data, setData] = useState<ReportData | null>(null);
+  const [activeArea, setActiveArea] = useState<ReportArea>("COMMERCIAL");
   const [activeReport, setActiveReport] = useState<ReportKey>("closing");
   const [activeCategory, setActiveCategory] = useState<ReportCategory>("RESULTADOS");
   const [representativeId, setRepresentativeId] = useState("ALL");
@@ -107,37 +109,62 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
     if (firstAvailable) setActiveReport(firstAvailable.key);
   }
 
+  const areaTitle = activeArea === "PURCHASES" ? "INTELIGENCIA DE COMPRAS" : activeArea === "PRODUCTION" ? "INTELIGENCIA DE PRODUCAO" : "INTELIGENCIA COMERCIAL";
+  const areaDescription = activeArea === "PURCHASES"
+    ? "COMPARE CONDICOES DE MATERIA PRIMA ENTRE FORNECEDORES."
+    : activeArea === "PRODUCTION"
+      ? "INDICADORES DE PRODUCAO EM ESTRUTURACAO."
+      : "ANALISES PARA PRIORIZAR ACOES COMERCIAIS, NAO APENAS ACOMPANHAR NUMEROS.";
+
+  function selectArea(area: ReportArea) {
+    if (area === "PURCHASES" && !data?.isManager) return;
+    setActiveArea(area);
+  }
+
   return <section style={shellStyle}>
     <header style={headerStyle}>
-      <div><span style={eyebrowStyle}>INTELIGENCIA COMERCIAL</span><h2 style={titleStyle}>RELATORIOS</h2><p style={subtitleStyle}>ANALISES PARA PRIORIZAR ACOES COMERCIAIS, NAO APENAS ACOMPANHAR NUMEROS.</p></div>
-      <div style={periodHintStyle}>PERIODO: {displayDate(range.start)} A {displayDate(range.end)}</div>
+      <div><span style={eyebrowStyle}>{areaTitle}</span><h2 style={titleStyle}>RELATORIOS</h2><p style={subtitleStyle}>{areaDescription}</p></div>
+      {activeArea === "COMMERCIAL" ? <div style={periodHintStyle}>PERIODO: {displayDate(range.start)} A {displayDate(range.end)}</div> : null}
     </header>
-    <nav className="reports-navigation" aria-label="RELATORIOS COMERCIAIS">
-      <div className="reports-category-nav">
-        {visibleCategories.map((category) => <button key={category.key} type="button" onClick={() => selectCategory(category.key)} className={`reports-category-button ${category.key === activeCategory ? `is-active is-${category.key.toLowerCase()}` : ""}`} aria-current={category.key === activeCategory ? "page" : undefined}>{category.label}</button>)}
+    <nav className="reports-navigation" aria-label="AREAS DE RELATORIOS">
+      <div className="reports-domain-nav">
+        <button type="button" onClick={() => selectArea("COMMERCIAL")} className={`reports-domain-button${activeArea === "COMMERCIAL" ? " is-active is-commercial" : ""}`} aria-current={activeArea === "COMMERCIAL" ? "page" : undefined}>COMERCIAL</button>
+        <button type="button" onClick={() => selectArea("PURCHASES")} disabled={!data?.isManager} className={`reports-domain-button${activeArea === "PURCHASES" ? " is-active is-purchases" : ""}${!data?.isManager ? " is-restricted" : ""}`} aria-current={activeArea === "PURCHASES" ? "page" : undefined}>COMPRAS</button>
+        <button type="button" onClick={() => selectArea("PRODUCTION")} className={`reports-domain-button${activeArea === "PRODUCTION" ? " is-active is-production" : ""}`} aria-current={activeArea === "PRODUCTION" ? "page" : undefined}>PRODUCAO</button>
       </div>
-      <section className={`reports-navigation-panel is-${activeCategory.toLowerCase()}`} aria-label={`RELATORIOS DE ${activeCategoryDefinition.label}`}>
-        <div className="reports-navigation-panel-header"><span>RELATORIOS</span><strong>{activeCategoryDefinition.label}</strong></div>
-        <div className="reports-navigation-list">
-          {categoryReports.map((item) => {
-            const restricted = item.managerOnly && !data?.isManager;
-            const active = activeReport === item.key;
-            return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} className={`reports-navigation-button${active ? " is-active" : ""}${restricted ? " is-restricted" : ""}`} aria-current={active ? "page" : undefined}>
-              <span>{String(item.number).padStart(2, "0")}</span><b>{item.title}</b>{restricted ? <small>GERENCIA</small> : null}
-            </button>;
-          })}
+      {activeArea === "COMMERCIAL" ? <>
+        <div className="reports-category-nav">
+          {visibleCategories.map((category) => <button key={category.key} type="button" onClick={() => selectCategory(category.key)} className={`reports-category-button ${category.key === activeCategory ? `is-active is-${category.key.toLowerCase()}` : ""}`} aria-current={category.key === activeCategory ? "page" : undefined}>{category.label}</button>)}
         </div>
-      </section>
+        <section className={`reports-navigation-panel is-${activeCategory.toLowerCase()}`} aria-label={`RELATORIOS DE ${activeCategoryDefinition.label}`}>
+          <div className="reports-navigation-panel-header"><span>RELATORIOS</span><strong>{activeCategoryDefinition.label}</strong></div>
+          <div className="reports-navigation-list">
+            {categoryReports.map((item) => {
+              const restricted = item.managerOnly && !data?.isManager;
+              const active = activeReport === item.key;
+              return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} className={`reports-navigation-button${active ? " is-active" : ""}${restricted ? " is-restricted" : ""}`} aria-current={active ? "page" : undefined}>
+                <span>{String(item.number).padStart(2, "0")}</span><b>{item.title}</b>{restricted ? <small>GERENCIA</small> : null}
+              </button>;
+            })}
+          </div>
+        </section>
+      </> : null}
+      {activeArea === "PURCHASES" && data?.isManager ? <section className="reports-navigation-panel is-purchases" aria-label="RELATORIOS DE COMPRAS">
+        <div className="reports-navigation-panel-header"><span>RELATORIOS</span><strong>COMPRAS</strong></div>
+        <div className="reports-navigation-list"><button type="button" className="reports-navigation-button is-active" aria-current="page"><span>01</span><b>COMPARATIVO DE MATERIA PRIMA</b></button></div>
+      </section> : null}
     </nav>
-    <section style={filterStyle}>
+    {activeArea === "COMMERCIAL" ? <section style={filterStyle}>
       <label style={filterLabelStyle}>PERIODO<select value={preset} onChange={(event) => setPreset(event.target.value as PeriodPreset)} style={selectStyle}><option value="CURRENT">MES ATUAL</option><option value="PREVIOUS">MES ANTERIOR</option><option value="CUSTOM">PERSONALIZADO</option></select></label>
       {preset === "CUSTOM" ? <><label style={filterLabelStyle}>DE<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} style={inputStyle} /></label><label style={filterLabelStyle}>ATE<input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} style={inputStyle} /></label></> : null}
       {data?.isManager ? <label style={filterLabelStyle}>REPRESENTANTE<select value={representativeId} onChange={(event) => setRepresentativeId(event.target.value)} style={selectStyle}><option value="ALL">TODA A EQUIPE</option>{data.representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : <div style={ownDataStyle}>EXIBINDO SOMENTE SEUS DADOS</div>}
-    </section>
+    </section> : null}
     {loading ? <div style={emptyStyle}>CARREGANDO RELATORIOS...</div> : null}
     {error ? <div style={errorStyle}>{error}</div> : null}
-    {!loading && !error && data && canViewActive ? <ReportContent report={activeReport} data={scoped as ReportData} rawData={data} range={range} /> : null}
-    {!loading && data && !canViewActive ? <div style={emptyStyle}>ESTE RELATORIO E EXCLUSIVO PARA ADMINISTRADORES E GERENTES.</div> : null}
+    {!loading && !error && data && activeArea === "COMMERCIAL" && canViewActive ? <ReportContent report={activeReport} data={scoped as ReportData} rawData={data} range={range} /> : null}
+    {!loading && !error && data && activeArea === "PURCHASES" && data.isManager ? <MaterialComparisonReport materials={data.materials} /> : null}
+    {!loading && !error && data && activeArea === "PRODUCTION" ? <ProductionComingSoon /> : null}
+    {!loading && data && activeArea === "COMMERCIAL" && !canViewActive ? <div style={emptyStyle}>ESTE RELATORIO E EXCLUSIVO PARA ADMINISTRADORES E GERENTES.</div> : null}
   </section>;
 }
 
@@ -205,6 +232,43 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
   return <ReportLayout title="RELATORIO EXECUTIVO" description="Resumo gerencial do periodo selecionado."><MetricGrid items={[metric("GANHO", totalWon, "#16a34a"), metric("PERDIDO", totalLost, "#f43f5e"), metric("EM ABERTO", sum(open, (item) => item.estimated_value), "#7c3aed"), metric("AGENDA ATRASADA", overdueAgenda, "#e68019", true), metric("CLIENTES EM CARTEIRA", data.clients.length, "#0284c7", true)]}/><StageTable opportunities={inRangeOpps}/></ReportLayout>;
 }
 
+function MaterialComparisonReport({ materials }: { materials: Material[] }) {
+  const groups = new Map<string, Material[]>();
+  materials.forEach((material) => {
+    const paperType = material.paperType?.trim() || "TIPO NAO INFORMADO";
+    groups.set(paperType, [...(groups.get(paperType) || []), material]);
+  });
+  const rows = [...groups.entries()]
+    .sort(([first], [second]) => first.localeCompare(second, "pt-BR"))
+    .map(([paperType, items]) => ({
+      paperType,
+      items: [...items].sort((first, second) => Number(first.costIpi || 0) - Number(second.costIpi || 0) || (first.supplier || "").localeCompare(second.supplier || "", "pt-BR")),
+    }));
+
+  return <ReportLayout title="COMPARATIVO DE MATERIA PRIMA" description="COMPARE FORNECEDOR, RESISTENCIA DE COLUNA E PRECO C/ IPI DENTRO DE CADA TIPO DE MATERIAL.">
+    <ReportTable>
+      <thead><tr><th>FORNECEDOR</th><th>COLUNA / RES. PRESSAO</th><th>PRECO C/ IPI</th></tr></thead>
+      <tbody>
+        {rows.map(({ paperType, items }) => <Fragment key={paperType}>
+          <tr><td colSpan={3} style={materialTypeGroupCellStyle}>{paperType}</td></tr>
+          {items.map((material) => <tr key={material.id || `${paperType}-${material.supplier}-${material.code}`}>
+            <td>{material.supplier || "NAO INFORMADO"}</td>
+            <td>{material.pressure || "NAO INFORMADA"}</td>
+            <td>{Number(material.costIpi || 0) > 0 ? money(Number(material.costIpi)) : "NAO INFORMADO"}</td>
+          </tr>)}
+        </Fragment>)}
+        {!rows.length ? <tr><td colSpan={3} style={emptyCellStyle}>NENHUM MATERIAL ESPECIFICO CADASTRADO.</td></tr> : null}
+      </tbody>
+    </ReportTable>
+  </ReportLayout>;
+}
+
+function ProductionComingSoon() {
+  return <ReportLayout title="RELATORIOS DE PRODUCAO" description="ESTA AREA VAI REUNIR INDICADORES DE PRODUTIVIDADE, TEMPO E EFICIENCIA DA FABRICA.">
+    <div style={emptyStyle}>EM CONSTRUCAO.</div>
+  </ReportLayout>;
+}
+
 function ReportLayout({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section style={contentStyle}><div style={contentHeaderStyle}><h3 style={contentTitleStyle}>{title}</h3><p style={contentDescriptionStyle}>{description}</p></div>{children}</section>; }
 function MetricGrid({ items }: { items: Array<{ label: string; value: string; color: string }> }) { return <div style={metricGridStyle}>{items.map((item) => <article key={item.label} style={{ ...metricCardStyle, borderTopColor: item.color }}><span>{item.label}</span><strong style={{ color: item.color }}>{item.value}</strong></article>)}</div>; }
 function ReportTable({ children }: { children: React.ReactNode }) { return <div className="reports-table-wrap"><table className="reports-table" style={tableStyle}>{children}</table></div>; }
@@ -263,3 +327,4 @@ const tableStyle = { width: "100%", borderCollapse: "collapse" as const, tableLa
 const emptyStyle = { padding: 36, border: "1px dashed #c8b7f3", borderRadius: 8, color: "#667085", textAlign: "center" as const, fontSize: 13, fontWeight: 800 };
 const errorStyle = { padding: 14, border: "1px solid #fcb6be", borderRadius: 7, background: "#fff1f2", color: "#be123c", fontSize: 12, fontWeight: 800 };
 const emptyCellStyle = { padding: 20, textAlign: "center" as const, color: "#667085", fontWeight: 700 };
+const materialTypeGroupCellStyle = { padding: "10px 16px", background: "#f3edff", color: "#5d22c5", fontSize: 12, fontWeight: 900, letterSpacing: .7, textAlign: "left" as const };
