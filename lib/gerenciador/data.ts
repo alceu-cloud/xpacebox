@@ -216,9 +216,20 @@ export const defaultPricingGoalsByCompany: PricingGoalsByCompany = {
 };
 
 export const defaultSalesGoals: SalesGoals = {
-  combinedMonthlyRevenue: 0,
-  byCompany: { dawos: 0, carcat: 0, gta: 0 },
+  byRepresentative: {},
 };
+
+export function normalizeSalesGoals(value: unknown): SalesGoals {
+  const candidates = (value as { byRepresentative?: unknown } | null)?.byRepresentative;
+  if (!candidates || typeof candidates !== "object" || Array.isArray(candidates)) return defaultSalesGoals;
+  return {
+    byRepresentative: Object.fromEntries(
+      Object.entries(candidates as Record<string, unknown>)
+        .filter(([id]) => Boolean(id))
+        .map(([id, goal]) => [id, Math.max(0, Number(goal) || 0)])
+    ),
+  };
+}
 
 export const defaultQuoteParametersByCompany: import("@/types/gerenciador").QuoteParametersByCompany = {
   dawos: {

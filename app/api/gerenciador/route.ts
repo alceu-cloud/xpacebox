@@ -50,14 +50,27 @@ export async function GET(request: Request) {
   try {
     const slug = new URL(request.url).searchParams.get("slug")?.trim() ?? "";
     if (!slug) return failure("EMPRESA NAO INFORMADA.", 400);
-    const { admin, company } = await requireCompanyAccess(request, slug);
+    const { admin, company, profile } = await requireCompanyAccess(request, slug);
     const { data, error } = await admin
       .from("company_manager_settings")
       .select("data, updated_at")
       .eq("tenant_company_id", company.id)
       .maybeSingle();
     if (error) throw error;
-    return NextResponse.json({ success: true, settings: data?.data ?? {}, updatedAt: data?.updated_at ?? null });
+    const isManager = ["platform_owner", "company_manager"].includes(profile.platform_role);
+    if (!isManager) return NextResponse.json({ success: true, settings: data?.data ?? {}, representatives: [], updatedAt: data?.updated_at ?? null });
+    const [membersResult, profilesResult] = await Promise.all([
+      admin.from("company_members").select("profile_id").eq("company_id", company.id).eq("active", true),
+      admin.from("profiles").select("id,full_name,email").eq("active", true),
+    ]);
+    if (membersResult.error) throw membersResult.error;
+    if (profilesResult.error) throw profilesResult.error;
+    const memberIds = new Set((membersResult.data ?? []).map((item) => item.profile_id));
+    const representatives = (profilesResult.data ?? [])
+      .filter((item) => memberIds.has(item.id))
+      .map((item) => ({ id: item.id, name: item.full_name || item.email || "USUARIO" }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    return NextResponse.json({ success: true, settings: data?.data ?? {}, representatives, updatedAt: data?.updated_at ?? null });
   } catch (error) {
     return handleError(error);
   }

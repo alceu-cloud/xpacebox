@@ -10,14 +10,14 @@ import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciado
 import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
 import RelatoriosEmpresa from "@/components/relatorios/RelatoriosEmpresa";
 import { loadClients } from "@/lib/clientes";
-import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany } from "@/lib/gerenciador/data";
+import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany, normalizeSalesGoals } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
 import { supabase } from "@/lib/supabase";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SalesGoals, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
@@ -122,6 +122,7 @@ export default function EmpresaPage() {
   const [fiscalBenefits, setFiscalBenefits] = useState<GeneralOption[]>(initialFiscalBenefits);
   const [lostReasons, setLostReasons] = useState<GeneralOption[]>(initialLostReasons);
   const [salesGoals, setSalesGoals] = useState<SalesGoals>(defaultSalesGoals);
+  const [salesRepresentatives, setSalesRepresentatives] = useState<SalesRepresentative[]>([]);
   const [productFichas, setProductFichas] = useState<ProductFicha[]>([]);
   const [productColors, setProductColors] = useState<string[]>(["BRANCO", "PRETO", "VERMELHO", "AZUL", "AMARELO"]);
   const [quotePrefill, setQuotePrefill] = useState<PricingQuotePrefill | null>(null);
@@ -175,7 +176,8 @@ export default function EmpresaPage() {
         if (settings.fiscalProfiles) setFiscalProfiles(settings.fiscalProfiles);
         if (settings.fiscalBenefits) setFiscalBenefits(settings.fiscalBenefits);
         if (settings.lostReasons) setLostReasons(settings.lostReasons);
-        if (settings.salesGoals) setSalesGoals(settings.salesGoals);
+        if (settings.salesGoals) setSalesGoals(normalizeSalesGoals(settings.salesGoals));
+        setSalesRepresentatives(settings.representatives);
         if (settings.productFichas) setProductFichas(settings.productFichas);
         if (settings.productColors) setProductColors(settings.productColors);
       })
@@ -308,6 +310,7 @@ export default function EmpresaPage() {
             fiscalBenefits={fiscalBenefits}
             lostReasons={lostReasons}
             salesGoals={salesGoals}
+            salesRepresentatives={salesRepresentatives}
             onTaxRegimesChange={(value) => persistManagerChange("taxRegimes", value, setTaxRegimes)}
             onFiscalProfilesChange={(value) => persistManagerChange("fiscalProfiles", value, setFiscalProfiles)}
             onFiscalBenefitsChange={(value) => persistManagerChange("fiscalBenefits", value, setFiscalBenefits)}

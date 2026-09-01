@@ -19,7 +19,7 @@ import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
 import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SalesGoals, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
@@ -91,6 +91,7 @@ type GerenciadorEmpresaProps = {
   fiscalBenefits?: GeneralOption[];
   lostReasons?: GeneralOption[];
   salesGoals?: SalesGoals;
+  salesRepresentatives?: SalesRepresentative[];
   productFichas?: ProductFicha[];
   productColors?: string[];
   onSuppliersChange?: (suppliers: Supplier[]) => void;
@@ -133,6 +134,7 @@ export default function GerenciadorEmpresa({
   fiscalBenefits: controlledFiscalBenefits,
   lostReasons: controlledLostReasons,
   salesGoals: controlledSalesGoals,
+  salesRepresentatives = [],
   productFichas: controlledProductFichas,
   productColors: controlledProductColors,
   onSuppliersChange,
@@ -175,7 +177,7 @@ export default function GerenciadorEmpresa({
   const [localFiscalProfiles, setLocalFiscalProfiles] = useState(initialFiscalProfiles);
   const [localFiscalBenefits, setLocalFiscalBenefits] = useState(initialFiscalBenefits);
   const [localLostReasons, setLocalLostReasons] = useState(initialLostReasons);
-  const [localSalesGoals, setLocalSalesGoals] = useState({ combinedMonthlyRevenue: 0, byCompany: { dawos: 0, carcat: 0, gta: 0 } });
+  const [localSalesGoals, setLocalSalesGoals] = useState<SalesGoals>({ byRepresentative: {} });
   const [productionFilter, setProductionFilter] = useState("");
   const [form, setForm] = useState<null | { type: Tab; mode: Mode; id?: string }>(null);
   const [supplierDraft, setSupplierDraft] = useState(emptySupplier);
@@ -228,7 +230,7 @@ export default function GerenciadorEmpresa({
     if (activeTab === "cores") return "CADASTRO DE CORES";
     if (activeTab === "custo") return "CUSTO DE PAPEL";
     if (activeTab === "parametros") return "PARAMETROS DE PRECIFICACAO";
-    if (activeTab === "metas") return "METAS DE DESEMPENHO - DAWOS";
+    if (activeTab === "metas") return "METAS DE DESEMPENHO COMERCIAL";
     if (activeTab === "orcamento") return "PARAMETROS DE ORCAMENTO";
     if (activeTab === "tempos") return "TABELA DE TEMPOS DE PRODUCAO";
     return "LEMBRETES & FORMULAS";
@@ -630,7 +632,7 @@ export default function GerenciadorEmpresa({
           )}
 
           {activeTab === "metas" && (
-            <PricingGoalsPanel goalsByCompany={pricingGoalsByCompany} onChange={setPricingGoalsByCompany} salesGoals={salesGoals} onSalesGoalsChange={setSalesGoals} />
+            <PricingGoalsPanel goalsByCompany={pricingGoalsByCompany} onChange={setPricingGoalsByCompany} salesGoals={salesGoals} salesRepresentatives={salesRepresentatives} onSalesGoalsChange={setSalesGoals} />
           )}
 
           {activeTab === "orcamento" && (
@@ -1519,11 +1521,13 @@ function PricingGoalsPanel({
   goalsByCompany,
   onChange,
   salesGoals,
+  salesRepresentatives,
   onSalesGoalsChange,
 }: {
   goalsByCompany: PricingGoalsByCompany;
   onChange: (goals: PricingGoalsByCompany) => void;
   salesGoals: SalesGoals;
+  salesRepresentatives: SalesRepresentative[];
   onSalesGoalsChange: (goals: SalesGoals) => void;
 }) {
   const [company, setCompany] = useState<PricingGoalCompany>("dawos");
@@ -1537,14 +1541,12 @@ function PricingGoalsPanel({
     <div style={goalsPanelStyle}>
       <section style={pricingPanelStyle}>
         <div style={pricingPanelHeaderStyle}>
-          <h4 style={subPanelTitleStyle}>METAS COMERCIAIS MENSAIS</h4>
-          <span style={greenBadgeStyle}>USADAS NO RELATORIO META X REALIZADO</span>
+          <h4 style={subPanelTitleStyle}>METAS DE FATURAMENTO POR VENDEDOR</h4>
+          <span style={greenBadgeStyle}>SOMA DAWOS, CARCAT E GTA NO RELATORIO META X REALIZADO</span>
         </div>
         <div style={pricingOperationalFieldsStyle}>
-          <ParamField label="META TOTAL DAS 3 EMPRESAS (R$)" value={salesGoals.combinedMonthlyRevenue} color="#16a34a" wide onChange={(combinedMonthlyRevenue) => onSalesGoalsChange({ ...salesGoals, combinedMonthlyRevenue })} />
-          {(["dawos", "carcat", "gta"] as PricingGoalCompany[]).map((key) => (
-            <ParamField key={key} label={`META ${key.toUpperCase()} (R$)`} value={salesGoals.byCompany[key]} color="#7c3aed" onChange={(value) => onSalesGoalsChange({ ...salesGoals, byCompany: { ...salesGoals.byCompany, [key]: value } })} />
-          ))}
+          {salesRepresentatives.map((representative) => <ParamField key={representative.id} label={`META MENSAL · ${representative.name}`} value={salesGoals.byRepresentative[representative.id] || 0} color="#16a34a" wide onChange={(value) => onSalesGoalsChange({ byRepresentative: { ...salesGoals.byRepresentative, [representative.id]: value } })} />)}
+          {!salesRepresentatives.length ? <div style={goalsNoticeStyle}>NENHUM VENDEDOR ATIVO VINCULADO A ESTA EMPRESA.</div> : null}
         </div>
       </section>
       <div style={goalCompanyTabsStyle}>
@@ -1563,7 +1565,7 @@ function PricingGoalsPanel({
         ))}
       </div>
       <div style={goalsNoticeStyle}>
-        FAIXAS DA {company.toUpperCase()}. AS CORES SAO APLICADAS SOMENTE AOS RESULTADOS DOS SIMULADORES A, B E C.
+        FAIXAS DE PRECIFICACAO DA {company.toUpperCase()}. AS CORES SAO APLICADAS SOMENTE AOS RESULTADOS DOS SIMULADORES A, B E C.
       </div>
       <div style={goalsGridStyle}>
         <GoalRangeCard

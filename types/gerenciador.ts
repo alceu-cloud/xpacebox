@@ -79,8 +79,12 @@ export type PricingGoalCompany = "dawos" | "carcat" | "gta";
 export type PricingGoalsByCompany = Record<PricingGoalCompany, PricingGoals>;
 
 export type SalesGoals = {
-  combinedMonthlyRevenue: number;
-  byCompany: Record<PricingGoalCompany, number>;
+  byRepresentative: Record<string, number>;
+};
+
+export type SalesRepresentative = {
+  id: string;
+  name: string;
 };
 
 export type QuoteCompanyKey = PricingGoalCompany;

@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingOperationalParams, PricingParamsByCompany, ProductFicha, ProductionTime, QuoteParametersByCompany, SalesGoals, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingOperationalParams, PricingParamsByCompany, ProductFicha, ProductionTime, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 
 export type ManagerSettings = {
@@ -38,9 +38,9 @@ async function authorizedFetch(path: string, init?: RequestInit) {
   return payload;
 }
 
-export async function loadManagerSettings(slug: string): Promise<ManagerSettings> {
+export async function loadManagerSettings(slug: string): Promise<ManagerSettings & { representatives: SalesRepresentative[] }> {
   const payload = await authorizedFetch(`/api/gerenciador?slug=${encodeURIComponent(slug)}`);
-  return payload.settings ?? {};
+  return { ...(payload.settings ?? {}), representatives: payload.representatives ?? [] };
 }
 
 export async function saveManagerSetting<K extends keyof ManagerSettings>(slug: string, key: K, value: ManagerSettings[K]) {
