@@ -15,6 +15,7 @@ async function save(request: Request, editing: boolean) {
     if (!slug || !input?.title || (editing && !input.id)) return failure("PREENCHA OS DADOS DA OPORTUNIDADE.", 400);
 
     const { admin, company, user } = await requireCompanyAccess(request, slug);
+    if (input.stage === "LOST" && !input.lostReason?.trim()) return failure("INFORME O MOTIVO DA PERDA.", 400);
     if (!input.clientId && !editing) return failure("SELECIONE UM CLIENTE PARA CRIAR A OPORTUNIDADE.", 400);
     if (input.clientId) {
       const { data: client } = await admin

@@ -102,7 +102,7 @@ export default function UsuariosPage() {
       setSalvando(true);
 
       if (modoEdicao && usuarioEditando) {
-        await atualizarUsuario(usuarioEditando.id, nome, email, cargo);
+        await atualizarUsuario(usuarioEditando.id, nome, email, cargo, empresa);
         if (senha) await alterarSenhaUsuario(usuarioEditando.id, senha);
       } else {
         const {

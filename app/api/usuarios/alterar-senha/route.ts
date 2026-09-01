@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAuth } from "@/lib/server/supabase-admin";
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +23,14 @@ export async function POST(request: Request) {
         autoRefreshToken: false,
       },
     });
+
+    const authorization = request.headers.get("authorization");
+    if (!authorization?.startsWith("Bearer ")) return NextResponse.json({ success: false, message: "Sessão não encontrada." }, { status: 401 });
+    const auth = createSupabaseAuth();
+    const { data: callerData, error: callerError } = await auth.auth.getUser(authorization.slice("Bearer ".length).trim());
+    if (callerError || !callerData.user) return NextResponse.json({ success: false, message: "Sessão inválida." }, { status: 401 });
+    const { data: callerProfile } = await supabaseAdmin.from("profiles").select("platform_role,active").eq("id", callerData.user.id).maybeSingle();
+    if (!callerProfile?.active || callerProfile.platform_role !== "platform_owner") return NextResponse.json({ success: false, message: "Apenas administradores podem alterar senhas." }, { status: 403 });
 
     const { id, senha } = await request.json();
 

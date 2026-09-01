@@ -1,0 +1,222 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { supabase } from "@/lib/supabase";
+
+type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive";
+type PeriodPreset = "CURRENT" | "PREVIOUS" | "CUSTOM";
+
+type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
+type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
+type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; created_at: string; updated_at: string };
+type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
+type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string };
+type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; productFichas: Array<{ id?: string; materialId?: string; company?: string }>; materials: Array<{ id?: string; code?: string; paperType?: string }>; salesGoals: { combinedMonthlyRevenue?: number; byCompany?: Record<string, number> } | null };
+
+const reports: Array<{ key: ReportKey; number: number; title: string; managerOnly?: boolean }> = [
+  { key: "closing", number: 1, title: "FECHAMENTO DO MES" },
+  { key: "pipeline", number: 2, title: "FUNIL COMERCIAL" },
+  { key: "forecast", number: 3, title: "PREVISAO DE FATURAMENTO" },
+  { key: "losses", number: 4, title: "MOTIVOS DE PERDA" },
+  { key: "clients", number: 5, title: "RANKING DE CLIENTES" },
+  { key: "materials", number: 6, title: "RANKING POR MATERIAL" },
+  { key: "team", number: 7, title: "DESEMPENHO POR VENDEDOR", managerOnly: true },
+  { key: "followup", number: 8, title: "ORCAMENTOS SEM RETORNO" },
+  { key: "cycle", number: 9, title: "CICLO DE VENDAS" },
+  { key: "risk", number: 10, title: "CLIENTES EM RISCO" },
+  { key: "goals", number: 11, title: "META X REALIZADO", managerOnly: true },
+  { key: "executive", number: 12, title: "RELATORIO EXECUTIVO", managerOnly: true },
+];
+
+const stageLabels: Record<string, string> = {
+  CONTACT_PENDING: "CONTATO PENDENTE", CONTACTED: "CONTATADO", QUOTE_PREPARATION: "ORCAMENTO EM PREPARACAO", QUOTE_SENT: "ORCAMENTO ENVIADO", NEGOTIATION: "NEGOCIACAO", WON: "GANHO", LOST: "PERDIDO",
+};
+
+export default function RelatoriosEmpresa({ slug }: { slug: string }) {
+  const [data, setData] = useState<ReportData | null>(null);
+  const [activeReport, setActiveReport] = useState<ReportKey>("closing");
+  const [representativeId, setRepresentativeId] = useState("ALL");
+  const [preset, setPreset] = useState<PeriodPreset>("CURRENT");
+  const [customStart, setCustomStart] = useState(isoMonthStart(new Date()));
+  const [customEnd, setCustomEnd] = useState(isoToday());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) throw new Error("SESSAO NAO ENCONTRADA.");
+        const response = await fetch(`/api/relatorios?slug=${encodeURIComponent(slug)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) throw new Error(payload.message || "NAO FOI POSSIVEL CARREGAR OS RELATORIOS.");
+        if (active) setData(payload.report as ReportData);
+      } catch (loadError) {
+        if (active) setError(loadError instanceof Error ? loadError.message : "NAO FOI POSSIVEL CARREGAR OS RELATORIOS.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [slug]);
+
+  const range = useMemo(() => resolveRange(preset, customStart, customEnd), [preset, customStart, customEnd]);
+  const scoped = useMemo(() => {
+    if (!data) return { clients: [] as Client[], profiles: [] as Profile[], opportunities: [] as Opportunity[], activities: [] as Activity[], quotes: [] as Quote[] };
+    if (!data.isManager || representativeId === "ALL") return data;
+    const clientIds = new Set(data.clients.filter((item) => item.representativeProfileId === representativeId).map((item) => item.id));
+    return {
+      ...data,
+      clients: data.clients.filter((item) => clientIds.has(item.id)),
+      profiles: data.profiles.filter((item) => clientIds.has(item.client_id)),
+      opportunities: data.opportunities.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id || "")),
+      activities: data.activities.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id)),
+      quotes: data.quotes.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id || "")),
+    };
+  }, [data, representativeId]);
+
+  const activeDefinition = reports.find((item) => item.key === activeReport)!;
+  const canViewActive = !activeDefinition.managerOnly || Boolean(data?.isManager);
+
+  return <section style={shellStyle}>
+    <header style={headerStyle}>
+      <div><span style={eyebrowStyle}>INTELIGENCIA COMERCIAL</span><h2 style={titleStyle}>RELATORIOS</h2><p style={subtitleStyle}>ANALISES PARA PRIORIZAR ACOES COMERCIAIS, NAO APENAS ACOMPANHAR NUMEROS.</p></div>
+      <div style={periodHintStyle}>PERIODO: {displayDate(range.start)} A {displayDate(range.end)}</div>
+    </header>
+    <nav style={navigationStyle} aria-label="RELATORIOS COMERCIAIS">
+      {reports.map((item) => {
+        const restricted = item.managerOnly && !data?.isManager;
+        return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} style={{ ...navigationButtonStyle, ...(activeReport === item.key ? activeNavigationButtonStyle : {}), ...(restricted ? restrictedNavigationButtonStyle : {}) }}>
+          <b>{String(item.number).padStart(2, "0")}</b><span>{item.title}</span>{restricted ? <small>GERENCIA</small> : null}
+        </button>;
+      })}
+    </nav>
+    <section style={filterStyle}>
+      <label style={filterLabelStyle}>PERIODO<select value={preset} onChange={(event) => setPreset(event.target.value as PeriodPreset)} style={selectStyle}><option value="CURRENT">MES ATUAL</option><option value="PREVIOUS">MES ANTERIOR</option><option value="CUSTOM">PERSONALIZADO</option></select></label>
+      {preset === "CUSTOM" ? <><label style={filterLabelStyle}>DE<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} style={inputStyle} /></label><label style={filterLabelStyle}>ATE<input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} style={inputStyle} /></label></> : null}
+      {data?.isManager ? <label style={filterLabelStyle}>REPRESENTANTE<select value={representativeId} onChange={(event) => setRepresentativeId(event.target.value)} style={selectStyle}><option value="ALL">TODA A EQUIPE</option>{data.representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : <div style={ownDataStyle}>EXIBINDO SOMENTE SEUS DADOS</div>}
+    </section>
+    {loading ? <div style={emptyStyle}>CARREGANDO RELATORIOS...</div> : null}
+    {error ? <div style={errorStyle}>{error}</div> : null}
+    {!loading && !error && data && canViewActive ? <ReportContent report={activeReport} data={scoped as ReportData} rawData={data} range={range} /> : null}
+    {!loading && data && !canViewActive ? <div style={emptyStyle}>ESTE RELATORIO E EXCLUSIVO PARA ADMINISTRADORES E GERENTES.</div> : null}
+  </section>;
+}
+
+function ReportContent({ report, data, rawData, range }: { report: ReportKey; data: ReportData; rawData: ReportData; range: { start: string; end: string } }) {
+  const clientById = new Map(data.clients.map((item) => [item.id, item]));
+  const profileByClient = new Map(data.profiles.map((item) => [item.client_id, item]));
+  const inRangeOpps = data.opportunities.filter((item) => inRange(item.updated_at, range));
+  const won = inRangeOpps.filter((item) => item.stage === "WON");
+  const lost = inRangeOpps.filter((item) => item.stage === "LOST");
+  const open = data.opportunities.filter((item) => !["WON", "LOST"].includes(item.stage));
+  const totalWon = sum(won, (item) => item.estimated_value);
+  const totalLost = sum(lost, (item) => item.estimated_value);
+
+  if (report === "closing") {
+    const qualified = [...won, ...lost];
+    return <ReportLayout title="FECHAMENTO DO MES" description="GANHOS E PERDAS SAO CLASSIFICADOS PELA ULTIMA ATUALIZACAO DA OPORTUNIDADE, POIS O CRM AINDA NAO REGISTRA UMA DATA DE FECHAMENTO SEPARADA.">
+      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("GANHO", totalWon, "#16a34a"), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO", qualified.length ? `${Math.round((won.length / qualified.length) * 100)}%` : "-", "#0284c7", true), metric("TICKET MEDIO GANHO", won.length ? totalWon / won.length : 0, "#e68019")]}/>
+      <StageTable opportunities={inRangeOpps} />
+    </ReportLayout>;
+  }
+  if (report === "pipeline") return <ReportLayout title="FUNIL COMERCIAL" description="MOSTRA VALOR, quantidade e tempo medio em cada etapa aberta."><StageTable opportunities={open} showAge /></ReportLayout>;
+  if (report === "forecast") {
+    const forecast = open.filter((item) => !item.expected_close_date || inRange(item.expected_close_date, range));
+    const levels = [{ label: "ALTA CONFIANCA", stages: ["NEGOTIATION"], weight: .8, color: "#16a34a" }, { label: "MEDIA CONFIANCA", stages: ["QUOTE_SENT"], weight: .5, color: "#e68019" }, { label: "BAIXA CONFIANCA", stages: ["CONTACT_PENDING", "CONTACTED", "QUOTE_PREPARATION"], weight: .2, color: "#7c3aed" }];
+    const weightedValue = (item: Opportunity) => {
+      const level = levels.find((entry) => entry.stages.includes(item.stage));
+      const profile = profileByClient.get(item.client_id || "");
+      return item.estimated_value * confidenceWeight(level?.weight || 0, profile);
+    };
+    const frequencyOnTime = forecast.filter((item) => isWithinPurchaseFrequency(profileByClient.get(item.client_id || ""))).length;
+    return <ReportLayout title="PREVISAO DE FATURAMENTO" description="A confianca considera a etapa do funil e a aderencia a frequencia de compra do cliente. Ela nao soma toda oportunidade como receita certa."><MetricGrid items={levels.map((level) => { const items = forecast.filter((item) => level.stages.includes(item.stage)); return metric(level.label, sum(items, weightedValue), level.color); }).concat([metric("PREVISAO PONDERADA", sum(forecast, weightedValue), "#141827"), metric("DENTRO DA FREQUENCIA", `${frequencyOnTime}/${forecast.length || 0}`, "#0284c7", true)])}/><OpportunityTable opportunities={forecast} clients={clientById} /></ReportLayout>;
+  }
+  if (report === "losses") return <ReportLayout title="MOTIVOS DE PERDA" description="A lista vem do cadastro geral do CRM. O motivo agora e obrigatorio em novas perdas."><RankTable rows={groupRows(lost, (item) => item.lost_reason || "NAO INFORMADO", (item) => item.estimated_value)} labels={["MOTIVO", "PERDAS", "VALOR"]} /></ReportLayout>;
+  if (report === "clients") return <ReportLayout title="RANKING DE CLIENTES" description="Classifica pelo valor de oportunidades ganhas no periodo. Sem faturamento integrado, este valor representa negocios ganhos no CRM."><RankTable rows={groupRows(won, (item) => clientById.get(item.client_id || "")?.name || "SEM CLIENTE", (item) => item.estimated_value)} labels={["CLIENTE", "GANHOS", "VALOR"]} /></ReportLayout>;
+  if (report === "materials") {
+    const fichaById = new Map(data.productFichas.map((item) => [item.id || "", item]));
+    const materialById = new Map(data.materials.map((item) => [item.id || "", item]));
+    return <ReportLayout title="RANKING POR MATERIAL" description="Agrupa oportunidades pelo tipo de papelao da ficha tecnica vinculada. Itens sem ficha ou material aparecem como nao informado."><RankTable rows={groupRows(data.opportunities.filter((item) => inRange(item.created_at, range)), (item) => { const ficha = fichaById.get(item.product_ficha_id || ""); return materialById.get(ficha?.materialId || "")?.paperType || "NAO INFORMADO"; }, (item) => item.estimated_value)} labels={["MATERIAL", "OPORTUNIDADES", "VALOR ORCADO"]} /></ReportLayout>;
+  }
+  if (report === "team") return <ReportLayout title="DESEMPENHO POR VENDEDOR" description="Visao gerencial: compara conversao, valor ganho e tempo de ciclo por representante."><TeamTable opportunities={inRangeOpps} clients={clientById} /></ReportLayout>;
+  if (report === "followup") {
+    const lastActivityByOpportunity = new Map<string, Activity>();
+    data.activities.forEach((item) => { if (item.opportunity_id && (!lastActivityByOpportunity.has(item.opportunity_id) || item.occurred_at > lastActivityByOpportunity.get(item.opportunity_id)!.occurred_at)) lastActivityByOpportunity.set(item.opportunity_id, item); });
+    const unattended = open.filter((item) => ["QUOTE_SENT", "NEGOTIATION"].includes(item.stage) && daysSince(lastActivityByOpportunity.get(item.id)?.occurred_at || item.updated_at) >= 3).sort((a, b) => daysSince(lastActivityByOpportunity.get(b.id)?.occurred_at || b.updated_at) - daysSince(lastActivityByOpportunity.get(a.id)?.occurred_at || a.updated_at));
+    return <ReportLayout title="ORCAMENTOS SEM RETORNO" description="Oportunidades abertas sem atividade registrada ha tres dias ou mais. Esta e uma lista de acao comercial."><OpportunityTable opportunities={unattended} clients={clientById} activityByOpportunity={lastActivityByOpportunity} /></ReportLayout>;
+  }
+  if (report === "cycle") {
+    const closed = [...won, ...lost];
+    return <ReportLayout title="CICLO DE VENDAS" description="Tempo entre criacao e ultima atualizacao da oportunidade. Para os registros atuais, a ultima atualizacao e usada como data de encerramento."><MetricGrid items={[metric("CICLO MEDIO GANHO", average(won.map((item) => daysBetween(item.created_at, item.updated_at))), "#16a34a", true), metric("CICLO MEDIO PERDIDO", average(lost.map((item) => daysBetween(item.created_at, item.updated_at))), "#f43f5e", true), metric("NEGOCIOS ENCERRADOS", closed.length, "#7c3aed", true)]}/><StageTable opportunities={closed} showAge /></ReportLayout>;
+  }
+  if (report === "risk") {
+    const activeClientIds = new Set(open.map((item) => item.client_id || ""));
+    const atRisk = data.clients.map((client) => ({ client, profile: profileByClient.get(client.id) })).filter(({ client, profile }) => { const frequency = Number(profile?.purchase_frequency_days || 0); if (!frequency || !profile?.last_purchase_at || activeClientIds.has(client.id)) return false; return daysSince(profile.last_purchase_at) > frequency; }).sort((a, b) => (daysSince(b.profile?.last_purchase_at || "") - Number(b.profile?.purchase_frequency_days || 0)) - (daysSince(a.profile?.last_purchase_at || "") - Number(a.profile?.purchase_frequency_days || 0)));
+    return <ReportLayout title="CLIENTES EM RISCO" description="Clientes que passaram da frequencia de compra definida e nao possuem oportunidade ativa."><RiskTable rows={atRisk} /></ReportLayout>;
+  }
+  if (report === "goals") {
+    const goals = rawData.salesGoals || {}; const combinedGoal = Number(goals.combinedMonthlyRevenue || 0);
+    const byCompany = ["dawos", "carcat", "gta"].map((slug) => { const actual = sum(won.filter((item) => clientById.get(item.client_id || "")?.sellerCompanySlug === slug), (item) => item.estimated_value); return { name: slug.toUpperCase(), actual, goal: Number(goals.byCompany?.[slug] || 0) }; });
+    return <ReportLayout title="META X REALIZADO" description="Consolida Dawos, Carcat e GTA independentemente da empresa atendente de cada cliente."><MetricGrid items={[metric("META TOTAL", combinedGoal, "#7c3aed"), metric("REALIZADO TOTAL", totalWon, "#16a34a"), metric("ATINGIMENTO", combinedGoal ? `${Math.round((totalWon / combinedGoal) * 100)}%` : "META NAO CONFIGURADA", "#0284c7", true)]}/><GoalTable rows={byCompany} /></ReportLayout>;
+  }
+  const overdueAgenda = data.activities.filter((item) => item.next_action_at && item.next_action_at < new Date().toISOString()).length;
+  return <ReportLayout title="RELATORIO EXECUTIVO" description="Resumo gerencial do periodo selecionado."><MetricGrid items={[metric("GANHO", totalWon, "#16a34a"), metric("PERDIDO", totalLost, "#f43f5e"), metric("EM ABERTO", sum(open, (item) => item.estimated_value), "#7c3aed"), metric("AGENDA ATRASADA", overdueAgenda, "#e68019", true), metric("CLIENTES EM CARTEIRA", data.clients.length, "#0284c7", true)]}/><StageTable opportunities={inRangeOpps}/></ReportLayout>;
+}
+
+function ReportLayout({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section style={contentStyle}><div style={contentHeaderStyle}><h3 style={contentTitleStyle}>{title}</h3><p style={contentDescriptionStyle}>{description}</p></div>{children}</section>; }
+function MetricGrid({ items }: { items: Array<{ label: string; value: string; color: string }> }) { return <div style={metricGridStyle}>{items.map((item) => <article key={item.label} style={{ ...metricCardStyle, borderTopColor: item.color }}><span>{item.label}</span><strong style={{ color: item.color }}>{item.value}</strong></article>)}</div>; }
+function StageTable({ opportunities, showAge = false }: { opportunities: Opportunity[]; showAge?: boolean }) { const rows = groupRows(opportunities, (item) => stageLabels[item.stage] || item.stage, (item) => item.estimated_value); return <table style={tableStyle}><thead><tr><th>ETAPA</th><th>QUANTIDADE</th><th>VALOR</th>{showAge ? <th>TEMPO MEDIO</th> : null}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td>{showAge ? <td>{Math.round(average(opportunities.filter((item) => (stageLabels[item.stage] || item.stage) === row.label).map((item) => daysSince(item.created_at))))} DIAS</td> : null}</tr>)}</tbody></table>; }
+function RankTable({ rows, labels }: { rows: Array<{ label: string; count: number; value: number }>; labels: string[] }) { return <table style={tableStyle}><thead><tr>{labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td></tr>)}{!rows.length ? <tr><td colSpan={labels.length} style={emptyCellStyle}>SEM DADOS NO PERIODO.</td></tr> : null}</tbody></table>; }
+function OpportunityTable({ opportunities, clients, activityByOpportunity }: { opportunities: Opportunity[]; clients: Map<string, Client>; activityByOpportunity?: Map<string, Activity> }) { return <table style={tableStyle}><thead><tr><th>CLIENTE</th><th>OPORTUNIDADE</th><th>ETAPA</th><th>VALOR</th><th>PREVISAO</th>{activityByOpportunity ? <th>SEM RETORNO</th> : null}</tr></thead><tbody>{opportunities.map((item) => <tr key={item.id}><td>{clients.get(item.client_id || "")?.name || "SEM CLIENTE"}</td><td>{item.title}</td><td>{stageLabels[item.stage] || item.stage}</td><td>{money(item.estimated_value)}</td><td>{displayDate(item.expected_close_date || "")}</td>{activityByOpportunity ? <td>{daysSince(activityByOpportunity.get(item.id)?.occurred_at || item.updated_at)} DIAS</td> : null}</tr>)}{!opportunities.length ? <tr><td colSpan={activityByOpportunity ? 6 : 5} style={emptyCellStyle}>NENHUMA OPORTUNIDADE NESTA VISAO.</td></tr> : null}</tbody></table>; }
+function TeamTable({ opportunities, clients }: { opportunities: Opportunity[]; clients: Map<string, Client> }) { const rows = groupRows(opportunities, (item) => clients.get(item.client_id || "")?.representativeName || "SEM REPRESENTANTE", (item) => item.estimated_value); return <RankTable rows={rows} labels={["REPRESENTANTE", "OPORTUNIDADES", "VALOR MOVIMENTADO"]} />; }
+function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }> }) { return <table style={tableStyle}><thead><tr><th>CLIENTE</th><th>REPRESENTANTE</th><th>FREQUENCIA</th><th>ULTIMA COMPRA</th><th>ATRASO</th></tr></thead><tbody>{rows.map(({ client, profile }) => <tr key={client.id}><td>{client.name}</td><td>{client.representativeName}</td><td>{profile?.purchase_frequency_days} DIAS</td><td>{displayDate(profile?.last_purchase_at || "")}</td><td>{daysSince(profile?.last_purchase_at || "") - Number(profile?.purchase_frequency_days || 0)} DIAS</td></tr>)}{!rows.length ? <tr><td colSpan={5} style={emptyCellStyle}>NENHUM CLIENTE FORA DA FREQUENCIA DE COMPRA.</td></tr> : null}</tbody></table>; }
+function GoalTable({ rows }: { rows: Array<{ name: string; actual: number; goal: number }> }) { return <table style={tableStyle}><thead><tr><th>EMPRESA</th><th>META</th><th>REALIZADO</th><th>ATINGIMENTO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{money(row.goal)}</td><td>{money(row.actual)}</td><td>{row.goal ? `${Math.round((row.actual / row.goal) * 100)}%` : "META NAO CONFIGURADA"}</td></tr>)}</tbody></table>; }
+
+function metric(label: string, value: number | string, color: string, plain = false) { return { label, value: plain || typeof value === "string" ? String(value) : money(value), color }; }
+function groupRows<T>(items: T[], getLabel: (item: T) => string, getValue: (item: T) => number) { const groups = new Map<string, { label: string; count: number; value: number }>(); items.forEach((item) => { const label = getLabel(item); const current = groups.get(label) || { label, count: 0, value: 0 }; current.count += 1; current.value += Number(getValue(item) || 0); groups.set(label, current); }); return [...groups.values()].sort((a, b) => b.value - a.value || b.count - a.count); }
+function sum<T>(items: T[], getValue: (item: T) => number) { return items.reduce((total, item) => total + Number(getValue(item) || 0), 0); }
+function average(values: number[]) { return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0; }
+function daysSince(value: string) { return value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)) : 0; }
+function daysBetween(start: string, end: string) { return Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 86_400_000)); }
+function isWithinPurchaseFrequency(profile?: Profile) { const frequency = Number(profile?.purchase_frequency_days || 0); return Boolean(frequency && profile?.last_purchase_at && daysSince(profile.last_purchase_at) <= frequency); }
+function confidenceWeight(base: number, profile?: Profile) { if (!profile?.purchase_frequency_days || !profile.last_purchase_at) return base; return Math.max(.1, Math.min(.95, base + (isWithinPurchaseFrequency(profile) ? .1 : -.15))); }
+function inRange(value: string, range: { start: string; end: string }) { const date = value.slice(0, 10); return Boolean(date && date >= range.start && date <= range.end); }
+function resolveRange(preset: PeriodPreset, customStart: string, customEnd: string) { const today = new Date(); if (preset === "CUSTOM") return { start: customStart, end: customEnd }; if (preset === "CURRENT") return { start: isoMonthStart(today), end: isoToday() }; const previous = new Date(today.getFullYear(), today.getMonth() - 1, 1); return { start: isoMonthStart(previous), end: isoMonthEnd(previous) }; }
+function isoToday() { return new Date().toISOString().slice(0, 10); }
+function isoMonthStart(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-01`; }
+function isoMonthEnd(value: Date) { return new Date(value.getFullYear(), value.getMonth() + 1, 0).toISOString().slice(0, 10); }
+function displayDate(value: string) { if (!value) return "NAO INFORMADA"; const [year, month, day] = value.slice(0, 10).split("-"); return year && month && day ? `${day}/${month}/${year}` : value; }
+function money(value: number) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0)); }
+
+const shellStyle = { display: "grid", gap: 18 };
+const headerStyle = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, flexWrap: "wrap" as const };
+const eyebrowStyle = { color: "#7c3aed", fontSize: 11, fontWeight: 900, letterSpacing: 2.4 };
+const titleStyle = { margin: "6px 0 4px", color: "#141827", fontSize: 29, fontWeight: 900, letterSpacing: 0 };
+const subtitleStyle = { margin: 0, color: "#667085", fontSize: 13, fontWeight: 700, maxWidth: 720 };
+const periodHintStyle = { padding: "10px 13px", border: "1px solid #d9cdf9", borderRadius: 8, background: "#faf8ff", color: "#6f32d2", fontSize: 11, fontWeight: 900, letterSpacing: .6 };
+const navigationStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 };
+const navigationButtonStyle = { minHeight: 56, display: "grid", gridTemplateColumns: "32px minmax(0,1fr)", alignItems: "center", gap: 7, padding: "8px 10px", border: "1px solid #d8dee9", borderRadius: 7, background: "#fff", color: "#344054", textAlign: "left" as const, cursor: "pointer", fontSize: 10, fontWeight: 900, letterSpacing: .35 };
+const activeNavigationButtonStyle = { borderColor: "#7c3aed", background: "#7c3aed", color: "#fff", boxShadow: "0 8px 18px rgba(124,58,237,.20)" };
+const restrictedNavigationButtonStyle = { opacity: .48, cursor: "not-allowed", background: "#f5f6f8" };
+const filterStyle = { display: "flex", alignItems: "end", gap: 12, flexWrap: "wrap" as const, padding: 14, border: "1px solid #ddd6fe", borderRadius: 8, background: "#fcfbff" };
+const filterLabelStyle = { display: "grid", gap: 5, color: "#475467", fontSize: 10, fontWeight: 900, letterSpacing: .8 };
+const selectStyle = { minHeight: 38, minWidth: 178, padding: "0 10px", border: "1px solid #cfd6e4", borderRadius: 6, background: "#fff", color: "#141827", fontSize: 12, fontWeight: 800 };
+const inputStyle = { minHeight: 38, padding: "0 10px", border: "1px solid #cfd6e4", borderRadius: 6, background: "#fff", color: "#141827", fontSize: 12, fontWeight: 800 };
+const ownDataStyle = { minHeight: 38, display: "grid", placeItems: "center", padding: "0 12px", borderRadius: 6, background: "#eefaf2", color: "#16803e", fontSize: 10, fontWeight: 900, letterSpacing: .7 };
+const contentStyle = { display: "grid", gap: 16, padding: 18, border: "1px solid #d8dee9", borderRadius: 8, background: "#fff" };
+const contentHeaderStyle = { display: "grid", gap: 5, paddingBottom: 13, borderBottom: "1px solid #eef0f4" };
+const contentTitleStyle = { margin: 0, color: "#141827", fontSize: 18, fontWeight: 900, letterSpacing: 0 };
+const contentDescriptionStyle = { margin: 0, color: "#667085", fontSize: 12, fontWeight: 700, lineHeight: 1.45 };
+const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))", gap: 10 };
+const metricCardStyle = { minHeight: 78, display: "grid", alignContent: "center", gap: 8, padding: "11px 13px", border: "1px solid #e2e6ef", borderTop: "4px solid", borderRadius: 7, background: "#fff" };
+const tableStyle = { width: "100%", borderCollapse: "collapse" as const, fontSize: 12 };
+const emptyStyle = { padding: 36, border: "1px dashed #c8b7f3", borderRadius: 8, color: "#667085", textAlign: "center" as const, fontSize: 13, fontWeight: 800 };
+const errorStyle = { padding: 14, border: "1px solid #fcb6be", borderRadius: 7, background: "#fff1f2", color: "#be123c", fontSize: 12, fontWeight: 800 };
+const emptyCellStyle = { padding: 20, textAlign: "center" as const, color: "#667085", fontWeight: 700 };

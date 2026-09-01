@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ReminderFormula, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ReminderFormula, SalesGoals, SpecificMaterial, Supplier } from "@/types/gerenciador";
 
 export const initialSuppliers: Supplier[] = [
   "COCELPA",
@@ -213,6 +213,11 @@ export const defaultPricingGoalsByCompany: PricingGoalsByCompany = {
   dawos: clonePricingGoals(),
   carcat: clonePricingGoals(),
   gta: clonePricingGoals(),
+};
+
+export const defaultSalesGoals: SalesGoals = {
+  combinedMonthlyRevenue: 0,
+  byCompany: { dawos: 0, carcat: 0, gta: 0 },
 };
 
 export const defaultQuoteParametersByCompany: import("@/types/gerenciador").QuoteParametersByCompany = {

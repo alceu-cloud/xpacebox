@@ -18,6 +18,7 @@ import type {
   CrmProfileInput,
 } from "@/types/crm";
 import type { ProductFicha } from "@/types/gerenciador";
+import type { GeneralOption } from "@/types/cadastros-gerais";
 
 type CrmView = "agenda" | "carteira" | "pipeline";
 type CrmClosedPeriod = "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM";
@@ -94,6 +95,7 @@ export default function CrmEmpresa({
   representatives,
   sellerCompanies,
   productFichas,
+  lostReasons,
   forcedClientId = "",
 }: {
   slug: string;
@@ -101,6 +103,7 @@ export default function CrmEmpresa({
   representatives: RepresentativeOption[];
   sellerCompanies: SellerCompanyOption[];
   productFichas: ProductFicha[];
+  lostReasons: GeneralOption[];
   forcedClientId?: string;
 }) {
   const { isBlocked: crmBlocked, lock: crmLock, refreshOperationalLock } = useCrmOperationalLock();
@@ -122,6 +125,8 @@ export default function CrmEmpresa({
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
   const [activityDraft, setActivityDraft] = useState<CrmActivityInput>(emptyActivity);
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
+  const [lostStagePrompt, setLostStagePrompt] = useState<CrmOpportunity | null>(null);
+  const [lostStageReason, setLostStageReason] = useState("");
 
   useEffect(() => {
     if (!forcedClientId) return;
@@ -313,6 +318,10 @@ export default function CrmEmpresa({
       setError("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.");
       return;
     }
+    if (opportunityDraft.stage === "LOST" && !opportunityDraft.lostReason.trim()) {
+      setError("INFORME O MOTIVO DA PERDA.");
+      return;
+    }
     setSaving(true);
     clearFeedback();
     try {
@@ -344,8 +353,14 @@ export default function CrmEmpresa({
     }
   }
 
-  async function handleStageChange(opportunity: CrmOpportunity, stage: CrmOpportunityStage) {
+  async function handleStageChange(opportunity: CrmOpportunity, stage: CrmOpportunityStage, selectedLostReason = "") {
+    if (stage === "LOST" && !(selectedLostReason || opportunity.lostReason).trim()) {
+      setLostStagePrompt(opportunity);
+      setLostStageReason("");
+      return;
+    }
     const previousStage = opportunity.stage;
+    const lostReason = stage === "LOST" ? selectedLostReason || opportunity.lostReason : opportunity.lostReason;
     setSaving(true);
     clearFeedback();
     setOverview((current) => ({
@@ -366,7 +381,7 @@ export default function CrmEmpresa({
         estimatedValue: opportunity.estimatedValue,
         expectedCloseDate: opportunity.expectedCloseDate,
         notes: opportunity.notes,
-        lostReason: opportunity.lostReason,
+        lostReason,
       });
       await refresh(true);
       await refreshOperationalLock();
@@ -554,6 +569,7 @@ export default function CrmEmpresa({
               scheduledActivity={scheduledActivity}
               scheduledAgendaAt={scheduledAgendaAt}
               productFichas={productFichas}
+              lostReasons={lostReasons}
               onSaveProfile={handleSaveProfile}
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
@@ -588,8 +604,35 @@ export default function CrmEmpresa({
         />
       ) : null}
 
+      {lostStagePrompt ? <LostReasonModal
+        reasons={lostReasons}
+        value={lostStageReason}
+        onChange={setLostStageReason}
+        onCancel={() => setLostStagePrompt(null)}
+        onConfirm={() => {
+          if (!lostStageReason) return;
+          const opportunity = lostStagePrompt;
+          setLostStagePrompt(null);
+          void handleStageChange(opportunity, "LOST", lostStageReason);
+        }}
+      /> : null}
+
     </section>
   );
+}
+
+function LostReasonModal({ reasons, value, onChange, onCancel, onConfirm }: { reasons: GeneralOption[]; value: string; onChange: (value: string) => void; onCancel: () => void; onConfirm: () => void }) {
+  return <div className="crm-lost-reason-overlay" role="presentation">
+    <section className="crm-lost-reason-modal" role="dialog" aria-modal="true" aria-label="MOTIVO DA PERDA">
+      <span>OPORTUNIDADE PERDIDA</span>
+      <h3>QUAL FOI O MOTIVO?</h3>
+      <select value={value} onChange={(event) => onChange(event.target.value)} autoFocus>
+        <option value="">SELECIONE...</option>
+        {reasons.map((reason) => <option key={reason.id} value={reason.name}>{reason.name}</option>)}
+      </select>
+      <div><button type="button" onClick={onCancel}>CANCELAR</button><button type="button" disabled={!value} onClick={onConfirm}>CONFIRMAR PERDA</button></div>
+    </section>
+  </div>;
 }
 
 function AgendaBoard({
@@ -703,6 +746,7 @@ function ClientDetail({
   scheduledActivity,
   scheduledAgendaAt,
   productFichas,
+  lostReasons,
   onSaveProfile,
   onSaveActivity,
   onSaveOpportunity,
@@ -725,6 +769,7 @@ function ClientDetail({
   scheduledActivity?: CrmOverview["activities"][number];
   scheduledAgendaAt: string;
   productFichas: ProductFicha[];
+  lostReasons: GeneralOption[];
   onSaveProfile: () => void;
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
@@ -855,6 +900,7 @@ function ClientDetail({
           <div className="crm-profile-grid">
             <CrmInput label="OPORTUNIDADE" value={opportunityDraft.title} onChange={(title) => setOpportunityDraft({ ...opportunityDraft, title: upper(title) })} />
             <CrmSelect label="ETAPA" value={opportunityDraft.stage} onChange={(stage) => setOpportunityDraft({ ...opportunityDraft, stage: stage as CrmOpportunityStage })} options={stageOptions} />
+            {opportunityDraft.stage === "LOST" ? <CrmSelect label="MOTIVO DA PERDA" value={opportunityDraft.lostReason} onChange={(lostReason) => setOpportunityDraft({ ...opportunityDraft, lostReason })} options={lostReasons.map((item) => ({ value: item.name, label: item.name }))} /> : null}
             <CrmSelect label="PRODUTO CADASTRADO" value={opportunityDraft.productFichaId || ""} onChange={(productFichaId) => {
               const product = availableProducts.find((item) => item.id === productFichaId);
               if (!product) {

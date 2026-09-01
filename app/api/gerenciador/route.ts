@@ -17,6 +17,8 @@ const allowedKeys = new Set([
   "taxRegimes",
   "fiscalProfiles",
   "fiscalBenefits",
+  "lostReasons",
+  "salesGoals",
   "productFichas",
   "productColors",
   "quoteParameters",

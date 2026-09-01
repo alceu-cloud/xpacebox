@@ -16,10 +16,10 @@ import {
   reminderFormulas,
 } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
-import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
+import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
 import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SalesGoals, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
@@ -89,6 +89,8 @@ type GerenciadorEmpresaProps = {
   taxRegimes?: GeneralOption[];
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
+  lostReasons?: GeneralOption[];
+  salesGoals?: SalesGoals;
   productFichas?: ProductFicha[];
   productColors?: string[];
   onSuppliersChange?: (suppliers: Supplier[]) => void;
@@ -106,6 +108,8 @@ type GerenciadorEmpresaProps = {
   onTaxRegimesChange?: (items: GeneralOption[]) => void;
   onFiscalProfilesChange?: (items: GeneralOption[]) => void;
   onFiscalBenefitsChange?: (items: GeneralOption[]) => void;
+  onLostReasonsChange?: (items: GeneralOption[]) => void;
+  onSalesGoalsChange?: (goals: SalesGoals) => void;
   onProductFichasChange?: (items: ProductFicha[]) => void;
   onProductColorsChange?: (items: string[]) => void;
 };
@@ -127,6 +131,8 @@ export default function GerenciadorEmpresa({
   taxRegimes: controlledTaxRegimes,
   fiscalProfiles: controlledFiscalProfiles,
   fiscalBenefits: controlledFiscalBenefits,
+  lostReasons: controlledLostReasons,
+  salesGoals: controlledSalesGoals,
   productFichas: controlledProductFichas,
   productColors: controlledProductColors,
   onSuppliersChange,
@@ -144,6 +150,8 @@ export default function GerenciadorEmpresa({
   onTaxRegimesChange,
   onFiscalProfilesChange,
   onFiscalBenefitsChange,
+  onLostReasonsChange,
+  onSalesGoalsChange,
   onProductFichasChange,
   onProductColorsChange,
 }: GerenciadorEmpresaProps = {}) {
@@ -166,6 +174,8 @@ export default function GerenciadorEmpresa({
   const [localTaxRegimes, setLocalTaxRegimes] = useState(initialTaxRegimes);
   const [localFiscalProfiles, setLocalFiscalProfiles] = useState(initialFiscalProfiles);
   const [localFiscalBenefits, setLocalFiscalBenefits] = useState(initialFiscalBenefits);
+  const [localLostReasons, setLocalLostReasons] = useState(initialLostReasons);
+  const [localSalesGoals, setLocalSalesGoals] = useState({ combinedMonthlyRevenue: 0, byCompany: { dawos: 0, carcat: 0, gta: 0 } });
   const [productionFilter, setProductionFilter] = useState("");
   const [form, setForm] = useState<null | { type: Tab; mode: Mode; id?: string }>(null);
   const [supplierDraft, setSupplierDraft] = useState(emptySupplier);
@@ -190,6 +200,8 @@ export default function GerenciadorEmpresa({
   const taxRegimes = controlledTaxRegimes ?? localTaxRegimes;
   const fiscalProfiles = controlledFiscalProfiles ?? localFiscalProfiles;
   const fiscalBenefits = controlledFiscalBenefits ?? localFiscalBenefits;
+  const lostReasons = controlledLostReasons ?? localLostReasons;
+  const salesGoals = controlledSalesGoals ?? localSalesGoals;
   const setSuppliers = onSuppliersChange ?? setLocalSuppliers;
   const setPaperTypes = onPaperTypesChange ?? setLocalPaperTypes;
   const setMaterials = onMaterialsChange ?? setLocalMaterials;
@@ -205,6 +217,8 @@ export default function GerenciadorEmpresa({
   const setTaxRegimes = onTaxRegimesChange ?? setLocalTaxRegimes;
   const setFiscalProfiles = onFiscalProfilesChange ?? setLocalFiscalProfiles;
   const setFiscalBenefits = onFiscalBenefitsChange ?? setLocalFiscalBenefits;
+  const setLostReasons = onLostReasonsChange ?? setLocalLostReasons;
+  const setSalesGoals = onSalesGoalsChange ?? setLocalSalesGoals;
 
   const activeTitle = useMemo(() => {
     if (activeTab === "fornecedores") return "GERENCIADOR DE FORNECEDORES";
@@ -281,11 +295,13 @@ export default function GerenciadorEmpresa({
             taxRegimes={taxRegimes}
             fiscalProfiles={fiscalProfiles}
             fiscalBenefits={fiscalBenefits}
+            lostReasons={lostReasons}
             onPaymentConditionsChange={setPaymentConditions}
             onCfopsChange={setCfops}
             onTaxRegimesChange={setTaxRegimes}
             onFiscalProfilesChange={setFiscalProfiles}
             onFiscalBenefitsChange={setFiscalBenefits}
+            onLostReasonsChange={setLostReasons}
           />
         </section>
       </main>
@@ -614,7 +630,7 @@ export default function GerenciadorEmpresa({
           )}
 
           {activeTab === "metas" && (
-            <PricingGoalsPanel goalsByCompany={pricingGoalsByCompany} onChange={setPricingGoalsByCompany} />
+            <PricingGoalsPanel goalsByCompany={pricingGoalsByCompany} onChange={setPricingGoalsByCompany} salesGoals={salesGoals} onSalesGoalsChange={setSalesGoals} />
           )}
 
           {activeTab === "orcamento" && (
@@ -1217,11 +1233,13 @@ function GeneralRegistriesPanel({
   taxRegimes,
   fiscalProfiles,
   fiscalBenefits,
+  lostReasons,
   onPaymentConditionsChange,
   onCfopsChange,
   onTaxRegimesChange,
   onFiscalProfilesChange,
   onFiscalBenefitsChange,
+  onLostReasonsChange,
 }: {
   companySlug?: string;
   paymentConditions: PaymentCondition[];
@@ -1229,11 +1247,13 @@ function GeneralRegistriesPanel({
   taxRegimes: GeneralOption[];
   fiscalProfiles: GeneralOption[];
   fiscalBenefits: GeneralOption[];
+  lostReasons: GeneralOption[];
   onPaymentConditionsChange: (items: PaymentCondition[]) => void;
   onCfopsChange: (items: CfopOption[]) => void;
   onTaxRegimesChange: (items: GeneralOption[]) => void;
   onFiscalProfilesChange: (items: GeneralOption[]) => void;
   onFiscalBenefitsChange: (items: GeneralOption[]) => void;
+  onLostReasonsChange: (items: GeneralOption[]) => void;
 }) {
   const [generalSection, setGeneralSection] = useState<"cadastros" | "limites">("cadastros");
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -1376,6 +1396,7 @@ function GeneralRegistriesPanel({
       <SimpleGeneralRegistry title="REGIME TRIBUTARIO" description="REGIMES DISPONIVEIS PARA CLASSIFICAR O CLIENTE." addLabel="+ NOVO REGIME" items={taxRegimes} onChange={onTaxRegimesChange} />
       <SimpleGeneralRegistry title="PERFIL FISCAL" description="PERFIS FISCAIS USADOS NO ATENDIMENTO AO CLIENTE." addLabel="+ NOVO PERFIL" items={fiscalProfiles} onChange={onFiscalProfilesChange} />
       <SimpleGeneralRegistry title="BENEFICIO FISCAL ESPECIFICO" description="BENEFICIOS QUE PODEM SER ASSOCIADOS AO CLIENTE." addLabel="+ NOVO BENEFICIO" items={fiscalBenefits} onChange={onFiscalBenefitsChange} />
+      <SimpleGeneralRegistry title="MOTIVOS DE PERDA NO CRM" description="OPCOES OBRIGATORIAS QUANDO UMA OPORTUNIDADE E MARCADA COMO PERDIDA." addLabel="+ NOVO MOTIVO" items={lostReasons} onChange={onLostReasonsChange} />
       </div>
       )}
     </div>
@@ -1497,9 +1518,13 @@ function PricingParamsPanel({
 function PricingGoalsPanel({
   goalsByCompany,
   onChange,
+  salesGoals,
+  onSalesGoalsChange,
 }: {
   goalsByCompany: PricingGoalsByCompany;
   onChange: (goals: PricingGoalsByCompany) => void;
+  salesGoals: SalesGoals;
+  onSalesGoalsChange: (goals: SalesGoals) => void;
 }) {
   const [company, setCompany] = useState<PricingGoalCompany>("dawos");
   const goals = goalsByCompany[company];
@@ -1510,6 +1535,18 @@ function PricingGoalsPanel({
 
   return (
     <div style={goalsPanelStyle}>
+      <section style={pricingPanelStyle}>
+        <div style={pricingPanelHeaderStyle}>
+          <h4 style={subPanelTitleStyle}>METAS COMERCIAIS MENSAIS</h4>
+          <span style={greenBadgeStyle}>USADAS NO RELATORIO META X REALIZADO</span>
+        </div>
+        <div style={pricingOperationalFieldsStyle}>
+          <ParamField label="META TOTAL DAS 3 EMPRESAS (R$)" value={salesGoals.combinedMonthlyRevenue} color="#16a34a" wide onChange={(combinedMonthlyRevenue) => onSalesGoalsChange({ ...salesGoals, combinedMonthlyRevenue })} />
+          {(["dawos", "carcat", "gta"] as PricingGoalCompany[]).map((key) => (
+            <ParamField key={key} label={`META ${key.toUpperCase()} (R$)`} value={salesGoals.byCompany[key]} color="#7c3aed" onChange={(value) => onSalesGoalsChange({ ...salesGoals, byCompany: { ...salesGoals.byCompany, [key]: value } })} />
+          ))}
+        </div>
+      </section>
       <div style={goalCompanyTabsStyle}>
         {(["dawos", "carcat", "gta"] as PricingGoalCompany[]).map((key) => (
           <button

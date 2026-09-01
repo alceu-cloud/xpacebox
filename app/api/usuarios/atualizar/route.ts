@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAuth } from "@/lib/server/supabase-admin";
 
 
 export async function POST(request: Request) {
 
 
   try {
+
+    const authorization = request.headers.get("authorization");
+    if (!authorization?.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "Sessão não encontrada." }, { status: 401 });
+    }
 
 
     const supabaseUrl =
@@ -49,6 +55,20 @@ export async function POST(request: Request) {
         }
       );
 
+    const auth = createSupabaseAuth();
+    const { data: callerData, error: callerError } = await auth.auth.getUser(authorization.slice("Bearer ".length).trim());
+    if (callerError || !callerData.user) {
+      return NextResponse.json({ success: false, message: "Sessão inválida." }, { status: 401 });
+    }
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("platform_role, active")
+      .eq("id", callerData.user.id)
+      .maybeSingle();
+    if (!callerProfile?.active || callerProfile.platform_role !== "platform_owner") {
+      return NextResponse.json({ success: false, message: "Apenas administradores podem alterar usuários." }, { status: 403 });
+    }
+
 
 
 
@@ -63,6 +83,7 @@ export async function POST(request: Request) {
       nome,
       email,
       cargo,
+      empresa,
       senha
     } = body;
 
@@ -277,6 +298,31 @@ export async function POST(request: Request) {
       );
 
 
+    }
+
+    if (empresa) {
+      const { data: company, error: companyError } = await supabaseAdmin
+        .from("companies")
+        .select("id")
+        .eq("id", empresa)
+        .eq("active", true)
+        .maybeSingle();
+      if (companyError || !company) {
+        return NextResponse.json({ success: false, message: "Empresa inválida." }, { status: 400 });
+      }
+      const { data: existingMembership } = await supabaseAdmin
+        .from("company_members")
+        .select("profile_id")
+        .eq("profile_id", id)
+        .eq("company_id", empresa)
+        .maybeSingle();
+      const membershipQuery = existingMembership
+        ? supabaseAdmin.from("company_members").update({ active: true }).eq("profile_id", id).eq("company_id", empresa)
+        : supabaseAdmin.from("company_members").insert({ profile_id: id, company_id: empresa, active: true });
+      const { error: membershipError } = await membershipQuery;
+      if (membershipError) {
+        return NextResponse.json({ success: false, message: membershipError.message || "Erro ao vincular empresa." }, { status: 400 });
+      }
     }
 
 

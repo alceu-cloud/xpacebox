@@ -178,8 +178,13 @@ export async function atualizarUsuario(
   nome:string,
   email:string,
   cargo:string,
+  empresa:string,
   senha?:string
 ){
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("SESSAO EXPIRADA");
 
   const response =
     await fetch(
@@ -191,7 +196,10 @@ export async function atualizarUsuario(
         headers:{
 
           "Content-Type":
-            "application/json"
+            "application/json",
+
+          Authorization:
+            `Bearer ${token}`
 
         },
 
@@ -202,6 +210,7 @@ export async function atualizarUsuario(
           nome,
           email,
           cargo,
+          empresa,
           senha
 
         })
@@ -269,6 +278,10 @@ export async function excluirUsuario(
   id:string
 ){
 
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("SESSAO EXPIRADA");
+
   const response =
     await fetch(
       "/api/usuarios/excluir",
@@ -279,7 +292,10 @@ export async function excluirUsuario(
         headers:{
 
           "Content-Type":
-            "application/json"
+            "application/json",
+
+          Authorization:
+            `Bearer ${token}`
 
         },
 
@@ -325,6 +341,10 @@ id:string,
 senha:string
 ){
 
+const { data } = await supabase.auth.getSession();
+const token = data.session?.access_token;
+if (!token) throw new Error("SESSAO EXPIRADA");
+
 
 const response =
 await fetch(
@@ -336,7 +356,10 @@ method:"POST",
 headers:{
 
 "Content-Type":
-"application/json"
+"application/json",
+
+Authorization:
+`Bearer ${token}`
 
 },
 

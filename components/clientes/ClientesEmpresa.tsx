@@ -57,6 +57,7 @@ export default function ClientesEmpresa({
   taxRegimes = [],
   fiscalProfiles = [],
   fiscalBenefits = [],
+  lostReasons = [],
   productFichas = [],
   forceCrm = false,
   forcedClientId = "",
@@ -67,6 +68,7 @@ export default function ClientesEmpresa({
   taxRegimes?: GeneralOption[];
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
+  lostReasons?: GeneralOption[];
   productFichas?: ProductFicha[];
   forceCrm?: boolean;
   forcedClientId?: string;
@@ -263,6 +265,7 @@ export default function ClientesEmpresa({
           representatives={representatives}
           sellerCompanies={sellerCompanies}
           productFichas={productFichas}
+          lostReasons={lostReasons}
           forcedClientId={forcedClientId}
         />
       )}

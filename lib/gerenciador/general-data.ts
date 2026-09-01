@@ -30,3 +30,11 @@ function options(names: string[]): GeneralOption[] {
 export const initialTaxRegimes = options(["SIMPLES NACIONAL", "LUCRO PRESUMIDO", "LUCRO REAL", "MEI"]);
 export const initialFiscalProfiles = options(["CONTRIBUINTE ICMS", "ISENTO", "NAO CONTRIBUINTE"]);
 export const initialFiscalBenefits = options(["SEM BENEFICIO FISCAL", "BENEFICIO FISCAL PADRAO", "A DEFINIR"]);
+export const initialLostReasons = options([
+  "PRECO",
+  "PRAZO",
+  "CONCORRENTE",
+  "SEM RETORNO",
+  "SEM INTERESSE",
+  "ESPECIFICACAO",
+]);

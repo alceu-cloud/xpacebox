@@ -1,4 +1,4 @@
-import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingOperationalParams, PricingParamsByCompany, ProductFicha, ProductionTime, QuoteParametersByCompany, SpecificMaterial, Supplier } from "@/types/gerenciador";
+import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalsByCompany, PricingOperationalParams, PricingParamsByCompany, ProductFicha, ProductionTime, QuoteParametersByCompany, SalesGoals, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 
 export type ManagerSettings = {
@@ -16,6 +16,8 @@ export type ManagerSettings = {
   taxRegimes?: GeneralOption[];
   fiscalProfiles?: GeneralOption[];
   fiscalBenefits?: GeneralOption[];
+  lostReasons?: GeneralOption[];
+  salesGoals?: SalesGoals;
   productFichas?: ProductFicha[];
   productColors?: string[];
   quoteParameters?: QuoteParametersByCompany;
