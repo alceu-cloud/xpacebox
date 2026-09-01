@@ -55,6 +55,91 @@ body {
   text-transform: uppercase;
 }
 
+.reports-navigation-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 7px;
+  border: 1px solid #d8dee9;
+  border-radius: 999px;
+  background: #edf1f5;
+  box-shadow: inset 0 1px 2px rgba(20, 24, 39, 0.08);
+}
+
+.reports-navigation-button {
+  min-height: 62px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #141827;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+}
+
+.reports-navigation-button span {
+  color: #6f32d2;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.reports-navigation-button b {
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.reports-navigation-button small {
+  color: inherit;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+}
+
+.reports-navigation-button.is-active {
+  background: #7c3aed;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.24);
+}
+
+.reports-navigation-button.is-active span { color: #fff; }
+.reports-navigation-button.is-restricted { color: #98a2b3; cursor: not-allowed; opacity: 0.7; }
+.reports-navigation-button.is-restricted span { color: #98a2b3; }
+
+.reports-table-wrap { width: 100%; overflow-x: auto; }
+
+.reports-table {
+  min-width: 640px;
+  color: #1d2939;
+  font-size: 15px;
+}
+
+.reports-table th,
+.reports-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid #e6eaf0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.reports-table th {
+  background: #f7f8fb;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.55px;
+}
+
+.reports-table td { font-weight: 800; line-height: 1.35; }
+.reports-table tbody tr:last-child td { border-bottom: 0; }
+
 @media screen and (min-width: 901px) {
   body {
     zoom: var(--xb-ui-scale);
@@ -1929,6 +2014,9 @@ button {
 }
 
 @media (max-width: 640px) {
+  .reports-navigation-row { grid-template-columns: 1fr; gap: 4px; border-radius: 10px; }
+  .reports-navigation-button { min-height: 52px; border-radius: 6px; }
+
   .crm-summary,
   .crm-nav,
   .crm-profile-grid { grid-template-columns: 1fr; }

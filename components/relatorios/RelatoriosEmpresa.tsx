@@ -12,7 +12,10 @@ type Profile = { client_id: string; owner_profile_id: string | null; purchase_fr
 type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; created_at: string; updated_at: string };
 type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string };
-type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; productFichas: Array<{ id?: string; materialId?: string; company?: string }>; materials: Array<{ id?: string; code?: string; paperType?: string }>; salesGoals: { combinedMonthlyRevenue?: number; byCompany?: Record<string, number> } | null };
+type MaterialSnapshot = { materialId?: string; materialCode?: string; paperType?: string; createdAt?: string };
+type ProductFicha = { id?: string; clientId?: string; reference?: string; materialId?: string; company?: string; pricingData?: MaterialSnapshot; priceHistory?: MaterialSnapshot[] };
+type Material = { id?: string; code?: string; paperType?: string };
+type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; productFichas: ProductFicha[]; materials: Material[]; salesGoals: { combinedMonthlyRevenue?: number; byCompany?: Record<string, number> } | null };
 
 const reports: Array<{ key: ReportKey; number: number; title: string; managerOnly?: boolean }> = [
   { key: "closing", number: 1, title: "FECHAMENTO DO MES" },
@@ -90,12 +93,15 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
       <div style={periodHintStyle}>PERIODO: {displayDate(range.start)} A {displayDate(range.end)}</div>
     </header>
     <nav style={navigationStyle} aria-label="RELATORIOS COMERCIAIS">
-      {reports.map((item) => {
-        const restricted = item.managerOnly && !data?.isManager;
-        return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} style={{ ...navigationButtonStyle, ...(activeReport === item.key ? activeNavigationButtonStyle : {}), ...(restricted ? restrictedNavigationButtonStyle : {}) }}>
-          <b>{String(item.number).padStart(2, "0")}</b><span>{item.title}</span>{restricted ? <small>GERENCIA</small> : null}
-        </button>;
-      })}
+      {chunk(reports, 3).map((row, rowIndex) => <div key={rowIndex} className="reports-navigation-row">
+        {row.map((item) => {
+          const restricted = item.managerOnly && !data?.isManager;
+          const active = activeReport === item.key;
+          return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} className={`reports-navigation-button${active ? " is-active" : ""}${restricted ? " is-restricted" : ""}`} aria-current={active ? "page" : undefined}>
+            <span>{String(item.number).padStart(2, "0")}</span><b>{item.title}</b>{restricted ? <small>GERENCIA</small> : null}
+          </button>;
+        })}
+      </div>)}
     </nav>
     <section style={filterStyle}>
       <label style={filterLabelStyle}>PERIODO<select value={preset} onChange={(event) => setPreset(event.target.value as PeriodPreset)} style={selectStyle}><option value="CURRENT">MES ATUAL</option><option value="PREVIOUS">MES ANTERIOR</option><option value="CUSTOM">PERSONALIZADO</option></select></label>
@@ -143,7 +149,8 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
   if (report === "materials") {
     const fichaById = new Map(data.productFichas.map((item) => [item.id || "", item]));
     const materialById = new Map(data.materials.map((item) => [item.id || "", item]));
-    return <ReportLayout title="RANKING POR MATERIAL" description="Agrupa oportunidades pelo tipo de papelao da ficha tecnica vinculada. Itens sem ficha ou material aparecem como nao informado."><RankTable rows={groupRows(data.opportunities.filter((item) => inRange(item.created_at, range)), (item) => { const ficha = fichaById.get(item.product_ficha_id || ""); return materialById.get(ficha?.materialId || "")?.paperType || "NAO INFORMADO"; }, (item) => item.estimated_value)} labels={["MATERIAL", "OPORTUNIDADES", "VALOR ORCADO"]} /></ReportLayout>;
+    const fichaByClientReference = uniqueFichasByReference(data.productFichas);
+    return <ReportLayout title="RANKING POR MATERIAL" description="Agrupa pelo codigo do material usado na ficha tecnica. O sistema tambem consulta o ultimo historico de preco da ficha; itens sem vinculo permanecem separados para correcao."><RankTable rows={groupRows(data.opportunities.filter((item) => inRange(item.created_at, range)), (item) => materialLabelForOpportunity(item, fichaById, fichaByClientReference, materialById), (item) => item.estimated_value)} labels={["MATERIAL", "OPORTUNIDADES", "VALOR ORCADO"]} /></ReportLayout>;
   }
   if (report === "team") return <ReportLayout title="DESEMPENHO POR VENDEDOR" description="Visao gerencial: compara conversao, valor ganho e tempo de ciclo por representante."><TeamTable opportunities={inRangeOpps} clients={clientById} /></ReportLayout>;
   if (report === "followup") {
@@ -172,15 +179,27 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
 
 function ReportLayout({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section style={contentStyle}><div style={contentHeaderStyle}><h3 style={contentTitleStyle}>{title}</h3><p style={contentDescriptionStyle}>{description}</p></div>{children}</section>; }
 function MetricGrid({ items }: { items: Array<{ label: string; value: string; color: string }> }) { return <div style={metricGridStyle}>{items.map((item) => <article key={item.label} style={{ ...metricCardStyle, borderTopColor: item.color }}><span>{item.label}</span><strong style={{ color: item.color }}>{item.value}</strong></article>)}</div>; }
-function StageTable({ opportunities, showAge = false }: { opportunities: Opportunity[]; showAge?: boolean }) { const rows = groupRows(opportunities, (item) => stageLabels[item.stage] || item.stage, (item) => item.estimated_value); return <table style={tableStyle}><thead><tr><th>ETAPA</th><th>QUANTIDADE</th><th>VALOR</th>{showAge ? <th>TEMPO MEDIO</th> : null}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td>{showAge ? <td>{Math.round(average(opportunities.filter((item) => (stageLabels[item.stage] || item.stage) === row.label).map((item) => daysSince(item.created_at))))} DIAS</td> : null}</tr>)}</tbody></table>; }
-function RankTable({ rows, labels }: { rows: Array<{ label: string; count: number; value: number }>; labels: string[] }) { return <table style={tableStyle}><thead><tr>{labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td></tr>)}{!rows.length ? <tr><td colSpan={labels.length} style={emptyCellStyle}>SEM DADOS NO PERIODO.</td></tr> : null}</tbody></table>; }
-function OpportunityTable({ opportunities, clients, activityByOpportunity }: { opportunities: Opportunity[]; clients: Map<string, Client>; activityByOpportunity?: Map<string, Activity> }) { return <table style={tableStyle}><thead><tr><th>CLIENTE</th><th>OPORTUNIDADE</th><th>ETAPA</th><th>VALOR</th><th>PREVISAO</th>{activityByOpportunity ? <th>SEM RETORNO</th> : null}</tr></thead><tbody>{opportunities.map((item) => <tr key={item.id}><td>{clients.get(item.client_id || "")?.name || "SEM CLIENTE"}</td><td>{item.title}</td><td>{stageLabels[item.stage] || item.stage}</td><td>{money(item.estimated_value)}</td><td>{displayDate(item.expected_close_date || "")}</td>{activityByOpportunity ? <td>{daysSince(activityByOpportunity.get(item.id)?.occurred_at || item.updated_at)} DIAS</td> : null}</tr>)}{!opportunities.length ? <tr><td colSpan={activityByOpportunity ? 6 : 5} style={emptyCellStyle}>NENHUMA OPORTUNIDADE NESTA VISAO.</td></tr> : null}</tbody></table>; }
+function ReportTable({ children }: { children: React.ReactNode }) { return <div className="reports-table-wrap"><table className="reports-table" style={tableStyle}>{children}</table></div>; }
+function StageTable({ opportunities, showAge = false }: { opportunities: Opportunity[]; showAge?: boolean }) { const rows = groupRows(opportunities, (item) => stageLabels[item.stage] || item.stage, (item) => item.estimated_value); return <ReportTable><thead><tr><th>ETAPA</th><th>QUANTIDADE</th><th>VALOR</th>{showAge ? <th>TEMPO MEDIO</th> : null}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td>{showAge ? <td>{Math.round(average(opportunities.filter((item) => (stageLabels[item.stage] || item.stage) === row.label).map((item) => daysSince(item.created_at))))} DIAS</td> : null}</tr>)}</tbody></ReportTable>; }
+function RankTable({ rows, labels }: { rows: Array<{ label: string; count: number; value: number }>; labels: string[] }) { return <ReportTable><thead><tr>{labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td></tr>)}{!rows.length ? <tr><td colSpan={labels.length} style={emptyCellStyle}>SEM DADOS NO PERIODO.</td></tr> : null}</tbody></ReportTable>; }
+function OpportunityTable({ opportunities, clients, activityByOpportunity }: { opportunities: Opportunity[]; clients: Map<string, Client>; activityByOpportunity?: Map<string, Activity> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>OPORTUNIDADE</th><th>ETAPA</th><th>VALOR</th><th>PREVISAO</th>{activityByOpportunity ? <th>SEM RETORNO</th> : null}</tr></thead><tbody>{opportunities.map((item) => <tr key={item.id}><td>{clients.get(item.client_id || "")?.name || "SEM CLIENTE"}</td><td>{item.title}</td><td>{stageLabels[item.stage] || item.stage}</td><td>{money(item.estimated_value)}</td><td>{displayDate(item.expected_close_date || "")}</td>{activityByOpportunity ? <td>{daysSince(activityByOpportunity.get(item.id)?.occurred_at || item.updated_at)} DIAS</td> : null}</tr>)}{!opportunities.length ? <tr><td colSpan={activityByOpportunity ? 6 : 5} style={emptyCellStyle}>NENHUMA OPORTUNIDADE NESTA VISAO.</td></tr> : null}</tbody></ReportTable>; }
 function TeamTable({ opportunities, clients }: { opportunities: Opportunity[]; clients: Map<string, Client> }) { const rows = groupRows(opportunities, (item) => clients.get(item.client_id || "")?.representativeName || "SEM REPRESENTANTE", (item) => item.estimated_value); return <RankTable rows={rows} labels={["REPRESENTANTE", "OPORTUNIDADES", "VALOR MOVIMENTADO"]} />; }
-function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }> }) { return <table style={tableStyle}><thead><tr><th>CLIENTE</th><th>REPRESENTANTE</th><th>FREQUENCIA</th><th>ULTIMA COMPRA</th><th>ATRASO</th></tr></thead><tbody>{rows.map(({ client, profile }) => <tr key={client.id}><td>{client.name}</td><td>{client.representativeName}</td><td>{profile?.purchase_frequency_days} DIAS</td><td>{displayDate(profile?.last_purchase_at || "")}</td><td>{daysSince(profile?.last_purchase_at || "") - Number(profile?.purchase_frequency_days || 0)} DIAS</td></tr>)}{!rows.length ? <tr><td colSpan={5} style={emptyCellStyle}>NENHUM CLIENTE FORA DA FREQUENCIA DE COMPRA.</td></tr> : null}</tbody></table>; }
-function GoalTable({ rows }: { rows: Array<{ name: string; actual: number; goal: number }> }) { return <table style={tableStyle}><thead><tr><th>EMPRESA</th><th>META</th><th>REALIZADO</th><th>ATINGIMENTO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{money(row.goal)}</td><td>{money(row.actual)}</td><td>{row.goal ? `${Math.round((row.actual / row.goal) * 100)}%` : "META NAO CONFIGURADA"}</td></tr>)}</tbody></table>; }
+function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>REPRESENTANTE</th><th>FREQUENCIA</th><th>ULTIMA COMPRA</th><th>ATRASO</th></tr></thead><tbody>{rows.map(({ client, profile }) => <tr key={client.id}><td>{client.name}</td><td>{client.representativeName}</td><td>{profile?.purchase_frequency_days} DIAS</td><td>{displayDate(profile?.last_purchase_at || "")}</td><td>{daysSince(profile?.last_purchase_at || "") - Number(profile?.purchase_frequency_days || 0)} DIAS</td></tr>)}{!rows.length ? <tr><td colSpan={5} style={emptyCellStyle}>NENHUM CLIENTE FORA DA FREQUENCIA DE COMPRA.</td></tr> : null}</tbody></ReportTable>; }
+function GoalTable({ rows }: { rows: Array<{ name: string; actual: number; goal: number }> }) { return <ReportTable><thead><tr><th>EMPRESA</th><th>META</th><th>REALIZADO</th><th>ATINGIMENTO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{money(row.goal)}</td><td>{money(row.actual)}</td><td>{row.goal ? `${Math.round((row.actual / row.goal) * 100)}%` : "META NAO CONFIGURADA"}</td></tr>)}</tbody></ReportTable>; }
 
 function metric(label: string, value: number | string, color: string, plain = false) { return { label, value: plain || typeof value === "string" ? String(value) : money(value), color }; }
+function chunk<T>(items: T[], size: number) { return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, index * size + size)); }
 function groupRows<T>(items: T[], getLabel: (item: T) => string, getValue: (item: T) => number) { const groups = new Map<string, { label: string; count: number; value: number }>(); items.forEach((item) => { const label = getLabel(item); const current = groups.get(label) || { label, count: 0, value: 0 }; current.count += 1; current.value += Number(getValue(item) || 0); groups.set(label, current); }); return [...groups.values()].sort((a, b) => b.value - a.value || b.count - a.count); }
+function uniqueFichasByReference(fichas: ProductFicha[]) { const index = new Map<string, ProductFicha | null>(); fichas.forEach((ficha) => { const key = fichaReferenceKey(ficha.clientId, ficha.reference); if (!key) return; index.set(key, index.has(key) ? null : ficha); }); return index; }
+function materialLabelForOpportunity(opportunity: Opportunity, fichaById: Map<string, ProductFicha>, fichaByClientReference: Map<string, ProductFicha | null>, materialById: Map<string, Material>) {
+  const ficha = fichaById.get(opportunity.product_ficha_id || "") || fichaByClientReference.get(fichaReferenceKey(opportunity.client_id, opportunity.product_reference)) || undefined;
+  if (!ficha) return "SEM FICHA TECNICA VINCULADA";
+  const snapshot = latestMaterialSnapshot(ficha);
+  const material = materialById.get(ficha.materialId || "") || materialById.get(snapshot?.materialId || "");
+  return material?.code || snapshot?.materialCode || material?.paperType || snapshot?.paperType || "MATERIAL NAO CADASTRADO";
+}
+function latestMaterialSnapshot(ficha: ProductFicha) { return [ficha.pricingData, ...(ficha.priceHistory || [])].filter((item): item is MaterialSnapshot => Boolean(item)).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0]; }
+function fichaReferenceKey(clientId?: string | null, reference?: string | null) { return clientId && reference ? `${clientId}::${reference.trim().toUpperCase()}` : ""; }
 function sum<T>(items: T[], getValue: (item: T) => number) { return items.reduce((total, item) => total + Number(getValue(item) || 0), 0); }
 function average(values: number[]) { return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0; }
 function daysSince(value: string) { return value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)) : 0; }
@@ -201,10 +220,7 @@ const eyebrowStyle = { color: "#7c3aed", fontSize: 11, fontWeight: 900, letterSp
 const titleStyle = { margin: "6px 0 4px", color: "#141827", fontSize: 29, fontWeight: 900, letterSpacing: 0 };
 const subtitleStyle = { margin: 0, color: "#667085", fontSize: 13, fontWeight: 700, maxWidth: 720 };
 const periodHintStyle = { padding: "10px 13px", border: "1px solid #d9cdf9", borderRadius: 8, background: "#faf8ff", color: "#6f32d2", fontSize: 11, fontWeight: 900, letterSpacing: .6 };
-const navigationStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 };
-const navigationButtonStyle = { minHeight: 56, display: "grid", gridTemplateColumns: "32px minmax(0,1fr)", alignItems: "center", gap: 7, padding: "8px 10px", border: "1px solid #d8dee9", borderRadius: 7, background: "#fff", color: "#344054", textAlign: "left" as const, cursor: "pointer", fontSize: 10, fontWeight: 900, letterSpacing: .35 };
-const activeNavigationButtonStyle = { borderColor: "#7c3aed", background: "#7c3aed", color: "#fff", boxShadow: "0 8px 18px rgba(124,58,237,.20)" };
-const restrictedNavigationButtonStyle = { opacity: .48, cursor: "not-allowed", background: "#f5f6f8" };
+const navigationStyle = { display: "grid", gap: 10 };
 const filterStyle = { display: "flex", alignItems: "end", gap: 12, flexWrap: "wrap" as const, padding: 14, border: "1px solid #ddd6fe", borderRadius: 8, background: "#fcfbff" };
 const filterLabelStyle = { display: "grid", gap: 5, color: "#475467", fontSize: 10, fontWeight: 900, letterSpacing: .8 };
 const selectStyle = { minHeight: 38, minWidth: 178, padding: "0 10px", border: "1px solid #cfd6e4", borderRadius: 6, background: "#fff", color: "#141827", fontSize: 12, fontWeight: 800 };
@@ -212,11 +228,11 @@ const inputStyle = { minHeight: 38, padding: "0 10px", border: "1px solid #cfd6e
 const ownDataStyle = { minHeight: 38, display: "grid", placeItems: "center", padding: "0 12px", borderRadius: 6, background: "#eefaf2", color: "#16803e", fontSize: 10, fontWeight: 900, letterSpacing: .7 };
 const contentStyle = { display: "grid", gap: 16, padding: 18, border: "1px solid #d8dee9", borderRadius: 8, background: "#fff" };
 const contentHeaderStyle = { display: "grid", gap: 5, paddingBottom: 13, borderBottom: "1px solid #eef0f4" };
-const contentTitleStyle = { margin: 0, color: "#141827", fontSize: 18, fontWeight: 900, letterSpacing: 0 };
+const contentTitleStyle = { margin: 0, color: "#141827", fontSize: 20, fontWeight: 900, letterSpacing: 0 };
 const contentDescriptionStyle = { margin: 0, color: "#667085", fontSize: 12, fontWeight: 700, lineHeight: 1.45 };
 const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))", gap: 10 };
 const metricCardStyle = { minHeight: 78, display: "grid", alignContent: "center", gap: 8, padding: "11px 13px", border: "1px solid #e2e6ef", borderTop: "4px solid", borderRadius: 7, background: "#fff" };
-const tableStyle = { width: "100%", borderCollapse: "collapse" as const, fontSize: 12 };
+const tableStyle = { width: "100%", borderCollapse: "collapse" as const, tableLayout: "fixed" as const };
 const emptyStyle = { padding: 36, border: "1px dashed #c8b7f3", borderRadius: 8, color: "#667085", textAlign: "center" as const, fontSize: 13, fontWeight: 800 };
 const errorStyle = { padding: 14, border: "1px solid #fcb6be", borderRadius: 7, background: "#fff1f2", color: "#be123c", fontSize: 12, fontWeight: 800 };
 const emptyCellStyle = { padding: 20, textAlign: "center" as const, color: "#667085", fontWeight: 700 };
