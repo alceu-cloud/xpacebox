@@ -55,63 +55,132 @@ body {
   text-transform: uppercase;
 }
 
-.reports-navigation-row {
+.reports-navigation {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 7px;
+  gap: 10px;
+}
+
+.reports-category-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
   border: 1px solid #d8dee9;
-  border-radius: 999px;
+  border-radius: 8px;
   background: #edf1f5;
   box-shadow: inset 0 1px 2px rgba(20, 24, 39, 0.08);
 }
 
-.reports-navigation-button {
-  min-height: 62px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 2px;
-  padding: 8px 12px;
+.reports-category-button {
+  min-height: 42px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
-  color: #141827;
+  color: #475467;
   cursor: pointer;
   font-family: inherit;
-  text-align: center;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
-.reports-navigation-button span {
-  color: #6f32d2;
-  font-size: 11px;
+.reports-category-button.is-active { color: #fff; box-shadow: 0 6px 14px rgba(20, 24, 39, 0.16); }
+.reports-category-button.is-resultados { background: #6f32d2; }
+.reports-category-button.is-carteira { background: #1685c9; }
+.reports-category-button.is-operacao { background: #df7a16; }
+.reports-category-button.is-gestao { background: #d92f8c; }
+
+.reports-navigation-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dfe4ed;
+  border-left: 4px solid #6f32d2;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.reports-navigation-panel.is-carteira { border-left-color: #1685c9; }
+.reports-navigation-panel.is-operacao { border-left-color: #df7a16; }
+.reports-navigation-panel.is-gestao { border-left-color: #d92f8c; }
+
+.reports-navigation-panel-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.reports-navigation-panel-header span {
+  color: #98a2b3;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 1px;
 }
 
+.reports-navigation-panel-header strong { color: #1d2939; font-size: 14px; font-weight: 900; }
+
+.reports-navigation-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.reports-navigation-button {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid #dfe4ed;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.reports-navigation-button span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f3edff;
+  color: #6f32d2;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
 .reports-navigation-button b {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.2;
 }
 
 .reports-navigation-button small {
-  color: inherit;
+  grid-column: 2;
+  color: #667085;
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.8px;
 }
 
 .reports-navigation-button.is-active {
-  background: #7c3aed;
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.24);
+  border-color: #6f32d2;
+  background: #f7f2ff;
+  color: #5d22c5;
+  box-shadow: inset 3px 0 0 #6f32d2;
 }
 
-.reports-navigation-button.is-active span { color: #fff; }
-.reports-navigation-button.is-restricted { color: #98a2b3; cursor: not-allowed; opacity: 0.7; }
-.reports-navigation-button.is-restricted span { color: #98a2b3; }
+.reports-navigation-panel.is-carteira .reports-navigation-button.is-active { border-color: #1685c9; background: #eef9ff; color: #086aa7; box-shadow: inset 3px 0 0 #1685c9; }
+.reports-navigation-panel.is-operacao .reports-navigation-button.is-active { border-color: #df7a16; background: #fff7ed; color: #b85d06; box-shadow: inset 3px 0 0 #df7a16; }
+.reports-navigation-panel.is-gestao .reports-navigation-button.is-active { border-color: #d92f8c; background: #fff1f8; color: #bd1c75; box-shadow: inset 3px 0 0 #d92f8c; }
+.reports-navigation-button.is-restricted { color: #98a2b3; cursor: not-allowed; opacity: 0.64; background: #f8fafc; }
+.reports-navigation-button.is-restricted span { background: #eef1f5; color: #98a2b3; }
 
 .reports-table-wrap { width: 100%; overflow-x: auto; }
 
@@ -2014,7 +2083,8 @@ button {
 }
 
 @media (max-width: 640px) {
-  .reports-navigation-row { grid-template-columns: 1fr; gap: 4px; border-radius: 10px; }
+  .reports-category-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reports-navigation-list { grid-template-columns: 1fr; }
   .reports-navigation-button { min-height: 52px; border-radius: 6px; }
 
   .crm-summary,

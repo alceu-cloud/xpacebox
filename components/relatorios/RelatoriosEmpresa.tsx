@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive";
 type PeriodPreset = "CURRENT" | "PREVIOUS" | "CUSTOM";
+type ReportCategory = "RESULTADOS" | "CARTEIRA" | "OPERACAO" | "GESTAO";
 
 type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
@@ -32,6 +33,13 @@ const reports: Array<{ key: ReportKey; number: number; title: string; managerOnl
   { key: "executive", number: 12, title: "RELATORIO EXECUTIVO", managerOnly: true },
 ];
 
+const reportCategories: Array<{ key: ReportCategory; label: string; reports: ReportKey[] }> = [
+  { key: "RESULTADOS", label: "RESULTADOS", reports: ["closing", "pipeline", "forecast", "losses"] },
+  { key: "CARTEIRA", label: "CARTEIRA", reports: ["clients", "materials", "risk"] },
+  { key: "OPERACAO", label: "OPERACAO", reports: ["team", "followup", "cycle"] },
+  { key: "GESTAO", label: "GESTAO", reports: ["goals", "executive"] },
+];
+
 const stageLabels: Record<string, string> = {
   CONTACT_PENDING: "CONTATO PENDENTE", CONTACTED: "CONTATADO", QUOTE_PREPARATION: "ORCAMENTO EM PREPARACAO", QUOTE_SENT: "ORCAMENTO ENVIADO", NEGOTIATION: "NEGOCIACAO", WON: "GANHO", LOST: "PERDIDO",
 };
@@ -39,6 +47,7 @@ const stageLabels: Record<string, string> = {
 export default function RelatoriosEmpresa({ slug }: { slug: string }) {
   const [data, setData] = useState<ReportData | null>(null);
   const [activeReport, setActiveReport] = useState<ReportKey>("closing");
+  const [activeCategory, setActiveCategory] = useState<ReportCategory>("RESULTADOS");
   const [representativeId, setRepresentativeId] = useState("ALL");
   const [preset, setPreset] = useState<PeriodPreset>("CURRENT");
   const [customStart, setCustomStart] = useState(isoMonthStart(new Date()));
@@ -86,22 +95,38 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
 
   const activeDefinition = reports.find((item) => item.key === activeReport)!;
   const canViewActive = !activeDefinition.managerOnly || Boolean(data?.isManager);
+  const visibleCategories = reportCategories.filter((category) => data?.isManager || category.reports.some((key) => !reports.find((item) => item.key === key)?.managerOnly));
+  const activeCategoryDefinition = reportCategories.find((category) => category.key === activeCategory)!;
+  const categoryReports = reports.filter((item) => activeCategoryDefinition.reports.includes(item.key));
+
+  function selectCategory(category: ReportCategory) {
+    const definition = reportCategories.find((item) => item.key === category)!;
+    const firstAvailable = definition.reports.map((key) => reports.find((item) => item.key === key)!).find((item) => !item.managerOnly || data?.isManager);
+    setActiveCategory(category);
+    if (firstAvailable) setActiveReport(firstAvailable.key);
+  }
 
   return <section style={shellStyle}>
     <header style={headerStyle}>
       <div><span style={eyebrowStyle}>INTELIGENCIA COMERCIAL</span><h2 style={titleStyle}>RELATORIOS</h2><p style={subtitleStyle}>ANALISES PARA PRIORIZAR ACOES COMERCIAIS, NAO APENAS ACOMPANHAR NUMEROS.</p></div>
       <div style={periodHintStyle}>PERIODO: {displayDate(range.start)} A {displayDate(range.end)}</div>
     </header>
-    <nav style={navigationStyle} aria-label="RELATORIOS COMERCIAIS">
-      {chunk(reports, 3).map((row, rowIndex) => <div key={rowIndex} className="reports-navigation-row">
-        {row.map((item) => {
-          const restricted = item.managerOnly && !data?.isManager;
-          const active = activeReport === item.key;
-          return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} className={`reports-navigation-button${active ? " is-active" : ""}${restricted ? " is-restricted" : ""}`} aria-current={active ? "page" : undefined}>
-            <span>{String(item.number).padStart(2, "0")}</span><b>{item.title}</b>{restricted ? <small>GERENCIA</small> : null}
-          </button>;
-        })}
-      </div>)}
+    <nav className="reports-navigation" aria-label="RELATORIOS COMERCIAIS">
+      <div className="reports-category-nav">
+        {visibleCategories.map((category) => <button key={category.key} type="button" onClick={() => selectCategory(category.key)} className={`reports-category-button ${category.key === activeCategory ? `is-active is-${category.key.toLowerCase()}` : ""}`} aria-current={category.key === activeCategory ? "page" : undefined}>{category.label}</button>)}
+      </div>
+      <section className={`reports-navigation-panel is-${activeCategory.toLowerCase()}`} aria-label={`RELATORIOS DE ${activeCategoryDefinition.label}`}>
+        <div className="reports-navigation-panel-header"><span>RELATORIOS</span><strong>{activeCategoryDefinition.label}</strong></div>
+        <div className="reports-navigation-list">
+          {categoryReports.map((item) => {
+            const restricted = item.managerOnly && !data?.isManager;
+            const active = activeReport === item.key;
+            return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} className={`reports-navigation-button${active ? " is-active" : ""}${restricted ? " is-restricted" : ""}`} aria-current={active ? "page" : undefined}>
+              <span>{String(item.number).padStart(2, "0")}</span><b>{item.title}</b>{restricted ? <small>GERENCIA</small> : null}
+            </button>;
+          })}
+        </div>
+      </section>
     </nav>
     <section style={filterStyle}>
       <label style={filterLabelStyle}>PERIODO<select value={preset} onChange={(event) => setPreset(event.target.value as PeriodPreset)} style={selectStyle}><option value="CURRENT">MES ATUAL</option><option value="PREVIOUS">MES ANTERIOR</option><option value="CUSTOM">PERSONALIZADO</option></select></label>
@@ -188,7 +213,6 @@ function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }
 function GoalTable({ rows }: { rows: Array<{ name: string; actual: number; goal: number }> }) { return <ReportTable><thead><tr><th>EMPRESA</th><th>META</th><th>REALIZADO</th><th>ATINGIMENTO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{money(row.goal)}</td><td>{money(row.actual)}</td><td>{row.goal ? `${Math.round((row.actual / row.goal) * 100)}%` : "META NAO CONFIGURADA"}</td></tr>)}</tbody></ReportTable>; }
 
 function metric(label: string, value: number | string, color: string, plain = false) { return { label, value: plain || typeof value === "string" ? String(value) : money(value), color }; }
-function chunk<T>(items: T[], size: number) { return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, index * size + size)); }
 function groupRows<T>(items: T[], getLabel: (item: T) => string, getValue: (item: T) => number) { const groups = new Map<string, { label: string; count: number; value: number }>(); items.forEach((item) => { const label = getLabel(item); const current = groups.get(label) || { label, count: 0, value: 0 }; current.count += 1; current.value += Number(getValue(item) || 0); groups.set(label, current); }); return [...groups.values()].sort((a, b) => b.value - a.value || b.count - a.count); }
 function uniqueFichasByReference(fichas: ProductFicha[]) { const index = new Map<string, ProductFicha | null>(); fichas.forEach((ficha) => { const key = fichaReferenceKey(ficha.clientId, ficha.reference); if (!key) return; index.set(key, index.has(key) ? null : ficha); }); return index; }
 function materialLabelForOpportunity(opportunity: Opportunity, fichaById: Map<string, ProductFicha>, fichaByClientReference: Map<string, ProductFicha | null>, materialById: Map<string, Material>) {
@@ -220,7 +244,6 @@ const eyebrowStyle = { color: "#7c3aed", fontSize: 11, fontWeight: 900, letterSp
 const titleStyle = { margin: "6px 0 4px", color: "#141827", fontSize: 29, fontWeight: 900, letterSpacing: 0 };
 const subtitleStyle = { margin: 0, color: "#667085", fontSize: 13, fontWeight: 700, maxWidth: 720 };
 const periodHintStyle = { padding: "10px 13px", border: "1px solid #d9cdf9", borderRadius: 8, background: "#faf8ff", color: "#6f32d2", fontSize: 11, fontWeight: 900, letterSpacing: .6 };
-const navigationStyle = { display: "grid", gap: 10 };
 const filterStyle = { display: "flex", alignItems: "end", gap: 12, flexWrap: "wrap" as const, padding: 14, border: "1px solid #ddd6fe", borderRadius: 8, background: "#fcfbff" };
 const filterLabelStyle = { display: "grid", gap: 5, color: "#475467", fontSize: 10, fontWeight: 900, letterSpacing: .8 };
 const selectStyle = { minHeight: 38, minWidth: 178, padding: "0 10px", border: "1px solid #cfd6e4", borderRadius: 6, background: "#fff", color: "#141827", fontSize: 12, fontWeight: 800 };
