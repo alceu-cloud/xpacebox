@@ -50,6 +50,8 @@ const emptyForm: ClientFormData = {
   icms: "",
 };
 
+const showDeferredCommercialFields = false;
+
 export default function ClientesEmpresa({
   slug,
   paymentConditions = [],
@@ -375,7 +377,7 @@ export default function ClientesEmpresa({
           </div>
         </FormSection>
 
-        <FormSection title="CONDICOES COMERCIAIS E FISCAIS">
+        <FormSection title="CONDICOES COMERCIAIS">
           <div className="clients-grid clients-grid-3">
             <SelectField
               label="CONDICAO DE PAGAMENTO"
@@ -383,27 +385,29 @@ export default function ClientesEmpresa({
               onChange={(paymentTerms) => setForm({ ...form, paymentTerms })}
               options={paymentConditions.map((item) => ({ value: item.name, label: item.name }))}
             />
-            <SelectField
-              label="CFOP"
-              value={form.cfop}
-              onChange={(cfop) => setForm({ ...form, cfop })}
-              options={cfops.map((item) => ({ value: item.code, label: `${item.code} - ${item.description}` }))}
-            />
-            <Field label="LIMITE DE COMPRA" value={form.purchaseLimit} onChange={(purchaseLimit) => setForm({ ...form, purchaseLimit })} currency />
-            <SelectField label="PERFIL FISCAL" value={form.fiscalProfile} onChange={(fiscalProfile) => setForm({ ...form, fiscalProfile })} options={fiscalProfiles.map((item) => ({ value: item.name, label: item.name }))} />
-            <SelectField label="BENEFICIO FISCAL ESPECIFICO" value={form.fiscalBenefit} onChange={(fiscalBenefit) => setForm({ ...form, fiscalBenefit })} options={fiscalBenefits.map((item) => ({ value: item.name, label: item.name }))} />
-            <Field label="ICMS (%)" value={form.icms} onChange={(icms) => setForm({ ...form, icms })} type="number" />
-            <SelectField
-              label="FRETE"
-              value={form.freightTerms}
-              onChange={(freightTerms) => setForm({ ...form, freightTerms })}
-              placeholder="SELECIONE A MODALIDADE"
-              options={[
-                { value: "FOB", label: "FOB - RETIRADA / DESTINATARIO" },
-                { value: "CIF", label: "CIF - REMETENTE" },
-                { value: "SEM_FRETE", label: "SEM FRETE" },
-              ]}
-            />
+            {showDeferredCommercialFields ? <>
+              <SelectField
+                label="CFOP"
+                value={form.cfop}
+                onChange={(cfop) => setForm({ ...form, cfop })}
+                options={cfops.map((item) => ({ value: item.code, label: `${item.code} - ${item.description}` }))}
+              />
+              <Field label="LIMITE DE COMPRA" value={form.purchaseLimit} onChange={(purchaseLimit) => setForm({ ...form, purchaseLimit })} currency />
+              <SelectField label="PERFIL FISCAL" value={form.fiscalProfile} onChange={(fiscalProfile) => setForm({ ...form, fiscalProfile })} options={fiscalProfiles.map((item) => ({ value: item.name, label: item.name }))} />
+              <SelectField label="BENEFICIO FISCAL ESPECIFICO" value={form.fiscalBenefit} onChange={(fiscalBenefit) => setForm({ ...form, fiscalBenefit })} options={fiscalBenefits.map((item) => ({ value: item.name, label: item.name }))} />
+              <Field label="ICMS (%)" value={form.icms} onChange={(icms) => setForm({ ...form, icms })} type="number" />
+              <SelectField
+                label="FRETE"
+                value={form.freightTerms}
+                onChange={(freightTerms) => setForm({ ...form, freightTerms })}
+                placeholder="SELECIONE A MODALIDADE"
+                options={[
+                  { value: "FOB", label: "FOB - RETIRADA / DESTINATARIO" },
+                  { value: "CIF", label: "CIF - REMETENTE" },
+                  { value: "SEM_FRETE", label: "SEM FRETE" },
+                ]}
+              />
+            </> : null}
           </div>
         </FormSection>
 
