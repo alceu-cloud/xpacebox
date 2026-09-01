@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       admin.from("crm_customer_profiles").select("*").eq("tenant_company_id", company.id),
       admin.from("crm_activities").select("*").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),
       admin.from("crm_opportunities").select("*").eq("tenant_company_id", company.id).order("updated_at", { ascending: false }).limit(300),
-      admin.from("quotes").select("client_id, grand_total, created_at").eq("tenant_company_id", company.id).not("client_id", "is", null),
+      admin.from("quotes").select("id, client_id, grand_total, created_at, valid_until").eq("tenant_company_id", company.id).not("client_id", "is", null),
       admin.from("seller_companies").select("id, name").eq("tenant_company_id", company.id).eq("active", true).order("name"),
       admin.from("profiles").select("id, full_name, email").eq("active", true),
     ]);
@@ -43,8 +43,17 @@ export async function GET(request: Request) {
 
     const people = new Map((peopleResult.data ?? []).map((person) => [person.id, person.full_name || person.email || "USUARIO"]));
     const sellerNames = new Map(sellers.map((seller) => [seller.id, seller.name]));
+    const openQuoteIds = new Set(
+      (opportunitiesResult.data ?? [])
+        .filter((opportunity) => opportunity.quote_id && opportunity.stage !== "WON" && opportunity.stage !== "LOST")
+        .map((opportunity) => String(opportunity.quote_id))
+    );
+    const today = saoPauloDate();
     const quoteMap = new Map<string, { count: number; total: number; lastQuoteAt: string }>();
     for (const quote of quotesResult.data ?? []) {
+      const quoteId = String(quote.id || "");
+      const validUntil = String(quote.valid_until || "");
+      if (!openQuoteIds.has(quoteId) || (validUntil && validUntil < today)) continue;
       const clientId = String(quote.client_id || "");
       if (!clientId) continue;
       const current = quoteMap.get(clientId) ?? { count: 0, total: 0, lastQuoteAt: "" };
@@ -241,6 +250,17 @@ function endOfSaoPauloDay() {
   }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}T23:59:59.999-03:00`;
+}
+
+function saoPauloDate() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function failure(message: string, status: number) {
