@@ -22,6 +22,7 @@ import type { GeneralOption } from "@/types/cadastros-gerais";
 
 type CrmView = "agenda" | "carteira" | "pipeline";
 type CrmClosedPeriod = "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM";
+type CrmDetailEntryTab = "resumo" | "contato";
 
 const stageOptions: Array<{ value: CrmOpportunityStage; label: string }> = [
   { value: "CONTACT_PENDING", label: "CONTATO PENDENTE" },
@@ -110,6 +111,7 @@ export default function CrmEmpresa({
   const [overview, setOverview] = useState<CrmOverview>(emptyOverview);
   const [view, setView] = useState<CrmView>("agenda");
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [detailEntryTab, setDetailEntryTab] = useState<CrmDetailEntryTab>("resumo");
   const [agendaSearch, setAgendaSearch] = useState("");
   const [agendaOwnerFilter, setAgendaOwnerFilter] = useState("ALL");
   const [portfolioSearch, setPortfolioSearch] = useState("");
@@ -133,6 +135,7 @@ export default function CrmEmpresa({
   useEffect(() => {
     if (!forcedClientId) return;
     setSelectedClientId(forcedClientId);
+    setDetailEntryTab("resumo");
     setView("carteira");
     setPortfolioSearch("");
   }, [forcedClientId]);
@@ -469,8 +472,9 @@ export default function CrmEmpresa({
     setMessage("");
   }
 
-  function selectClient(clientId: string) {
+  function selectClient(clientId: string, entryTab: CrmDetailEntryTab = "resumo") {
     setSelectedClientId(clientId);
+    setDetailEntryTab(entryTab);
     clearFeedback();
   }
 
@@ -502,7 +506,10 @@ export default function CrmEmpresa({
 
       <nav className="crm-nav" aria-label="VISOES DO CRM">
         {(["agenda", "carteira", "pipeline"] as CrmView[]).map((item) => (
-          <button key={item} type="button" className={view === item ? "crm-nav-active" : ""} onClick={() => setView(item)}>
+          <button key={item} type="button" className={view === item ? "crm-nav-active" : ""} onClick={() => {
+            if (item === "carteira") setDetailEntryTab("resumo");
+            setView(item);
+          }}>
             {item === "agenda" ? "AGENDA" : item === "carteira" ? "CARTEIRA" : "OPORTUNIDADES"}
           </button>
         ))}
@@ -526,7 +533,7 @@ export default function CrmEmpresa({
           onPostpone={handlePostponeAgenda}
           postponingClientId={postponingClientId}
           onOpenClient={(clientId) => {
-            selectClient(clientId);
+            selectClient(clientId, "contato");
             setView("carteira");
           }}
         />
@@ -570,6 +577,7 @@ export default function CrmEmpresa({
 
             <ClientDetail
               client={selectedClient}
+              entryTab={detailEntryTab}
               profileDraft={profileDraft}
               setProfileDraft={setProfileDraft}
               representatives={representatives}
@@ -747,6 +755,7 @@ function AgendaBoard({
 
 function ClientDetail({
   client,
+  entryTab,
   profileDraft,
   setProfileDraft,
   representatives,
@@ -770,6 +779,7 @@ function ClientDetail({
   operationalLockActionAt,
 }: {
   client: ClientRecord | null;
+  entryTab: CrmDetailEntryTab;
   profileDraft: CrmProfileInput;
   setProfileDraft: (value: CrmProfileInput) => void;
   representatives: RepresentativeOption[];
@@ -801,7 +811,8 @@ function ClientDetail({
   const mustResolveOverdueAgenda = Boolean(client?.id && operationalLockClientId === client.id);
   useEffect(() => {
     if (mustResolveOverdueAgenda) setDetailTab("contato");
-  }, [mustResolveOverdueAgenda]);
+    else setDetailTab(entryTab);
+  }, [client?.id, entryTab, mustResolveOverdueAgenda]);
 
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
   const phone = client.whatsapp || client.phone;
