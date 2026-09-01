@@ -64,6 +64,11 @@ export type CrmQuoteSummary = {
   lastQuoteAt: string;
 };
 
+export type CrmExpiredQuoteSummary = {
+  clientId: string;
+  count: number;
+};
+
 export type WhatsAppConnection = {
   sellerCompanyId: string;
   sellerCompanyName: string;
@@ -82,6 +87,7 @@ export type CrmOverview = {
   activities: CrmActivity[];
   opportunities: CrmOpportunity[];
   quotes: CrmQuoteSummary[];
+  expiredQuotes: CrmExpiredQuoteSummary[];
   whatsappConnections: WhatsAppConnection[];
 };
 

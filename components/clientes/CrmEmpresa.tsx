@@ -42,6 +42,7 @@ const emptyOverview: CrmOverview = {
   activities: [],
   opportunities: [],
   quotes: [],
+  expiredQuotes: [],
   whatsappConnections: [],
 };
 
@@ -169,6 +170,10 @@ export default function CrmEmpresa({
   const quoteByClient = useMemo(
     () => new Map(overview.quotes.map((quote) => [quote.clientId, quote])),
     [overview.quotes]
+  );
+  const expiredQuoteCountByClient = useMemo(
+    () => new Map(overview.expiredQuotes.map((quote) => [quote.clientId, quote.count])),
+    [overview.expiredQuotes]
   );
   const selectedClient = clients.find((client) => client.id === selectedClientId) ?? null;
   const selectedProfile = selectedClient ? profileByClient.get(selectedClient.id) : undefined;
@@ -530,6 +535,7 @@ export default function CrmEmpresa({
           isManager={overview.isManager}
           opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
           quoteCount={(clientId) => quoteByClient.get(clientId)?.count || 0}
+          expiredQuoteCount={(clientId) => expiredQuoteCountByClient.get(clientId) || 0}
           onPostpone={handlePostponeAgenda}
           postponingClientId={postponingClientId}
           onOpenClient={(clientId) => {
@@ -566,6 +572,7 @@ export default function CrmEmpresa({
                     active={selectedClientId === item.client.id}
                     opportunityCount={activeOpportunities.filter((opportunity) => opportunity.clientId === item.client.id).length}
                     quoteCount={quoteByClient.get(item.client.id)?.count || 0}
+                    expiredQuoteCount={expiredQuoteCountByClient.get(item.client.id) || 0}
                     onClick={() => selectClient(item.client.id)}
                   />
                 ))}
@@ -667,6 +674,7 @@ function AgendaBoard({
   isManager,
   opportunityCount,
   quoteCount,
+  expiredQuoteCount,
   onPostpone,
   postponingClientId,
   onOpenClient,
@@ -680,6 +688,7 @@ function AgendaBoard({
   isManager: boolean;
   opportunityCount: (clientId: string) => number;
   quoteCount: (clientId: string) => number;
+  expiredQuoteCount: (clientId: string) => number;
   onPostpone: (clientId: string) => void;
   postponingClientId: string;
   onOpenClient: (clientId: string) => void;
@@ -732,6 +741,7 @@ function AgendaBoard({
                     <div className="crm-agenda-context">
                       <span>{opportunityCount(item.client.id)} NEGOCIACAO(OES)</span>
                       <span>{quoteCount(item.client.id)} ORCAMENTO(S)</span>
+                      {expiredQuoteCount(item.client.id) ? <span className="crm-expired-quote-alert">{expiredQuoteCount(item.client.id)} ORC. VENCIDO(S)</span> : null}
                     </div>
                     <div className="crm-agenda-buttons">
                       {phone ? <a href={whatsAppLink(phone, item.client.buyerName || item.client.tradeName || item.client.legalName)} title="ABRIR WHATSAPP">WHATSAPP</a> : null}
@@ -1239,12 +1249,12 @@ function Timeline({ activities, opportunities }: { activities: CrmOverview["acti
   );
 }
 
-function ClientListItem({ item, active, opportunityCount, quoteCount, onClick }: { item: RankedClient; active: boolean; opportunityCount: number; quoteCount: number; onClick: () => void }) {
+function ClientListItem({ item, active, opportunityCount, quoteCount, expiredQuoteCount, onClick }: { item: RankedClient; active: boolean; opportunityCount: number; quoteCount: number; expiredQuoteCount: number; onClick: () => void }) {
   return (
     <button type="button" className={`crm-client-row ${active ? "active" : ""}`} onClick={onClick}>
       <i className={`crm-dot crm-dot-${item.health.toLowerCase()}`} />
       <div><strong>{item.client.tradeName || item.client.legalName}</strong><span>{item.client.clientCode} · {item.profile?.ownerName || item.client.representativeName || "SEM RESPONSAVEL"}</span></div>
-      <div className="crm-client-row-info"><b>{nextActionLabel(item)}</b><small>{opportunityCount} NEG. · {quoteCount} ORC.</small></div>
+      <div className="crm-client-row-info"><b>{nextActionLabel(item)}</b><small>{opportunityCount} NEG. · {quoteCount} ORC.{expiredQuoteCount ? <em className="crm-expired-quote-alert"> · {expiredQuoteCount} ORC. VENCIDO(S)</em> : null}</small></div>
     </button>
   );
 }

@@ -1436,6 +1436,7 @@ button {
 .crm-agenda-client span,
 .crm-agenda-action span,
 .crm-agenda-context span { color: #6d768c; font-size: 11px; font-weight: 800; }
+.crm-expired-quote-alert { color: #e03b45 !important; font-style: normal; font-weight: 900; }
 .crm-agenda-action b { color: #e9007f; font-size: 12px; }
 .crm-agenda-context { padding-left: 10px; border-left: 1px solid #e5e7ee; }
 .crm-agenda-buttons { display: flex; align-items: center; gap: 6px; }

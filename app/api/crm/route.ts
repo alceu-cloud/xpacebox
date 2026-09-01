@@ -50,12 +50,17 @@ export async function GET(request: Request) {
     );
     const today = saoPauloDate();
     const quoteMap = new Map<string, { count: number; total: number; lastQuoteAt: string }>();
+    const expiredQuoteMap = new Map<string, number>();
     for (const quote of quotesResult.data ?? []) {
       const quoteId = String(quote.id || "");
       const validUntil = String(quote.valid_until || "");
-      if (!openQuoteIds.has(quoteId) || (validUntil && validUntil < today)) continue;
       const clientId = String(quote.client_id || "");
       if (!clientId) continue;
+      if (!openQuoteIds.has(quoteId)) continue;
+      if (validUntil && validUntil < today) {
+        expiredQuoteMap.set(clientId, (expiredQuoteMap.get(clientId) || 0) + 1);
+        continue;
+      }
       const current = quoteMap.get(clientId) ?? { count: 0, total: 0, lastQuoteAt: "" };
       current.count += 1;
       current.total += Number(quote.grand_total || 0);
@@ -120,6 +125,7 @@ export async function GET(request: Request) {
           updatedAt: row.updated_at,
         })),
         quotes: [...quoteMap.entries()].map(([clientId, value]) => ({ clientId, ...value })),
+        expiredQuotes: [...expiredQuoteMap.entries()].map(([clientId, count]) => ({ clientId, count })),
         whatsappConnections: (connectionsResult.data ?? []).map((row) => ({
           sellerCompanyId: row.seller_company_id,
           sellerCompanyName: sellerNames.get(row.seller_company_id) || "EMPRESA",
