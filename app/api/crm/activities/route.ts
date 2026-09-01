@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const slug = body.slug?.trim() ?? "";
     const input = body.activity;
     if (!slug || !input?.clientId || !input.activityType || !input.outcome) return failure("PREENCHA OS DADOS DO CONTATO.", 400);
+    if (!input.nextActionType || !input.nextActionAt) return failure("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.", 400);
 
     const { admin, company, profile, user } = await requireCompanyAccess(request, slug);
     const { data: client } = await admin.from("clients").select("id").eq("id", input.clientId).eq("tenant_company_id", company.id).eq("active", true).maybeSingle();
