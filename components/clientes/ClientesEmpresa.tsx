@@ -81,7 +81,7 @@ export default function ClientesEmpresa({
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [search, setSearch] = useState("");
   const [clientNameSearch, setClientNameSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras">("cadastro");
+  const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras">("crm");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -255,8 +255,8 @@ export default function ClientesEmpresa({
   return (
     <section className="clients-module">
       <nav className="clients-tabs" aria-label="ETAPAS DO MODULO CLIENTES">
-        {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "cadastro" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("cadastro")}>CADASTRO</button> : null}
         <button type="button" className={`clients-tab ${activeTab === "crm" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("crm")}>CRM</button>
+        {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "cadastro" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("cadastro")}>CADASTRO</button> : null}
         {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "amostras" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("amostras")}>AMOSTRAS</button> : null}
       </nav>
 
