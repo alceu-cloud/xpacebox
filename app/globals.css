@@ -1614,10 +1614,15 @@ button {
 
 .crm-client-row:hover { background: #faf7ff; }
 
+.crm-client-row.crm-client-row-purchase-pending { background: #fffaf0; box-shadow: inset 4px 0 #e68019; }
+.crm-client-row.crm-client-row-purchase-pending:hover { background: #fff5de; }
+
 .crm-client-row.active {
   background: #f5efff;
   box-shadow: inset 4px 0 #7a31e8;
 }
+
+.crm-client-row.active.crm-client-row-purchase-pending { background: #fff4dd; box-shadow: inset 4px 0 #e68019; }
 
 .crm-client-row > div:not(.crm-client-row-info) {
   display: grid;

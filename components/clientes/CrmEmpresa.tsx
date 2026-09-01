@@ -819,6 +819,8 @@ function ClientDetail({
   }, [client?.id, opportunityDraft.id]);
 
   const mustResolveOverdueAgenda = Boolean(client?.id && operationalLockClientId === client.id);
+  const purchaseInformationComplete = hasPurchaseInformation(profileDraft);
+  const hasPurchaseHistory = hasAnyPurchaseInformation(profileDraft);
   useEffect(() => {
     if (mustResolveOverdueAgenda) setDetailTab("contato");
     else setDetailTab(entryTab);
@@ -886,10 +888,10 @@ function ClientDetail({
 
       {detailTab === "resumo" && !mustResolveOverdueAgenda ? (
         <>
-          {!hasCrmSummary(profileDraft) ? (
+          {!purchaseInformationComplete ? (
             <div className="crm-required-summary">
-              <strong>RESUMO DO CLIENTE PENDENTE</strong>
-              <span>ANTES DE INICIAR A ROTINA COMERCIAL, PREENCHA PELO MENOS A FREQUENCIA, COMPRA MEDIA, ULTIMA COMPRA, PROXIMO CONTATO OU ANOTACOES.</span>
+              <strong>{hasPurchaseHistory ? "DADOS DE COMPRA PENDENTES" : "SEM HISTORICO DE COMPRA"}</strong>
+              <span>{hasPurchaseHistory ? "PREENCHA FREQUENCIA, COMPRA MEDIA E ULTIMA COMPRA PARA ATIVAR A RECOMPRA AUTOMATICA." : "REGISTRE FREQUENCIA, COMPRA MEDIA E ULTIMA COMPRA QUANDO HOUVER HISTORICO COMERCIAL."}</span>
             </div>
           ) : null}
           <div className="crm-metrics">
@@ -1250,8 +1252,10 @@ function Timeline({ activities, opportunities }: { activities: CrmOverview["acti
 }
 
 function ClientListItem({ item, active, opportunityCount, quoteCount, expiredQuoteCount, onClick }: { item: RankedClient; active: boolean; opportunityCount: number; quoteCount: number; expiredQuoteCount: number; onClick: () => void }) {
+  const purchaseInformationPending = !hasPurchaseInformation(item.profile);
+  const purchaseInformationTitle = hasAnyPurchaseInformation(item.profile) ? "DADOS DE COMPRA PENDENTES" : "SEM HISTORICO DE COMPRA";
   return (
-    <button type="button" className={`crm-client-row ${active ? "active" : ""}`} onClick={onClick}>
+    <button type="button" className={`crm-client-row ${active ? "active" : ""}${purchaseInformationPending ? " crm-client-row-purchase-pending" : ""}`} onClick={onClick} title={purchaseInformationPending ? purchaseInformationTitle : undefined}>
       <i className={`crm-dot crm-dot-${item.health.toLowerCase()}`} />
       <div><strong>{item.client.tradeName || item.client.legalName}</strong><span>{item.client.clientCode} · {item.profile?.ownerName || item.client.representativeName || "SEM RESPONSAVEL"}</span></div>
       <div className="crm-client-row-info"><b>{nextActionLabel(item)}</b><small>{opportunityCount} NEG. · {quoteCount} ORC.{expiredQuoteCount ? <em className="crm-expired-quote-alert"> · {expiredQuoteCount} ORC. VENCIDO(S)</em> : null}</small></div>
@@ -1356,15 +1360,12 @@ function opportunityQuantity(product: ProductFicha) {
   return last || 1;
 }
 
-function hasCrmSummary(profile: CrmProfileInput) {
-  return Boolean(
-    profile.notes.trim() ||
-    profile.purchaseFrequencyDays ||
-    Number(profile.averagePurchaseValue || 0) > 0 ||
-    profile.lastPurchaseAt ||
-    profile.nextPurchaseAt ||
-    profile.nextContactAt
-  );
+function hasPurchaseInformation(profile?: Pick<CrmProfileInput, "purchaseFrequencyDays" | "averagePurchaseValue" | "lastPurchaseAt">) {
+  return Boolean(profile?.purchaseFrequencyDays && Number(profile.averagePurchaseValue || 0) > 0 && profile.lastPurchaseAt);
+}
+
+function hasAnyPurchaseInformation(profile?: Pick<CrmProfileInput, "purchaseFrequencyDays" | "averagePurchaseValue" | "lastPurchaseAt">) {
+  return Boolean(profile?.purchaseFrequencyDays || Number(profile?.averagePurchaseValue || 0) > 0 || profile?.lastPurchaseAt);
 }
 
 function daysUntil(value: string) {
