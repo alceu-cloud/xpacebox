@@ -60,6 +60,8 @@ export async function POST(request: Request) {
     const sellerIdentity = `${quote.sellerCompanySlug} ${quote.sellerCompanyName}`.toLowerCase();
     const appliesIpi = sellerIdentity.includes("gta");
     const normalizedItems = quote.items.map((item, index) => normalizeItem(item, index + 1, appliesIpi));
+    const duplicateFichaNumber = findDuplicateFichaNumber(normalizedItems);
+    if (duplicateFichaNumber) return failure(`A FICHA TECNICA ${duplicateFichaNumber} JA ESTA NESTE ORCAMENTO.`, 400);
     const totals = normalizedItems.reduce((summary, item) => ({
       productTotal: summary.productTotal + item.quantity * item.unitPrice,
       ipiTotal: summary.ipiTotal + item.ipiValue,
@@ -166,6 +168,8 @@ export async function PATCH(request: Request) {
     const sellerIdentity = `${quote.sellerCompanySlug} ${quote.sellerCompanyName}`.toLowerCase();
     const appliesIpi = sellerIdentity.includes("gta");
     const normalizedItems = quote.items.map((item, index) => normalizeItem(item, index + 1, appliesIpi));
+    const duplicateFichaNumber = findDuplicateFichaNumber(normalizedItems);
+    if (duplicateFichaNumber) return failure(`A FICHA TECNICA ${duplicateFichaNumber} JA ESTA NESTE ORCAMENTO.`, 400);
     const totals = normalizedItems.reduce((summary, item) => ({
       productTotal: summary.productTotal + item.quantity * item.unitPrice,
       ipiTotal: summary.ipiTotal + item.ipiValue,
@@ -288,6 +292,17 @@ function normalizeItem(item: QuoteDraft["items"][number], itemNumber: number, ap
   const unitPrice = Number(item.unitPrice) || 0;
   const ipiPercent = appliesIpi ? Number(item.ipiPercent) || 0 : 0;
   return { ...item, itemNumber, quantity, unitPrice, ipiPercent, ipiValue: quantity * unitPrice * ipiPercent / 100, total: quantity * unitPrice * (1 + ipiPercent / 100) };
+}
+
+function findDuplicateFichaNumber(items: QuoteDraft["items"]) {
+  const seen = new Set<string>();
+  for (const item of items) {
+    const ftNumber = String(item.ftNumber ?? "").trim().toLocaleUpperCase("pt-BR");
+    if (!ftNumber) continue;
+    if (seen.has(ftNumber)) return ftNumber;
+    seen.add(ftNumber);
+  }
+  return "";
 }
 
 async function syncQuoteWithCrmSafely(

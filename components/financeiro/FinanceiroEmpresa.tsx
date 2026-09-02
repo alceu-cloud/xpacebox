@@ -93,6 +93,21 @@ function emptyItem(): QuoteItem {
   return { itemNumber: 1, ftNumber: "", description: "", length: 0, width: 0, height: 0, area: 0, quality: "", boxType: "", material: "", quantity: 1, unitPrice: 0, ipiPercent: 0, ipiValue: 0, total: 0 };
 }
 
+function normalizeFichaNumber(value: string) {
+  return value.trim().toLocaleUpperCase("pt-BR");
+}
+
+function findDuplicateFichaNumber(items: QuoteItem[]) {
+  const seen = new Set<string>();
+  for (const item of items) {
+    const ftNumber = normalizeFichaNumber(item.ftNumber);
+    if (!ftNumber) continue;
+    if (seen.has(ftNumber)) return ftNumber;
+    seen.add(ftNumber);
+  }
+  return "";
+}
+
 function resolveFichaArea(ficha: ProductFicha) {
   const configuredArea = Number(ficha.areaM2);
   if (Number.isFinite(configuredArea) && configuredArea > 0) return configuredArea;
@@ -265,6 +280,12 @@ export default function FinanceiroEmpresa({
     setSelectedFichaId(id);
     const ficha = productFichas.find((item) => item.id === id);
     if (!ficha) return;
+    const fichaAlreadyAdded = items.some((item) => normalizeFichaNumber(item.ftNumber) === normalizeFichaNumber(ficha.ftNumber));
+    if (fichaAlreadyAdded) {
+      setSelectedFichaId("");
+      setMessage(`A FICHA TECNICA ${ficha.ftNumber} JA ESTA NESTE ORCAMENTO.`);
+      return;
+    }
     const material = materials.find((item) => item.id === ficha.materialId);
     const formula = engineeringFormulas.find((item) => item.id === ficha.engineeringId);
     const nextItem = { ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", quantity: resolveFichaQuantity(ficha), unitPrice: ficha.price, snapshot: { revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } };
@@ -280,6 +301,11 @@ export default function FinanceiroEmpresa({
   async function saveQuote() {
     if (!form.clientName.trim() || !items.some((item) => item.description.trim())) {
       setMessage("PREENCHA O CLIENTE E A DESCRICAO DE PELO MENOS UM ITEM.");
+      return;
+    }
+    const duplicateFichaNumber = findDuplicateFichaNumber(items);
+    if (duplicateFichaNumber) {
+      setMessage(`A FICHA TECNICA ${duplicateFichaNumber} ESTA REPETIDA. REMOVA O ITEM DUPLICADO PARA GERAR O ORCAMENTO.`);
       return;
     }
     try {

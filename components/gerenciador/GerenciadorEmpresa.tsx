@@ -879,6 +879,17 @@ function productClientName(client?: ClientRecord) {
   return (client?.tradeName || client?.legalName || "").toLocaleUpperCase("pt-BR");
 }
 
+function hasSameProductSpecification(first: ProductFicha, second: ProductFicha) {
+  const requiredValues = [second.materialId, second.engineeringId, second.length, second.width, second.height];
+  if (!requiredValues[0] || !requiredValues[1] || requiredValues.slice(2).some((value) => Number(value) <= 0)) return false;
+
+  return first.materialId === second.materialId
+    && first.engineeringId === second.engineeringId
+    && Number(first.length) === Number(second.length)
+    && Number(first.width) === Number(second.width)
+    && Number(first.height) === Number(second.height);
+}
+
 function evaluateProductFormula(formula: string, values: { C: number; L: number; A: number }) {
   const normalized = formula
     .replaceAll(",", ".")
@@ -1066,6 +1077,12 @@ export function ProductCatalogPanel({
 
   function save() {
     if (!draft?.ftNumber.trim() || !draft.reference.trim() || !draft.clientId) return;
+    const matchingFicha = fichas.find((item) => item.id !== draft.id && hasSameProductSpecification(item, draft));
+    if (matchingFicha) {
+      const clientName = productClientName(clientsById.get(matchingFicha.clientId)) || "CLIENTE NAO INFORMADO";
+      const shouldContinue = window.confirm(`JA EXISTE UMA FICHA COM O MESMO MATERIAL, TIPO DE CAIXA E MEDIDAS.\n\n${matchingFicha.ftNumber} - ${matchingFicha.reference}\nCLIENTE: ${clientName}\n\nDESEJA SALVAR MESMO ASSIM?`);
+      if (!shouldContinue) return;
+    }
     const baseNext = {
       ...draft,
       ftNumber: draft.ftNumber.trim().toUpperCase(),
