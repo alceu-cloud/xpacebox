@@ -242,7 +242,7 @@ function MaterialComparisonReport({ materials }: { materials: Material[] }) {
     .sort(([first], [second]) => first.localeCompare(second, "pt-BR"))
     .map(([paperType, items]) => ({
       paperType,
-      items: [...items].sort((first, second) => Number(first.costIpi || 0) - Number(second.costIpi || 0) || (first.supplier || "").localeCompare(second.supplier || "", "pt-BR")),
+      items: [...items].sort((first, second) => compareMaterialPressure(first.pressure, second.pressure) || Number(first.costIpi || 0) - Number(second.costIpi || 0) || (first.supplier || "").localeCompare(second.supplier || "", "pt-BR")),
     }));
 
   return <ReportLayout title="COMPARATIVO DE MATERIA PRIMA" description="COMPARE CODIGO DO MATERIAL, FORNECEDOR, RESISTENCIA DE COLUNA E PRECO C/ IPI DENTRO DE CADA TIPO DE MATERIAL.">
@@ -251,7 +251,7 @@ function MaterialComparisonReport({ materials }: { materials: Material[] }) {
       <tbody>
         {rows.map(({ paperType, items }) => <Fragment key={paperType}>
           <tr><td colSpan={4} style={materialTypeGroupCellStyle}>{paperType}</td></tr>
-          {items.map((material) => <tr key={material.id || `${paperType}-${material.supplier}-${material.code}`}>
+          {items.map((material) => <tr key={material.id || `${paperType}-${material.supplier}-${material.code}`} style={materialPressureRowStyle(material.pressure)}>
             <td>{material.code || "NAO INFORMADO"}</td>
             <td>{material.supplier || "NAO INFORMADO"}</td>
             <td>{material.pressure || "NAO INFORMADA"}</td>
@@ -295,6 +295,22 @@ function latestMaterialSnapshot(ficha: ProductFicha) { return [ficha.pricingData
 function fichaReferenceKey(clientId?: string | null, reference?: string | null) { return clientId && reference ? `${clientId}::${reference.trim().toUpperCase()}` : ""; }
 function sum<T>(items: T[], getValue: (item: T) => number) { return items.reduce((total, item) => total + Number(getValue(item) || 0), 0); }
 function average(values: number[]) { return values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0; }
+function materialPressureValue(value?: string) {
+  const match = value?.match(/[\d.,]+/);
+  if (!match) return 0;
+  const normalized = match[0].includes(",") ? match[0].replace(/\./g, "").replace(",", ".") : match[0];
+  return Number(normalized) || 0;
+}
+function compareMaterialPressure(first?: string, second?: string) { const firstValue = materialPressureValue(first) || Number.POSITIVE_INFINITY; const secondValue = materialPressureValue(second) || Number.POSITIVE_INFINITY; return firstValue - secondValue; }
+function materialPressureRowStyle(pressure?: string) {
+  const value = materialPressureValue(pressure);
+  if (!value) return undefined;
+  if (value <= 4.5) return { background: "#fff8ed" };
+  if (value <= 5.5) return { background: "#fff2f4" };
+  if (value <= 6.5) return { background: "#effaf2" };
+  if (value <= 7.5) return { background: "#eff8ff" };
+  return { background: "#f6f2ff" };
+}
 function daysSince(value: string) { return value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)) : 0; }
 function daysBetween(start: string, end: string) { return Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 86_400_000)); }
 function isWithinPurchaseFrequency(profile?: Profile) { const frequency = Number(profile?.purchase_frequency_days || 0); return Boolean(frequency && profile?.last_purchase_at && daysSince(profile.last_purchase_at) <= frequency); }
