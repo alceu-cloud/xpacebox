@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       admin.from("crm_customer_profiles").select("client_id,owner_profile_id,purchase_frequency_days,average_purchase_value,last_purchase_at,next_purchase_at,next_contact_at,relationship_status").eq("tenant_company_id", company.id).limit(5000),
       admin.from("crm_activities").select("id,client_id,opportunity_id,representative_profile_id,activity_type,outcome,subject,occurred_at,next_action_at").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(5000),
       admin.from("crm_opportunities").select("id,client_id,representative_profile_id,title,product_ficha_id,product_reference,stage,estimated_value,expected_close_date,lost_reason,created_at,updated_at").eq("tenant_company_id", company.id).order("updated_at", { ascending: false }).limit(5000),
-      admin.from("quotes").select("id,client_id,representative_profile_id,seller_company_name,seller_company_slug,quote_number,grand_total,issue_date,valid_until,created_at").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(5000),
+      admin.from("quotes").select("id,client_id,representative_profile_id,seller_company_name,seller_company_slug,quote_number,grand_total,issue_date,valid_until,created_at,quote_items(item_number,ft_number,description,total,snapshot)").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(5000),
       admin.from("seller_companies").select("id,name,slug").eq("tenant_company_id", company.id).eq("active", true),
       admin.from("profiles").select("id,full_name,email").eq("active", true),
       admin.from("company_manager_settings").select("data").eq("tenant_company_id", company.id).maybeSingle(),

@@ -136,6 +136,7 @@ export async function POST(request: Request) {
       validUntil: quote.validUntil || "",
       createdBy: user.id,
       existingOpportunityId: quote.crmOpportunityId || "",
+      ...quoteProductLink(normalizedItems),
     });
 
     return NextResponse.json({ success: true, quote: mapQuote(complete) }, { status: 201 });
@@ -241,6 +242,7 @@ export async function PATCH(request: Request) {
       grandTotal: totals.productTotal + totals.ipiTotal,
       validUntil: quote.validUntil || "",
       createdBy: user.id,
+      ...quoteProductLink(normalizedItems),
     });
 
     return NextResponse.json({ success: true, quote: mapQuote(complete) });
@@ -303,6 +305,18 @@ function findDuplicateFichaNumber(items: QuoteDraft["items"]) {
     seen.add(ftNumber);
   }
   return "";
+}
+
+function quoteProductLink(items: QuoteDraft["items"]) {
+  const productItems = items.flatMap((item) => {
+    const snapshot = item.snapshot as { fichaId?: unknown } | undefined;
+    const fichaId = String(snapshot?.fichaId ?? "").trim();
+    return fichaId ? [{ fichaId, reference: `${item.ftNumber} - ${item.description}`.trim() }] : [];
+  });
+  const uniqueFichaIds = [...new Set(productItems.map((item) => item.fichaId))];
+  if (uniqueFichaIds.length !== 1) return {};
+  const product = productItems.find((item) => item.fichaId === uniqueFichaIds[0]);
+  return { productFichaId: uniqueFichaIds[0], productReference: product?.reference || "" };
 }
 
 async function syncQuoteWithCrmSafely(

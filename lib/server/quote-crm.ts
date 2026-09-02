@@ -10,6 +10,8 @@ type QuoteCrmInput = {
   grandTotal: number;
   validUntil: string;
   createdBy: string;
+  productFichaId?: string;
+  productReference?: string;
   existingOpportunityId?: string;
 };
 
@@ -52,6 +54,8 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
     title: `ORCAMENTO ${input.quoteNumber} - ${input.clientName}`,
     estimated_value: input.grandTotal,
     expected_close_date: input.validUntil || null,
+    product_ficha_id: input.productFichaId || null,
+    product_reference: input.productReference || null,
     updated_at: now,
   };
 
