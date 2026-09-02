@@ -240,18 +240,18 @@ function MaterialComparisonReport({ materials }: { materials: Material[] }) {
   });
   const rows = [...groups.entries()]
     .sort(([first], [second]) => first.localeCompare(second, "pt-BR"))
-    .map(([paperType, items]) => ({
-      paperType,
-      items: [...items].sort((first, second) => compareMaterialPressure(first.pressure, second.pressure) || Number(first.costIpi || 0) - Number(second.costIpi || 0) || (first.supplier || "").localeCompare(second.supplier || "", "pt-BR")),
-    }));
+    .map(([paperType, groupMaterials]) => {
+      const items = [...groupMaterials].sort((first, second) => compareMaterialPressure(first.pressure, second.pressure) || Number(first.costIpi || 0) - Number(second.costIpi || 0) || (first.supplier || "").localeCompare(second.supplier || "", "pt-BR"));
+      return { paperType, items, pressureTones: materialPressureToneMap(items) };
+    });
 
   return <ReportLayout title="COMPARATIVO DE MATERIA PRIMA" description="COMPARE CODIGO DO MATERIAL, FORNECEDOR, RESISTENCIA DE COLUNA E PRECO C/ IPI DENTRO DE CADA TIPO DE MATERIAL.">
     <ReportTable>
       <thead><tr><th>MATERIAL</th><th>FORNECEDOR</th><th>COLUNA / RES. PRESSAO</th><th>PRECO C/ IPI</th></tr></thead>
       <tbody>
-        {rows.map(({ paperType, items }) => <Fragment key={paperType}>
+        {rows.map(({ paperType, items, pressureTones }) => <Fragment key={paperType}>
           <tr><td colSpan={4} style={materialTypeGroupCellStyle}>{paperType}</td></tr>
-          {items.map((material) => <tr key={material.id || `${paperType}-${material.supplier}-${material.code}`} style={materialPressureRowStyle(material.pressure)}>
+          {items.map((material) => <tr key={material.id || `${paperType}-${material.supplier}-${material.code}`} style={pressureTones.get(materialPressureValue(material.pressure))}>
             <td>{material.code || "NAO INFORMADO"}</td>
             <td>{material.supplier || "NAO INFORMADO"}</td>
             <td>{material.pressure || "NAO INFORMADA"}</td>
@@ -302,14 +302,20 @@ function materialPressureValue(value?: string) {
   return Number(normalized) || 0;
 }
 function compareMaterialPressure(first?: string, second?: string) { const firstValue = materialPressureValue(first) || Number.POSITIVE_INFINITY; const secondValue = materialPressureValue(second) || Number.POSITIVE_INFINITY; return firstValue - secondValue; }
-function materialPressureRowStyle(pressure?: string) {
-  const value = materialPressureValue(pressure);
-  if (!value) return undefined;
-  if (value <= 4.5) return { background: "#fff8ed" };
-  if (value <= 5.5) return { background: "#fff2f4" };
-  if (value <= 6.5) return { background: "#effaf2" };
-  if (value <= 7.5) return { background: "#eff8ff" };
-  return { background: "#f6f2ff" };
+function materialPressureToneMap(materials: Material[]) {
+  const values = [...new Set(materials.map((material) => materialPressureValue(material.pressure)).filter(Boolean))].sort((first, second) => first - second);
+  const tones = ["#fff8ed", "#eff8ff", "#f6f2ff", "#fff2f7", "#eefcf7", "#f0f9ff", "#fdf4ff", "#fff7ed", "#f0fdf4"];
+  const result = new Map<number, { background: string }>();
+  let toneIndex = 0;
+  values.forEach((value) => {
+    if (value === 5) result.set(value, { background: "#fff2f4" });
+    else if (value === 6) result.set(value, { background: "#effaf2" });
+    else {
+      result.set(value, { background: tones[toneIndex % tones.length] });
+      toneIndex += 1;
+    }
+  });
+  return result;
 }
 function daysSince(value: string) { return value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)) : 0; }
 function daysBetween(start: string, end: string) { return Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 86_400_000)); }
