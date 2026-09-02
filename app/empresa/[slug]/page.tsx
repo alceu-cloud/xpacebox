@@ -327,12 +327,10 @@ export default function EmpresaPage() {
           <ProductCatalogPanel
             companySlug={slug}
             fichas={productFichas}
-            colors={productColors}
             suppliers={suppliers}
             materials={materials}
             engineeringFormulas={engineeringFormulas}
             onChange={(value) => persistManagerChange("productFichas", value, setProductFichas)}
-            onColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloEmExibicao === "formacao-preco" ? (
           <PricingPreview

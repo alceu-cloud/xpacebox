@@ -923,16 +923,14 @@ const productChangeLabels: Partial<Record<keyof ProductComponent, string>> = {
 };
 
 export function ProductCatalogPanel({
-  companySlug, fichas, colors, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange, onColorsChange,
+  companySlug, fichas, suppliers = initialSuppliers, materials = initialMaterials, engineeringFormulas, onChange,
 }: {
   companySlug?: string;
   fichas: ProductFicha[];
-  colors: string[];
   suppliers?: Supplier[];
   materials?: SpecificMaterial[];
   engineeringFormulas: EngineeringFormula[];
   onChange: (items: ProductFicha[]) => void;
-  onColorsChange: (items: string[]) => void;
 }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1179,8 +1177,6 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>COMPRIMENTO (MM)<input type="number" value={item.length || ""} onChange={(event) => update("length", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>LARGURA (MM)<input type="number" value={item.width || ""} onChange={(event) => update("width", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>ALTURA (MM)<input type="number" value={item.height || ""} onChange={(event) => update("height", Number(event.target.value) || 0)} style={productInputStyle} /></label>
-        <label style={productLabelStyle}>COR 1<select value={item.color1} onChange={(event) => update("color1", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-1-${color}`}>{color}</option>)}</select></label>
-        <label style={productLabelStyle}>COR 2<select value={item.color2} onChange={(event) => update("color2", event.target.value)} style={productInputStyle}><option value="">SELECIONE</option>{colors.map((color) => <option key={`${prefix}-2-${color}`}>{color}</option>)}</select></label>
         <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
         <label style={productLabelStyle}>AREA CALCULADA (M2)<input value={calculatedArea ? calculatedArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label>
