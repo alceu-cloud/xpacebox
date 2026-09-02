@@ -245,19 +245,20 @@ function MaterialComparisonReport({ materials }: { materials: Material[] }) {
       items: [...items].sort((first, second) => Number(first.costIpi || 0) - Number(second.costIpi || 0) || (first.supplier || "").localeCompare(second.supplier || "", "pt-BR")),
     }));
 
-  return <ReportLayout title="COMPARATIVO DE MATERIA PRIMA" description="COMPARE FORNECEDOR, RESISTENCIA DE COLUNA E PRECO C/ IPI DENTRO DE CADA TIPO DE MATERIAL.">
+  return <ReportLayout title="COMPARATIVO DE MATERIA PRIMA" description="COMPARE CODIGO DO MATERIAL, FORNECEDOR, RESISTENCIA DE COLUNA E PRECO C/ IPI DENTRO DE CADA TIPO DE MATERIAL.">
     <ReportTable>
-      <thead><tr><th>FORNECEDOR</th><th>COLUNA / RES. PRESSAO</th><th>PRECO C/ IPI</th></tr></thead>
+      <thead><tr><th>MATERIAL</th><th>FORNECEDOR</th><th>COLUNA / RES. PRESSAO</th><th>PRECO C/ IPI</th></tr></thead>
       <tbody>
         {rows.map(({ paperType, items }) => <Fragment key={paperType}>
-          <tr><td colSpan={3} style={materialTypeGroupCellStyle}>{paperType}</td></tr>
+          <tr><td colSpan={4} style={materialTypeGroupCellStyle}>{paperType}</td></tr>
           {items.map((material) => <tr key={material.id || `${paperType}-${material.supplier}-${material.code}`}>
+            <td>{material.code || "NAO INFORMADO"}</td>
             <td>{material.supplier || "NAO INFORMADO"}</td>
             <td>{material.pressure || "NAO INFORMADA"}</td>
             <td>{Number(material.costIpi || 0) > 0 ? money(Number(material.costIpi)) : "NAO INFORMADO"}</td>
           </tr>)}
         </Fragment>)}
-        {!rows.length ? <tr><td colSpan={3} style={emptyCellStyle}>NENHUM MATERIAL ESPECIFICO CADASTRADO.</td></tr> : null}
+        {!rows.length ? <tr><td colSpan={4} style={emptyCellStyle}>NENHUM MATERIAL ESPECIFICO CADASTRADO.</td></tr> : null}
       </tbody>
     </ReportTable>
   </ReportLayout>;
