@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
 
 import {
   defaultQuoteParametersByCompany,
@@ -23,7 +24,7 @@ import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
-type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "orcamento" | "tempos" | "lembretes";
+type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "orcamento" | "integracoes" | "tempos" | "lembretes";
 type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
@@ -37,6 +38,7 @@ const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
   { key: "parametros", label: "PARAMETROS DE PRECO" },
   { key: "metas", label: "METAS" },
   { key: "orcamento", label: "PARAMETROS DE ORCAMENTO" },
+  { key: "integracoes", label: "INTEGRACOES" },
   { key: "tempos", label: "TEMPOS DE PRODUCAO" },
   { key: "lembretes", label: "LEMBRETES & FORMULAS" },
 ];
@@ -45,7 +47,7 @@ const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
   embalagem: ["papeis", "materiais", "tempos", "lembretes"],
   fornecedores: ["fornecedores", "custo"],
   produtos: ["engenharia", "cores"],
-  empresa: ["parametros", "metas", "orcamento"],
+  empresa: ["parametros", "metas", "orcamento", "integracoes"],
 };
 
 const emptySupplier: Supplier = { id: "", name: "" };
@@ -233,6 +235,7 @@ export default function GerenciadorEmpresa({
     if (activeTab === "parametros") return "PARAMETROS DE PRECIFICACAO";
     if (activeTab === "metas") return "METAS DE DESEMPENHO COMERCIAL";
     if (activeTab === "orcamento") return "PARAMETROS DE ORCAMENTO";
+    if (activeTab === "integracoes") return "INTEGRACOES DA EMPRESA";
     if (activeTab === "tempos") return "TABELA DE TEMPOS DE PRODUCAO";
     return "LEMBRETES & FORMULAS";
   }, [activeTab]);
@@ -654,6 +657,10 @@ export default function GerenciadorEmpresa({
 
           {activeTab === "orcamento" && (
             <QuoteParametersPanel values={quoteParameters} onChange={setQuoteParameters} />
+          )}
+
+          {activeTab === "integracoes" && (
+            <BaldussiIntegrationPanel companySlug={companySlug} />
           )}
 
           {activeTab === "tempos" && (
