@@ -37,6 +37,24 @@ export type CrmActivity = {
   nextActionAt: string;
 };
 
+export type CrmTelephonyCall = {
+  id: string;
+  clientId: string;
+  representativeProfileId: string;
+  representativeName: string;
+  extension: string;
+  direction: "INBOUND" | "OUTBOUND" | "UNKNOWN";
+  remotePhone: string;
+  status: string;
+  startedAt: string;
+  durationSeconds: number;
+  hasAudio: boolean;
+  transcript: string;
+  justification: string;
+  summary: string;
+  qualityScore: number | null;
+};
+
 export type CrmOpportunity = {
   id: string;
   clientId: string;
@@ -85,6 +103,7 @@ export type CrmOverview = {
   isManager: boolean;
   profiles: CrmCustomerProfile[];
   activities: CrmActivity[];
+  telephonyCalls: CrmTelephonyCall[];
   opportunities: CrmOpportunity[];
   quotes: CrmQuoteSummary[];
   expiredQuotes: CrmExpiredQuoteSummary[];

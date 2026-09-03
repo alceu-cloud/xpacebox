@@ -5,6 +5,7 @@ import type { DragEvent } from "react";
 
 import { createCrmActivity, loadCrmOverview, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
+import TelephonyCallHistory from "@/components/clientes/TelephonyCallHistory";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
@@ -49,6 +50,7 @@ const emptyOverview: CrmOverview = {
   isManager: false,
   profiles: [],
   activities: [],
+  telephonyCalls: [],
   opportunities: [],
   quotes: [],
   expiredQuotes: [],
@@ -281,6 +283,7 @@ export default function CrmEmpresa({
   const negotiationCount = visiblePipelineOpportunities.filter((item) => item.stage === "NEGOTIATION").length;
   const wonOpportunityCount = visiblePipelineOpportunities.filter((item) => item.stage === "WON").length;
   const selectedActivities = overview.activities.filter((activity) => activity.clientId === selectedClientId);
+  const selectedTelephonyCalls = overview.telephonyCalls.filter((call) => call.clientId === selectedClientId);
   const selectedOpportunities = overview.opportunities.filter((opportunity) => opportunity.clientId === selectedClientId);
 
   async function handleSaveProfile() {
@@ -610,12 +613,14 @@ export default function CrmEmpresa({
             </section>
 
             <ClientDetail
+              slug={slug}
               client={selectedClient}
               entryTab={detailEntryTab}
               profileDraft={profileDraft}
               setProfileDraft={setProfileDraft}
               representatives={representatives}
               activities={selectedActivities}
+              telephonyCalls={selectedTelephonyCalls}
               opportunities={selectedOpportunities}
               quote={selectedClient ? quoteByClient.get(selectedClient.id) : undefined}
               activityDraft={activityDraft}
@@ -814,12 +819,14 @@ function AgendaBoard({
 }
 
 function ClientDetail({
+  slug,
   client,
   entryTab,
   profileDraft,
   setProfileDraft,
   representatives,
   activities,
+  telephonyCalls,
   opportunities,
   quote,
   activityDraft,
@@ -838,12 +845,14 @@ function ClientDetail({
   operationalLockRepresentativeId,
   operationalLockActionAt,
 }: {
+  slug: string;
   client: ClientRecord | null;
   entryTab: CrmDetailEntryTab;
   profileDraft: CrmProfileInput;
   setProfileDraft: (value: CrmProfileInput) => void;
   representatives: RepresentativeOption[];
   activities: CrmOverview["activities"];
+  telephonyCalls: CrmOverview["telephonyCalls"];
   opportunities: CrmOpportunity[];
   quote: CrmOverview["quotes"][number] | undefined;
   activityDraft: CrmActivityInput;
@@ -862,7 +871,7 @@ function ClientDetail({
   operationalLockRepresentativeId: string;
   operationalLockActionAt: string;
 }) {
-  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "negocio">("resumo");
+  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "ligacoes" | "negocio">("resumo");
   const [showExistingOpportunityWarning, setShowExistingOpportunityWarning] = useState(false);
   useEffect(() => {
     setShowExistingOpportunityWarning(false);
@@ -933,6 +942,7 @@ function ClientDetail({
       <nav className="crm-detail-tabs">
         <button type="button" className={`crm-contact-tab ${detailTab === "contato" ? "active" : ""}`} onClick={() => setDetailTab("contato")}>REGISTRAR CONTATO</button>
         {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "resumo" ? "active" : ""} onClick={() => setDetailTab("resumo")}>RESUMO</button> : null}
+        {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "ligacoes" ? "active" : ""} onClick={() => setDetailTab("ligacoes")}>LIGACOES</button> : null}
         {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "negocio" ? "active" : ""} onClick={() => setDetailTab("negocio")}>NOVA OPORTUNIDADE</button> : null}
       </nav>
 
@@ -1047,6 +1057,8 @@ function ClientDetail({
           </div>
         </div>
       ) : null}
+
+      {detailTab === "ligacoes" && !mustResolveOverdueAgenda ? <TelephonyCallHistory slug={slug} calls={telephonyCalls} /> : null}
     </section>
   );
 }

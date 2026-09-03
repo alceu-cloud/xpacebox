@@ -13,16 +13,27 @@ export async function GET(request: Request) {
       console.error("DIRECT QUOTES CRM BACKFILL ERROR", error);
     });
     await activateDueCommercialCycles({ admin, companyId: company.id, userId: user.id });
-    const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult] = await Promise.all([
+    const isManager = ["platform_owner", "company_manager"].includes(profile.platform_role);
+    let telephonyCallsQuery = admin
+      .from("telephony_call_events")
+      .select("id,client_id,representative_profile_id,representative_name,extension,direction,remote_phone,status,started_at,duration_seconds,audio_url,transcript,justification,summary,quality_score,created_at")
+      .eq("tenant_company_id", company.id)
+      .not("client_id", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(300);
+    if (!isManager) telephonyCallsQuery = telephonyCallsQuery.eq("representative_profile_id", profile.id);
+
+    const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult] = await Promise.all([
       admin.from("crm_customer_profiles").select("*").eq("tenant_company_id", company.id),
       admin.from("crm_activities").select("*").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),
       admin.from("crm_opportunities").select("*").eq("tenant_company_id", company.id).order("updated_at", { ascending: false }).limit(300),
       admin.from("quotes").select("id, client_id, grand_total, created_at, valid_until").eq("tenant_company_id", company.id).not("client_id", "is", null),
       admin.from("seller_companies").select("id, name").eq("tenant_company_id", company.id).eq("active", true).order("name"),
       admin.from("profiles").select("id, full_name, email").eq("active", true),
+      telephonyCallsQuery,
     ]);
 
-    for (const result of [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult]) {
+    for (const result of [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult]) {
       if (result.error) throw result.error;
     }
 
@@ -68,7 +79,6 @@ export async function GET(request: Request) {
       quoteMap.set(clientId, current);
     }
 
-    const isManager = ["platform_owner", "company_manager"].includes(profile.platform_role);
     return NextResponse.json({
       success: true,
       overview: {
@@ -104,6 +114,23 @@ export async function GET(request: Request) {
           occurredAt: row.occurred_at,
           nextActionType: row.next_action_type || "",
           nextActionAt: row.next_action_at || "",
+        })),
+        telephonyCalls: (telephonyCallsResult.data ?? []).map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          representativeProfileId: row.representative_profile_id || "",
+          representativeName: row.representative_name || people.get(row.representative_profile_id) || "USUARIO",
+          extension: row.extension || "",
+          direction: row.direction,
+          remotePhone: row.remote_phone || "",
+          status: row.status || "SEM STATUS",
+          startedAt: row.started_at || row.created_at,
+          durationSeconds: Number(row.duration_seconds || 0),
+          hasAudio: Boolean(row.audio_url),
+          transcript: row.transcript || "",
+          justification: row.justification || "",
+          summary: row.summary || "",
+          qualityScore: row.quality_score == null ? null : Number(row.quality_score),
         })),
         opportunities: (opportunitiesResult.data ?? []).map((row) => ({
           id: row.id,
@@ -277,7 +304,7 @@ function handleError(error: unknown) {
   if (error instanceof AccessError) return failure(error.message, error.status);
   console.error("CRM OVERVIEW ERROR", error);
   const message = String((error as { message?: string })?.message ?? "");
-  if (message.includes("crm_") || message.includes("whatsapp_business_connections")) {
+  if (message.includes("crm_") || message.includes("telephony_") || message.includes("whatsapp_business_connections")) {
     return failure("A ESTRUTURA DO CRM AINDA NAO FOI APLICADA NO SUPABASE.", 503);
   }
   return failure("NAO FOI POSSIVEL CARREGAR O CRM.", 500);
