@@ -403,6 +403,10 @@ export default function EmpresaPage() {
             prefill={quotePrefill}
             quoteParameters={quoteParameters}
             paymentConditions={paymentConditions}
+            onStartDirectPricing={() => {
+              setQuotePrefill(null);
+              setModuloAtivo("formacao-preco");
+            }}
           />
         ) : moduloEmExibicao === "relatorios" ? (
           <RelatoriosEmpresa slug={slug} />

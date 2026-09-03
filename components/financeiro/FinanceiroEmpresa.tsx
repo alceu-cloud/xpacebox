@@ -143,6 +143,7 @@ export default function FinanceiroEmpresa({
   prefill,
   quoteParameters,
   paymentConditions,
+  onStartDirectPricing,
 }: {
   companySlug: string;
   productFichas: ProductFicha[];
@@ -151,6 +152,7 @@ export default function FinanceiroEmpresa({
   prefill?: PricingQuotePrefill | null;
   quoteParameters: QuoteParametersByCompany;
   paymentConditions: PaymentCondition[];
+  onStartDirectPricing: () => void;
 }) {
   const [kind, setKind] = useState<"DIRECT" | "ENGINEERING">("DIRECT");
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
@@ -421,8 +423,8 @@ export default function FinanceiroEmpresa({
 
       <section style={panelStyle}>
         <div style={panelHeaderStyle}>
-          <div><span style={eyebrowStyle}>{kind === "DIRECT" ? "CONSULTA POR NUMERO" : "CONSULTA POR CLIENTE"}</span><h2 style={titleStyle}>{kind === "DIRECT" ? "ORCAMENTOS DIRETOS" : "ORCAMENTOS DE ENGENHARIA"}</h2><p style={descriptionStyle}>{kind === "DIRECT" ? "BUSQUE ORCAMENTOS CRIADOS MANUALMENTE." : "BUSQUE ORCAMENTOS VINCULADOS A CLIENTES E FICHAS TECNICAS."}</p></div>
-          <button type="button" onClick={startCreate} style={primaryButtonStyle}>+ NOVO ORCAMENTO</button>
+          <div><span style={eyebrowStyle}>{kind === "DIRECT" ? "CONSULTA POR NUMERO" : "CONSULTA POR CLIENTE"}</span><h2 style={titleStyle}>{kind === "DIRECT" ? "ORCAMENTOS DIRETOS" : "ORCAMENTOS DE ENGENHARIA"}</h2><p style={descriptionStyle}>{kind === "DIRECT" ? "BUSQUE ORCAMENTOS GERADOS A PARTIR DA FORMACAO DE PRECO." : "BUSQUE ORCAMENTOS VINCULADOS A CLIENTES E FICHAS TECNICAS."}</p></div>
+          {kind === "DIRECT" ? <button type="button" onClick={onStartDirectPricing} style={primaryButtonStyle}>NOVA FORMACAO DE PRECO</button> : <button type="button" onClick={startCreate} style={primaryButtonStyle}>+ NOVO ORCAMENTO</button>}
         </div>
         <div style={searchRowStyle}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={kind === "DIRECT" ? "OD-000001" : "NOME OU CNPJ DO CLIENTE"} style={inputStyle} /><button type="button" onClick={() => refreshQuotes()} style={secondaryButtonStyle}>PESQUISAR</button></div>
         {message && <div style={messageStyle}>{message}</div>}
