@@ -49,9 +49,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     const payload = await request.json() as BaldussiPayload;
     const providerCallId = String(payload.id_chamada || "").trim();
     if (!providerCallId) {
-      const resemblesCall = [payload.ramal, payload.origem, payload.destino, payload.status, payload.data, payload.hora].some(Boolean);
-      if (!resemblesCall) return NextResponse.json({ success: true, probe: true });
-      return response("ID DA CHAMADA AUSENTE.", 400);
+      console.warn("METRICX WEBHOOK PROBE OR INCOMPLETE EVENT", { status: payload.status || null });
+      return NextResponse.json({ success: true, probe: true });
     }
     const { data: existing, error: existingError } = await admin.from("telephony_call_events").select("id").eq("connection_id", connection.id).eq("provider_call_id", providerCallId).maybeSingle();
     if (existingError) throw existingError;
