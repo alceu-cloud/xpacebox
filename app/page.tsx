@@ -18,7 +18,6 @@ export default function HomePage() {
   const [role, setRole] = useState("");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const hasXpacetur = companies.some((company) => company.slug === "xpacetur");
 
   useEffect(() => {
     loadData();
@@ -163,12 +162,6 @@ export default function HomePage() {
                 <small style={shortcutStatusStyle}>ABRIR PAINEL</small>
               </button>
             ))}
-
-            {role === "platform_owner" && !hasXpacetur ? <button type="button" disabled style={{ ...shortcutButtonStyle, ...inactiveShortcutStyle }}>
-              <span style={shortcutEyebrowStyle}>NOVA EMPRESA</span>
-              <strong style={shortcutTitleStyle}>XPACETUR</strong>
-              <small style={shortcutStatusStyle}>EM CONFIGURACAO</small>
-            </button> : null}
 
             {role === "platform_owner" ? <div aria-label="Proxima empresa" style={{ ...shortcutButtonStyle, ...inactiveShortcutStyle }}>
               <span style={shortcutEyebrowStyle}>NOVA EMPRESA</span>
