@@ -314,8 +314,13 @@ export default function CrmEmpresa({
 
   async function handleSaveActivity() {
     if (!selectedClient) return;
-    if (!activityDraft.nextActionType || !activityDraft.nextActionAt) {
+    const isManualRecord = activityDraft.activityType === "NOTE";
+    if (!isManualRecord && (!activityDraft.nextActionType || !activityDraft.nextActionAt)) {
       setError("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.");
+      return;
+    }
+    if (isManualRecord && !activityDraft.notes.trim()) {
+      setError("DESCREVA O REGISTRO MANUAL PARA SALVAR NA LINHA DO TEMPO.");
       return;
     }
     setSaving(true);
@@ -326,7 +331,9 @@ export default function CrmEmpresa({
         ...activityDraft,
         clientId: selectedClient.id,
         occurredAt: toIsoDateTime(activityDraft.occurredAt) || new Date().toISOString(),
-        nextActionAt: savedNextActionAt,
+        nextActionType: isManualRecord ? "" : activityDraft.nextActionType,
+        nextActionAt: isManualRecord ? "" : savedNextActionAt,
+        logOnly: isManualRecord,
       });
       await refresh(true);
       await refreshOperationalLock();
@@ -338,7 +345,7 @@ export default function CrmEmpresa({
         nextActionType: "",
         nextActionAt: "",
       }));
-      setMessage("CONTATO REGISTRADO NA LINHA DO TEMPO.");
+      setMessage(isManualRecord ? "REGISTRO MANUAL SALVO NA LINHA DO TEMPO." : "CONTATO REGISTRADO NA LINHA DO TEMPO.");
     } catch (saveError) {
       setError(messageFrom(saveError));
     } finally {
@@ -941,6 +948,7 @@ function ClientDetail({
   const dialPhone = client.phone;
   const isUsingExistingAgenda = Boolean(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda);
   const isPreparingOpportunity = Boolean(opportunityDraft.id || opportunityDraft.title.trim());
+  const isManualRecord = activityDraft.activityType === "NOTE";
   const scheduledActivityToLink = scheduledActivity && !isUsingExistingAgenda && isPreparingOpportunity ? scheduledActivity : undefined;
   const availableProducts = productFichas.filter((item) => item.clientId === client.id && item.status !== "INATIVO" && Number(item.price) > 0);
   const selectedProduct = availableProducts.find((item) => item.id === opportunityDraft.productFichaId);
@@ -1030,17 +1038,24 @@ function ClientDetail({
 
       {detailTab === "contato" ? (
         <div className="crm-entry-form">
-          <div className="crm-profile-grid">
-            <CrmSelect label="CANAL" value={activityDraft.activityType} onChange={(activityType) => setActivityDraft({ ...activityDraft, activityType: activityType as CrmActivityInput["activityType"] })} options={[{ value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGACAO" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITA" }, { value: "NOTE", label: "ANOTACAO" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
-            <CrmSelect label="RESULTADO" value={activityDraft.outcome} onChange={(outcome) => setActivityDraft({ ...activityDraft, outcome: outcome as CrmActivityInput["outcome"] })} options={[{ value: "CONTACTED", label: "CONTATO REALIZADO" }, { value: "NO_RESPONSE", label: "SEM RESPOSTA" }, { value: "QUOTE_REQUESTED", label: "SOLICITOU ORCAMENTO" }, { value: "PURCHASE_EXPECTED", label: "COMPRA PREVISTA" }, { value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "NO_INTEREST", label: "SEM INTERESSE" }, { value: "OTHER", label: "OUTRO" }]} />
-            <CrmSelect label="REPRESENTANTE" value={mustResolveOverdueAgenda ? operationalLockRepresentativeId : activityDraft.representativeProfileId} onChange={(representativeProfileId) => setActivityDraft({ ...activityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} disabled={mustResolveOverdueAgenda} />
-            <CrmInput label="DATA DO CONTATO" type="datetime-local" value={activityDraft.occurredAt} onChange={(occurredAt) => setActivityDraft({ ...activityDraft, occurredAt })} />
-            <CrmInput label="ASSUNTO" value={activityDraft.subject} onChange={(subject) => setActivityDraft({ ...activityDraft, subject: upper(subject) })} />
-            <CrmSelect label="PROXIMA ACAO *" value={activityDraft.nextActionType} onChange={(nextActionType) => setActivityDraft({ ...activityDraft, nextActionType: nextActionType as CrmActivityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
-            <CrmInput label="DATA DA PROXIMA ACAO *" type="datetime-local" value={activityDraft.nextActionAt} onChange={(nextActionAt) => setActivityDraft({ ...activityDraft, nextActionAt })} />
-            <label className="crm-textarea crm-span-2"><span>RESUMO DO CONTATO</span><textarea value={activityDraft.notes} onChange={(event) => setActivityDraft({ ...activityDraft, notes: upper(event.target.value) })} /></label>
+          <div className="crm-timeline-register-actions" aria-label="REGISTRAR NA LINHA DO TEMPO">
+            <span>REGISTRAR NA LINHA DO TEMPO</span>
+            <div>
+              <button type="button" className={activityDraft.activityType === "WHATSAPP" ? "active" : ""} onClick={() => setActivityDraft({ ...activityDraft, activityType: "WHATSAPP", outcome: activityDraft.outcome === "OTHER" ? "CONTACTED" : activityDraft.outcome })}>WHATSAPP</button>
+              <button type="button" className={activityDraft.activityType === "CALL" ? "active" : ""} onClick={() => setActivityDraft({ ...activityDraft, activityType: "CALL", outcome: activityDraft.outcome === "OTHER" ? "CONTACTED" : activityDraft.outcome })}>LIGACAO</button>
+              <button type="button" className={isManualRecord ? "active" : ""} onClick={() => setActivityDraft({ ...activityDraft, activityType: "NOTE", outcome: "OTHER", nextActionType: "", nextActionAt: "" })}>REGISTRO MANUAL</button>
+            </div>
           </div>
-          <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving || !activityDraft.nextActionType || !activityDraft.nextActionAt || (mustResolveOverdueAgenda && !activityDraft.notes.trim())}>REGISTRAR CONTATO</button></div>
+          <div className="crm-profile-grid">
+            {!isManualRecord ? <CrmSelect label="RESULTADO" value={activityDraft.outcome} onChange={(outcome) => setActivityDraft({ ...activityDraft, outcome: outcome as CrmActivityInput["outcome"] })} options={[{ value: "CONTACTED", label: "CONTATO REALIZADO" }, { value: "NO_RESPONSE", label: "SEM RESPOSTA" }, { value: "QUOTE_REQUESTED", label: "SOLICITOU ORCAMENTO" }, { value: "PURCHASE_EXPECTED", label: "COMPRA PREVISTA" }, { value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "NO_INTEREST", label: "SEM INTERESSE" }, { value: "OTHER", label: "OUTRO" }]} /> : null}
+            <CrmSelect label="REPRESENTANTE" value={mustResolveOverdueAgenda ? operationalLockRepresentativeId : activityDraft.representativeProfileId} onChange={(representativeProfileId) => setActivityDraft({ ...activityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} disabled={mustResolveOverdueAgenda} />
+            <CrmInput label={isManualRecord ? "DATA DO REGISTRO" : "DATA DO CONTATO"} type="datetime-local" value={activityDraft.occurredAt} onChange={(occurredAt) => setActivityDraft({ ...activityDraft, occurredAt })} />
+            <CrmInput label="ASSUNTO" value={activityDraft.subject} onChange={(subject) => setActivityDraft({ ...activityDraft, subject: upper(subject) })} />
+            {!isManualRecord ? <CrmSelect label="PROXIMA ACAO *" value={activityDraft.nextActionType} onChange={(nextActionType) => setActivityDraft({ ...activityDraft, nextActionType: nextActionType as CrmActivityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} /> : null}
+            {!isManualRecord ? <CrmInput label="DATA DA PROXIMA ACAO *" type="datetime-local" value={activityDraft.nextActionAt} onChange={(nextActionAt) => setActivityDraft({ ...activityDraft, nextActionAt })} /> : null}
+            <label className="crm-textarea crm-span-2"><span>{isManualRecord ? "ANOTACAO *" : "RESUMO DO CONTATO"}</span><textarea value={activityDraft.notes} onChange={(event) => setActivityDraft({ ...activityDraft, notes: upper(event.target.value) })} /></label>
+          </div>
+          <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving || (!isManualRecord && (!activityDraft.nextActionType || !activityDraft.nextActionAt)) || ((isManualRecord || mustResolveOverdueAgenda) && !activityDraft.notes.trim())}>{isManualRecord ? "SALVAR REGISTRO" : "REGISTRAR CONTATO"}</button></div>
           <Timeline activities={activities} opportunities={opportunities} />
         </div>
       ) : null}
@@ -1348,10 +1363,11 @@ function Timeline({ activities, opportunities }: { activities: CrmOverview["acti
       const opportunity = opportunitiesById.get(item.opportunityId);
       const isAgendaPostponement = item.subject.startsWith("AGENDA_ADIADA:");
       const isWhatsappOpened = item.subject === "WHATSAPP ABERTO";
+      const isManualRecord = item.activityType === "NOTE";
       return {
         id: item.id,
         date: item.occurredAt,
-        title: isAgendaPostponement ? "AGENDA ADIADA" : isWhatsappOpened ? "WHATSAPP ABERTO" : opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
+        title: isAgendaPostponement ? "AGENDA ADIADA" : isWhatsappOpened ? "WHATSAPP ABERTO" : isManualRecord ? "REGISTRO MANUAL" : opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
         detail: item.notes || item.subject || "CONTATO REGISTRADO",
         type: isAgendaPostponement ? "AGENDA" : isWhatsappOpened ? "WHATSAPP" : "CONTATO",
       };

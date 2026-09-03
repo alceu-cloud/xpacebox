@@ -1899,6 +1899,41 @@ button {
 
 .crm-entry-form { padding-top: 4px; }
 
+.crm-timeline-register-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid #dfe3ed;
+  border-radius: 8px;
+  background: #f8f9fc;
+}
+
+.crm-timeline-register-actions > span {
+  color: #4d5670;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.crm-timeline-register-actions > div { display: flex; flex-wrap: wrap; gap: 7px; }
+
+.crm-timeline-register-actions button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #cfd5e2;
+  border-radius: 6px;
+  background: #fff;
+  color: #58617a;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.crm-timeline-register-actions button:hover { border-color: #7a31e8; color: #6831cc; }
+.crm-timeline-register-actions button.active { border-color: #7a31e8; background: #7a31e8; color: #fff; }
+
 .crm-timeline {
   display: grid;
   gap: 0;
@@ -2278,6 +2313,7 @@ button {
   .crm-customer-header,
   .crm-customer-actions { align-items: stretch; flex-direction: column; }
   .crm-detail-panel { padding: 15px; }
+  .crm-timeline-register-actions { align-items: stretch; flex-direction: column; }
   .crm-detail-tabs { grid-template-columns: 1fr; }
   .crm-call-row { grid-template-columns: 1fr; }
   .crm-call-actions { grid-auto-flow: column; justify-content: start; align-items: center; }

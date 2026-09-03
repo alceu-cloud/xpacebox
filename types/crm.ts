@@ -147,6 +147,7 @@ export type CrmActivityInput = {
   occurredAt: string;
   nextActionType: CrmNextActionType | "";
   nextActionAt: string;
+  logOnly?: boolean;
 };
 
 export type CrmOpportunityInput = {
