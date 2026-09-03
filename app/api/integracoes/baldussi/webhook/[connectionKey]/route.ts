@@ -32,7 +32,9 @@ type MetricxWebhookEnvelope = BaldussiPayload & {
 function response(message: string, status: number) { return NextResponse.json({ success: false, message }, { status }); }
 function digits(value?: string) { return String(value || "").replace(/\D/g, ""); }
 function isExtension(value?: string) { return /^(SIP|PJSIP|IAX|LOCAL)[-/]/i.test(String(value || "")); }
-function externalPhone(payload: BaldussiPayload) { return isExtension(payload.origem) ? digits(payload.destino) : isExtension(payload.destino) ? digits(payload.origem) : digits(payload.destino || payload.origem); }
+function sameEndpoint(left?: string, right?: string) { return Boolean(left && right && left.trim().toUpperCase() === right.trim().toUpperCase()); }
+function isOwnExtension(value: string | undefined, extension: string) { return sameEndpoint(value, extension) || isExtension(value); }
+function externalPhone(payload: BaldussiPayload, extension: string) { return isOwnExtension(payload.origem, extension) ? digits(payload.destino) : isOwnExtension(payload.destino, extension) ? digits(payload.origem) : digits(payload.destino || payload.origem); }
 function formatTranscript(items?: BaldussiPayload["transcricao"]) { return (items || []).map((item) => [item.timestamp, item.speaker, item.fala_transcrita].filter(Boolean).join(" | ")).filter(Boolean).join("\n"); }
 function durationSeconds(payload: BaldussiPayload) {
   const reported = Number(payload.metadados?.duracao_segundos || 0);
@@ -79,12 +81,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     ]);
     if (extensionResult.error) throw extensionResult.error;
     if (clientsResult.error) throw clientsResult.error;
-    const remotePhone = externalPhone(payload);
+    const remotePhone = externalPhone(payload, extension);
     const client = (clientsResult.data || []).find((item) => {
       const candidate = digits(item.phone) || digits(item.whatsapp);
       return candidate.length >= 10 && (candidate.endsWith(remotePhone.slice(-11)) || remotePhone.endsWith(candidate.slice(-11)));
     });
-    const direction = isExtension(payload.origem) ? "OUTBOUND" : isExtension(payload.destino) ? "INBOUND" : "UNKNOWN";
+    const direction = isOwnExtension(payload.origem, extension) ? "OUTBOUND" : isOwnExtension(payload.destino, extension) ? "INBOUND" : "UNKNOWN";
     const startedAt = payload.data && payload.hora ? `${payload.data}T${payload.hora}-03:00` : null;
     const transcript = formatTranscript(payload.transcricao);
     const duration = durationSeconds(payload);
