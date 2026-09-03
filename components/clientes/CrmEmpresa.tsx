@@ -807,7 +807,6 @@ function AgendaBoard({
             <header><strong>{group.label}</strong><span>{group.items.length}</span></header>
             <div>
               {group.items.map((item) => {
-                const phone = item.client.whatsapp || item.client.phone;
                 return (
                   <article className="crm-agenda-item" key={item.client.id}>
                     <i className={`crm-dot crm-dot-${item.health.toLowerCase()}`} />
@@ -825,7 +824,6 @@ function AgendaBoard({
                       {expiredQuoteCount(item.client.id) ? <span className="crm-expired-quote-alert">{expiredQuoteCount(item.client.id)} ORC. VENCIDO(S)</span> : null}
                     </div>
                     <div className="crm-agenda-buttons">
-                      {phone ? <a href={whatsAppLink(phone, item.client.buyerName || item.client.tradeName || item.client.legalName)} title="ABRIR WHATSAPP">WHATSAPP</a> : null}
                       <button type="button" onClick={() => onOpenClient(item.client.id)}>ATENDER</button>
                       {group.key === "overdue" ? <div className="crm-agenda-postpone-menu">
                         <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuClientId((current) => current === item.client.id ? "" : item.client.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.client.tradeName || item.client.legalName}`} aria-expanded={postponeMenuClientId === item.client.id}>...</button>
