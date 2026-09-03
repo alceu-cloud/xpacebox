@@ -9,8 +9,7 @@ export async function POST(request: Request) {
     const slug = body.slug?.trim() ?? "";
     const input = body.activity;
     if (!slug || !input?.clientId || !input.activityType || !input.outcome) return failure("PREENCHA OS DADOS DO CONTATO.", 400);
-    const isManualRecord = input.logOnly === true && input.activityType === "NOTE";
-    if (!isManualRecord && (!input.nextActionType || !input.nextActionAt)) return failure("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.", 400);
+    if (!input.nextActionType || !input.nextActionAt) return failure("INFORME A PROXIMA ACAO E A DATA PARA GERAR A AGENDA.", 400);
 
     const { admin, company, profile, user } = await requireCompanyAccess(request, slug);
     const { data: client } = await admin.from("clients").select("id").eq("id", input.clientId).eq("tenant_company_id", company.id).eq("active", true).maybeSingle();
@@ -37,43 +36,40 @@ export async function POST(request: Request) {
     const representativeId = overdueAgenda ? profile.id : input.representativeProfileId || user.id;
     const representative = await requireCompanyProfile(admin, company.id, representativeId);
     const occurredAt = input.occurredAt || new Date().toISOString();
-    const nextActionAt = isManualRecord ? null : input.nextActionAt || null;
-    let opportunityId: string | null = null;
-    if (!isManualRecord) {
-      const { data: activeOpportunities, error: activeOpportunitiesError } = await admin
-        .from("crm_opportunities")
-        .select("id")
-        .eq("tenant_company_id", company.id)
-        .eq("client_id", input.clientId)
-        .not("stage", "in", "(WON,LOST)");
-      if (activeOpportunitiesError) throw activeOpportunitiesError;
-      opportunityId = activeOpportunities?.length === 1 ? activeOpportunities[0].id : null;
+    const nextActionAt = input.nextActionAt || null;
+    const { data: activeOpportunities, error: activeOpportunitiesError } = await admin
+      .from("crm_opportunities")
+      .select("id")
+      .eq("tenant_company_id", company.id)
+      .eq("client_id", input.clientId)
+      .not("stage", "in", "(WON,LOST)");
+    if (activeOpportunitiesError) throw activeOpportunitiesError;
+    const opportunityId = activeOpportunities?.length === 1 ? activeOpportunities[0].id : null;
 
-      const { error: clearDirectAgendaError } = await admin
+    const { error: clearDirectAgendaError } = await admin
+      .from("crm_activities")
+      .update({ next_action_type: null, next_action_at: null })
+      .eq("tenant_company_id", company.id)
+      .eq("client_id", input.clientId)
+      .is("opportunity_id", null)
+      .not("next_action_at", "is", null);
+    if (clearDirectAgendaError) throw clearDirectAgendaError;
+    if (opportunityId) {
+      const { error: clearOpportunityAgendaError } = await admin
         .from("crm_activities")
         .update({ next_action_type: null, next_action_at: null })
         .eq("tenant_company_id", company.id)
-        .eq("client_id", input.clientId)
-        .is("opportunity_id", null)
+        .eq("opportunity_id", opportunityId)
         .not("next_action_at", "is", null);
-      if (clearDirectAgendaError) throw clearDirectAgendaError;
-      if (opportunityId) {
-        const { error: clearOpportunityAgendaError } = await admin
-          .from("crm_activities")
-          .update({ next_action_type: null, next_action_at: null })
-          .eq("tenant_company_id", company.id)
-          .eq("opportunity_id", opportunityId)
-          .not("next_action_at", "is", null);
-        if (clearOpportunityAgendaError) throw clearOpportunityAgendaError;
-      }
-      if (overdueAgenda) {
-        const { error: clearOverdueAgendaError } = await admin
-          .from("crm_activities")
-          .update({ next_action_type: null, next_action_at: null })
-          .eq("id", overdueAgenda.id)
-          .eq("tenant_company_id", company.id);
-        if (clearOverdueAgendaError) throw clearOverdueAgendaError;
-      }
+      if (clearOpportunityAgendaError) throw clearOpportunityAgendaError;
+    }
+    if (overdueAgenda) {
+      const { error: clearOverdueAgendaError } = await admin
+        .from("crm_activities")
+        .update({ next_action_type: null, next_action_at: null })
+        .eq("id", overdueAgenda.id)
+        .eq("tenant_company_id", company.id);
+      if (clearOverdueAgendaError) throw clearOverdueAgendaError;
     }
 
     const { data, error } = await admin.from("crm_activities").insert({
@@ -86,23 +82,21 @@ export async function POST(request: Request) {
       subject: upper(input.subject) || null,
       notes: upper(input.notes) || null,
       occurred_at: occurredAt,
-      next_action_type: isManualRecord ? null : input.nextActionType || null,
+      next_action_type: input.nextActionType || null,
       next_action_at: nextActionAt,
       created_by: user.id,
     }).select("*").single();
     if (error) throw error;
 
-    if (!isManualRecord) {
-      const { error: profileError } = await admin.from("crm_customer_profiles").upsert({
-        tenant_company_id: company.id,
-        client_id: input.clientId,
-        owner_profile_id: representativeId,
-        next_contact_at: nextActionAt,
-        created_by: user.id,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "tenant_company_id,client_id" });
-      if (profileError) throw profileError;
-    }
+    const { error: profileError } = await admin.from("crm_customer_profiles").upsert({
+      tenant_company_id: company.id,
+      client_id: input.clientId,
+      owner_profile_id: representativeId,
+      next_contact_at: nextActionAt,
+      created_by: user.id,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "tenant_company_id,client_id" });
+    if (profileError) throw profileError;
 
     return NextResponse.json({
       success: true,
