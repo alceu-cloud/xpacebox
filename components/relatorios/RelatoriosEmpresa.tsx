@@ -11,7 +11,7 @@ type ReportArea = "COMMERCIAL" | "PURCHASES" | "PRODUCTION";
 
 type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
-type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; created_at: string; updated_at: string };
+type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; quote_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; created_at: string; updated_at: string };
 type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
 type QuoteItem = { item_number: number; ft_number: string | null; description: string; total: number; snapshot?: Record<string, unknown> };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string; quote_items: QuoteItem[] };
@@ -198,7 +198,7 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
     const frequencyOnTime = forecast.filter((item) => isWithinPurchaseFrequency(profileByClient.get(item.client_id || ""))).length;
     return <ReportLayout title="PREVISAO DE FATURAMENTO" description="A confianca considera a etapa do funil e a aderencia a frequencia de compra do cliente. Ela nao soma toda oportunidade como receita certa."><MetricGrid items={levels.map((level) => { const items = forecast.filter((item) => level.stages.includes(item.stage)); return metric(level.label, sum(items, weightedValue), level.color); }).concat([metric("PREVISAO PONDERADA", sum(forecast, weightedValue), "#141827"), metric("DENTRO DA FREQUENCIA", `${frequencyOnTime}/${forecast.length || 0}`, "#0284c7", true)])}/><OpportunityTable opportunities={forecast} clients={clientById} /></ReportLayout>;
   }
-  if (report === "losses") return <ReportLayout title="MOTIVOS DE PERDA" description="A lista vem do cadastro geral do CRM. O motivo agora e obrigatorio em novas perdas."><RankTable rows={groupRows(lost, (item) => item.lost_reason || "NAO INFORMADO", (item) => item.estimated_value)} labels={["MOTIVO", "PERDAS", "VALOR"]} /></ReportLayout>;
+  if (report === "losses") return <ReportLayout title="MOTIVOS DE PERDA" description="A lista vem do cadastro geral do CRM. O motivo agora e obrigatorio em novas perdas."><LossesReport opportunities={lost} clients={clientById} quotes={new Map(data.quotes.map((item) => [item.id, item]))} /></ReportLayout>;
   if (report === "clients") return <ReportLayout title="RANKING DE CLIENTES" description="Classifica pelo valor de oportunidades ganhas no periodo. Sem faturamento integrado, este valor representa negocios ganhos no CRM."><RankTable rows={groupRows(won, (item) => clientById.get(item.client_id || "")?.name || "SEM CLIENTE", (item) => item.estimated_value)} labels={["CLIENTE", "GANHOS", "VALOR"]} /></ReportLayout>;
   if (report === "materials") {
     const materialById = new Map(data.materials.map((item) => [item.id || "", item]));
@@ -276,6 +276,24 @@ function MetricGrid({ items }: { items: Array<{ label: string; value: string; co
 function ReportTable({ children }: { children: React.ReactNode }) { return <div className="reports-table-wrap"><table className="reports-table" style={tableStyle}>{children}</table></div>; }
 function StageTable({ opportunities, showAge = false }: { opportunities: Opportunity[]; showAge?: boolean }) { const rows = groupRows(opportunities, (item) => stageLabels[item.stage] || item.stage, (item) => item.estimated_value); return <ReportTable><thead><tr><th>ETAPA</th><th>QUANTIDADE</th><th>VALOR</th>{showAge ? <th>TEMPO MEDIO</th> : null}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td>{showAge ? <td>{Math.round(average(opportunities.filter((item) => (stageLabels[item.stage] || item.stage) === row.label).map((item) => daysSince(item.created_at))))} DIAS</td> : null}</tr>)}</tbody></ReportTable>; }
 function RankTable({ rows, labels }: { rows: Array<{ label: string; count: number; value: number }>; labels: string[] }) { return <ReportTable><thead><tr>{labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td></tr>)}{!rows.length ? <tr><td colSpan={labels.length} style={emptyCellStyle}>SEM DADOS NO PERIODO.</td></tr> : null}</tbody></ReportTable>; }
+function LossesReport({ opportunities, clients, quotes }: { opportunities: Opportunity[]; clients: Map<string, Client>; quotes: Map<string, Quote> }) {
+  const rows = [...opportunities].sort((first, second) => second.updated_at.localeCompare(first.updated_at));
+  return <>
+    <RankTable rows={groupRows(rows, (item) => item.lost_reason || "NAO INFORMADO", (item) => item.estimated_value)} labels={["MOTIVO", "PERDAS", "VALOR"]} />
+    {rows.length ? <section style={lossDetailsStyle}>
+      <h4 style={lossDetailsTitleStyle}>DETALHAMENTO DAS PERDAS</h4>
+      <ReportTable>
+        <thead><tr><th>MOTIVO</th><th>CLIENTE</th><th>ORCAMENTO</th><th>VALOR</th></tr></thead>
+        <tbody>{rows.map((item) => <tr key={item.id}>
+          <td>{item.lost_reason || "NAO INFORMADO"}</td>
+          <td>{clients.get(item.client_id || "")?.name || "SEM CLIENTE"}</td>
+          <td>{quotes.get(item.quote_id || "")?.quote_number || "SEM ORCAMENTO VINCULADO"}</td>
+          <td>{money(item.estimated_value)}</td>
+        </tr>)}</tbody>
+      </ReportTable>
+    </section> : null}
+  </>;
+}
 function OpportunityTable({ opportunities, clients, activityByOpportunity }: { opportunities: Opportunity[]; clients: Map<string, Client>; activityByOpportunity?: Map<string, Activity> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>OPORTUNIDADE</th><th>ETAPA</th><th>VALOR</th><th>PREVISAO</th>{activityByOpportunity ? <th>SEM RETORNO</th> : null}</tr></thead><tbody>{opportunities.map((item) => <tr key={item.id}><td>{clients.get(item.client_id || "")?.name || "SEM CLIENTE"}</td><td>{item.title}</td><td>{stageLabels[item.stage] || item.stage}</td><td>{money(item.estimated_value)}</td><td>{displayDate(item.expected_close_date || "")}</td>{activityByOpportunity ? <td>{daysSince(activityByOpportunity.get(item.id)?.occurred_at || item.updated_at)} DIAS</td> : null}</tr>)}{!opportunities.length ? <tr><td colSpan={activityByOpportunity ? 6 : 5} style={emptyCellStyle}>NENHUMA OPORTUNIDADE NESTA VISAO.</td></tr> : null}</tbody></ReportTable>; }
 function TeamTable({ opportunities, clients, representatives }: { opportunities: Opportunity[]; clients: Map<string, Client>; representatives: Map<string, string> }) { const rows = groupRows(opportunities, (item) => representatives.get(item.representative_profile_id || "") || clients.get(item.client_id || "")?.representativeName || "SEM REPRESENTANTE", (item) => item.estimated_value); return <RankTable rows={rows} labels={["REPRESENTANTE", "OPORTUNIDADES", "VALOR MOVIMENTADO"]} />; }
 function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>REPRESENTANTE</th><th>FREQUENCIA</th><th>ULTIMA COMPRA</th><th>ATRASO</th></tr></thead><tbody>{rows.map(({ client, profile }) => <tr key={client.id}><td>{client.name}</td><td>{client.representativeName}</td><td>{profile?.purchase_frequency_days} DIAS</td><td>{displayDate(profile?.last_purchase_at || "")}</td><td>{daysSince(profile?.last_purchase_at || "") - Number(profile?.purchase_frequency_days || 0)} DIAS</td></tr>)}{!rows.length ? <tr><td colSpan={5} style={emptyCellStyle}>NENHUM CLIENTE FORA DA FREQUENCIA DE COMPRA.</td></tr> : null}</tbody></ReportTable>; }
@@ -348,6 +366,8 @@ const contentDescriptionStyle = { margin: 0, color: "#667085", fontSize: 12, fon
 const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))", gap: 10 };
 const metricCardStyle = { minHeight: 78, display: "grid", alignContent: "center", gap: 8, padding: "11px 13px", border: "1px solid #e2e6ef", borderTop: "4px solid", borderRadius: 7, background: "#fff" };
 const tableStyle = { width: "100%", borderCollapse: "collapse" as const, tableLayout: "fixed" as const };
+const lossDetailsStyle = { display: "grid", gap: 9, marginTop: 8 };
+const lossDetailsTitleStyle = { margin: 0, color: "#475467", fontSize: 12, fontWeight: 900, letterSpacing: .7 };
 const emptyStyle = { padding: 36, border: "1px dashed #c8b7f3", borderRadius: 8, color: "#667085", textAlign: "center" as const, fontSize: 13, fontWeight: 800 };
 const errorStyle = { padding: 14, border: "1px solid #fcb6be", borderRadius: 7, background: "#fff1f2", color: "#be123c", fontSize: 12, fontWeight: 800 };
 const emptyCellStyle = { padding: 20, textAlign: "center" as const, color: "#667085", fontWeight: 700 };
