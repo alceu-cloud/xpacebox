@@ -18,6 +18,7 @@ export default function HomePage() {
   const [role, setRole] = useState("");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasXpacetur = companies.some((company) => company.slug === "xpacetur");
 
   useEffect(() => {
     loadData();
@@ -147,45 +148,36 @@ export default function HomePage() {
           </p>
         </section>
 
-        {role === "platform_owner" && (
-          <section style={sectionStyle}>
-            <div style={gridStyle}>
-              <button
-                onClick={() => router.push("/usuarios")}
-                style={actionCardStyle}
-              >
-                <span style={innerButtonStyle}>
-                  <span style={labelPillStyle}>USUARIOS</span>
-                  <span style={cardDescriptionStyle}>
-                    CADASTRE USUARIOS E GERENCIE ACESSOS DA PLATAFORMA.
-                  </span>
-                </span>
-              </button>
-            </div>
-          </section>
-        )}
-
         <section style={sectionStyle}>
-          <div style={companiesGridStyle}>
+          <div style={shortcutsGridStyle}>
+            {role === "platform_owner" ? <button type="button" onClick={() => router.push("/usuarios")} style={{ ...shortcutButtonStyle, ...usersShortcutStyle }}>
+              <span style={shortcutEyebrowStyle}>ADMINISTRACAO</span>
+              <strong style={shortcutTitleStyle}>USUARIOS</strong>
+              <small style={shortcutStatusStyle}>GERENCIAR ACESSOS</small>
+            </button> : null}
+
             {companies.map((company) => (
-              <button
-                key={company.id}
-                onClick={() => router.push(`/empresa/${company.slug}`)}
-                style={companyCardStyle}
-              >
-                <span style={innerButtonStyle}>
-                  <strong style={companyLabelPillStyle}>
-                    {company.name.toUpperCase()}
-                  </strong>
-                  <span style={enterTextStyle}>ENTRAR NA EMPRESA</span>
-                </span>
+              <button key={company.id} type="button" onClick={() => router.push(`/empresa/${company.slug}`)} style={{ ...shortcutButtonStyle, ...companyShortcutStyle }}>
+                <span style={shortcutEyebrowStyle}>EMPRESA</span>
+                <strong style={shortcutTitleStyle}>{company.name.toUpperCase()}</strong>
+                <small style={shortcutStatusStyle}>ABRIR PAINEL</small>
               </button>
             ))}
+
+            {role === "platform_owner" && !hasXpacetur ? <button type="button" disabled style={{ ...shortcutButtonStyle, ...inactiveShortcutStyle }}>
+              <span style={shortcutEyebrowStyle}>NOVA EMPRESA</span>
+              <strong style={shortcutTitleStyle}>XPACETUR</strong>
+              <small style={shortcutStatusStyle}>EM CONFIGURACAO</small>
+            </button> : null}
+
+            {role === "platform_owner" ? <div aria-label="Proxima empresa" style={{ ...shortcutButtonStyle, ...inactiveShortcutStyle }}>
+              <span style={shortcutEyebrowStyle}>NOVA EMPRESA</span>
+              <strong style={shortcutTitleStyle}>PROXIMA VAGA</strong>
+              <small style={shortcutStatusStyle}>AGUARDANDO CADASTRO</small>
+            </div> : null}
           </div>
 
-          {companies.length === 0 && (
-            <div style={emptyStyle}>NENHUMA EMPRESA DISPONIVEL.</div>
-          )}
+          {companies.length === 0 ? <div style={emptyStyle}>NENHUMA EMPRESA DISPONIVEL.</div> : null}
         </section>
       </section>
     </main>
@@ -294,97 +286,38 @@ const descriptionStyle = {
   fontWeight: 700,
 };
 
-const gridStyle = {
+const shortcutsGridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: 20,
-  marginTop: 24,
-};
-
-const actionCardStyle = {
-  minHeight: 215,
-  padding: 18,
-  borderRadius: 22,
-  border: "1px solid rgba(111,50,210,.18)",
-  background:
-    "linear-gradient(145deg, rgba(111,50,210,.08), rgba(230,61,174,.06), rgba(255,59,37,.05)), #ffffff",
-  color: "#141827",
-  textAlign: "left" as const,
-  cursor: "pointer",
-  display: "block",
-  boxShadow: "0 18px 42px rgba(39,36,67,.1)",
-};
-
-const innerButtonStyle = {
-  minHeight: 184,
-  width: "100%",
-  padding: "30px 32px",
-  borderRadius: 18,
-  background: "rgba(255,255,255,.82)",
-  border: "1px solid rgba(20,24,39,.08)",
-  display: "grid",
-  alignContent: "center",
-  justifyItems: "start",
+  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
   gap: 14,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,.8)",
 };
 
-const labelPillStyle = {
-  minHeight: 68,
-  minWidth: 210,
-  padding: "0 26px",
-  display: "inline-grid",
-  placeItems: "center",
-  borderRadius: 18,
-  color: "#ffffff",
-  fontSize: 30,
-  fontWeight: 900,
-  background: "linear-gradient(135deg,#6f32d2,#e63dae,#ff3b25)",
-};
-
-const companyLabelPillStyle = {
-  minHeight: 68,
-  minWidth: 210,
-  padding: "0 26px",
-  display: "inline-grid",
-  placeItems: "center",
-  borderRadius: 18,
-  color: "#ffffff",
-  fontSize: 30,
-  fontWeight: 900,
-  background: "linear-gradient(135deg,#ff3b25,#e63dae,#6f32d2)",
-};
-
-const cardDescriptionStyle = {
-  color: "#667085",
-  fontSize: 20,
-  fontWeight: 700,
-};
-
-const companiesGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: 20,
-};
-
-const companyCardStyle = {
-  minHeight: 215,
+const shortcutButtonStyle = {
+  minHeight: 128,
   padding: 18,
-  borderRadius: 22,
-  border: "1px solid rgba(255,59,37,.18)",
-  background:
-    "linear-gradient(145deg, rgba(255,59,37,.07), rgba(230,61,174,.05), rgba(111,50,210,.06)), #ffffff",
+  borderRadius: 8,
+  border: "1px solid #d8dee9",
+  borderTop: "4px solid #98a0b3",
+  background: "#ffffff",
   color: "#141827",
   cursor: "pointer",
-  display: "block",
+  display: "grid",
+  alignContent: "space-between",
+  gap: 7,
   textAlign: "left" as const,
-  boxShadow: "0 18px 42px rgba(39,36,67,.1)",
+  boxShadow: "0 8px 20px rgba(39,36,67,.06)",
 };
 
-const enterTextStyle = {
-  color: "#6f32d2",
-  fontSize: 20,
+const usersShortcutStyle = { borderTopColor: "#7c3aed" };
+const companyShortcutStyle = { borderTopColor: "#e68019" };
+const inactiveShortcutStyle = { borderTopColor: "#cfd6e4", background: "#f8fafc", color: "#98a0b3", cursor: "not-allowed" };
+const shortcutEyebrowStyle = { color: "#667085", fontSize: 10, fontWeight: 900, letterSpacing: 1.1 };
+const shortcutTitleStyle = { color: "inherit", fontSize: 20, fontWeight: 900, letterSpacing: 0 };
+const shortcutStatusStyle = {
+  color: "#667085",
+  fontSize: 10,
   fontWeight: 900,
+  letterSpacing: .7,
 };
 
 const emptyStyle = {
