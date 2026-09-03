@@ -914,7 +914,9 @@ function ClientDetail({
   }, [client?.id, entryTab, mustResolveOverdueAgenda]);
 
   if (!client) return <section className="crm-detail-panel crm-detail-empty">SELECIONE UM CLIENTE PARA ABRIR A CARTEIRA.</section>;
-  const phone = client.whatsapp || client.phone;
+  const phone = client.phone || client.whatsapp;
+  const whatsappPhone = client.whatsapp || client.phone;
+  const dialPhone = client.phone;
   const isUsingExistingAgenda = Boolean(opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda);
   const isPreparingOpportunity = Boolean(opportunityDraft.id || opportunityDraft.title.trim());
   const scheduledActivityToLink = scheduledActivity && !isUsingExistingAgenda && isPreparingOpportunity ? scheduledActivity : undefined;
@@ -955,8 +957,8 @@ function ClientDetail({
           <p>{client.buyerName || "COMPRADOR NAO INFORMADO"} · {phone || "SEM TELEFONE"}</p>
         </div>
         <div className="crm-customer-actions">
-          {phone ? <a href={whatsAppLink(phone, client.buyerName || client.tradeName || client.legalName)}>ABRIR WHATSAPP</a> : null}
-          {phone ? <button type="button" className="crm-dial-button" onClick={() => onDial(client.id)} disabled={dialing}>{dialing ? "CHAMANDO..." : "LIGAR"}</button> : null}
+          {whatsappPhone ? <a href={whatsAppLink(whatsappPhone, client.buyerName || client.tradeName || client.legalName)}>ABRIR WHATSAPP</a> : null}
+          {dialPhone ? <button type="button" className="crm-dial-button" onClick={() => onDial(client.id)} disabled={dialing}>{dialing ? "CHAMANDO..." : "LIGAR"}</button> : null}
           <span className={`crm-health crm-health-${calculateHealth(toProfile(profileDraft)).toLowerCase()}`}>{healthLabel(calculateHealth(toProfile(profileDraft)))}</span>
         </div>
       </header>

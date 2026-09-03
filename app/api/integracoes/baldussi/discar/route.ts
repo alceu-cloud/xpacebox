@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     if (extensionError) throw extensionError;
     if (!extension) throw new AccessError("SEU USUARIO AINDA NAO POSSUI UM RAMAL BALDUSSI CONFIGURADO.", 409);
 
-    const destination = formatBaldussiDestination(client.phone || client.whatsapp || "");
+    const destination = formatBaldussiDestination(client.phone || "");
     const originExtension = extensionNumber(extension.click_to_call_extension, extension.extension);
     const token = decryptBaldussiCredential({
       ciphertext: connection.click_to_call_token_ciphertext,
