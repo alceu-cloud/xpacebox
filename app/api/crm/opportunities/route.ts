@@ -4,6 +4,8 @@ import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/
 import type { ProductFicha } from "@/types/gerenciador";
 import type { CrmOpportunityInput } from "@/types/crm";
 
+const purchaseAverageAlertThreshold = 0.3;
+
 export async function POST(request: Request) { return save(request, false); }
 export async function PATCH(request: Request) { return save(request, true); }
 
@@ -161,6 +163,19 @@ async function save(request: Request, editing: boolean) {
       }
     }
 
+    if (editing && input.clientId && input.stage === "WON" && previousStage !== "WON") {
+      await registerPurchaseAverageAlert({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityId: data.id,
+        representativeId,
+        userId: user.id,
+        opportunityTitle: base.title,
+        opportunityValue: Number(data.estimated_value || 0),
+      });
+    }
+
     return NextResponse.json(
       { success: true, opportunity: data, cycleScheduled, cycleSkippedBecauseActiveOpportunity, previousCycleCancelled, agendaLinked },
       { status: editing ? 200 : 201 }
@@ -168,6 +183,65 @@ async function save(request: Request, editing: boolean) {
   } catch (error) {
     return handleError(error);
   }
+}
+
+async function registerPurchaseAverageAlert({
+  admin,
+  companyId,
+  clientId,
+  opportunityId,
+  representativeId,
+  userId,
+  opportunityTitle,
+  opportunityValue,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+  opportunityId: string;
+  representativeId: string;
+  userId: string;
+  opportunityTitle: string;
+  opportunityValue: number;
+}) {
+  const { data: profile, error: profileError } = await admin
+    .from("crm_customer_profiles")
+    .select("average_purchase_value")
+    .eq("tenant_company_id", companyId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+
+  const averageValue = Number(profile?.average_purchase_value || 0);
+  if (averageValue <= 0) return;
+  const differencePercent = Math.abs(opportunityValue - averageValue) / averageValue;
+  if (differencePercent < purchaseAverageAlertThreshold) return;
+
+  const subject = "SISTEMA: ORCAMENTO FORA DO PADRAO";
+  const { data: existingAlert, error: existingAlertError } = await admin
+    .from("crm_activities")
+    .select("id")
+    .eq("tenant_company_id", companyId)
+    .eq("opportunity_id", opportunityId)
+    .eq("subject", subject)
+    .maybeSingle();
+  if (existingAlertError) throw existingAlertError;
+  if (existingAlert) return;
+
+  const direction = opportunityValue > averageValue ? "MAIOR" : "MENOR";
+  const { error: activityError } = await admin.from("crm_activities").insert({
+    tenant_company_id: companyId,
+    client_id: clientId,
+    opportunity_id: opportunityId,
+    representative_profile_id: representativeId,
+    activity_type: "NOTE",
+    outcome: "OTHER",
+    subject,
+    notes: `ORCAMENTO GANHO: ${opportunityTitle}. VALOR ${Math.round(differencePercent * 100)}% ${direction} QUE A COMPRA MEDIA DO CLIENTE. ORCAMENTO: ${formatCurrency(opportunityValue)}. COMPRA MEDIA: ${formatCurrency(averageValue)}.`,
+    occurred_at: new Date().toISOString(),
+    created_by: userId,
+  });
+  if (activityError) throw activityError;
 }
 
 async function resolveOpportunityProduct(
@@ -566,6 +640,10 @@ function nextBusinessMorning() {
 
 function productReference(product: ProductFicha) {
   return [product.ftNumber, product.reference].filter(Boolean).join(" - ") || "PRODUTO SEM REFERENCIA";
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }

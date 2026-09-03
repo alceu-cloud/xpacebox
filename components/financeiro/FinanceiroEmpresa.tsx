@@ -367,7 +367,6 @@ export default function FinanceiroEmpresa({
       setLinkableOpportunities([]);
       setMessage(`ORCAMENTO ${quote.quoteNumber} ${editing ? "ATUALIZADO" : "GERADO"} COM SUCESSO.`);
       await refreshQuotes();
-      printQuote(quote, quoteParameters);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL GERAR O ORCAMENTO.");
     }
