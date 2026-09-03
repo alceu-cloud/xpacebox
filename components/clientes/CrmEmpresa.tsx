@@ -407,12 +407,20 @@ export default function CrmEmpresa({
       && previousStage !== "WON"
       && averageValue > 0
       && differencePercent >= purchaseAverageAlertThreshold;
+    const immediatePurchaseAverageAlert = shouldAlertPurchaseAverage ? {
+      clientId: opportunity.clientId,
+      clientName: client?.tradeName || client?.legalName || "CLIENTE",
+      opportunityValue,
+      averageValue,
+      differencePercent,
+    } : null;
     setSaving(true);
     clearFeedback();
     setOverview((current) => ({
       ...current,
       opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage } : item),
     }));
+    if (immediatePurchaseAverageAlert) setPurchaseAverageAlert(immediatePurchaseAverageAlert);
     try {
       const result = await saveCrmOpportunity(slug, {
         id: opportunity.id,
@@ -431,15 +439,6 @@ export default function CrmEmpresa({
       });
       await refresh(true);
       await refreshOperationalLock();
-      if (shouldAlertPurchaseAverage) {
-        setPurchaseAverageAlert({
-          clientId: opportunity.clientId,
-          clientName: client?.tradeName || client?.legalName || "CLIENTE",
-          opportunityValue,
-          averageValue,
-          differencePercent,
-        });
-      }
       if (stage === "WON" || stage === "LOST") {
         setMessage(result.cycleScheduled
           ? "ETAPA ATUALIZADA. O PROXIMO CICLO FOI AGENDADO AUTOMATICAMENTE."
@@ -454,6 +453,7 @@ export default function CrmEmpresa({
         ...current,
         opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage: previousStage } : item),
       }));
+      if (immediatePurchaseAverageAlert) setPurchaseAverageAlert(null);
       setError(messageFrom(saveError));
     } finally {
       setSaving(false);
