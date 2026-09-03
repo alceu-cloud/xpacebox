@@ -8,6 +8,9 @@ type Representative = { id: string; name: string };
 type Connection = {
   status: string;
   keyConfigured: boolean;
+  clickToCallConfigured: boolean;
+  clickToCallUsername: string;
+  clickToCallBaseUrl: string;
   webhookUrl: string;
   webhookHeader: string;
   webhookConfigured: boolean;
@@ -15,13 +18,16 @@ type Connection = {
   transcriptRetentionDays: number;
 };
 
-type Payload = { success: boolean; message?: string; connection: Connection; representatives: Representative[]; extensions: Array<{ profile_id: string; extension: string }> };
+type Payload = { success: boolean; message?: string; connection: Connection; representatives: Representative[]; extensions: Array<{ profile_id: string; extension: string; click_to_call_extension: string | null }> };
 
 export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?: string }) {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [representatives, setRepresentatives] = useState<Representative[]>([]);
   const [extensions, setExtensions] = useState<Record<string, string>>({});
+  const [clickToCallExtensions, setClickToCallExtensions] = useState<Record<string, string>>({});
   const [apiKey, setApiKey] = useState("");
+  const [clickToCallUsername, setClickToCallUsername] = useState("");
+  const [clickToCallToken, setClickToCallToken] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -45,6 +51,8 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
       setConnection(payload.connection);
       setRepresentatives(payload.representatives);
       setExtensions(Object.fromEntries(payload.extensions.map((item) => [item.profile_id, item.extension])));
+      setClickToCallExtensions(Object.fromEntries(payload.extensions.map((item) => [item.profile_id, item.click_to_call_extension || ""])));
+      setClickToCallUsername(payload.connection.clickToCallUsername || "");
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL CARREGAR A INTEGRACAO.");
@@ -64,15 +72,19 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
         body: JSON.stringify({
           slug: companySlug,
           apiKey: apiKey || undefined,
+          clickToCallUsername: clickToCallUsername || undefined,
+          clickToCallToken: clickToCallToken || undefined,
+          clickToCallBaseUrl: connection.clickToCallBaseUrl,
           generateWebhookSecret,
           audioRetentionDays: connection.audioRetentionDays,
           transcriptRetentionDays: connection.transcriptRetentionDays,
-          extensions: representatives.map((item) => ({ profileId: item.id, extension: extensions[item.id] || "" })),
+          extensions: representatives.map((item) => ({ profileId: item.id, extension: extensions[item.id] || "", clickToCallExtension: clickToCallExtensions[item.id] || "" })),
         }),
       });
       setWebhookSecret(payload.webhookSecret || "");
       setApiKey("");
-      setMessage(generateWebhookSecret ? "SEGREDO GERADO. COPIE-O AGORA PARA O HEADER DO METRICX; ELE NAO SERA MOSTRADO NOVAMENTE." : "CONFIGURACAO METRICX SALVA.");
+      setClickToCallToken("");
+      setMessage(generateWebhookSecret ? "SEGREDO GERADO. COPIE-O AGORA PARA O HEADER DO METRICX; ELE NAO SERA MOSTRADO NOVAMENTE." : "CONFIGURACAO DA TELEFONIA SALVA.");
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL SALVAR A INTEGRACAO.");
@@ -87,11 +99,14 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
   return <section style={panelStyle}>
     <div style={headerStyle}>
       <div><span style={eyebrowStyle}>TELEFONIA DA EMPRESA</span><h3 style={titleStyle}>BALDUSSI + METRICX</h3><p style={descriptionStyle}>O BALDUSSI FAZ A LIGACAO; O METRICX ENTREGA O HISTORICO, AUDIO, TRANSCRICAO E ANALISE.</p></div>
-      <span style={{ ...statusStyle, ...(connection.keyConfigured ? configuredStatusStyle : {}) }}>{connection.keyConfigured ? "AGUARDANDO ATIVACAO" : "NAO CONFIGURADA"}</span>
+      <span style={{ ...statusStyle, ...(connection.keyConfigured && connection.clickToCallConfigured ? configuredStatusStyle : {}) }}>{connection.keyConfigured && connection.clickToCallConfigured ? "TELEFONIA CONFIGURADA" : "CONFIGURACAO PENDENTE"}</span>
     </div>
     {message ? <div style={message.includes("NAO") || message.includes("AIND") ? errorStyle : messageStyle}>{message}</div> : null}
     <div style={gridStyle}>
       <label style={labelStyle}>API KEY METRICX<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={connection.keyConfigured ? "CHAVE CONFIGURADA - INFORME OUTRA PARA TROCAR" : "COLE A API KEY GERADA NO METRICX"} style={inputStyle} /></label>
+      <label style={labelStyle}>USUARIO API CLICK2CALL<input value={clickToCallUsername} onChange={(event) => setClickToCallUsername(event.target.value)} placeholder="EX: XPACEBOX-CLICK2CALL" style={inputStyle} /></label>
+      <label style={labelStyle}>TOKEN API CLICK2CALL<input type="password" value={clickToCallToken} onChange={(event) => setClickToCallToken(event.target.value)} placeholder={connection.clickToCallConfigured ? "TOKEN CONFIGURADO - INFORME OUTRO PARA TROCAR" : "COLE O TOKEN GERADO NO BALDUSSI"} style={inputStyle} /></label>
+      <label style={labelStyle}>URL API CLICK2CALL<input value={connection.clickToCallBaseUrl} onChange={(event) => setConnection({ ...connection, clickToCallBaseUrl: event.target.value })} style={inputStyle} /></label>
       <label style={labelStyle}>RETENCAO DO AUDIO (DIAS)<input type="number" min={30} max={3650} value={connection.audioRetentionDays} onChange={(event) => setConnection({ ...connection, audioRetentionDays: Number(event.target.value) || 30 })} style={inputStyle} /></label>
       <label style={labelStyle}>RETENCAO DA TRANSCRICAO (DIAS)<input type="number" min={30} max={3650} value={connection.transcriptRetentionDays} onChange={(event) => setConnection({ ...connection, transcriptRetentionDays: Number(event.target.value) || 30 })} style={inputStyle} /></label>
     </div>
@@ -103,11 +118,12 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
     </section>
     <section style={extensionsStyle}>
       <div><span style={eyebrowStyle}>RAMAL POR USUARIO</span><h4 style={subtitleStyle}>A CHAMADA SERA ATRIBUIDA AO USUARIO VINCULADO AO RAMAL.</h4></div>
-      {representatives.map((representative) => <label key={representative.id} style={extensionRowStyle}><strong>{representative.name}</strong><input value={extensions[representative.id] || ""} onChange={(event) => setExtensions({ ...extensions, [representative.id]: event.target.value.toUpperCase() })} placeholder="EX: SIP-1001" style={inputStyle} /></label>)}
+      <div style={extensionHeaderStyle}><span>USUARIO</span><span>RAMAL METRICX</span><span>RAMAL CLICK2CALL</span></div>
+      {representatives.map((representative) => <label key={representative.id} style={extensionRowStyle}><strong>{representative.name}</strong><input value={extensions[representative.id] || ""} onChange={(event) => setExtensions({ ...extensions, [representative.id]: event.target.value.toUpperCase() })} placeholder="EX: DAWOTEC-13" style={inputStyle} /><input inputMode="numeric" value={clickToCallExtensions[representative.id] || ""} onChange={(event) => setClickToCallExtensions({ ...clickToCallExtensions, [representative.id]: event.target.value.replace(/\D/g, "") })} placeholder="EX: 13" style={inputStyle} /></label>)}
       {!representatives.length ? <div style={emptyStyle}>NENHUM USUARIO ATIVO ENCONTRADO PARA ESTA EMPRESA.</div> : null}
     </section>
     <div style={actionsStyle}><button type="button" onClick={() => void save()} disabled={saving} style={primaryButtonStyle}>{saving ? "SALVANDO..." : "SALVAR CONFIGURACAO"}</button></div>
-    <p style={noteStyle}>O XPACEBOX NAO ARMAZENA O ARQUIVO DE AUDIO: SALVA SOMENTE O REGISTRO DA CHAMADA E A REFERENCIA SEGURA DO METRICX.</p>
+    <p style={noteStyle}>O token do Click2Call e a API key do Metricx sao criptografados. O XPACEBOX nao armazena o arquivo de audio: salva somente o registro da chamada e a referencia segura do Metricx.</p>
   </section>;
 }
 
@@ -126,7 +142,8 @@ const readOnlyInputStyle = { ...inputStyle, background: "#f8fafc", color: "#4754
 const webhookStyle = { display: "grid", gap: 13, padding: 18, border: "1px solid #d8ccff", borderRadius: 6, background: "#fbfaff" };
 const headerGridStyle = { display: "grid", gridTemplateColumns: "minmax(170px, .7fr) minmax(240px, 1.3fr)", gap: 14 };
 const extensionsStyle = { display: "grid", gap: 10, paddingTop: 4 };
-const extensionRowStyle = { display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(180px, 1fr)", gap: 14, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #eaecf0", color: "#344054", fontSize: 13 };
+const extensionHeaderStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr)", gap: 14, padding: "0 12px", color: "#667085", fontSize: 10, fontWeight: 900 };
+const extensionRowStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr)", gap: 14, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #eaecf0", color: "#344054", fontSize: 13 };
 const actionsStyle = { display: "flex", justifyContent: "flex-end" };
 const primaryButtonStyle = { border: 0, borderRadius: 5, padding: "11px 16px", background: "#7c3aed", color: "#fff", fontWeight: 900, cursor: "pointer" };
 const secondaryButtonStyle = { width: "fit-content", border: "1px solid #f79009", borderRadius: 5, padding: "10px 14px", background: "#fffaeb", color: "#b54708", fontWeight: 900, cursor: "pointer" };

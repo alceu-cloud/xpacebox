@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/server/company-access";
 import { createWebhookSecret, encryptBaldussiCredential, hashWebhookSecret } from "@/lib/server/telephony-credentials";
 
-type ExtensionInput = { profileId?: string; extension?: string };
+type ExtensionInput = { profileId?: string; extension?: string; clickToCallExtension?: string };
+const defaultClickToCallBaseUrl = "https://cloud10.baldussi.com.br/suite/api";
 
 function failure(message: string, status: number) { return NextResponse.json({ success: false, message }, { status }); }
 
@@ -26,6 +27,16 @@ function webhookUrl(request: Request, key: string) {
   return `${new URL(request.url).origin}/api/integracoes/baldussi/webhook/${key}`;
 }
 
+function clickToCallBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !url.hostname.endsWith(".baldussi.com.br")) throw new Error();
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    throw new AccessError("URL DA API CLICK2CALL INVALIDA.", 400);
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const slug = new URL(request.url).searchParams.get("slug")?.trim() || "";
@@ -35,7 +46,7 @@ export async function GET(request: Request) {
     const [membersResult, profilesResult, extensionsResult] = await Promise.all([
       admin.from("company_members").select("profile_id").eq("company_id", company.id).eq("active", true),
       admin.from("profiles").select("id,full_name,email").eq("active", true),
-      admin.from("telephony_user_extensions").select("profile_id,extension").eq("connection_id", connection.id),
+      admin.from("telephony_user_extensions").select("profile_id,extension,click_to_call_extension").eq("connection_id", connection.id),
     ]);
     for (const result of [membersResult, profilesResult, extensionsResult]) if (result.error) throw result.error;
     const memberIds = new Set([user.id, ...(membersResult.data ?? []).map((item) => item.profile_id)]);
@@ -43,6 +54,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, connection: {
       status: connection.status,
       keyConfigured: Boolean(connection.api_key_ciphertext),
+      clickToCallConfigured: Boolean(connection.click_to_call_username && connection.click_to_call_token_ciphertext),
+      clickToCallUsername: connection.click_to_call_username || "",
+      clickToCallBaseUrl: connection.click_to_call_base_url || defaultClickToCallBaseUrl,
       webhookUrl: webhookUrl(request, connection.webhook_key),
       webhookHeader: "X-Xpacebox-Webhook-Secret",
       webhookConfigured: Boolean(connection.webhook_secret_hash),
@@ -56,7 +70,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const body = await request.json() as { slug?: string; apiKey?: string; generateWebhookSecret?: boolean; audioRetentionDays?: number; transcriptRetentionDays?: number; extensions?: ExtensionInput[] };
+    const body = await request.json() as { slug?: string; apiKey?: string; clickToCallUsername?: string; clickToCallToken?: string; clickToCallBaseUrl?: string; generateWebhookSecret?: boolean; audioRetentionDays?: number; transcriptRetentionDays?: number; extensions?: ExtensionInput[] };
     const slug = body.slug?.trim() || "";
     if (!slug) return failure("EMPRESA NAO INFORMADA.", 400);
     const { admin, company } = await requireManager(request, slug);
@@ -66,10 +80,24 @@ export async function PATCH(request: Request) {
     if (!Number.isInteger(audioRetentionDays) || audioRetentionDays < 30 || audioRetentionDays > 3650) return failure("RETENCAO DE AUDIO INVALIDA.", 400);
     if (!Number.isInteger(transcriptRetentionDays) || transcriptRetentionDays < 30 || transcriptRetentionDays > 3650) return failure("RETENCAO DE TRANSCRICAO INVALIDA.", 400);
 
-    const update: Record<string, unknown> = { audio_retention_days: audioRetentionDays, transcript_retention_days: transcriptRetentionDays, updated_at: new Date().toISOString() };
+    const update: Record<string, unknown> = {
+      audio_retention_days: audioRetentionDays,
+      transcript_retention_days: transcriptRetentionDays,
+      click_to_call_base_url: clickToCallBaseUrl(body.clickToCallBaseUrl?.trim() || connection.click_to_call_base_url || defaultClickToCallBaseUrl),
+      updated_at: new Date().toISOString(),
+    };
     if (body.apiKey?.trim()) {
       const credential = encryptBaldussiCredential(body.apiKey.trim());
       Object.assign(update, { api_key_ciphertext: credential.ciphertext, api_key_iv: credential.iv, api_key_auth_tag: credential.authTag, status: "PENDING" });
+    }
+    if (body.clickToCallUsername?.trim()) update.click_to_call_username = body.clickToCallUsername.trim();
+    if (body.clickToCallToken?.trim()) {
+      const credential = encryptBaldussiCredential(body.clickToCallToken.trim());
+      Object.assign(update, {
+        click_to_call_token_ciphertext: credential.ciphertext,
+        click_to_call_token_iv: credential.iv,
+        click_to_call_token_auth_tag: credential.authTag,
+      });
     }
     let webhookSecret = "";
     if (body.generateWebhookSecret) {
@@ -80,15 +108,21 @@ export async function PATCH(request: Request) {
     if (updateError) throw updateError;
 
     if (body.extensions) {
-      const entries = body.extensions.map((item) => ({ profileId: item.profileId?.trim() || "", extension: item.extension?.trim().toUpperCase() || "" })).filter((item) => item.profileId && item.extension);
+      const entries = body.extensions.map((item) => ({
+        profileId: item.profileId?.trim() || "",
+        extension: item.extension?.trim().toUpperCase() || "",
+        clickToCallExtension: item.clickToCallExtension?.trim() || "",
+      })).filter((item) => item.profileId && item.extension);
       const uniqueProfiles = new Set(entries.map((item) => item.profileId));
       const uniqueExtensions = new Set(entries.map((item) => item.extension));
       if (uniqueProfiles.size !== entries.length || uniqueExtensions.size !== entries.length) return failure("CADA USUARIO E RAMAL DEVEM SER UNICOS.", 400);
+      const clickToCallExtensions = entries.map((item) => item.clickToCallExtension).filter(Boolean);
+      if (new Set(clickToCallExtensions).size !== clickToCallExtensions.length || clickToCallExtensions.some((item) => !/^\d+$/.test(item))) return failure("O RAMAL CLICK2CALL DEVE SER NUMERICO E UNICO.", 400);
       await Promise.all(entries.map((item) => requireCompanyProfile(admin, company.id, item.profileId)));
       const { error: deleteError } = await admin.from("telephony_user_extensions").delete().eq("connection_id", connection.id);
       if (deleteError) throw deleteError;
       if (entries.length) {
-        const { error: extensionsError } = await admin.from("telephony_user_extensions").insert(entries.map((item) => ({ connection_id: connection.id, tenant_company_id: company.id, profile_id: item.profileId, extension: item.extension })));
+        const { error: extensionsError } = await admin.from("telephony_user_extensions").insert(entries.map((item) => ({ connection_id: connection.id, tenant_company_id: company.id, profile_id: item.profileId, extension: item.extension, click_to_call_extension: item.clickToCallExtension || null })));
         if (extensionsError) throw extensionsError;
       }
     }

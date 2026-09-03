@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 
 import { createCrmActivity, loadCrmOverview, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
+import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import TelephonyCallHistory from "@/components/clientes/TelephonyCallHistory";
 import CurrencyInput from "@/components/ui/CurrencyInput";
@@ -138,6 +139,7 @@ export default function CrmEmpresa({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [postponingClientId, setPostponingClientId] = useState("");
+  const [dialingClientId, setDialingClientId] = useState("");
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
   const [activityDraft, setActivityDraft] = useState<CrmActivityInput>(emptyActivity);
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
@@ -472,6 +474,28 @@ export default function CrmEmpresa({
     }
   }
 
+  async function handleDial(clientId: string) {
+    setDialingClientId(clientId);
+    clearFeedback();
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("SESSAO NAO ENCONTRADA.");
+      const response = await fetch("/api/integracoes/baldussi/discar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ slug, clientId }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success) throw new Error(payload?.message || "NAO FOI POSSIVEL SOLICITAR A LIGACAO.");
+      setMessage(`${payload.message || "DISCAGEM EFETUADA COM SUCESSO."} AGUARDE O RAMAL TOCAR.`);
+    } catch (dialError) {
+      setError(messageFrom(dialError));
+    } finally {
+      setDialingClientId("");
+    }
+  }
+
   async function handleLinkOpportunityClient(opportunity: CrmOpportunity, clientId: string) {
     if (!clientId) return;
     setSaving(true);
@@ -634,6 +658,8 @@ export default function CrmEmpresa({
               onSaveProfile={handleSaveProfile}
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
+              onDial={handleDial}
+              dialing={dialingClientId === selectedClient?.id}
               saving={saving}
               operationalLockClientId={crmBlocked ? crmLock?.clientId || "" : ""}
               operationalLockRepresentativeId={crmBlocked ? crmLock?.representativeProfileId || "" : ""}
@@ -840,6 +866,8 @@ function ClientDetail({
   onSaveProfile,
   onSaveActivity,
   onSaveOpportunity,
+  onDial,
+  dialing,
   saving,
   operationalLockClientId,
   operationalLockRepresentativeId,
@@ -866,6 +894,8 @@ function ClientDetail({
   onSaveProfile: () => void;
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
+  onDial: (clientId: string) => void;
+  dialing: boolean;
   saving: boolean;
   operationalLockClientId: string;
   operationalLockRepresentativeId: string;
@@ -928,6 +958,7 @@ function ClientDetail({
         </div>
         <div className="crm-customer-actions">
           {phone ? <a href={whatsAppLink(phone, client.buyerName || client.tradeName || client.legalName)}>ABRIR WHATSAPP</a> : null}
+          {phone ? <button type="button" className="crm-dial-button" onClick={() => onDial(client.id)} disabled={dialing}>{dialing ? "CHAMANDO..." : "LIGAR"}</button> : null}
           <span className={`crm-health crm-health-${calculateHealth(toProfile(profileDraft)).toLowerCase()}`}>{healthLabel(calculateHealth(toProfile(profileDraft)))}</span>
         </div>
       </header>
