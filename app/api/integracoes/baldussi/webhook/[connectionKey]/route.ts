@@ -22,6 +22,13 @@ type BaldussiPayload = {
   metadados?: { duracao_segundos?: number };
 };
 
+type MetricxWebhookEnvelope = BaldussiPayload & {
+  event?: string;
+  data?: BaldussiPayload;
+  payload?: BaldussiPayload;
+  call?: BaldussiPayload;
+};
+
 function response(message: string, status: number) { return NextResponse.json({ success: false, message }, { status }); }
 function digits(value?: string) { return String(value || "").replace(/\D/g, ""); }
 function isExtension(value?: string) { return /^(SIP|PJSIP|IAX|LOCAL)[-/]/i.test(String(value || "")); }
@@ -33,6 +40,10 @@ function durationSeconds(payload: BaldussiPayload) {
   const parts = String(payload.duracao || "").split(":").map(Number);
   if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return 0;
   return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+function callPayload(envelope: MetricxWebhookEnvelope) {
+  const nested = [envelope.data, envelope.payload, envelope.call].find((candidate) => candidate && ["id_chamada", "ramal", "origem", "destino"].some((key) => key in candidate));
+  return nested || envelope;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ connectionKey: string }> }) {
@@ -46,10 +57,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     if (connectionError) throw connectionError;
     if (!connection?.webhook_secret_hash || hashWebhookSecret(secret) !== connection.webhook_secret_hash) return response("WEBHOOK NAO AUTORIZADO.", 401);
 
-    const payload = await request.json() as BaldussiPayload;
+    const received = await request.json() as MetricxWebhookEnvelope;
+    const payload = callPayload(received);
     const providerCallId = String(payload.id_chamada || "").trim();
     if (!providerCallId) {
-      console.warn("METRICX WEBHOOK PROBE OR INCOMPLETE EVENT", { status: payload.status || null });
+      console.warn("METRICX WEBHOOK PROBE OR INCOMPLETE EVENT", {
+        event: received.event || null,
+        rootKeys: Object.keys(received).sort(),
+        nestedKeys: [received.data, received.payload, received.call].map((item) => item ? Object.keys(item).sort() : []),
+      });
       return NextResponse.json({ success: true, probe: true });
     }
     const { data: existing, error: existingError } = await admin.from("telephony_call_events").select("id").eq("connection_id", connection.id).eq("provider_call_id", providerCallId).maybeSingle();
