@@ -72,7 +72,7 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
       });
       setWebhookSecret(payload.webhookSecret || "");
       setApiKey("");
-      setMessage(generateWebhookSecret ? "SEGREDO GERADO. COPIE-O AGORA PARA O HEADER DA BALDUSSI; ELE NAO SERA MOSTRADO NOVAMENTE." : "CONFIGURACAO BALDUSSI SALVA.");
+      setMessage(generateWebhookSecret ? "SEGREDO GERADO. COPIE-O AGORA PARA O HEADER DO METRICX; ELE NAO SERA MOSTRADO NOVAMENTE." : "CONFIGURACAO METRICX SALVA.");
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL SALVAR A INTEGRACAO.");
@@ -81,22 +81,22 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
     }
   }
 
-  if (loading) return <div style={emptyStyle}>CARREGANDO INTEGRACAO BALDUSSI...</div>;
+  if (loading) return <div style={emptyStyle}>CARREGANDO INTEGRACAO BALDUSSI + METRICX...</div>;
   if (!connection) return <div style={errorStyle}>{message || "INTEGRACAO INDISPONIVEL."}</div>;
 
   return <section style={panelStyle}>
     <div style={headerStyle}>
-      <div><span style={eyebrowStyle}>TELEFONIA DA EMPRESA</span><h3 style={titleStyle}>BALDUSSI PABX</h3><p style={descriptionStyle}>CADA EMPRESA DO XPACEBOX CONECTA A PROPRIA CONTA, CHAVE, WEBHOOK E RAMAIS.</p></div>
+      <div><span style={eyebrowStyle}>TELEFONIA DA EMPRESA</span><h3 style={titleStyle}>BALDUSSI + METRICX</h3><p style={descriptionStyle}>O BALDUSSI FAZ A LIGACAO; O METRICX ENTREGA O HISTORICO, AUDIO, TRANSCRICAO E ANALISE.</p></div>
       <span style={{ ...statusStyle, ...(connection.keyConfigured ? configuredStatusStyle : {}) }}>{connection.keyConfigured ? "AGUARDANDO ATIVACAO" : "NAO CONFIGURADA"}</span>
     </div>
     {message ? <div style={message.includes("NAO") || message.includes("AIND") ? errorStyle : messageStyle}>{message}</div> : null}
     <div style={gridStyle}>
-      <label style={labelStyle}>API KEY BALDUSSI<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={connection.keyConfigured ? "CHAVE CONFIGURADA - INFORME OUTRA PARA TROCAR" : "COLE A API KEY QUANDO A BALDUSSI GERAR"} style={inputStyle} /></label>
+      <label style={labelStyle}>API KEY METRICX<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={connection.keyConfigured ? "CHAVE CONFIGURADA - INFORME OUTRA PARA TROCAR" : "COLE A API KEY GERADA NO METRICX"} style={inputStyle} /></label>
       <label style={labelStyle}>RETENCAO DO AUDIO (DIAS)<input type="number" min={30} max={3650} value={connection.audioRetentionDays} onChange={(event) => setConnection({ ...connection, audioRetentionDays: Number(event.target.value) || 30 })} style={inputStyle} /></label>
       <label style={labelStyle}>RETENCAO DA TRANSCRICAO (DIAS)<input type="number" min={30} max={3650} value={connection.transcriptRetentionDays} onChange={(event) => setConnection({ ...connection, transcriptRetentionDays: Number(event.target.value) || 30 })} style={inputStyle} /></label>
     </div>
     <section style={webhookStyle}>
-      <div><span style={eyebrowStyle}>WEBHOOK POR EMPRESA</span><h4 style={subtitleStyle}>COLE ESTA URL NO PAINEL DA BALDUSSI</h4></div>
+      <div><span style={eyebrowStyle}>WEBHOOK POR EMPRESA</span><h4 style={subtitleStyle}>COLE ESTA URL NO PAINEL DO METRICX</h4></div>
       <label style={labelStyle}>URL DO WEBHOOK<input readOnly value={connection.webhookUrl} style={readOnlyInputStyle} /></label>
       <div style={headerGridStyle}><label style={labelStyle}>HEADER<input readOnly value={connection.webhookHeader} style={readOnlyInputStyle} /></label><label style={labelStyle}>VALOR DO HEADER<input readOnly value={webhookSecret || (connection.webhookConfigured ? "SEGREDO JA CONFIGURADO" : "GERE O SEGREDO ABAIXO")} style={readOnlyInputStyle} /></label></div>
       <button type="button" onClick={() => void save(true)} disabled={saving} style={secondaryButtonStyle}>GERAR NOVO SEGREDO DO WEBHOOK</button>
@@ -107,7 +107,7 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
       {!representatives.length ? <div style={emptyStyle}>NENHUM USUARIO ATIVO ENCONTRADO PARA ESTA EMPRESA.</div> : null}
     </section>
     <div style={actionsStyle}><button type="button" onClick={() => void save()} disabled={saving} style={primaryButtonStyle}>{saving ? "SALVANDO..." : "SALVAR CONFIGURACAO"}</button></div>
-    <p style={noteStyle}>O XPACEBOX NAO ARMAZENA O ARQUIVO DE AUDIO: SALVA SOMENTE O REGISTRO DA CHAMADA E A REFERENCIA SEGURA DA BALDUSSI.</p>
+    <p style={noteStyle}>O XPACEBOX NAO ARMAZENA O ARQUIVO DE AUDIO: SALVA SOMENTE O REGISTRO DA CHAMADA E A REFERENCIA SEGURA DO METRICX.</p>
   </section>;
 }
 

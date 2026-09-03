@@ -6,15 +6,18 @@ import { hashWebhookSecret } from "@/lib/server/telephony-credentials";
 type BaldussiPayload = {
   id_chamada?: string | number;
   ramal?: string;
+  grupo_ramal?: string;
   nome_ramal?: string;
   origem?: string;
   destino?: string;
   status?: string;
   data?: string;
   hora?: string;
+  duracao?: string;
   url_audio?: string;
   transcricao?: Array<{ timestamp?: string; fala_transcrita?: string; speaker?: string }>;
   nota?: number;
+  justificativa?: string;
   resumo?: string;
   metadados?: { duracao_segundos?: number };
 };
@@ -24,6 +27,13 @@ function digits(value?: string) { return String(value || "").replace(/\D/g, "");
 function isExtension(value?: string) { return /^(SIP|PJSIP|IAX|LOCAL)[-/]/i.test(String(value || "")); }
 function externalPhone(payload: BaldussiPayload) { return isExtension(payload.origem) ? digits(payload.destino) : isExtension(payload.destino) ? digits(payload.origem) : digits(payload.destino || payload.origem); }
 function formatTranscript(items?: BaldussiPayload["transcricao"]) { return (items || []).map((item) => [item.timestamp, item.speaker, item.fala_transcrita].filter(Boolean).join(" | ")).filter(Boolean).join("\n"); }
+function durationSeconds(payload: BaldussiPayload) {
+  const reported = Number(payload.metadados?.duracao_segundos || 0);
+  if (Number.isFinite(reported) && reported > 0) return reported;
+  const parts = String(payload.duracao || "").split(":").map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return 0;
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ connectionKey: string }> }) {
   try {
@@ -58,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     const direction = isExtension(payload.origem) ? "OUTBOUND" : isExtension(payload.destino) ? "INBOUND" : "UNKNOWN";
     const startedAt = payload.data && payload.hora ? `${payload.data}T${payload.hora}-03:00` : null;
     const transcript = formatTranscript(payload.transcricao);
-    const duration = Number(payload.metadados?.duracao_segundos || 0) || 0;
+    const duration = durationSeconds(payload);
     const { data: call, error: callError } = await admin.from("telephony_call_events").insert({
       tenant_company_id: connection.tenant_company_id,
       connection_id: connection.id,
@@ -66,6 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
       client_id: client?.id || null,
       representative_profile_id: extensionResult.data?.profile_id || null,
       extension: extension || null,
+      extension_group: payload.grupo_ramal?.trim() || null,
       representative_name: payload.nome_ramal?.trim() || null,
       direction,
       remote_phone: remotePhone || null,
@@ -74,6 +85,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
       duration_seconds: duration,
       audio_url: payload.url_audio?.trim() || null,
       transcript: transcript || null,
+      justification: payload.justificativa?.trim() || null,
       summary: payload.resumo?.trim() || null,
       quality_score: Number.isFinite(Number(payload.nota)) ? Number(payload.nota) : null,
     }).select("id").single();
@@ -87,8 +99,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
         representative_profile_id: extensionResult.data?.profile_id || null,
         activity_type: "CALL",
         outcome: attended ? "CONTACTED" : "NO_RESPONSE",
-        subject: `LIGACAO BALDUSSI - ${payload.status?.trim().toUpperCase() || "SEM STATUS"}`,
-        notes: [payload.resumo?.trim(), duration ? `DURACAO: ${duration} SEGUNDOS.` : "", payload.nota ? `NOTA: ${payload.nota}.` : ""].filter(Boolean).join("\n"),
+        subject: `LIGACAO METRICX - ${payload.status?.trim().toUpperCase() || "SEM STATUS"}`,
+        notes: [payload.resumo?.trim(), payload.justificativa?.trim() ? `JUSTIFICATIVA: ${payload.justificativa.trim()}` : "", duration ? `DURACAO: ${duration} SEGUNDOS.` : "", payload.nota ? `NOTA: ${payload.nota}.` : ""].filter(Boolean).join("\n"),
         occurred_at: startedAt || new Date().toISOString(),
       }).select("id").single();
       if (activityError) throw activityError;
@@ -98,8 +110,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = String((error as { message?: string })?.message || "");
-    if (message.includes("telephony_")) return response("INTEGRACAO BALDUSSI AINDA NAO DISPONIVEL.", 503);
-    console.error("BALDUSSI WEBHOOK ERROR", error);
+    if (message.includes("telephony_")) return response("INTEGRACAO METRICX AINDA NAO DISPONIVEL.", 503);
+    console.error("METRICX WEBHOOK ERROR", error);
     return response("NAO FOI POSSIVEL PROCESSAR A CHAMADA.", 500);
   }
 }

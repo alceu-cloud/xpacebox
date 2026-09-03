@@ -101,8 +101,8 @@ export async function PATCH(request: Request) {
 function handleError(error: unknown) {
   if (error instanceof AccessError) return failure(error.message, error.status);
   const message = String((error as { message?: string })?.message || "");
-  if (message.includes("telephony_")) return failure("A ESTRUTURA DA INTEGRACAO BALDUSSI AINDA NAO FOI APLICADA NO SUPABASE.", 503);
-  if (message.includes("CRIPTOGRAFIA")) return failure("A CHAVE SEGURA DA BALDUSSI AINDA NAO FOI CONFIGURADA.", 503);
-  console.error("BALDUSSI CONFIG ERROR", error);
-  return failure("NAO FOI POSSIVEL SALVAR A CONFIGURACAO DA BALDUSSI.", 500);
+  if (message.includes("telephony_")) return failure("A ESTRUTURA DA INTEGRACAO METRICX AINDA NAO FOI APLICADA NO SUPABASE.", 503);
+  if (message.includes("CRIPTOGRAFIA")) return failure("A CHAVE SEGURA DO METRICX AINDA NAO FOI CONFIGURADA.", 503);
+  console.error("METRICX CONFIG ERROR", error);
+  return failure("NAO FOI POSSIVEL SALVAR A CONFIGURACAO DO METRICX.", 500);
 }
