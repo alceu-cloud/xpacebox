@@ -46,6 +46,13 @@ export async function createCrmActivity(slug: string, activity: CrmActivityInput
   return payload.activity;
 }
 
+export async function logWhatsappOpened(slug: string, clientId: string) {
+  await authorizedFetch("/api/crm/activities/whatsapp-opened", {
+    method: "POST",
+    body: JSON.stringify({ slug, clientId }),
+  });
+}
+
 export async function postponeCrmAgenda(slug: string, clientId: string) {
   const payload = await authorizedFetch("/api/crm/agenda/postpone", {
     method: "POST",

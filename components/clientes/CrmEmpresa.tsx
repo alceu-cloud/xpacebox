@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 
-import { createCrmActivity, loadCrmOverview, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
+import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import TelephonyCallHistory from "@/components/clientes/TelephonyCallHistory";
@@ -140,6 +140,7 @@ export default function CrmEmpresa({
   const [message, setMessage] = useState("");
   const [postponingClientId, setPostponingClientId] = useState("");
   const [dialingClientId, setDialingClientId] = useState("");
+  const [openingWhatsappClientId, setOpeningWhatsappClientId] = useState("");
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
   const [activityDraft, setActivityDraft] = useState<CrmActivityInput>(emptyActivity);
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
@@ -496,6 +497,21 @@ export default function CrmEmpresa({
     }
   }
 
+  async function handleWhatsappOpen(clientId: string, whatsappUrl: string) {
+    setOpeningWhatsappClientId(clientId);
+    clearFeedback();
+    try {
+      await logWhatsappOpened(slug, clientId);
+      await refresh(true);
+      setMessage("ABERTURA DO WHATSAPP REGISTRADA NA LINHA DO TEMPO.");
+    } catch (whatsappError) {
+      setError(messageFrom(whatsappError));
+    } finally {
+      setOpeningWhatsappClientId("");
+      window.location.assign(whatsappUrl);
+    }
+  }
+
   async function handleLinkOpportunityClient(opportunity: CrmOpportunity, clientId: string) {
     if (!clientId) return;
     setSaving(true);
@@ -660,6 +676,8 @@ export default function CrmEmpresa({
               onSaveOpportunity={handleSaveOpportunity}
               onDial={handleDial}
               dialing={dialingClientId === selectedClient?.id}
+              onOpenWhatsapp={handleWhatsappOpen}
+              openingWhatsapp={openingWhatsappClientId === selectedClient?.id}
               saving={saving}
               operationalLockClientId={crmBlocked ? crmLock?.clientId || "" : ""}
               operationalLockRepresentativeId={crmBlocked ? crmLock?.representativeProfileId || "" : ""}
@@ -866,6 +884,8 @@ function ClientDetail({
   onSaveOpportunity,
   onDial,
   dialing,
+  onOpenWhatsapp,
+  openingWhatsapp,
   saving,
   operationalLockClientId,
   operationalLockRepresentativeId,
@@ -894,6 +914,8 @@ function ClientDetail({
   onSaveOpportunity: () => void;
   onDial: (clientId: string) => void;
   dialing: boolean;
+  onOpenWhatsapp: (clientId: string, whatsappUrl: string) => void;
+  openingWhatsapp: boolean;
   saving: boolean;
   operationalLockClientId: string;
   operationalLockRepresentativeId: string;
@@ -957,7 +979,7 @@ function ClientDetail({
           <p>{client.buyerName || "COMPRADOR NAO INFORMADO"} · {phone || "SEM TELEFONE"}</p>
         </div>
         <div className="crm-customer-actions">
-          {whatsappPhone ? <a href={whatsAppLink(whatsappPhone, client.buyerName || client.tradeName || client.legalName)}>ABRIR WHATSAPP</a> : null}
+          {whatsappPhone ? <button type="button" onClick={() => onOpenWhatsapp(client.id, whatsAppLink(whatsappPhone, client.buyerName || client.tradeName || client.legalName))} disabled={openingWhatsapp}>{openingWhatsapp ? "ABRINDO..." : "ABRIR WHATSAPP"}</button> : null}
           {dialPhone ? <button type="button" className="crm-dial-button" onClick={() => onDial(client.id)} disabled={dialing}>{dialing ? "CHAMANDO..." : "LIGAR"}</button> : null}
           <span className={`crm-health crm-health-${calculateHealth(toProfile(profileDraft)).toLowerCase()}`}>{healthLabel(calculateHealth(toProfile(profileDraft)))}</span>
         </div>
@@ -1325,12 +1347,13 @@ function Timeline({ activities, opportunities }: { activities: CrmOverview["acti
     ...activities.map((item) => {
       const opportunity = opportunitiesById.get(item.opportunityId);
       const isAgendaPostponement = item.subject.startsWith("AGENDA_ADIADA:");
+      const isWhatsappOpened = item.subject === "WHATSAPP ABERTO";
       return {
         id: item.id,
         date: item.occurredAt,
-        title: isAgendaPostponement ? "AGENDA ADIADA" : opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
+        title: isAgendaPostponement ? "AGENDA ADIADA" : isWhatsappOpened ? "WHATSAPP ABERTO" : opportunity ? `AGENDA · ${opportunity.title}` : `${activityLabel(item.activityType)} · ${outcomeLabel(item.outcome)}`,
         detail: item.notes || item.subject || "CONTATO REGISTRADO",
-        type: isAgendaPostponement ? "AGENDA" : "CONTATO",
+        type: isAgendaPostponement ? "AGENDA" : isWhatsappOpened ? "WHATSAPP" : "CONTATO",
       };
     }),
     ...opportunities.map((item) => ({ id: item.id, date: item.updatedAt, title: item.title, detail: `${item.productReference ? `${item.productReference} · ` : ""}${stageOptions.find((stage) => stage.value === item.stage)?.label || item.stage} · ${money(item.estimatedValue)}`, type: "NEGOCIO" })),
