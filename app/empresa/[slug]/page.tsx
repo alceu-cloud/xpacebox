@@ -13,7 +13,7 @@ import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany, normalizeSalesGoals } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
-import { evaluateEngineeringFormula, formulaUsesDimension, formulaUsesTopOverlap, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
+import { calculateProductArea, evaluateEngineeringFormula, formulaUsesDimension, formulaUsesTopOverlap, getAccessoryQuantity, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
@@ -383,6 +383,8 @@ export default function EmpresaPage() {
                   paperType: typeof snapshot.paperType === "string" ? snapshot.paperType : undefined,
                   topOverlap: typeof snapshot.topOverlap === "number" ? snapshot.topOverlap : undefined,
                   areaM2: item.area,
+                  mainAreaM2: typeof snapshot.mainAreaM2 === "number" ? snapshot.mainAreaM2 : undefined,
+                  totalAreaM2: typeof snapshot.totalAreaM2 === "number" ? snapshot.totalAreaM2 : item.area,
                   weightKg: typeof snapshot.weightKg === "number" ? snapshot.weightKg : undefined,
                   totalOrder: item.total,
                 };
@@ -394,7 +396,8 @@ export default function EmpresaPage() {
                   width: item.width,
                   height: item.height,
                   company: prefill.sellerCompanyName,
-                  areaM2: item.area,
+                  areaM2: typeof snapshot.mainAreaM2 === "number" ? snapshot.mainAreaM2 : ficha.areaM2,
+                  totalAreaM2: typeof snapshot.totalAreaM2 === "number" ? snapshot.totalAreaM2 : item.area,
                   pricingData: priceSnapshot,
                   priceHistory: [...(ficha.priceHistory ?? []), priceSnapshot],
                 };
@@ -610,7 +613,14 @@ function PricingPreview({
   const sheetWidth = evaluateEngineeringFormula(selectedFormula.widthFormula, numericDimensions);
   const sheetLength = evaluateEngineeringFormula(selectedFormula.lengthFormula, numericDimensions);
   const sheetArea = sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
-  const boxWeight = pricingMaterial ? sheetArea * parseDecimal(pricingMaterial.grammage) : 0;
+  const accessoriesArea = pricingMode === "engineering" && selectedEngineeringFicha
+    ? selectedEngineeringFicha.accessories.reduce(
+      (total, accessory) => total + calculateProductArea(accessory, engineeringFormulas) * getAccessoryQuantity(accessory),
+      0
+    )
+    : 0;
+  const pricingSheetArea = sheetArea + accessoriesArea;
+  const boxWeight = pricingMaterial ? pricingSheetArea * parseDecimal(pricingMaterial.grammage) : 0;
   const maletaInvalid = category === "maleta" && numericDimensions.C > 0 && numericDimensions.L > 0 && numericDimensions.C < numericDimensions.L;
   const filteredEngineeringClients = clients.filter((client) => {
     const term = engineeringClientSearch.trim().toUpperCase();
@@ -857,13 +867,14 @@ function PricingPreview({
             <FormulaResult label="LARGURA DA CHAPA" value={sheetWidth ? `${formatNumber(sheetWidth)} MM` : "-"} />
             <FormulaResult label="COMPRIMENTO DA CHAPA" value={sheetLength ? `${formatNumber(sheetLength)} MM` : "-"} />
             <FormulaResult
-              label="AREA DA CHAPA"
+              label="AREA DA CAIXA PRINCIPAL"
               value={sheetArea ? `${formatNumber(sheetArea, 4)} M2` : "-"}
               secondaryValue={sheetArea ? `${formatNumber(sheetArea * 1000, 0)} M2 (UND.INT.)` : undefined}
               highlight
             />
+            {pricingMode === "engineering" && accessoriesArea > 0 ? <FormulaResult label="AREA TOTAL DO CONJUNTO" value={`${formatNumber(pricingSheetArea, 4)} M2`} secondaryValue={`${formatNumber(accessoriesArea, 4)} M2 EM ACESSORIOS`} highlight /> : null}
             <FormulaResult
-              label="PESO DA CAIXA"
+              label={accessoriesArea > 0 ? "PESO DO CONJUNTO" : "PESO DA CAIXA"}
               value={boxWeight ? `${formatNumber(boxWeight, 3)} KG` : "-"}
               secondaryValue={boxWeight && pricingMaterial ? `${pricingMaterial.grammage} X AREA` : undefined}
               accent
@@ -892,7 +903,9 @@ function PricingPreview({
           onSimulateEconomicMaterial={() => economicAlternative && setSimulatedMaterialId(economicAlternative.id)}
           onRestoreOriginalMaterial={() => setSimulatedMaterialId(null)}
           dimensions={numericDimensions}
-          sheetArea={sheetArea}
+          sheetArea={pricingSheetArea}
+          mainSheetArea={sheetArea}
+          accessoriesArea={accessoriesArea}
           sheetWidth={sheetWidth}
           sheetLength={sheetLength}
           lotQuantity={lotQuantity}
@@ -1434,6 +1447,8 @@ function PriceSummaryStep({
   onRestoreOriginalMaterial,
   dimensions,
   sheetArea,
+  mainSheetArea,
+  accessoriesArea,
   sheetWidth,
   sheetLength,
   lotQuantity,
@@ -1458,6 +1473,8 @@ function PriceSummaryStep({
   onRestoreOriginalMaterial: () => void;
   dimensions: { C: number; L: number; A: number; S: number };
   sheetArea: number;
+  mainSheetArea: number;
+  accessoriesArea: number;
   sheetWidth: number;
   sheetLength: number;
   lotQuantity: number;
@@ -1551,6 +1568,8 @@ function PriceSummaryStep({
         paperType: selectedMaterial?.paperType,
         engineeringId: engineeringFicha?.engineeringId,
         topOverlap: dimensions.S || undefined,
+        mainAreaM2: mainSheetArea,
+        totalAreaM2: sheetArea,
         sellerCompanyKey: sellerCompany.key,
         mcPercent: source === "PADRAO" ? analysis.mcDefault : source === "SIMULADOR A" ? simulatorA.mcPercent : source === "SIMULADOR B" ? simulatorB.mcPercent : simulatorC.mcPercent,
         mcrHour: source === "PADRAO" ? analysis.mchStandard : source === "SIMULADOR A" ? simulatorA.mch : source === "SIMULADOR B" ? simulatorB.mch : simulatorC.mch,
@@ -1643,7 +1662,9 @@ function PriceSummaryStep({
           <PriceInfoRow label="MODELO ESCOLHIDO" value={selectedFormula.description} />
           <PriceInfoRow label="DIMENSOES" value={dimensionsWithTopOverlapText} />
           <PriceInfoRow label="MATERIAL" value={selectedMaterial.code} />
-          <PriceInfoRow label="AREA DA CHAPA" value={`${formatNumber(sheetArea, 4)} M2 (${formatNumber(sheetArea * 1000, 0)} M2 UND.INT.)`} />
+          <PriceInfoRow label={accessoriesArea > 0 ? "AREA DA CAIXA PRINCIPAL" : "AREA DA CHAPA"} value={`${formatNumber(mainSheetArea, 4)} M2 (${formatNumber(mainSheetArea * 1000, 0)} M2 UND.INT.)`} />
+          {accessoriesArea > 0 && <PriceInfoRow label="AREA DOS ACESSORIOS" value={`${formatNumber(accessoriesArea, 4)} M2`} />}
+          {accessoriesArea > 0 && <PriceInfoRow label="AREA TOTAL PARA PRECO" value={`${formatNumber(sheetArea, 4)} M2 (${formatNumber(sheetArea * 1000, 0)} M2 UND.INT.)`} />}
           <PriceInfoRow label="PESO UNITARIO / TOTAL LOTE" value={`${formatNumber(analysis.unitWeightKg, 3)} KG (${formatNumber(analysis.totalWeightKg, 1)} KG)`} />
           <PriceInfoRow label="QUANTIDADE DO LOTE" value={`${lotQuantity.toLocaleString("pt-BR")} UNIDS`} />
         </div>

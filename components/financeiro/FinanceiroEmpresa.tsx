@@ -109,6 +109,9 @@ function findDuplicateFichaNumber(items: QuoteItem[]) {
 }
 
 function resolveFichaArea(ficha: ProductFicha) {
+  const totalArea = Number(ficha.totalAreaM2);
+  if (Number.isFinite(totalArea) && totalArea > 0) return totalArea;
+
   const configuredArea = Number(ficha.areaM2);
   if (Number.isFinite(configuredArea) && configuredArea > 0) return configuredArea;
 
