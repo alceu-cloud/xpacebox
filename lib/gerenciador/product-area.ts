@@ -49,6 +49,20 @@ export function calculateProductArea(item: ProductComponent, formulas: Engineeri
   return sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1_000_000 : 0;
 }
 
+export function getAccessoryQuantity(item: ProductComponent) {
+  const quantity = Math.trunc(Number(item.quantityPerBox));
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+}
+
+export function calculateProductFichaTotalArea(ficha: ProductFicha) {
+  const mainArea = Number(ficha.areaM2) || 0;
+  const accessoriesArea = ficha.accessories.reduce(
+    (total, accessory) => total + (Number(accessory.areaM2) || 0) * getAccessoryQuantity(accessory),
+    0
+  );
+  return mainArea + accessoriesArea;
+}
+
 function recalculateComponentArea(component: ProductComponent, formulas: EngineeringFormula[]) {
   if (!component.engineeringId) return component;
   const areaM2 = calculateProductArea(component, formulas);
@@ -60,9 +74,11 @@ export function recalculateProductFichaAreas(fichas: ProductFicha[], formulas: E
     const areaM2 = ficha.engineeringId ? calculateProductArea(ficha, formulas) : ficha.areaM2;
     const accessories = ficha.accessories.map((accessory) => recalculateComponentArea(accessory, formulas));
     const accessoriesChanged = accessories.some((accessory, index) => accessory !== ficha.accessories[index]);
+    const totalAreaM2 = calculateProductFichaTotalArea({ ...ficha, areaM2, accessories });
     const mainChanged = ficha.areaM2 !== areaM2;
+    const totalChanged = ficha.totalAreaM2 !== totalAreaM2;
 
-    if (!mainChanged && !accessoriesChanged) return ficha;
-    return { ...ficha, areaM2, accessories };
+    if (!mainChanged && !accessoriesChanged && !totalChanged) return ficha;
+    return { ...ficha, areaM2, totalAreaM2, accessories };
   });
 }

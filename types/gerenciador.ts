@@ -131,6 +131,7 @@ export type ProductComponent = {
   laudo: "SIM" | "NAO";
   palete: "SIM" | "NAO";
   tieCount: number;
+  quantityPerBox?: number;
   status: "INATIVO" | "DESENVOLVIMENTO" | "PRE-CALCULO" | "PRODUTO FINAL";
   length: number;
   width: number;
@@ -184,6 +185,7 @@ export type ProductChangeLog = {
 export type ProductFicha = ProductComponent & {
   ftNumber: string;
   accessories: ProductComponent[];
+  totalAreaM2?: number;
   pricingData?: ProductPriceSnapshot;
   priceHistory?: ProductPriceSnapshot[];
   changeHistory?: ProductChangeLog[];

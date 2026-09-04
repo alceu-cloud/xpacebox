@@ -19,7 +19,7 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
-import { calculateProductArea, formulaUsesTopOverlap } from "@/lib/gerenciador/product-area";
+import { calculateProductArea, calculateProductFichaTotalArea, formulaUsesTopOverlap, getAccessoryQuantity, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
 import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
@@ -855,7 +855,7 @@ const productCompanies = ["DAWOS", "CARCAT", "GTA"];
 
 function emptyProductComponent(): ProductComponent {
   return {
-    id: crypto.randomUUID(), reference: "", price: 0, revision: "1", company: "", clientId: "", materialId: "", laudo: "NAO", palete: "NAO", tieCount: 0,
+    id: crypto.randomUUID(), reference: "", price: 0, revision: "1", company: "", clientId: "", materialId: "", laudo: "NAO", palete: "NAO", tieCount: 0, quantityPerBox: 1,
     status: "DESENVOLVIMENTO", length: 0, width: 0, height: 0, topOverlap: 0, bottomOverlap: 0, knifeWidth: 0, knifeWidthBoxes: 1,
     knifeLength: 0, knifeLengthBoxes: 1, supplierQuality: "", color1: "", color2: "", engineeringId: "", observations: "", areaM2: 0,
   };
@@ -900,14 +900,14 @@ function hasSameProductSpecification(first: ProductFicha, second: ProductFicha) 
 }
 
 const productChangeFields: Array<keyof ProductComponent> = [
-  "reference", "price", "clientId", "company", "materialId", "laudo", "palete", "tieCount", "status",
+  "reference", "price", "clientId", "company", "materialId", "laudo", "palete", "tieCount", "quantityPerBox", "status",
   "length", "width", "height", "topOverlap", "bottomOverlap", "knifeWidth", "knifeWidthBoxes", "knifeLength",
   "knifeLengthBoxes", "supplierQuality", "color1", "color2", "engineeringId", "observations", "areaM2",
 ];
 
 const productChangeLabels: Partial<Record<keyof ProductComponent, string>> = {
   reference: "REFERENCIA", price: "PRECO", clientId: "CLIENTE", company: "EMPRESA", materialId: "MATERIAL",
-  laudo: "LAUDO", palete: "PALETE", tieCount: "NUMERO DE AMARRADOS", status: "STATUS", length: "COMPRIMENTO",
+  laudo: "LAUDO", palete: "PALETE", tieCount: "NUMERO DE AMARRADOS", quantityPerBox: "QUANTIDADE POR CAIXA", status: "STATUS", length: "COMPRIMENTO",
   width: "LARGURA", height: "ALTURA", topOverlap: "TRANSPASSE SUPERIOR", bottomOverlap: "TRANSPASSE INFERIOR",
   knifeWidth: "LARGURA DA FACA", knifeWidthBoxes: "CAIXAS NA LARGURA", knifeLength: "COMPRIMENTO DA FACA",
   knifeLengthBoxes: "CAIXAS NO COMPRIMENTO", supplierQuality: "QUALIDADE", color1: "COR 1", color2: "COR 2",
@@ -1072,13 +1072,13 @@ export function ProductCatalogPanel({
       const shouldContinue = window.confirm(`JA EXISTE UMA FICHA COM O MESMO MATERIAL, TIPO DE CAIXA E MEDIDAS.\n\n${matchingFicha.ftNumber} - ${matchingFicha.reference}\nCLIENTE: ${clientName}\n\nDESEJA SALVAR MESMO ASSIM?`);
       if (!shouldContinue) return;
     }
-    const baseNext = {
+    const calculatedDraft = recalculateProductFichaAreas([{
       ...draft,
       ftNumber: draft.ftNumber.trim().toUpperCase(),
       reference: draft.reference.trim().toUpperCase(),
-      areaM2: calculateProductArea(draft, engineeringFormulas),
-      accessories: draft.accessories.map((accessory) => ({ ...accessory, areaM2: calculateProductArea(accessory, engineeringFormulas) })),
-    };
+      accessories: draft.accessories.map((accessory) => ({ ...accessory, quantityPerBox: getAccessoryQuantity(accessory) })),
+    }], engineeringFormulas)[0];
+    const baseNext = calculatedDraft;
     const previous = editingId ? fichas.find((item) => item.id === editingId) : undefined;
     const changes = previous ? collectFichaChanges(previous, baseNext) : [{ label: "FICHA TECNICA", previousValue: "", nextValue: "CADASTRO INICIAL" }];
     const revision = previous && changes.length === 0
@@ -1159,7 +1159,12 @@ export function ProductCatalogPanel({
     return typeof value === "number" && Number.isFinite(value) ? `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}` : "NAO INFORMADO";
   }
 
-  function renderFields(item: ProductComponent, update: (key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) => void, prefix: string) {
+  function renderFields(
+    item: ProductComponent,
+    update: (key: keyof ProductComponent, value: ProductComponent[keyof ProductComponent]) => void,
+    prefix: string,
+    options: { accessory?: boolean; totalAreaM2?: number } = {}
+  ) {
     const materialSupplier = materials.find((material) => material.id === item.materialId)?.supplier ?? "";
     const selectedSupplier = supplierSelection[item.id] ?? materialSupplier;
     const filteredMaterials = selectedSupplier
@@ -1173,6 +1178,8 @@ export function ProductCatalogPanel({
     const selectedEngineeringFormula = engineeringFormulas.find((formula) => formula.id === item.engineeringId);
     const requiresTopOverlap = formulaUsesTopOverlap(selectedEngineeringFormula);
     const calculatedArea = calculateProductArea(item, engineeringFormulas);
+    const quantityPerBox = getAccessoryQuantity(item);
+    const calculatedAccessoryArea = calculatedArea * quantityPerBox;
     const supplierNames = suppliers.map((supplier) => supplier.name).filter(Boolean);
     return (
       <div style={productFieldsStyle}>
@@ -1186,13 +1193,24 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>COMPRIMENTO (MM)<input type="number" value={item.length || ""} onChange={(event) => update("length", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>LARGURA (MM)<input type="number" value={item.width || ""} onChange={(event) => update("width", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>ALTURA (MM)<input type="number" value={item.height || ""} onChange={(event) => update("height", Number(event.target.value) || 0)} style={productInputStyle} /></label>
+        {options.accessory ? <label style={productLabelStyle}>QUANTIDADE POR CAIXA<input type="number" min="1" step="1" value={quantityPerBox} onChange={(event) => update("quantityPerBox", Math.max(1, Math.trunc(Number(event.target.value) || 1)))} style={productInputStyle} /></label> : null}
         <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
         {requiresTopOverlap ? <label style={productLabelStyle}>TRANSPASSE SUPERIOR (S) (MM)<input type="number" min="0" value={item.topOverlap || ""} onChange={(event) => update("topOverlap", Number(event.target.value) || 0)} style={productInputStyle} /></label> : null}
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
-        <label style={productLabelStyle}>AREA CALCULADA (M2)<input value={calculatedArea ? calculatedArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label>
+        <label style={productLabelStyle}>{options.accessory ? "AREA CALCULADA 1 PECA (M2)" : "AREA CALCULADA DA CAIXA (M2)"}<input value={calculatedArea ? calculatedArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label>
+        {options.accessory ? <label style={productLabelStyle}>AREA CALCULADA TOTAL (M2)<input value={calculatedAccessoryArea ? calculatedAccessoryArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label> : null}
+        {!options.accessory && options.totalAreaM2 !== undefined ? <label style={productLabelStyle}>AREA TOTAL DO CONJUNTO (M2)<input value={options.totalAreaM2 ? options.totalAreaM2.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label> : null}
       </div>
     );
   }
+
+  const currentFichaTotalArea = draft
+    ? calculateProductFichaTotalArea({
+      ...draft,
+      areaM2: calculateProductArea(draft, engineeringFormulas),
+      accessories: draft.accessories.map((accessory) => ({ ...accessory, areaM2: calculateProductArea(accessory, engineeringFormulas) })),
+    })
+    : 0;
 
   return (
     <>
@@ -1220,9 +1238,9 @@ export function ProductCatalogPanel({
               {productPanel === "arte" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>ARTE</strong><span>ESTE ESPACO FICARA DISPONIVEL PARA A ARTE DO PRODUTO.</span></div><div style={productPanelEmptyStyle}>MODULO DE ARTE EM PREPARACAO.</div></section>}
               {productPanel === "historico" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE PRECOS</strong><span>SELECIONE UM PRECO PARA VER A CONFIGURACAO USADA.</span></div>{(draft.priceHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUM HISTORICO DE PRECO REGISTRADO.</div> : <div style={productHistoryLayoutStyle}><div style={productHistoryListStyle}>{(draft.priceHistory ?? []).map((snapshot) => <div key={snapshot.id} style={productHistoryItemWrapStyle}><button type="button" onClick={() => setSelectedHistoryId((current) => current === snapshot.id ? null : snapshot.id)} style={{ ...productHistoryItemStyle, ...(selectedHistoryId === snapshot.id ? productHistoryItemActiveStyle : {}) }} aria-expanded={selectedHistoryId === snapshot.id}><strong>{formatCurrencyValue(snapshot.price)}</strong><span>{snapshot.source}</span><small>{formatSnapshotDate(snapshot.createdAt)}</small></button><button type="button" onClick={() => removeHistorySnapshot(snapshot.id)} style={productHistoryDeleteStyle} aria-label={`EXCLUIR HISTORICO DE ${formatCurrencyValue(snapshot.price)}`} title="EXCLUIR DO HISTORICO">X</button></div>)}</div>{selectedHistoryId && <PriceSnapshotDetails snapshot={(draft.priceHistory ?? []).find((snapshot) => snapshot.id === selectedHistoryId)} />}</div>}</section>}
               {productPanel === "alteracoes" && <section style={productInfoPanelStyle}><div style={productInfoPanelHeaderStyle}><strong>HISTORICO DE ALTERACOES</strong><span>REVISOES E CAMPOS ALTERADOS NESTA FICHA.</span></div>{(draft.changeHistory ?? []).length === 0 ? <div style={productPanelEmptyStyle}>NENHUMA ALTERACAO REGISTRADA AINDA.</div> : <div style={productChangeListStyle}>{[...(draft.changeHistory ?? [])].reverse().map((entry) => <article key={entry.id} style={productChangeEntryStyle}><div style={productChangeEntryHeaderStyle}><strong>REVISAO {entry.revision}</strong><small>{formatSnapshotDate(entry.changedAt)}</small></div><div style={productChangeDetailsStyle}>{entry.changes.map((change, index) => <div key={`${entry.id}-${index}`} style={productChangeDetailStyle}><strong>{change.label}</strong><span>{change.previousValue ? `${change.previousValue} > ${change.nextValue}` : change.nextValue}</span></div>)}</div></article>)}</div>}</section>}
-              <fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main")}</fieldset>
+              <fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(draft, (key, value) => updateMain(key as keyof ProductFicha, value as ProductFicha[keyof ProductFicha]), "main", { totalAreaM2: currentFichaTotalArea })}</fieldset>
             </section>
-            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong>{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button>}</div><fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`)}</fieldset></article>)}{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, { ...emptyProductComponent(), revision: draft.revision || "1", clientId: draft.clientId, company: draft.company }] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button>}</section>
+            <section style={productSideStyle}><h3 style={productSideTitleStyle}>ACESSORIOS</h3>{draft.accessories.map((accessory, index) => <article key={accessory.id} style={accessoryStyle}><div style={accessoryHeaderStyle}><strong>ACESSORIO {index + 1}</strong>{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: draft.accessories.filter((item) => item.id !== accessory.id) })} style={removeAccessoryStyle}>REMOVER</button>}</div><fieldset disabled={viewOnly} style={productReadOnlyFieldsetStyle}>{renderFields(accessory, (key, value) => updateAccessory(accessory.id, key, value), `accessory-${index}`, { accessory: true })}</fieldset></article>)}{!viewOnly && <button type="button" onClick={() => setDraft({ ...draft, accessories: [...draft.accessories, { ...emptyProductComponent(), revision: draft.revision || "1", clientId: draft.clientId, company: draft.company }] })} style={secondaryActionStyle}>+ ADICIONAR ACESSORIO</button>}</section>
           </div>
           {!viewOnly && <div style={formActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={save} style={orangeButtonStyle}>SALVAR FICHA</button></div>}
         </FormPanel>
