@@ -19,6 +19,7 @@ import {
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
+import { calculateProductArea, formulaUsesTopOverlap } from "@/lib/gerenciador/product-area";
 import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
@@ -896,38 +897,6 @@ function hasSameProductSpecification(first: ProductFicha, second: ProductFicha) 
     && Number(first.width) === Number(second.width)
     && Number(first.height) === Number(second.height)
     && Number(first.topOverlap || 0) === Number(second.topOverlap || 0);
-}
-
-function formulaUsesTopOverlap(formula?: EngineeringFormula) {
-  return Boolean(formula && /S/.test(`${formula.widthFormula}${formula.lengthFormula}`.toUpperCase()));
-}
-
-function evaluateProductFormula(formula: string, values: { C: number; L: number; A: number; S: number }) {
-  const normalized = formula
-    .replaceAll(",", ".")
-    .replace(/[CLAS]/gi, (variable) => String(values[variable.toUpperCase() as keyof typeof values]));
-
-  if (!/^[\d+\-*/().\s]+$/.test(normalized)) return 0;
-
-  try {
-    const result = Number(Function(`"use strict"; return (${normalized});`)());
-    return Number.isFinite(result) && result > 0 ? result : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function calculateProductArea(item: ProductComponent, formulas: EngineeringFormula[]) {
-  const formula = formulas.find((candidate) => candidate.id === item.engineeringId);
-  if (!formula) return 0;
-
-  const dimensions = { C: item.length, L: item.width, A: item.height, S: item.topOverlap };
-  const requiredDimensions = new Set(`${formula.widthFormula}${formula.lengthFormula}`.toUpperCase().match(/[CLAS]/g) ?? []);
-  if ([...requiredDimensions].some((dimension) => !dimensions[dimension as keyof typeof dimensions])) return 0;
-
-  const sheetWidth = evaluateProductFormula(formula.widthFormula, dimensions);
-  const sheetLength = evaluateProductFormula(formula.lengthFormula, dimensions);
-  return sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
 }
 
 const productChangeFields: Array<keyof ProductComponent> = [

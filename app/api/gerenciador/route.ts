@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import type { EngineeringFormula, ProductFicha } from "@/types/gerenciador";
 
 const allowedKeys = new Set([
   "suppliers",
@@ -90,7 +92,13 @@ export async function PATCH(request: Request) {
       .maybeSingle();
     if (currentError) throw currentError;
 
-    const nextData = { ...(current?.data ?? {}), [body.key]: body.value };
+    const nextData: Record<string, unknown> = { ...(current?.data ?? {}), [body.key]: body.value };
+    if (body.key === "engineeringFormulas" && Array.isArray(body.value) && Array.isArray(nextData.productFichas)) {
+      nextData.productFichas = recalculateProductFichaAreas(
+        nextData.productFichas as ProductFicha[],
+        body.value as EngineeringFormula[]
+      );
+    }
     const { error } = await admin
       .from("company_manager_settings")
       .upsert({ tenant_company_id: company.id, data: nextData, updated_at: new Date().toISOString() }, { onConflict: "tenant_company_id" });

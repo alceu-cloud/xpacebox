@@ -13,6 +13,7 @@ import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany, normalizeSalesGoals } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
+import { evaluateEngineeringFormula, formulaUsesDimension, formulaUsesTopOverlap, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
@@ -192,6 +193,12 @@ export default function EmpresaPage() {
     void saveManagerSetting(slug, key, value).catch((error) => console.error("MANAGER SETTINGS SAVE ERROR", error));
   }
 
+  function persistEngineeringFormulaChange(value: EngineeringFormula[]) {
+    setEngineeringFormulas(value);
+    setProductFichas((current) => recalculateProductFichaAreas(current, value));
+    void saveManagerSetting(slug, "engineeringFormulas", value).catch((error) => console.error("MANAGER SETTINGS SAVE ERROR", error));
+  }
+
   const modulosVisiveis = useMemo(
     () => modulos.filter((modulo) => !modulo.somenteGerencia || podeGerenciar),
     [podeGerenciar]
@@ -296,7 +303,7 @@ export default function EmpresaPage() {
             onSuppliersChange={(value) => persistManagerChange("suppliers", value, setSuppliers)}
             onPaperTypesChange={(value) => persistManagerChange("paperTypes", value, setPaperTypes)}
             onMaterialsChange={(value) => persistManagerChange("materials", value, setMaterials)}
-            onEngineeringFormulasChange={(value) => persistManagerChange("engineeringFormulas", value, setEngineeringFormulas)}
+            onEngineeringFormulasChange={persistEngineeringFormulaChange}
             onPaperCostParamsChange={(value) => persistManagerChange("paperCostParams", value, setPaperCostParams)}
             onPricingParamsChange={(value) => persistManagerChange("pricingParams", value, setPricingParamsByCompany)}
             onPricingOperationalParamsChange={(value) => persistManagerChange("pricingOperationalParams", value, setPricingOperationalParams)}
@@ -387,6 +394,7 @@ export default function EmpresaPage() {
                   width: item.width,
                   height: item.height,
                   company: prefill.sellerCompanyName,
+                  areaM2: item.area,
                   pricingData: priceSnapshot,
                   priceHistory: [...(ficha.priceHistory ?? []), priceSnapshot],
                 };
@@ -588,16 +596,19 @@ function PricingPreview({
     ? selectedEngineeringFormula
     : modelFormula;
   const formulaRequiresTopOverlap = formulaUsesTopOverlap(selectedFormula);
+  const formulaRequiresHeight = formulaUsesDimension(selectedFormula, "A");
   const selectedSellerCompany = sellerCompanies.find((company) => company.key === sellerCompanyKey) ?? sellerCompanies[0];
   const pricingParams = pricingParamsByCompany[sellerCompanyKey] ?? defaultPricingParamsByCompany.dawos;
   const numericDimensions = {
     C: Number(String(dimensions.length).replace(",", ".")) || 0,
     L: Number(String(dimensions.width).replace(",", ".")) || 0,
-    A: selectedModel.dimensionMode === "full" ? Number(String(dimensions.height).replace(",", ".")) || 0 : 0,
+    A: (pricingMode === "engineering" ? formulaRequiresHeight : selectedModel.dimensionMode === "full")
+      ? Number(String(dimensions.height).replace(",", ".")) || 0
+      : 0,
     S: Number(String(dimensions.topOverlap).replace(",", ".")) || 0,
   };
-  const sheetWidth = evaluateFormula(selectedFormula.widthFormula, numericDimensions);
-  const sheetLength = evaluateFormula(selectedFormula.lengthFormula, numericDimensions);
+  const sheetWidth = evaluateEngineeringFormula(selectedFormula.widthFormula, numericDimensions);
+  const sheetLength = evaluateEngineeringFormula(selectedFormula.lengthFormula, numericDimensions);
   const sheetArea = sheetWidth && sheetLength ? (sheetWidth * sheetLength) / 1000000 : 0;
   const boxWeight = pricingMaterial ? sheetArea * parseDecimal(pricingMaterial.grammage) : 0;
   const maletaInvalid = category === "maleta" && numericDimensions.C > 0 && numericDimensions.L > 0 && numericDimensions.C < numericDimensions.L;
@@ -817,11 +828,11 @@ function PricingPreview({
                   onChange={(value) => setDimensions((current) => ({ ...current, length: value }))}
                 />
                 <DimensionInput label="LARGURA (L)" value={dimensions.width} onChange={(value) => setDimensions((current) => ({ ...current, width: value }))} />
-                {selectedModel.dimensionMode !== "hide-height" && (
+                {(pricingMode === "engineering" ? formulaRequiresHeight : selectedModel.dimensionMode !== "hide-height") && (
                   <DimensionInput
                     label="ALTURA (A)"
                     value={dimensions.height}
-                    disabled={selectedModel.dimensionMode === "disabled-height"}
+                    disabled={pricingMode !== "engineering" && selectedModel.dimensionMode === "disabled-height"}
                     onTab={(event) => {
                       if (!event.shiftKey) {
                         event.preventDefault();
@@ -1501,7 +1512,7 @@ function PriceSummaryStep({
   const requiredLot = calculateRequiredLotForHourlyTarget(simulatorPrice, analysis.mcrHour, analysis);
   const targetMcTone = getSimulatorTone(targetMcPercent, pricingGoals.mcPercent);
   const targetMchTone = getSimulatorTone(targetMch, pricingGoals.mcrHour);
-  const dimensionsText = selectedModel.dimensionMode === "full"
+  const dimensionsText = formulaUsesDimension(selectedFormula, "A")
     ? `${formatNumber(dimensions.C, 0)} X ${formatNumber(dimensions.L, 0)} X ${formatNumber(dimensions.A, 0)} MM`
     : `${formatNumber(dimensions.C, 0)} X ${formatNumber(dimensions.L, 0)} MM`;
   const dimensionsWithTopOverlapText = dimensions.S ? `${dimensionsText} · S ${formatNumber(dimensions.S, 0)} MM` : dimensionsText;
@@ -2148,24 +2159,6 @@ function FormulaResult({
       {secondaryValue && <strong style={formulaResultSecondaryValueStyle}>{secondaryValue}</strong>}
     </div>
   );
-}
-
-function formulaUsesTopOverlap(formula: EngineeringFormula) {
-  return /S/.test(`${formula.widthFormula}${formula.lengthFormula}`.toUpperCase());
-}
-
-function evaluateFormula(formula: string, values: { C: number; L: number; A: number; S: number }) {
-  const normalized = formula
-    .replaceAll(",", ".")
-    .replace(/[CLAS]/gi, (variable) => String(values[variable.toUpperCase() as keyof typeof values]));
-
-  if (!/^[\d+\-*/().\s]+$/.test(normalized)) return 0;
-
-  try {
-    return Number(Function(`"use strict"; return (${normalized});`)()) || 0;
-  } catch {
-    return 0;
-  }
 }
 
 function findFormulaForModel(formulas: EngineeringFormula[], formulaId: string, wave: "B" | "BC") {
