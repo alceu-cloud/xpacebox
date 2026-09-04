@@ -1350,6 +1350,7 @@ function CompanyStep({
           { label: "IPI", value: `${formatNumber(pricingParams.outputIpi, 2)}%`, color: "#ff3b25" },
           { label: "COMISSAO PREVIA", value: `${formatNumber(pricingParams.commission, 2)}%`, color: "#0087d7" },
           { label: "FRETE", value: `${formatNumber(pricingParams.freight, 2)}%`, color: "#e68019" },
+          { label: "OUTROS", value: `${formatNumber(pricingParams.otherCosts, 2)}%`, color: "#8b36e8" },
         ];
 
   return (

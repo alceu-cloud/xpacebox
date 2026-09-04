@@ -1481,7 +1481,7 @@ function PricingParamsPanel({
     ? companyParams.commission + companyParams.freight + companyParams.otherCosts + companyParams.clientIcms + companyParams.additionalCosts
     : company === "carcat"
       ? companyParams.simplesTax + companyParams.commission + companyParams.freight + companyParams.otherCosts
-      : companyParams.outputIcms + companyParams.outputPisCofins + companyParams.outputIpi + companyParams.commission + companyParams.freight;
+      : companyParams.outputIcms + companyParams.outputPisCofins + companyParams.outputIpi + companyParams.commission + companyParams.freight + companyParams.otherCosts;
   const productiveHours = operationalParams.monthlyAvailableHours * (operationalParams.productivityPercent / 100);
   const minimumMcrHour = productiveHours > 0 ? operationalParams.monthlyMcTarget / productiveHours : 0;
   const targetMcrHour = productiveHours > 0 ? operationalParams.monthlyFixedCostsDesiredProfit / productiveHours : 0;
@@ -1537,7 +1537,7 @@ function PricingParamsPanel({
           <div style={pricingFieldsStyle}>
             <ParamField label="COMISSAO PREVIA (%)" value={companyParams.commission} color="#ff5a00" onChange={(commission) => updateCompanyParams({ ...companyParams, commission })} />
             <ParamField label="FRETE (%)" value={companyParams.freight} color="#0ea5e9" onChange={(freight) => updateCompanyParams({ ...companyParams, freight })} />
-            {company !== "gta" && <ParamField label="OUTROS CUSTOS (%)" value={companyParams.otherCosts} color="#8b5cf6" onChange={(otherCosts) => updateCompanyParams({ ...companyParams, otherCosts })} />}
+            <ParamField label="OUTROS CUSTOS (%)" value={companyParams.otherCosts} color="#8b5cf6" onChange={(otherCosts) => updateCompanyParams({ ...companyParams, otherCosts })} />
             {company === "dawos" && <>
               <ParamField label="ICMS DO CLIENTE (%)" value={companyParams.clientIcms} color="#14b8a6" onChange={(clientIcms) => updateCompanyParams({ ...companyParams, clientIcms })} />
               <ParamField label="DEMAIS CUSTOS (%)" value={companyParams.additionalCosts} color="#ef4444" onChange={(additionalCosts) => updateCompanyParams({ ...companyParams, additionalCosts })} />
