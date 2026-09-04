@@ -1775,7 +1775,7 @@ function PriceSummaryStep({
         <div style={priceStandardHeaderStyle}>
           <div>
             <strong style={priceStandardTitleStyle}>PRECO PADRAO - MC% CONFIGURADA: {formatNumber(analysis.mcDefault, 0)}%</strong>
-            <span style={priceExpensesBadgeStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <span style={priceExpensesBadgeStyle}>{formatExpenseBases(analysis.expensesPercent, analysis.hourlyExpensesPercent)}</span>
           </div>
           <button type="button" onClick={() => sendPriceToTarget(analysis.standardPrice, "PADRAO")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
         </div>
@@ -1807,7 +1807,7 @@ function PriceSummaryStep({
             <h3 style={simulatorTitleStyle}>INFORME O PRECO, VEJA A MARGEM</h3>
           </div>
           <div style={simulatorHeaderActionsStyle}>
-            <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <span style={simulatorExpensesStyle}>{formatExpenseBases(simulatorA.expensesPercent, simulatorA.hourlyExpensesPercent)}</span>
             <button type="button" onClick={() => sendPriceToTarget(simulatorPrice, "SIMULADOR A")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
           </div>
         </div>
@@ -1869,7 +1869,7 @@ function PriceSummaryStep({
             <h3 style={simulatorTitleStyle}>INFORME A MC%, VEJA O PRECO</h3>
           </div>
           <div style={simulatorHeaderActionsStyle}>
-            <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <span style={simulatorExpensesStyle}>{formatExpenseBases(simulatorB.expensesPercent, simulatorB.hourlyExpensesPercent)}</span>
             <button type="button" onClick={() => sendPriceToTarget(simulatorBPrice, "SIMULADOR B")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
           </div>
         </div>
@@ -1907,7 +1907,7 @@ function PriceSummaryStep({
             <h3 style={simulatorTitleStyle}>INFORME A MC R$/HORA, VEJA O PRECO E A MARGEM</h3>
           </div>
           <div style={simulatorHeaderActionsStyle}>
-            <span style={simulatorExpensesStyle}>DESPESAS: {formatNumber(analysis.expensesPercent, 2)}%</span>
+            <span style={simulatorExpensesStyle}>{formatExpenseBases(simulatorC.expensesPercent, simulatorC.hourlyExpensesPercent)}</span>
             <button type="button" onClick={() => sendPriceToTarget(simulatorCPrice, "SIMULADOR C")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
           </div>
         </div>
@@ -2206,6 +2206,14 @@ function findFormulaForModel(formulas: EngineeringFormula[], formulaId: string, 
 function parseDecimal(value: string) {
   const match = value.replace(",", ".").match(/-?\d+(\.\d+)?/);
   return match ? Number(match[0]) : 0;
+}
+
+function formatExpenseBases(mcExpensesPercent: number, hourlyExpensesPercent: number) {
+  if (Math.abs(mcExpensesPercent - hourlyExpensesPercent) < 0.001) {
+    return `DESPESAS: ${formatNumber(mcExpensesPercent, 2)}%`;
+  }
+
+  return `MC%: ${formatNumber(mcExpensesPercent, 2)}% · MC/H: ${formatNumber(hourlyExpensesPercent, 2)}%`;
 }
 
 function formatNumber(value: number, digits = 2) {

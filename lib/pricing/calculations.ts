@@ -85,9 +85,18 @@ export function calculatePriceAnalysis({
     shouldIgnoreAdditionalCosts
   );
   const expensesRate = expensesPercent / 100;
+  const hourlyExpensesPercent = getHourlyExpensesPercent(
+    sellerCompany.key,
+    params,
+    commissionPercent,
+    shouldIgnoreAdditionalCosts
+  );
+  const hourlyExpensesRate = hourlyExpensesPercent / 100;
   const standardPrice = calculatePriceForMargin(pricingMaterialCost, mcRate, expensesRate);
   const netPrice = standardPrice * (1 - expensesRate);
   const marginValue = netPrice - pricingMaterialCost;
+  const hourlyNetPrice = standardPrice * (1 - hourlyExpensesRate);
+  const hourlyMarginValue = hourlyNetPrice - pricingMaterialCost;
   const unitWeightKg = sheetArea * grammage;
   const totalWeightKg = unitWeightKg * lotQuantity;
   const totalOrder = standardPrice * lotQuantity;
@@ -110,7 +119,7 @@ export function calculatePriceAnalysis({
   const productionDataReady = boxesPerHour > 0;
   const productionMinutes = productionDataReady ? (lotQuantity / boxesPerHour) * 60 : 0;
   const totalMinutes = productionDataReady ? setupMinutes + productionMinutes : 0;
-  const mchStandard = totalMinutes > 0 ? marginValue * lotQuantity * (60 / totalMinutes) : 0;
+  const mchStandard = totalMinutes > 0 ? hourlyMarginValue * lotQuantity * (60 / totalMinutes) : 0;
   const mcrHour = calculateMonthlyMcrHour(pricingOperationalParams, params.mcrHour);
   return {
     mcDefault: params.mcDefault,
@@ -124,6 +133,7 @@ export function calculatePriceAnalysis({
     pricingParams: params,
     ignoreAdditionalCosts: shouldIgnoreAdditionalCosts,
     expensesPercent,
+    hourlyExpensesPercent,
     additionalCostsIgnored: shouldIgnoreAdditionalCosts,
     configuredAdditionalCosts: params.additionalCosts,
     materialCostWithIpi,
@@ -133,6 +143,8 @@ export function calculatePriceAnalysis({
     standardPrice,
     netPrice,
     marginValue,
+    hourlyNetPrice,
+    hourlyMarginValue,
     unitWeightKg,
     totalWeightKg,
     totalOrder,
@@ -192,17 +204,26 @@ function calculatePriceResultWithCommission(
     analysis.ignoreAdditionalCosts
   );
   const expensesRate = expensesPercent / 100;
+  const hourlyExpensesPercent = getHourlyExpensesPercent(
+    analysis.sellerCompanyKey,
+    analysis.pricingParams,
+    commissionPercent,
+    analysis.ignoreAdditionalCosts
+  );
+  const hourlyExpensesRate = hourlyExpensesPercent / 100;
   const netPrice = price * (1 - expensesRate);
   const marginValue = netPrice - analysis.pricingMaterialCost;
+  const hourlyNetPrice = price * (1 - hourlyExpensesRate);
+  const hourlyMarginValue = hourlyNetPrice - analysis.pricingMaterialCost;
   const mcPercent = netPrice !== 0 ? (marginValue / netPrice) * 100 : 0;
   const mch = analysis.totalMinutes > 0
-    ? marginValue * analysis.lotQuantity * (60 / analysis.totalMinutes)
+    ? hourlyMarginValue * analysis.lotQuantity * (60 / analysis.totalMinutes)
     : 0;
   const pricePerKg = analysis.unitWeightKg > 0 ? price / analysis.unitWeightKg : 0;
   const totalOrder = price * analysis.lotQuantity;
   const commissionValue = totalOrder * (commissionPercent / 100);
 
-  return { netPrice, marginValue, mcPercent, mch, pricePerKg, totalOrder, commissionValue, commissionPercent, preliminaryMcPercent };
+  return { netPrice, marginValue, hourlyNetPrice, hourlyMarginValue, expensesPercent, hourlyExpensesPercent, mcPercent, mch, pricePerKg, totalOrder, commissionValue, commissionPercent, preliminaryMcPercent };
 }
 
 export function calculatePriceForMarginTarget(
@@ -235,7 +256,7 @@ export function calculatePriceForHourlyTarget(
   let minimumPrice = 0;
   let maximumPrice = Math.max(
     1,
-    calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, analysis.expensesPercent)
+    calculatePriceForHourlyTargetWithExpenses(targetMch, analysis, analysis.hourlyExpensesPercent)
   );
 
   while (calculatePriceResult(maximumPrice, analysis).mch < targetMch && maximumPrice < 1_000_000) {
@@ -280,10 +301,10 @@ export function calculateRequiredLotForHourlyTarget(
   analysis: ReturnType<typeof calculatePriceAnalysis>
 ) {
   const priceResult = calculatePriceResult(price, analysis);
-  const maximumMch = priceResult.marginValue * analysis.boxesPerHour;
+  const maximumMch = priceResult.hourlyMarginValue * analysis.boxesPerHour;
 
   if (analysis.setupMinutes <= 0 && analysis.boxesPerHour > 0) {
-    const attainable = price > 0 && targetMch > 0 && priceResult.marginValue > 0 && maximumMch >= targetMch;
+    const attainable = price > 0 && targetMch > 0 && priceResult.hourlyMarginValue > 0 && maximumMch >= targetMch;
     return {
       attainable,
       quantity: attainable ? 1 : null,
@@ -295,13 +316,13 @@ export function calculateRequiredLotForHourlyTarget(
   if (
     price <= 0 ||
     targetMch <= 0 ||
-    priceResult.marginValue <= 0 ||
+    priceResult.hourlyMarginValue <= 0 ||
     analysis.boxesPerHour <= 0
   ) {
     return { attainable: false as const, quantity: null, maximumMch, independentOfLot: false as const };
   }
 
-  const denominator = 60 * (priceResult.marginValue - targetMch / analysis.boxesPerHour);
+  const denominator = 60 * (priceResult.hourlyMarginValue - targetMch / analysis.boxesPerHour);
   if (denominator <= 0) {
     return { attainable: false as const, quantity: null, maximumMch, independentOfLot: false as const };
   }
@@ -339,6 +360,20 @@ function getExpensesPercent(
 
   const additionalCosts = ignoreAdditionalCosts ? 0 : params.additionalCosts;
   return commissionPercent + params.freight + params.otherCosts + params.clientIcms + additionalCosts;
+}
+
+function getHourlyExpensesPercent(
+  company: SellerCompanyKey,
+  params: PricingParams,
+  commissionPercent: number,
+  ignoreAdditionalCosts = false
+) {
+  if (company === "gta") {
+    // GTA includes other costs in MC%, but excludes them from the hourly contribution base.
+    return params.outputIcms + params.outputPisCofins + params.outputIpi + commissionPercent + params.freight;
+  }
+
+  return getExpensesPercent(company, params, commissionPercent, ignoreAdditionalCosts);
 }
 
 function calculateDynamicCommission(mcPercent: number, lotQuantity: number, unitWeightKg: number) {
