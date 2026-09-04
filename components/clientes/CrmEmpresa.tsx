@@ -547,9 +547,9 @@ export default function CrmEmpresa({
     setMessage("");
   }
 
-  function selectClient(clientId: string, entryTab: CrmDetailEntryTab = "resumo") {
+  function selectClient(clientId: string, entryTab?: CrmDetailEntryTab) {
     setSelectedClientId(clientId);
-    setDetailEntryTab(entryTab);
+    if (entryTab) setDetailEntryTab(entryTab);
     clearFeedback();
   }
 
@@ -582,7 +582,7 @@ export default function CrmEmpresa({
       <nav className="crm-nav" aria-label="VISOES DO CRM">
         {(["agenda", "carteira", "pipeline"] as CrmView[]).map((item) => (
           <button key={item} type="button" className={view === item ? "crm-nav-active" : ""} onClick={() => {
-            if (item === "carteira") setDetailEntryTab("resumo");
+            if (item === "carteira" && view !== "carteira") setDetailEntryTab("resumo");
             setView(item);
           }}>
             {item === "agenda" ? "AGENDA" : item === "carteira" ? "CARTEIRA" : "OPORTUNIDADES"}
@@ -702,7 +702,7 @@ export default function CrmEmpresa({
           setOpenCompanyFilter={setPipelineOpenCompanyFilter}
           openClientFilter={pipelineOpenClientFilter}
           setOpenClientFilter={setPipelineOpenClientFilter}
-          onSelectClient={(clientId) => { selectClient(clientId); setView("carteira"); }}
+          onSelectClient={(clientId) => { selectClient(clientId, "resumo"); setView("carteira"); }}
           onStageChange={handleStageChange}
           onLinkClient={handleLinkOpportunityClient}
           saving={saving}
@@ -726,7 +726,7 @@ export default function CrmEmpresa({
         alert={purchaseAverageAlert}
         onClose={() => setPurchaseAverageAlert(null)}
         onReview={() => {
-          selectClient(purchaseAverageAlert.clientId);
+          selectClient(purchaseAverageAlert.clientId, "resumo");
           setView("carteira");
           setPurchaseAverageAlert(null);
         }}
