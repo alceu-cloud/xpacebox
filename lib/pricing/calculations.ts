@@ -334,7 +334,7 @@ function getExpensesPercent(
   }
 
   if (company === "gta") {
-    return params.outputIcms + params.outputPisCofins + params.outputIpi + commissionPercent + params.freight;
+    return params.outputIcms + params.outputPisCofins + params.outputIpi + commissionPercent + params.freight + params.otherCosts;
   }
 
   const additionalCosts = ignoreAdditionalCosts ? 0 : params.additionalCosts;
