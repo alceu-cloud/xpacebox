@@ -1493,14 +1493,14 @@ function PriceSummaryStep({
   const calculatedMcrHour = pricingOperationalParams.monthlyAvailableHours > 0 && pricingOperationalParams.productivityPercent > 0
     ? pricingOperationalParams.monthlyFixedCostsDesiredProfit / (pricingOperationalParams.monthlyAvailableHours * (pricingOperationalParams.productivityPercent / 100))
     : pricingParams.mcrHour;
-  const [targetMch, setTargetMch] = useState(calculatedMcrHour);
+  const [targetMch, setTargetMch] = useState(Math.round(calculatedMcrHour));
   const [ignoreSetup, setIgnoreSetup] = useState(false);
   const [ignoreAdditionalCosts, setIgnoreAdditionalCosts] = useState(false);
   const [manualBoxesPerHour, setManualBoxesPerHour] = useState(0);
   const [sendMessage, setSendMessage] = useState("");
   useEffect(() => {
     setTargetMcPercent(pricingParams.mcDefault);
-    setTargetMch(calculatedMcrHour);
+    setTargetMch(Math.round(calculatedMcrHour));
   }, [pricingParams.mcDefault, calculatedMcrHour]);
   useEffect(() => {
     setManualBoxesPerHour(0);
@@ -1921,7 +1921,7 @@ function PriceSummaryStep({
                 min="0"
                 step="1"
                 value={targetMch || ""}
-                onChange={(event) => setTargetMch(Number(event.target.value) || 0)}
+                onChange={(event) => setTargetMch(Math.max(0, Math.round(Number(event.target.value) || 0)))}
                 style={simulatorInputStyle}
               />
               <strong>/H</strong>
