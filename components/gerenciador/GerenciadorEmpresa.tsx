@@ -894,13 +894,18 @@ function hasSameProductSpecification(first: ProductFicha, second: ProductFicha) 
     && first.engineeringId === second.engineeringId
     && Number(first.length) === Number(second.length)
     && Number(first.width) === Number(second.width)
-    && Number(first.height) === Number(second.height);
+    && Number(first.height) === Number(second.height)
+    && Number(first.topOverlap || 0) === Number(second.topOverlap || 0);
 }
 
-function evaluateProductFormula(formula: string, values: { C: number; L: number; A: number }) {
+function formulaUsesTopOverlap(formula?: EngineeringFormula) {
+  return Boolean(formula && /S/.test(`${formula.widthFormula}${formula.lengthFormula}`.toUpperCase()));
+}
+
+function evaluateProductFormula(formula: string, values: { C: number; L: number; A: number; S: number }) {
   const normalized = formula
     .replaceAll(",", ".")
-    .replace(/[CLA]/g, (variable) => String(values[variable as keyof typeof values]));
+    .replace(/[CLAS]/gi, (variable) => String(values[variable.toUpperCase() as keyof typeof values]));
 
   if (!/^[\d+\-*/().\s]+$/.test(normalized)) return 0;
 
@@ -916,8 +921,8 @@ function calculateProductArea(item: ProductComponent, formulas: EngineeringFormu
   const formula = formulas.find((candidate) => candidate.id === item.engineeringId);
   if (!formula) return 0;
 
-  const dimensions = { C: item.length, L: item.width, A: item.height };
-  const requiredDimensions = new Set(`${formula.widthFormula}${formula.lengthFormula}`.match(/[CLA]/g) ?? []);
+  const dimensions = { C: item.length, L: item.width, A: item.height, S: item.topOverlap };
+  const requiredDimensions = new Set(`${formula.widthFormula}${formula.lengthFormula}`.toUpperCase().match(/[CLAS]/g) ?? []);
   if ([...requiredDimensions].some((dimension) => !dimensions[dimension as keyof typeof dimensions])) return 0;
 
   const sheetWidth = evaluateProductFormula(formula.widthFormula, dimensions);
@@ -1084,6 +1089,14 @@ export function ProductCatalogPanel({
 
   function save() {
     if (!draft?.ftNumber.trim() || !draft.reference.trim() || !draft.clientId) return;
+    const componentMissingTopOverlap = [draft, ...draft.accessories].find((item) => {
+      const formula = engineeringFormulas.find((candidate) => candidate.id === item.engineeringId);
+      return formulaUsesTopOverlap(formula) && Number(item.topOverlap || 0) <= 0;
+    });
+    if (componentMissingTopOverlap) {
+      window.alert(`INFORME O TRANSPASSE SUPERIOR (S) PARA ${componentMissingTopOverlap === draft ? "A CAIXA PRINCIPAL" : "O ACESSORIO"}.`);
+      return;
+    }
     const matchingFicha = fichas.find((item) => item.id !== draft.id && hasSameProductSpecification(item, draft));
     if (matchingFicha) {
       const clientName = productClientName(clientsById.get(matchingFicha.clientId)) || "CLIENTE NAO INFORMADO";
@@ -1156,6 +1169,7 @@ export function ProductCatalogPanel({
       ["QUANTIDADE", formatNumberValue(snapshot.quantity, " UNIDS")],
       ["MATERIAL", snapshot.materialCode || "NAO INFORMADO"],
       ["TIPO DE PAPELAO", snapshot.paperType || "NAO INFORMADO"],
+      ...(Number(snapshot.topOverlap || 0) > 0 ? [["TRANSPASSE SUPERIOR (S)", formatNumberValue(snapshot.topOverlap, " MM")]] : []),
       ["AREA", formatNumberValue(snapshot.areaM2, " M2")],
       ["PESO UNITARIO", formatNumberValue(snapshot.weightKg, " KG")],
       ["EMPRESA", snapshot.sellerCompany || "NAO INFORMADO"],
@@ -1187,6 +1201,8 @@ export function ProductCatalogPanel({
     const filteredEngineeringFormulas = selectedWave
       ? engineeringFormulas.filter((formula) => formula.wave.split("/").map((wave) => wave.trim().toUpperCase()).includes(selectedWave))
       : [];
+    const selectedEngineeringFormula = engineeringFormulas.find((formula) => formula.id === item.engineeringId);
+    const requiresTopOverlap = formulaUsesTopOverlap(selectedEngineeringFormula);
     const calculatedArea = calculateProductArea(item, engineeringFormulas);
     const supplierNames = suppliers.map((supplier) => supplier.name).filter(Boolean);
     return (
@@ -1202,6 +1218,7 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>LARGURA (MM)<input type="number" value={item.width || ""} onChange={(event) => update("width", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>ALTURA (MM)<input type="number" value={item.height || ""} onChange={(event) => update("height", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
+        {requiresTopOverlap ? <label style={productLabelStyle}>TRANSPASSE SUPERIOR (S) (MM)<input type="number" min="0" value={item.topOverlap || ""} onChange={(event) => update("topOverlap", Number(event.target.value) || 0)} style={productInputStyle} /></label> : null}
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
         <label style={productLabelStyle}>AREA CALCULADA (M2)<input value={calculatedArea ? calculatedArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label>
       </div>

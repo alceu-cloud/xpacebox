@@ -164,6 +164,7 @@ export type ProductPriceSnapshot = {
   quantity?: number;
   materialCode?: string;
   paperType?: string;
+  topOverlap?: number;
   areaM2?: number;
   weightKg?: number;
   totalOrder?: number;

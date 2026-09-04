@@ -374,6 +374,7 @@ export default function EmpresaPage() {
                   quantity: item.quantity,
                   materialCode: item.material,
                   paperType: typeof snapshot.paperType === "string" ? snapshot.paperType : undefined,
+                  topOverlap: typeof snapshot.topOverlap === "number" ? snapshot.topOverlap : undefined,
                   areaM2: item.area,
                   weightKg: typeof snapshot.weightKg === "number" ? snapshot.weightKg : undefined,
                   totalOrder: item.total,
@@ -535,7 +536,7 @@ function PricingPreview({
   const [materialId, setMaterialId] = useState("");
   const [category, setCategory] = useState<BoxCategory>("maleta");
   const [modelKey, setModelKey] = useState<BoxModelKey>("caixa-4-abas");
-  const [dimensions, setDimensions] = useState({ length: "", width: "", height: "" });
+  const [dimensions, setDimensions] = useState({ length: "", width: "", height: "", topOverlap: "" });
   const lengthInputRef = useRef<HTMLInputElement | null>(null);
   const [lotQuantity, setLotQuantity] = useState(1000);
   const [sellerCompanyKey, setSellerCompanyKey] = useState<SellerCompanyKey>("dawos");
@@ -586,12 +587,14 @@ function PricingPreview({
   const selectedFormula = pricingMode === "engineering" && selectedEngineeringFormula
     ? selectedEngineeringFormula
     : modelFormula;
+  const formulaRequiresTopOverlap = formulaUsesTopOverlap(selectedFormula);
   const selectedSellerCompany = sellerCompanies.find((company) => company.key === sellerCompanyKey) ?? sellerCompanies[0];
   const pricingParams = pricingParamsByCompany[sellerCompanyKey] ?? defaultPricingParamsByCompany.dawos;
   const numericDimensions = {
     C: Number(String(dimensions.length).replace(",", ".")) || 0,
     L: Number(String(dimensions.width).replace(",", ".")) || 0,
     A: selectedModel.dimensionMode === "full" ? Number(String(dimensions.height).replace(",", ".")) || 0 : 0,
+    S: Number(String(dimensions.topOverlap).replace(",", ".")) || 0,
   };
   const sheetWidth = evaluateFormula(selectedFormula.widthFormula, numericDimensions);
   const sheetLength = evaluateFormula(selectedFormula.lengthFormula, numericDimensions);
@@ -679,6 +682,7 @@ function PricingPreview({
       length: ficha.length ? String(ficha.length) : "",
       width: ficha.width ? String(ficha.width) : "",
       height: ficha.height ? String(ficha.height) : "",
+      topOverlap: ficha.topOverlap ? String(ficha.topOverlap) : "",
     });
     const nextCompany = ficha.company.toLowerCase() as SellerCompanyKey;
     if (sellerCompanies.some((company) => company.key === nextCompany)) setSellerCompanyKey(nextCompany);
@@ -827,6 +831,7 @@ function PricingPreview({
                     onChange={(value) => setDimensions((current) => ({ ...current, height: value }))}
                   />
                 )}
+                {formulaRequiresTopOverlap ? <DimensionInput label="TRANSPASSE SUPERIOR (S) DA FICHA" value={dimensions.topOverlap} disabled onChange={() => undefined} /> : null}
               </div>
             </div>
           </div>
@@ -1440,7 +1445,7 @@ function PriceSummaryStep({
   economicSimulationActive: boolean;
   onSimulateEconomicMaterial: () => void;
   onRestoreOriginalMaterial: () => void;
-  dimensions: { C: number; L: number; A: number };
+  dimensions: { C: number; L: number; A: number; S: number };
   sheetArea: number;
   sheetWidth: number;
   sheetLength: number;
@@ -1499,6 +1504,7 @@ function PriceSummaryStep({
   const dimensionsText = selectedModel.dimensionMode === "full"
     ? `${formatNumber(dimensions.C, 0)} X ${formatNumber(dimensions.L, 0)} X ${formatNumber(dimensions.A, 0)} MM`
     : `${formatNumber(dimensions.C, 0)} X ${formatNumber(dimensions.L, 0)} MM`;
+  const dimensionsWithTopOverlapText = dimensions.S ? `${dimensionsText} · S ${formatNumber(dimensions.S, 0)} MM` : dimensionsText;
 
   const sendTargetLabel = pricingMode === "engineering" ? "ENVIAR PARA ENGENHARIA" : "ENVIAR PARA ORCAMENTO";
 
@@ -1533,6 +1539,7 @@ function PriceSummaryStep({
         materialCode: selectedMaterial?.code,
         paperType: selectedMaterial?.paperType,
         engineeringId: engineeringFicha?.engineeringId,
+        topOverlap: dimensions.S || undefined,
         sellerCompanyKey: sellerCompany.key,
         mcPercent: source === "PADRAO" ? analysis.mcDefault : source === "SIMULADOR A" ? simulatorA.mcPercent : source === "SIMULADOR B" ? simulatorB.mcPercent : simulatorC.mcPercent,
         mcrHour: source === "PADRAO" ? analysis.mchStandard : source === "SIMULADOR A" ? simulatorA.mch : source === "SIMULADOR B" ? simulatorB.mch : simulatorC.mch,
@@ -1623,7 +1630,7 @@ function PriceSummaryStep({
         <div style={priceOverviewMainStyle}>
           <PriceInfoRow label="EMPRESA VENDEDORA" value={sellerCompany.name} />
           <PriceInfoRow label="MODELO ESCOLHIDO" value={selectedFormula.description} />
-          <PriceInfoRow label="DIMENSOES" value={dimensionsText} />
+          <PriceInfoRow label="DIMENSOES" value={dimensionsWithTopOverlapText} />
           <PriceInfoRow label="MATERIAL" value={selectedMaterial.code} />
           <PriceInfoRow label="AREA DA CHAPA" value={`${formatNumber(sheetArea, 4)} M2 (${formatNumber(sheetArea * 1000, 0)} M2 UND.INT.)`} />
           <PriceInfoRow label="PESO UNITARIO / TOTAL LOTE" value={`${formatNumber(analysis.unitWeightKg, 3)} KG (${formatNumber(analysis.totalWeightKg, 1)} KG)`} />
@@ -2143,11 +2150,14 @@ function FormulaResult({
   );
 }
 
-function evaluateFormula(formula: string, values: { C: number; L: number; A: number }) {
+function formulaUsesTopOverlap(formula: EngineeringFormula) {
+  return /S/.test(`${formula.widthFormula}${formula.lengthFormula}`.toUpperCase());
+}
+
+function evaluateFormula(formula: string, values: { C: number; L: number; A: number; S: number }) {
   const normalized = formula
-    .replaceAll("C", String(values.C))
-    .replaceAll("L", String(values.L))
-    .replaceAll("A", String(values.A));
+    .replaceAll(",", ".")
+    .replace(/[CLAS]/gi, (variable) => String(values[variable.toUpperCase() as keyof typeof values]));
 
   if (!/^[\d+\-*/().\s]+$/.test(normalized)) return 0;
 
