@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 
-type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive";
+type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive" | "no-agenda";
 type PeriodPreset = "CURRENT" | "PREVIOUS" | "CUSTOM";
 type ReportCategory = "RESULTADOS" | "CARTEIRA" | "OPERACAO" | "GESTAO";
 type ReportArea = "COMMERCIAL" | "PURCHASES" | "PRODUCTION";
@@ -33,13 +33,14 @@ const reports: Array<{ key: ReportKey; number: number; title: string; managerOnl
   { key: "risk", number: 10, title: "CLIENTES EM RISCO" },
   { key: "goals", number: 11, title: "META X REALIZADO", managerOnly: true },
   { key: "executive", number: 12, title: "RELATORIO EXECUTIVO", managerOnly: true },
+  { key: "no-agenda", number: 13, title: "CLIENTES SEM AGENDA", managerOnly: true },
 ];
 
 const reportCategories: Array<{ key: ReportCategory; label: string; reports: ReportKey[] }> = [
   { key: "RESULTADOS", label: "RESULTADOS", reports: ["closing", "pipeline", "forecast", "losses"] },
   { key: "CARTEIRA", label: "CARTEIRA", reports: ["clients", "materials", "risk"] },
   { key: "OPERACAO", label: "OPERACAO", reports: ["team", "followup", "cycle"] },
-  { key: "GESTAO", label: "GESTAO", reports: ["goals", "executive"] },
+  { key: "GESTAO", label: "GESTAO", reports: ["goals", "executive", "no-agenda"] },
 ];
 
 const stageLabels: Record<string, string> = {
@@ -222,6 +223,26 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
     const atRisk = data.clients.map((client) => ({ client, profile: profileByClient.get(client.id) })).filter(({ client, profile }) => { const frequency = Number(profile?.purchase_frequency_days || 0); if (!frequency || !profile?.last_purchase_at || activeClientIds.has(client.id)) return false; return daysSince(profile.last_purchase_at) > frequency; }).sort((a, b) => (daysSince(b.profile?.last_purchase_at || "") - Number(b.profile?.purchase_frequency_days || 0)) - (daysSince(a.profile?.last_purchase_at || "") - Number(a.profile?.purchase_frequency_days || 0)));
     return <ReportLayout title="CLIENTES EM RISCO" description="Clientes que passaram da frequencia de compra definida e nao possuem oportunidade ativa."><RiskTable rows={atRisk} /></ReportLayout>;
   }
+  if (report === "no-agenda") {
+    const clientIdsWithAgenda = new Set([
+      ...data.profiles.filter((item) => item.next_contact_at).map((item) => item.client_id),
+      ...data.activities.filter((item) => item.next_action_at).map((item) => item.client_id),
+    ]);
+    const lastActivityByClient = new Map<string, Activity>();
+    data.activities.forEach((activity) => {
+      const current = lastActivityByClient.get(activity.client_id);
+      if (!current || activity.occurred_at > current.occurred_at) lastActivityByClient.set(activity.client_id, activity);
+    });
+    const rows = data.clients
+      .filter((client) => !clientIdsWithAgenda.has(client.id))
+      .map((client) => ({ client, activity: lastActivityByClient.get(client.id) }))
+      .sort((first, second) => {
+        if (!first.activity) return -1;
+        if (!second.activity) return 1;
+        return first.activity.occurred_at.localeCompare(second.activity.occurred_at);
+      });
+    return <ReportLayout title="CLIENTES SEM AGENDA" description="Clientes ativos sem nenhuma proxima acao registrada, seja na carteira ou em uma oportunidade. A lista e atual e nao depende do periodo selecionado."><NoAgendaTable rows={rows} /></ReportLayout>;
+  }
   if (report === "goals") {
     const goals = rawData.salesGoals?.byRepresentative || {};
     const byRepresentative = data.representatives.map((representative) => { const actual = sum(won.filter((item) => opportunityRepresentativeId(item, clientById) === representative.id), (item) => item.estimated_value); return { name: representative.name, actual, goal: Number(goals[representative.id] || 0) }; });
@@ -297,6 +318,7 @@ function LossesReport({ opportunities, clients, quotes }: { opportunities: Oppor
 function OpportunityTable({ opportunities, clients, activityByOpportunity }: { opportunities: Opportunity[]; clients: Map<string, Client>; activityByOpportunity?: Map<string, Activity> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>OPORTUNIDADE</th><th>ETAPA</th><th>VALOR</th><th>PREVISAO</th>{activityByOpportunity ? <th>SEM RETORNO</th> : null}</tr></thead><tbody>{opportunities.map((item) => <tr key={item.id}><td>{clients.get(item.client_id || "")?.name || "SEM CLIENTE"}</td><td>{item.title}</td><td>{stageLabels[item.stage] || item.stage}</td><td>{money(item.estimated_value)}</td><td>{displayDate(item.expected_close_date || "")}</td>{activityByOpportunity ? <td>{daysSince(activityByOpportunity.get(item.id)?.occurred_at || item.updated_at)} DIAS</td> : null}</tr>)}{!opportunities.length ? <tr><td colSpan={activityByOpportunity ? 6 : 5} style={emptyCellStyle}>NENHUMA OPORTUNIDADE NESTA VISAO.</td></tr> : null}</tbody></ReportTable>; }
 function TeamTable({ opportunities, clients, representatives }: { opportunities: Opportunity[]; clients: Map<string, Client>; representatives: Map<string, string> }) { const rows = groupRows(opportunities, (item) => representatives.get(item.representative_profile_id || "") || clients.get(item.client_id || "")?.representativeName || "SEM REPRESENTANTE", (item) => item.estimated_value); return <RankTable rows={rows} labels={["REPRESENTANTE", "OPORTUNIDADES", "VALOR MOVIMENTADO"]} />; }
 function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>REPRESENTANTE</th><th>FREQUENCIA</th><th>ULTIMA COMPRA</th><th>ATRASO</th></tr></thead><tbody>{rows.map(({ client, profile }) => <tr key={client.id}><td>{client.name}</td><td>{client.representativeName}</td><td>{profile?.purchase_frequency_days} DIAS</td><td>{displayDate(profile?.last_purchase_at || "")}</td><td>{daysSince(profile?.last_purchase_at || "") - Number(profile?.purchase_frequency_days || 0)} DIAS</td></tr>)}{!rows.length ? <tr><td colSpan={5} style={emptyCellStyle}>NENHUM CLIENTE FORA DA FREQUENCIA DE COMPRA.</td></tr> : null}</tbody></ReportTable>; }
+function NoAgendaTable({ rows }: { rows: Array<{ client: Client; activity?: Activity }> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>ULTIMA ACAO REGISTRADA</th><th>REPRESENTANTE</th></tr></thead><tbody>{rows.map(({ client, activity }) => <tr key={client.id}><td>{client.name}</td><td>{activity ? displayDate(activity.occurred_at) : "NENHUMA ACAO REGISTRADA"}</td><td>{client.representativeName || "SEM REPRESENTANTE"}</td></tr>)}{!rows.length ? <tr><td colSpan={3} style={emptyCellStyle}>TODOS OS CLIENTES POSSUEM UMA PROXIMA ACAO REGISTRADA.</td></tr> : null}</tbody></ReportTable>; }
 function GoalTable({ rows }: { rows: Array<{ name: string; actual: number; goal: number }> }) { return <ReportTable><thead><tr><th>VENDEDOR</th><th>META</th><th>REALIZADO</th><th>ATINGIMENTO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{money(row.goal)}</td><td>{money(row.actual)}</td><td>{row.goal ? `${Math.round((row.actual / row.goal) * 100)}%` : "META NAO CONFIGURADA"}</td></tr>)}</tbody></ReportTable>; }
 
 function metric(label: string, value: number | string, color: string, plain = false) { return { label, value: plain || typeof value === "string" ? String(value) : money(value), color }; }

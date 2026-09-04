@@ -2240,6 +2240,9 @@ button {
 .crm-opportunity-card .crm-expired-label { color: #d92238; font-weight: 900; }
 .crm-opportunity-card select { min-height: 36px; padding: 0 7px; font-size: 12px; }
 .crm-linked-agenda { display: flex; align-items: flex-end; min-height: 42px; color: #078c50; font-size: 12px; font-weight: 900; }
+.crm-current-agenda { display: grid; align-content: center; min-height: 42px; gap: 4px; padding: 8px 12px; border: 1px solid #a8dfbe; border-radius: 6px; background: #f0fdf4; }
+.crm-current-agenda span { color: #287846; font-size: 10px; font-weight: 900; letter-spacing: .6px; }
+.crm-current-agenda strong { color: #08753a; font-size: 13px; }
 .crm-form-actions .crm-secondary-action { border-color: #6f2ee4; background: #fff; color: #6f2ee4; }
 .crm-form-actions .crm-secondary-action:hover { background: #f3edff; }
 .crm-existing-opportunity-warning { display: grid; gap: 10px; margin-top: 14px; padding: 13px; border: 1px solid #efaa29; border-radius: 6px; background: #fff8e9; }

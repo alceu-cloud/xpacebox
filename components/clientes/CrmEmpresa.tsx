@@ -1038,6 +1038,7 @@ function ClientDetail({
             <CrmInput label="ASSUNTO" value={activityDraft.subject} onChange={(subject) => setActivityDraft({ ...activityDraft, subject: upper(subject) })} />
             <CrmSelect label="PROXIMA ACAO *" value={activityDraft.nextActionType} onChange={(nextActionType) => setActivityDraft({ ...activityDraft, nextActionType: nextActionType as CrmActivityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
             <CrmInput label="DATA DA PROXIMA ACAO *" type="datetime-local" value={activityDraft.nextActionAt} onChange={(nextActionAt) => setActivityDraft({ ...activityDraft, nextActionAt })} />
+            {scheduledAgendaAt ? <div className="crm-current-agenda"><span>PROXIMA AGENDA JA MARCADA</span><strong>{displayDateTime(scheduledAgendaAt)}</strong></div> : null}
             <label className="crm-textarea crm-span-2"><span>RESUMO DO CONTATO</span><textarea value={activityDraft.notes} onChange={(event) => setActivityDraft({ ...activityDraft, notes: upper(event.target.value) })} /></label>
           </div>
           <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving || !activityDraft.nextActionType || !activityDraft.nextActionAt || (mustResolveOverdueAgenda && !activityDraft.notes.trim())}>REGISTRAR CONTATO</button></div>
