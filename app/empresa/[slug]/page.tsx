@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
@@ -218,61 +218,48 @@ export default function EmpresaPage() {
   const moduloSelecionado = modulos.find((modulo) => modulo.key === moduloEmExibicao);
 
   return (
-    <main
-      style={{
-        ...paginaStyle,
-        paddingLeft: menuAberto ? 322 : 72,
-      }}
-    >
-      <div style={sidebarDockStyle}>
+    <main className={`xb-company-workspace-main ${menuAberto ? "is-module-open" : ""}`}>
+      <div className="xb-module-dock">
         <aside
-          style={{
-            ...sidebarStyle,
-            transform: menuAberto ? "translateX(0)" : "translateX(-252px)",
-          }}
+          className={`xb-module-drawer ${menuAberto ? "is-open" : ""}`}
           onMouseEnter={() => setMenuAberto(true)}
           onMouseLeave={() => setMenuAberto(false)}
         >
-          <div style={sidebarContentStyle}>
-            <div style={sidebarHeaderStyle}>
-              <span style={sidebarEyebrowStyle}>MODULOS</span>
-              <strong style={sidebarTitleStyle}>AMBIENTE DAWOS</strong>
+          <div className="xb-module-drawer-content">
+            <div className="xb-module-drawer-heading">
+              <span>MODULOS</span>
+              <strong>AMBIENTE DAWOS</strong>
             </div>
 
-            <nav style={moduleListStyle}>
+            <nav className="xb-module-list">
               {modulosDisponiveis.map((modulo) => {
                 const ativo = modulo.key === moduloEmExibicao;
                 return (
                   <button
                     key={modulo.key}
                     type="button"
-                    onClick={() => setModuloAtivo(modulo.key)}
-                    style={{
-                      ...moduleButtonStyle,
-                      ...(ativo ? activeModuleButtonStyle : {}),
-                      borderColor: ativo ? `${modulo.cor}55` : "rgba(52,64,84,.12)",
+                    onClick={() => {
+                      setModuloAtivo(modulo.key);
+                      setMenuAberto(false);
                     }}
+                    className={`xb-module-button ${ativo ? "is-active" : ""}`}
+                    style={{ "--xb-module-color": modulo.cor } as CSSProperties}
                   >
-                    <span
-                      style={{
-                        ...moduleAccentStyle,
-                        background: `linear-gradient(180deg, ${modulo.cor}, #e63dae, #ff3b25)`,
-                      }}
-                    />
-                    <span style={moduleTextStyle}>
-                      <strong style={moduleNameStyle}>{modulo.nome}</strong>
-                      <small style={moduleDescriptionStyle}>{modulo.descricao}</small>
+                    <span className="xb-module-accent" />
+                    <span className="xb-module-copy">
+                      <strong>{modulo.nome}</strong>
+                      <small>{modulo.descricao}</small>
                     </span>
                   </button>
                 );
               })}
             </nav>
           </div>
-          <div style={sidebarHandleStyle}>MODULOS</div>
+          <button type="button" className="xb-module-handle" onClick={() => setMenuAberto((current) => !current)} aria-label="ABRIR MODULOS" aria-expanded={menuAberto}>MODULOS</button>
         </aside>
       </div>
 
-      <section style={workspaceStyle}>
+      <section className="xb-company-workspace">
         {!moduloSelecionado ? (
           <EmptyWorkspace />
         ) : (
@@ -2294,105 +2281,15 @@ function ModulePlaceholder({ modulo }: { modulo: (typeof modulos)[number] }) {
   );
 }
 
-const paginaStyle = {
-  width: "100%",
-  display: "block",
-  position: "relative" as const,
-  transition: "padding-left .22s ease",
-  boxSizing: "border-box" as const,
-};
-
-const sidebarDockStyle = {
-  width: 294,
-  position: "fixed" as const,
-  top: 168,
-  bottom: 10,
-  left: 0,
-  zIndex: 12,
-  display: "flex",
-  alignItems: "center",
-  pointerEvents: "none" as const,
-};
-
-const sidebarStyle = {
-  width: 294,
-  display: "flex",
-  alignItems: "stretch",
-  maxHeight: "calc(100vh - 38px)",
-  transition: "transform .22s ease",
-  filter: "drop-shadow(0 22px 42px rgba(39,36,67,.14))",
-  pointerEvents: "auto" as const,
-};
-
-const sidebarContentStyle = {
-  width: 252,
-  maxHeight: "calc(100vh - 38px)",
-  overflowY: "auto" as const,
-  scrollbarWidth: "thin" as const,
-  borderRadius: 24,
-  border: "1px solid rgba(111,50,210,.18)",
-  background: "rgba(255,255,255,.92)",
-  padding: 18,
-  boxSizing: "border-box" as const,
-};
-
-const sidebarHandleStyle = {
-  width: 42,
-  minHeight: 232,
-  marginTop: 0,
-  borderRadius: "0 16px 16px 0",
-  background: "linear-gradient(180deg,#8b36e8,#e63dae,#ff3b25)",
-  color: "#fff",
-  fontSize: 13,
-  fontWeight: 900,
-  letterSpacing: "1px",
-  writingMode: "vertical-rl" as const,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const sidebarHeaderStyle = { display: "grid", gap: 8, padding: "6px 6px 16px" };
-const sidebarEyebrowStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 3 };
-const sidebarTitleStyle = { color: "#141827", fontSize: 21, fontWeight: 900 };
-const moduleListStyle = { display: "grid", gap: 11 };
-const moduleButtonStyle = {
-  minHeight: 78,
-  padding: 0,
-  borderRadius: 16,
-  border: "1px solid rgba(52,64,84,.12)",
-  background: "rgba(255,255,255,.72)",
-  color: "#141827",
-  display: "grid",
-  gridTemplateColumns: "8px 1fr",
-  overflow: "hidden",
-  cursor: "pointer",
-  textAlign: "left" as const,
-};
-const activeModuleButtonStyle = { background: "linear-gradient(145deg,rgba(111,50,210,.08),rgba(255,59,37,.06)),#fff", boxShadow: "0 14px 30px rgba(39,36,67,.10)" };
-const moduleAccentStyle = { width: "100%", height: "100%" };
-const moduleTextStyle = { display: "grid", alignContent: "center", gap: 7, padding: "0 18px" };
-const moduleNameStyle = { fontSize: 17, fontWeight: 900, letterSpacing: 1 };
-const moduleDescriptionStyle = { color: "#667085", fontSize: 11, fontWeight: 900, lineHeight: 1.25, letterSpacing: 1 };
-
-const workspaceStyle = {
-  minHeight: 640,
-  borderRadius: 28,
-  border: "1px solid rgba(52,64,84,.18)",
-  background: "rgba(255,255,255,.86)",
-  boxShadow: "0 24px 60px rgba(39,36,67,.10)",
-  padding: 34,
-  boxSizing: "border-box" as const,
-};
 const workspaceHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, marginBottom: 30 };
 const workspaceEyebrowStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 3 };
 const workspaceTitleStyle = { margin: "8px 0 0", color: "#141827", fontSize: 40, fontWeight: 900 };
 const workspaceSubtitleStyle = { margin: "8px 0 0", color: "#667085", fontSize: 18, fontWeight: 800, letterSpacing: 1 };
-const emptyWorkspaceStyle = { minHeight: 520, display: "grid", placeItems: "center", alignContent: "center", gap: 16, position: "relative" as const };
-const arrowHintStyle = { position: "absolute" as const, left: -20, top: 82, color: "#e6007e", fontSize: 64, fontWeight: 900, animation: "none" };
-const emptyBadgeStyle = { minHeight: 42, padding: "0 22px", display: "inline-grid", placeItems: "center", borderRadius: 999, background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", color: "#fff", fontSize: 15, fontWeight: 900, letterSpacing: 2 };
-const emptyTitleStyle = { maxWidth: 760, margin: 0, color: "#141827", fontSize: 42, fontWeight: 900, textAlign: "center" as const };
-const emptyTextStyle = { margin: 0, color: "#667085", fontSize: 18, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
+const emptyWorkspaceStyle = { minHeight: 480, display: "grid", placeItems: "center", alignContent: "center", gap: 12, position: "relative" as const };
+const arrowHintStyle = { display: "none" };
+const emptyBadgeStyle = { minHeight: 30, padding: "0 10px", display: "inline-grid", placeItems: "center", borderRadius: 3, border: "1px solid #b59ce8", background: "#f6f2ff", color: "#6f32d2", fontSize: 10, fontWeight: 900, letterSpacing: 1.2 };
+const emptyTitleStyle = { maxWidth: 720, margin: 0, color: "#141827", fontSize: 32, fontWeight: 900, lineHeight: 1.05, textAlign: "center" as const };
+const emptyTextStyle = { maxWidth: 560, margin: 0, color: "#667085", fontSize: 13, fontWeight: 800, lineHeight: 1.5, textAlign: "center" as const };
 
 const pricingCardStyle = { width: "90%", maxWidth: "none", margin: "0 auto", padding: 36, borderRadius: 24, border: "1px solid rgba(52,64,84,.18)", background: "#fff", boxShadow: "0 20px 46px rgba(39,36,67,.08)" };
 const pricingIntroStyle = { marginBottom: 28 };

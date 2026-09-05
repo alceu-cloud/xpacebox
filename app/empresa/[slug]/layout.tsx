@@ -57,9 +57,9 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
 
   return (
     <CrmOperationalLockProvider>
-    <div style={paginaStyle}>
-      <header style={headerStyle}>
-        <div style={logoAreaStyle}>
+    <div className="xb-company-app">
+      <header className="xb-company-header">
+        <div className="xb-company-identity">
           {logoEmpresa ? (
             <Image
               src={logoEmpresa}
@@ -67,23 +67,23 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
               width={300}
               height={130}
               priority
-              style={logoEmpresaPrincipalStyle}
+              className="xb-company-logo"
             />
           ) : (
-            <strong style={empresaNomePrincipalStyle}>{nomeEmpresa}</strong>
+            <strong className="xb-company-name">{nomeEmpresa}</strong>
           )}
 
-          <div style={empresaAreaStyle}>
-            <span style={empresaLabelStyle}>
+          <div className="xb-company-context">
+            <span className="xb-company-kicker">
               {noGerenciador ? "GERENCIADOR DA EMPRESA" : "AMBIENTE DA EMPRESA"}
             </span>
-            <span style={empresaDescricaoStyle}>
+            <span className="xb-company-description">
               {noGerenciador
                 ? "CONFIGURACOES DA DAWOS"
                 : "ESCOLHA O MODULO QUE DESEJA ACESSAR."}
             </span>
             {noGerenciador && (
-              <span style={loggedHeaderStyle}>LOGADO: {emailLogado || "USUARIO"}</span>
+              <span className="xb-company-session">LOGADO: {emailLogado || "USUARIO"}</span>
             )}
           </div>
         </div>
@@ -94,27 +94,24 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
           width={900}
           height={220}
           priority
-          style={logoPlataformaStyle}
+          className="xb-company-platform-logo"
         />
       </header>
 
-      <main style={conteudoStyle}>{children}</main>
+      <main className="xb-company-content">{children}</main>
 
       <div
-        style={{
-          ...floatingActionsStyle,
-          transform: acoesAbertas ? "translateX(0)" : "translateX(calc(100% - 42px))",
-        }}
+        className={`xb-company-actions ${acoesAbertas ? "is-open" : ""}`}
         onMouseEnter={() => setAcoesAbertas(true)}
         onMouseLeave={() => setAcoesAbertas(false)}
       >
-        <div style={drawerHandleStyle}>MENU</div>
-        <div style={drawerButtonsStyle}>
+        <button type="button" className="xb-company-actions-handle" onClick={() => setAcoesAbertas((current) => !current)} aria-label="ABRIR MENU DE ACOES" aria-expanded={acoesAbertas}>MENU</button>
+        <div className="xb-company-actions-panel">
           {noGerenciador && (
             <button
               type="button"
               onClick={() => router.push(`/empresa/${slug}`)}
-              style={floatingButtonStyle}
+              className="xb-company-action-button"
             >
               INICIO
             </button>
@@ -123,7 +120,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
           <button
             type="button"
             onClick={ehAdmin ? () => router.push("/") : sair}
-            style={floatingButtonStyle}
+            className="xb-company-action-button"
           >
             {ehAdmin ? "VOLTAR A CENTRAL" : "SAIR"}
           </button>
@@ -133,164 +130,3 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
     </CrmOperationalLockProvider>
   );
 }
-
-const paginaStyle = {
-  minHeight: "100vh",
-  position: "relative" as const,
-  background:
-    "radial-gradient(circle at 8% 10%, rgba(111,50,210,.13), transparent 30%), radial-gradient(circle at 92% 18%, rgba(230,61,174,.10), transparent 28%), radial-gradient(circle at 86% 88%, rgba(255,59,37,.11), transparent 34%), linear-gradient(180deg,#ffffff 0%,#f7f8fc 100%)",
-  color: "#141827",
-};
-
-const headerStyle = {
-  minHeight: 138,
-  padding: "24px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 28,
-  borderBottom: "1px solid rgba(20,24,39,.1)",
-  background: "rgba(255,255,255,.88)",
-  backdropFilter: "blur(20px)",
-  boxShadow: "0 18px 48px rgba(39,36,67,.1)",
-};
-
-const logoAreaStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 30,
-};
-
-const logoEmpresaPrincipalStyle = {
-  width: "260px",
-  maxWidth: "100%",
-  height: "auto",
-  display: "block",
-  borderRadius: 10,
-};
-
-const empresaNomePrincipalStyle = {
-  minWidth: 260,
-  color: "#141827",
-  fontSize: 44,
-  fontWeight: 900,
-  letterSpacing: "1px",
-};
-
-const empresaAreaStyle = {
-  paddingLeft: 28,
-  borderLeft: "1px solid rgba(20,24,39,.14)",
-  display: "grid",
-  gap: 7,
-  minHeight: 104,
-  alignContent: "center",
-};
-
-const empresaLabelStyle = {
-  color: "#6f32d2",
-  fontSize: 22,
-  fontWeight: 900,
-  letterSpacing: "3px",
-};
-
-const empresaNomeStyle = {
-  color: "#141827",
-  fontSize: 44,
-  fontWeight: 900,
-  letterSpacing: "1px",
-};
-
-const logoPlataformaStyle = {
-  width: "260px",
-  maxWidth: "100%",
-  height: "auto",
-  display: "block",
-  marginRight: 188,
-  transform: "scale(1.55)",
-  transformOrigin: "right center",
-};
-
-const loggedHeaderStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: 38,
-  padding: "0 18px",
-  borderRadius: 999,
-  border: "1px solid rgba(230,128,25,.32)",
-  background: "rgba(230,128,25,.08)",
-  color: "#e68019",
-  fontSize: 13,
-  fontWeight: 900,
-  justifySelf: "start",
-  marginTop: 4,
-};
-
-const empresaDescricaoStyle = {
-  color: "#667085",
-  fontSize: 18,
-  fontWeight: 800,
-  letterSpacing: "1px",
-};
-
-const floatingActionsStyle = {
-  position: "absolute" as const,
-  right: 0,
-  top: 4,
-  zIndex: 20,
-  display: "flex",
-  alignItems: "stretch",
-  transition: "transform .22s ease",
-  filter: "drop-shadow(0 16px 30px rgba(39,36,67,.12))",
-};
-
-const drawerHandleStyle = {
-  width: 42,
-  minHeight: 192,
-  borderRadius: "16px 0 0 16px",
-  border: "1px solid rgba(111,50,210,.18)",
-  borderRight: "none",
-  background: "linear-gradient(180deg,#8b36e8,#ff315f)",
-  color: "#fff",
-  fontSize: 13,
-  fontWeight: 900,
-  letterSpacing: "1px",
-  writingMode: "vertical-rl" as const,
-  transform: "rotate(180deg)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const drawerButtonsStyle = {
-  display: "grid",
-  gap: 12,
-  alignContent: "center",
-  padding: 14,
-  borderRadius: "0 0 0 18px",
-  border: "1px solid rgba(111,50,210,.14)",
-  background: "rgba(255,255,255,.94)",
-  backdropFilter: "blur(16px)",
-};
-
-const floatingButtonStyle = {
-  padding: "18px 30px",
-  borderRadius: 16,
-  border: "1px solid rgba(111,50,210,.18)",
-  background: "#ffffff",
-  color: "#6f32d2",
-  fontSize: 18,
-  fontWeight: 900,
-  letterSpacing: "1px",
-  cursor: "pointer",
-  boxShadow: "0 12px 28px rgba(39,36,67,.1)",
-  minWidth: 210,
-};
-
-const conteudoStyle = {
-  width: "100%",
-  maxWidth: 2200,
-  margin: "0 auto",
-  padding: "44px 28px 64px",
-  boxSizing: "border-box" as const,
-};
