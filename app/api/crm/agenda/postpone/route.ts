@@ -6,9 +6,10 @@ const postponementPrefix = "AGENDA_ADIADA:";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { slug?: string; clientId?: string };
+    const body = (await request.json()) as { slug?: string; clientId?: string; activityId?: string };
     const slug = body.slug?.trim() ?? "";
     const clientId = body.clientId?.trim() ?? "";
+    const activityId = body.activityId?.trim() ?? "";
     if (!slug || !clientId) return failure("CLIENTE NAO INFORMADO.", 400);
 
     const { admin, company, profile: currentProfile, user } = await requireCompanyAccess(request, slug);
@@ -20,24 +21,25 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (profileError) throw profileError;
 
-    const currentActionAt = profile?.next_contact_at || "";
-    if (!currentActionAt) return failure("NAO HA UMA AGENDA EM ABERTO PARA ADIAR.", 400);
-    if (currentActionAt.slice(0, 10) >= saoPauloDate()) return failure("ESTA AGENDA NAO ESTA ATRASADA.", 400);
-
-    const { data: agendas, error: agendaError } = await admin
+    const agendaQuery = admin
       .from("crm_activities")
       .select("id,opportunity_id,representative_profile_id,next_action_type,next_action_at")
       .eq("tenant_company_id", company.id)
       .eq("client_id", clientId)
-      .eq("next_action_at", currentActionAt)
-      .not("next_action_at", "is", null)
-      .order("occurred_at", { ascending: false })
-      .limit(1);
+      .not("next_action_at", "is", null);
+    const { data: agenda, error: agendaError } = activityId
+      ? await agendaQuery.eq("id", activityId).maybeSingle()
+      : await agendaQuery.eq("next_action_at", profile?.next_contact_at || "").order("occurred_at", { ascending: false }).limit(1).maybeSingle();
     if (agendaError) throw agendaError;
-    const agenda = agendas?.[0];
     if (!agenda) return failure("A AGENDA DESTE CLIENTE NAO FOI ENCONTRADA.", 404);
     if (agenda.representative_profile_id && agenda.representative_profile_id !== currentProfile.id) {
       return failure("ESTA AGENDA PERTENCE A OUTRO REPRESENTANTE.", 403);
+    }
+    const currentActionAt = agenda.next_action_at || "";
+    if (!currentActionAt) return failure("NAO HA UMA AGENDA EM ABERTO PARA ADIAR.", 400);
+    if (currentActionAt.slice(0, 10) >= saoPauloDate()) return failure("ESTA AGENDA NAO ESTA ATRASADA.", 400);
+    if (activityId && !sameInstant(profile?.next_contact_at || "", currentActionAt)) {
+      return failure("ESTA AGENDA JA FOI SUBSTITUIDA POR UMA ACAO MAIS RECENTE.", 409);
     }
 
     const postponementSubject = `${postponementPrefix}${agenda.id}`;
@@ -61,12 +63,14 @@ export async function POST(request: Request) {
       .eq("tenant_company_id", company.id);
     if (updateAgendaError) throw updateAgendaError;
 
-    const { error: updateProfileError } = await admin
-      .from("crm_customer_profiles")
-      .update({ next_contact_at: nextActionAt, updated_at: now })
-      .eq("tenant_company_id", company.id)
-      .eq("client_id", clientId);
-    if (updateProfileError) throw updateProfileError;
+    if (sameInstant(profile?.next_contact_at || "", currentActionAt)) {
+      const { error: updateProfileError } = await admin
+        .from("crm_customer_profiles")
+        .update({ next_contact_at: nextActionAt, updated_at: now })
+        .eq("tenant_company_id", company.id)
+        .eq("client_id", clientId);
+      if (updateProfileError) throw updateProfileError;
+    }
 
     const { error: historyError } = await admin.from("crm_activities").insert({
       tenant_company_id: company.id,
@@ -111,6 +115,10 @@ function nextBusinessMorning() {
 function displayDate(value: string) {
   const [year, month, day] = value.slice(0, 10).split("-");
   return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
+function sameInstant(first: string, second: string) {
+  return Boolean(first && second) && new Date(first).getTime() === new Date(second).getTime();
 }
 
 function failure(message: string, status: number) { return NextResponse.json({ success: false, message }, { status }); }

@@ -15,16 +15,32 @@ export async function POST(request: Request) {
     const { data: client } = await admin.from("clients").select("id").eq("id", input.clientId).eq("tenant_company_id", company.id).eq("active", true).maybeSingle();
     if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
 
-    const { data: overdueAgenda, error: overdueAgendaError } = await admin
-      .from("crm_activities")
-      .select("id,client_id")
+    // crm_customer_profiles stores the single current agenda for each client.
+    // Do not block a representative because an old timeline item kept a date.
+    const { data: overdueProfile, error: overdueProfileError } = await admin
+      .from("crm_customer_profiles")
+      .select("client_id,next_contact_at")
       .eq("tenant_company_id", company.id)
-      .eq("representative_profile_id", profile.id)
-      .not("next_action_at", "is", null)
-      .lt("next_action_at", startOfSaoPauloDay())
-      .order("next_action_at", { ascending: true })
+      .eq("owner_profile_id", profile.id)
+      .not("next_contact_at", "is", null)
+      .lt("next_contact_at", startOfSaoPauloDay())
+      .order("next_contact_at", { ascending: true })
       .limit(1)
       .maybeSingle();
+    if (overdueProfileError) throw overdueProfileError;
+
+    const { data: overdueAgenda, error: overdueAgendaError } = overdueProfile?.next_contact_at
+      ? await admin
+          .from("crm_activities")
+          .select("id,client_id")
+          .eq("tenant_company_id", company.id)
+          .eq("client_id", overdueProfile.client_id)
+          .eq("representative_profile_id", profile.id)
+          .eq("next_action_at", overdueProfile.next_contact_at)
+          .order("occurred_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
     if (overdueAgendaError) throw overdueAgendaError;
     if (overdueAgenda && overdueAgenda.client_id !== input.clientId) {
       return failure("EXISTE UM ATENDIMENTO ATRASADO. REGISTRE-O ANTES DE ATUALIZAR OUTRO CLIENTE.", 409);

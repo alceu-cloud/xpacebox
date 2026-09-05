@@ -64,7 +64,7 @@ export function CrmOperationalLockProvider({ children }: { children: ReactNode }
     setPostponing(true);
     setError("");
     try {
-      await postponeCrmAgenda(slug, lock.clientId);
+      await postponeCrmAgenda(slug, lock.clientId, lock.activityId);
       setCrmAccessGranted(false);
       await refreshOperationalLock();
     } catch (postponeError) {

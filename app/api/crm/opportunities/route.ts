@@ -547,12 +547,14 @@ async function scheduleNextCommercialCycle({
   stage: CrmOpportunityInput["stage"];
   userId: string;
 }) {
+  // When the final open opportunity is closed, its next purchase cycle becomes
+  // the client's only active agenda. Clear older agenda markers but retain the
+  // activity records themselves as timeline history.
   const { error: clearAgendaError } = await admin
     .from("crm_activities")
     .update({ next_action_type: null, next_action_at: null })
     .eq("tenant_company_id", companyId)
     .eq("client_id", clientId)
-    .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
     .not("next_action_at", "is", null);
   if (clearAgendaError) throw clearAgendaError;
 

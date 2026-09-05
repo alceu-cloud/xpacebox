@@ -10,18 +10,36 @@ export async function GET(request: Request) {
     if (!slug) return failure("EMPRESA NAO INFORMADA.", 400);
 
     const { admin, company, profile } = await requireCompanyAccess(request, slug);
+    // The profile is the source of truth for the client's current agenda.
+    // Older activity rows are CRM history and must never lock the user again.
+    const { data: customerProfile, error: profileError } = await admin
+      .from("crm_customer_profiles")
+      .select("client_id,next_contact_at")
+      .eq("tenant_company_id", company.id)
+      .eq("owner_profile_id", profile.id)
+      .not("next_contact_at", "is", null)
+      .lt("next_contact_at", startOfSaoPauloDay())
+      .order("next_contact_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (profileError) throw profileError;
+
+    if (!customerProfile?.next_contact_at) return NextResponse.json({ success: true, lock: null });
+
     const { data: agenda, error: agendaError } = await admin
       .from("crm_activities")
       .select("id,client_id,opportunity_id,next_action_type,next_action_at")
       .eq("tenant_company_id", company.id)
+      .eq("client_id", customerProfile.client_id)
       .eq("representative_profile_id", profile.id)
-      .not("next_action_at", "is", null)
-      .lt("next_action_at", startOfSaoPauloDay())
-      .order("next_action_at", { ascending: true })
+      .eq("next_action_at", customerProfile.next_contact_at)
+      .order("occurred_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (agendaError) throw agendaError;
 
+    // A stale profile without a matching activity is not actionable. Do not trap
+    // the user in a gate that cannot be resolved from the CRM screen.
     if (!agenda) return NextResponse.json({ success: true, lock: null });
 
     const postponementSubject = `${postponementPrefix}${agenda.id}`;

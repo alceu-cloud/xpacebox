@@ -53,10 +53,10 @@ export async function logWhatsappOpened(slug: string, clientId: string) {
   });
 }
 
-export async function postponeCrmAgenda(slug: string, clientId: string) {
+export async function postponeCrmAgenda(slug: string, clientId: string, activityId?: string) {
   const payload = await authorizedFetch("/api/crm/agenda/postpone", {
     method: "POST",
-    body: JSON.stringify({ slug, clientId }),
+    body: JSON.stringify({ slug, clientId, activityId }),
   });
   return {
     nextActionAt: payload.nextActionAt as string,
