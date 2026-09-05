@@ -105,7 +105,6 @@ export default function EmpresaPage() {
   const { isBlocked: crmBlocked, lock: crmLock } = useCrmOperationalLock();
   const [podeGerenciar, setPodeGerenciar] = useState(false);
   const [moduloAtivo, setModuloAtivo] = useState<ModuloKey | null>(null);
-  const [menuAberto, setMenuAberto] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [paperTypes, setPaperTypes] = useState<PaperType[]>(initialPaperTypes);
   const [materials, setMaterials] = useState<SpecificMaterial[]>(initialMaterials);
@@ -207,7 +206,6 @@ export default function EmpresaPage() {
   useEffect(() => {
     if (!crmBlocked) return;
     setModuloAtivo("clientes");
-    setMenuAberto(false);
   }, [crmBlocked]);
 
   const modulosDisponiveis = crmBlocked
@@ -218,28 +216,10 @@ export default function EmpresaPage() {
   const moduloSelecionado = modulos.find((modulo) => modulo.key === moduloEmExibicao);
 
   return (
-    <main
-      style={{
-        ...paginaStyle,
-        paddingLeft: menuAberto ? 322 : 72,
-      }}
-    >
-      <div style={sidebarDockStyle}>
-        <aside
-          style={{
-            ...sidebarStyle,
-            transform: menuAberto ? "translateX(0)" : "translateX(-252px)",
-          }}
-          onMouseEnter={() => setMenuAberto(true)}
-          onMouseLeave={() => setMenuAberto(false)}
-        >
-          <div style={sidebarContentStyle}>
-            <div style={sidebarHeaderStyle}>
-              <span style={sidebarEyebrowStyle}>MODULOS</span>
-              <strong style={sidebarTitleStyle}>AMBIENTE DAWOS</strong>
-            </div>
-
-            <nav style={moduleListStyle}>
+    <main className="xb-operating-shell">
+      <nav className="xb-module-strip" aria-label="Módulos da empresa">
+        <div className="xb-module-strip-heading"><span>Módulos</span><strong>Ambiente {slug.toUpperCase()}</strong></div>
+        <div className="xb-module-list">
               {modulosDisponiveis.map((modulo) => {
                 const ativo = modulo.key === moduloEmExibicao;
                 return (
@@ -247,40 +227,26 @@ export default function EmpresaPage() {
                     key={modulo.key}
                     type="button"
                     onClick={() => setModuloAtivo(modulo.key)}
-                    style={{
-                      ...moduleButtonStyle,
-                      ...(ativo ? activeModuleButtonStyle : {}),
-                      borderColor: ativo ? `${modulo.cor}55` : "rgba(52,64,84,.12)",
-                    }}
+                    className={`xb-module-chip${ativo ? " is-active" : ""}`}
+                    aria-current={ativo ? "page" : undefined}
                   >
-                    <span
-                      style={{
-                        ...moduleAccentStyle,
-                        background: `linear-gradient(180deg, ${modulo.cor}, #e63dae, #ff3b25)`,
-                      }}
-                    />
-                    <span style={moduleTextStyle}>
-                      <strong style={moduleNameStyle}>{modulo.nome}</strong>
-                      <small style={moduleDescriptionStyle}>{modulo.descricao}</small>
-                    </span>
+                    <i aria-hidden="true">{String(modulos.indexOf(modulo) + 1).padStart(2, "0")}</i>
+                    <span><strong>{modulo.nome}</strong><small>{modulo.descricao}</small></span>
                   </button>
                 );
               })}
-            </nav>
-          </div>
-          <div style={sidebarHandleStyle}>MODULOS</div>
-        </aside>
-      </div>
+        </div>
+      </nav>
 
-      <section style={workspaceStyle}>
+      <section className="xb-workspace">
         {!moduloSelecionado ? (
           <EmptyWorkspace />
         ) : (
-          <div style={workspaceHeaderStyle}>
+          <div className="xb-workspace-header">
             <div>
-              <span style={workspaceEyebrowStyle}>PAINEL SELECIONADO</span>
-              <h1 style={workspaceTitleStyle}>{moduloSelecionado.nome}</h1>
-              <p style={workspaceSubtitleStyle}>{moduloSelecionado.descricao}</p>
+              <span>Área selecionada</span>
+              <h1>{moduloSelecionado.nome}</h1>
+              <p>{moduloSelecionado.descricao}</p>
             </div>
           </div>
         )}
@@ -504,11 +470,10 @@ function QuoteContinuationModal({
 
 function EmptyWorkspace() {
   return (
-    <section style={emptyWorkspaceStyle}>
-      <div style={arrowHintStyle}>{"<"}</div>
-      <span style={emptyBadgeStyle}>MODULOS</span>
-      <h1 style={emptyTitleStyle}>SELECIONE O MODULO QUE DESEJA TRABALHAR</h1>
-      <p style={emptyTextStyle}>ABRA O MENU LATERAL E ESCOLHA O PAINEL PARA CONTINUAR.</p>
+    <section className="xb-empty-workspace">
+      <span>Comece por aqui</span>
+      <h1>Escolha um módulo para trabalhar.</h1>
+      <p>A navegação fica sempre disponível acima, sem menus ocultos.</p>
     </section>
   );
 }
