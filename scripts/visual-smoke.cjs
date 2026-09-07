@@ -93,9 +93,17 @@ async function snapshot(page,name){
         await page.waitForTimeout(350);
         await snapshot(page,`${label}-${key}`);
         if(key==='manager') {
-          for(const section of ['CONFIGURACOES DOS FORNECEDORES','CADASTROS DE PRODUTOS','CONFIGURACOES DA EMPRESA','CADASTROS GERAIS']) {
+          for(const [section,child] of [
+            ['CONFIGURACOES DAS EMBALAGENS','TIPOS DE PAPELAO'],
+            ['CONFIGURACOES DOS FORNECEDORES','FORNECEDORES'],
+            ['CADASTROS DE PRODUTOS','ENGENHARIA DA CAIXA'],
+            ['CONFIGURACOES DA EMPRESA','PARAMETROS DE PRECO'],
+            ['CADASTROS GERAIS','CADASTROS'],
+          ]) {
             await page.getByRole('button',{name:section,exact:true}).click();
+            await page.getByRole('button',{name:child,exact:true}).waitFor();
             await snapshot(page,`${label}-${section.replaceAll(' ','-')}`);
+            await page.locator('.xb-manager-navigation').getByRole('button',{name:'GERENCIADOR',exact:true}).click();
           }
         }
         if(key==='clients') {

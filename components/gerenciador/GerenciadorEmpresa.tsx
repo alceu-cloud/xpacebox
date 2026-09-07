@@ -2,6 +2,8 @@
 
 import { ui } from "@/lib/ui/styles";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { ArrowLeft, Boxes, Building2, ClipboardList, DollarSign, FileText, Layers3, Package, Palette, Plug, Settings2, SlidersHorizontal, Target, Timer, Truck, Wrench, type LucideIcon } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
 
@@ -30,19 +32,27 @@ type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "c
 type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
-const tabs: Array<{ key: Tab; label: string; disabled?: boolean }> = [
-  { key: "fornecedores", label: "FORNECEDORES" },
-  { key: "papeis", label: "TIPOS DE PAPELAO" },
-  { key: "materiais", label: "MATERIAIS ESPECIFICOS" },
-  { key: "engenharia", label: "ENGENHARIA DA CAIXA" },
-  { key: "cores", label: "CORES" },
-  { key: "custo", label: "CUSTO DE PAPEL" },
-  { key: "parametros", label: "PARAMETROS DE PRECO" },
-  { key: "metas", label: "METAS" },
-  { key: "orcamento", label: "PARAMETROS DE ORCAMENTO" },
-  { key: "integracoes", label: "INTEGRACOES" },
-  { key: "tempos", label: "TEMPOS DE PRODUCAO" },
-  { key: "lembretes", label: "LEMBRETES & FORMULAS" },
+const tabs: Array<{ key: Tab; label: string; icon: LucideIcon; disabled?: boolean }> = [
+  { key: "fornecedores", label: "FORNECEDORES", icon: Truck },
+  { key: "papeis", label: "TIPOS DE PAPELAO", icon: FileText },
+  { key: "materiais", label: "MATERIAIS ESPECIFICOS", icon: Layers3 },
+  { key: "engenharia", label: "ENGENHARIA DA CAIXA", icon: Wrench },
+  { key: "cores", label: "CORES", icon: Palette },
+  { key: "custo", label: "CUSTO DE PAPEL", icon: DollarSign },
+  { key: "parametros", label: "PARAMETROS DE PRECO", icon: SlidersHorizontal },
+  { key: "metas", label: "METAS", icon: Target },
+  { key: "orcamento", label: "PARAMETROS DE ORCAMENTO", icon: ClipboardList },
+  { key: "integracoes", label: "INTEGRACOES", icon: Plug },
+  { key: "tempos", label: "TEMPOS DE PRODUCAO", icon: Timer },
+  { key: "lembretes", label: "LEMBRETES & FORMULAS", icon: FileText },
+];
+
+const managerSections: Array<{ key: ManagerSection; label: string; icon: LucideIcon; initialTab?: Tab }> = [
+  { key: "embalagem", label: "CONFIGURACOES DAS EMBALAGENS", icon: Package, initialTab: "papeis" },
+  { key: "fornecedores", label: "CONFIGURACOES DOS FORNECEDORES", icon: Truck, initialTab: "fornecedores" },
+  { key: "produtos", label: "CADASTROS DE PRODUTOS", icon: Boxes, initialTab: "engenharia" },
+  { key: "empresa", label: "CONFIGURACOES DA EMPRESA", icon: Building2, initialTab: "parametros" },
+  { key: "gerais", label: "CADASTROS GERAIS", icon: Settings2 },
 ];
 
 const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
@@ -162,7 +172,8 @@ export default function GerenciadorEmpresa({
   onProductColorsChange,
 }: GerenciadorEmpresaProps = {}) {
   const [activeTab, setActiveTab] = useState<Tab>("papeis");
-  const [managerSection, setManagerSection] = useState<ManagerSection>("embalagem");
+  const [managerSection, setManagerSection] = useState<ManagerSection | null>(null);
+  const [generalSection, setGeneralSection] = useState<"cadastros" | "limites">("cadastros");
   const [localProductFichas, setLocalProductFichas] = useState<ProductFicha[]>(controlledProductFichas ?? []);
   const [localProductColors, setLocalProductColors] = useState<string[]>(controlledProductColors ?? ["BRANCO", "PRETO", "VERMELHO", "AZUL", "AMARELO"]);
   const [localSuppliers, setLocalSuppliers] = useState(initialSuppliers);
@@ -268,41 +279,104 @@ export default function GerenciadorEmpresa({
     return productionTimes.filter((time) => `${time.paperType} ${time.materialCode}`.includes(term));
   }, [productionFilter, productionTimes]);
 
-  const managerSwitcher = (
-    <nav style={managerSwitcherStyle} aria-label="AREAS DO GERENCIADOR">
-      {([
-        ["embalagem", "CONFIGURACOES DAS EMBALAGENS", "papeis"],
-        ["fornecedores", "CONFIGURACOES DOS FORNECEDORES", "fornecedores"],
-        ["produtos", "CADASTROS DE PRODUTOS", "engenharia"],
-        ["empresa", "CONFIGURACOES DA EMPRESA", "parametros"],
-        ["gerais", "CADASTROS GERAIS", "papeis"],
-      ] as Array<[ManagerSection, string, Tab]>).map(([section, label, tab]) => (
+  const managerNavigation = managerSection === null ? (
+    <nav className="xb-manager-navigation" aria-label="AREAS DO GERENCIADOR">
+      <div className="xb-module-list">
+        {managerSections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <button
+              key={section.key}
+              type="button"
+              className="xb-module-chip"
+              style={{ "--xb-module-color": "#6f32d2" } as CSSProperties}
+              onClick={() => {
+                setManagerSection(section.key);
+                setForm(null);
+                if (section.initialTab) setActiveTab(section.initialTab);
+                if (section.key === "gerais") setGeneralSection("cadastros");
+              }}
+            >
+              <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
+              <strong>{section.label}</strong>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  ) : (
+    <nav className="xb-manager-navigation" aria-label="OPCOES DA AREA SELECIONADA">
+      <div className="xb-module-list">
         <button
-          key={section}
           type="button"
+          className="xb-module-chip"
+          style={{ "--xb-module-color": "#667085" } as CSSProperties}
           onClick={() => {
-            setManagerSection(section);
-            if (section !== "gerais") setActiveTab(tab);
+            setManagerSection(null);
+            setForm(null);
           }}
-          style={{ ...managerSwitchButtonStyle, ...(managerSection === section ? activeManagerSwitchStyle : {}) }}
         >
-          {label}
+          <ArrowLeft size={19} strokeWidth={1.8} aria-hidden="true" />
+          <strong>GERENCIADOR</strong>
         </button>
-      ))}
+        {managerSection === "gerais" ? (
+          <>
+            <button type="button" className={`xb-module-chip${generalSection === "cadastros" ? " is-active" : ""}`} style={{ "--xb-module-color": "#6f32d2" } as CSSProperties} onClick={() => setGeneralSection("cadastros")}>
+              <ClipboardList size={19} strokeWidth={1.8} aria-hidden="true" />
+              <strong>CADASTROS</strong>
+            </button>
+            <button type="button" className={`xb-module-chip${generalSection === "limites" ? " is-active" : ""}`} style={{ "--xb-module-color": "#6f32d2" } as CSSProperties} onClick={() => setGeneralSection("limites")}>
+              <DollarSign size={19} strokeWidth={1.8} aria-hidden="true" />
+              <strong>LIMITES</strong>
+            </button>
+          </>
+        ) : tabs.filter((tab) => sectionTabs[managerSection].includes(tab.key)).map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              disabled={tab.disabled}
+              className={`xb-module-chip${activeTab === tab.key ? " is-active" : ""}`}
+              style={{ "--xb-module-color": "#6f32d2", opacity: tab.disabled ? .62 : 1 } as CSSProperties}
+              onClick={() => {
+                if (!tab.disabled) {
+                  setActiveTab(tab.key);
+                  setForm(null);
+                }
+              }}
+            >
+              <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
+              <strong>{tab.label}</strong>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
+
+  if (managerSection === null) {
+    return (
+      <main style={pageStyle}>
+        <section style={shellStyle}>
+          {managerNavigation}
+          <section style={managerEmptyStyle}>
+            <h2 style={sectionTitleStyle}>ESCOLHA UMA AREA PARA CONFIGURAR.</h2>
+            <p style={sectionSubtitleStyle}>OS DETALHES DE CADA AREA APARECEM NA MESMA BARRA, COM ICONE E NAVEGACAO DE VOLTA.</p>
+          </section>
+        </section>
+      </main>
+    );
+  }
 
   if (managerSection === "gerais") {
     return (
       <main style={pageStyle}>
         <section style={shellStyle}>
-          {managerSwitcher}
-          <div style={introStyle}>
-            <h2 style={sectionTitleStyle}>CADASTROS GERAIS</h2>
-            <p style={sectionSubtitleStyle}>OPCOES COMPARTILHADAS USADAS NO CADASTRO DE CLIENTES.</p>
-          </div>
+          {managerNavigation}
           <GeneralRegistriesPanel
             companySlug={companySlug}
+            activeSection={generalSection}
             paymentConditions={paymentConditions}
             cfops={cfops}
             taxRegimes={taxRegimes}
@@ -324,45 +398,7 @@ export default function GerenciadorEmpresa({
   return (
     <main style={pageStyle}>
       <section style={shellStyle}>
-        {managerSwitcher}
-        <div style={introStyle}>
-          <h2 style={sectionTitleStyle}>
-            {managerSection === "embalagem" && "CONFIGURACOES DAS EMBALAGENS"}
-            {managerSection === "fornecedores" && "CONFIGURACOES DOS FORNECEDORES"}
-            {managerSection === "produtos" && "CADASTROS DE PRODUTOS"}
-            {managerSection === "empresa" && "CONFIGURACOES DA EMPRESA"}
-          </h2>
-          <p style={sectionSubtitleStyle}>
-            {managerSection === "embalagem" && "TIPOS DE PAPELAO, MATERIAIS, TEMPOS E FORMULAS DE APOIO."}
-            {managerSection === "fornecedores" && "FORNECEDORES E CUSTOS DE COMPRA DO PAPELAO."}
-            {managerSection === "produtos" && "ENGENHARIAS E FORMULAS USADAS NOS PRODUTOS."}
-            {managerSection === "empresa" && "PARAMETROS DE PRECO, METAS E DADOS DOS ORCAMENTOS."}
-          </p>
-        </div>
-
-        <nav style={tabsStyle}>
-          {tabs.filter((tab) => sectionTabs[managerSection as Exclude<ManagerSection, "gerais">]?.includes(tab.key)).map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              disabled={tab.disabled}
-              onClick={() => {
-                if (!tab.disabled) {
-                  setActiveTab(tab.key as Tab);
-                  setForm(null);
-                }
-              }}
-              style={{
-                ...tabButtonStyle,
-                ...(activeTab === tab.key ? activeTabButtonStyle : {}),
-                opacity: tab.disabled ? 0.62 : 1,
-                cursor: tab.disabled ? "default" : "pointer",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+        {managerNavigation}
 
         {form?.type === "fornecedores" && (
           <FormPanel title={form.mode === "create" ? "CADASTRAR NOVO FORNECEDOR" : "EDITAR FORNECEDOR"}>
@@ -1270,6 +1306,7 @@ function ProductColorsPanel({ colors, onChange }: { colors: string[]; onChange: 
 
 function GeneralRegistriesPanel({
   companySlug,
+  activeSection: generalSection,
   paymentConditions,
   cfops,
   taxRegimes,
@@ -1284,6 +1321,7 @@ function GeneralRegistriesPanel({
   onLostReasonsChange,
 }: {
   companySlug?: string;
+  activeSection: "cadastros" | "limites";
   paymentConditions: PaymentCondition[];
   cfops: CfopOption[];
   taxRegimes: GeneralOption[];
@@ -1297,7 +1335,6 @@ function GeneralRegistriesPanel({
   onFiscalBenefitsChange: (items: GeneralOption[]) => void;
   onLostReasonsChange: (items: GeneralOption[]) => void;
 }) {
-  const [generalSection, setGeneralSection] = useState<"cadastros" | "limites">("cadastros");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [clientSearch, setClientSearch] = useState("");
   const [loadingClients, setLoadingClients] = useState(false);
@@ -1345,10 +1382,6 @@ function GeneralRegistriesPanel({
 
   return (
     <div>
-      <nav style={generalSubTabsStyle} aria-label="CADASTROS GERAIS">
-        <button type="button" onClick={() => setGeneralSection("cadastros")} style={{ ...generalSubTabStyle, ...(generalSection === "cadastros" ? activeGeneralSubTabStyle : {}) }}>CADASTROS</button>
-        <button type="button" onClick={() => setGeneralSection("limites")} style={{ ...generalSubTabStyle, ...(generalSection === "limites" ? activeGeneralSubTabStyle : {}) }}>LIMITES</button>
-      </nav>
       {generalSection === "limites" ? (
         <section style={generalRegistryPanelStyle}>
           <div style={panelHeaderStyle}>
@@ -1746,7 +1779,7 @@ function QuoteParametersPanel({
             </label>
             <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
               ENDERECO OU CAMINHO DA LOGO
-              <input value={params.logo.startsWith("data:") ? "IMAGEM SELECIONADA" : params.logo} onChange={(event) => update("logo", event.target.value)} disabled={params.logo.startsWith("data:")} placeholder="EX: /companies/dawos-logo.jpg" style={inputStyle} />
+              <input value={params.logo.startsWith("data:") ? "IMAGEM SELECIONADA" : params.logo} onChange={(event) => update("logo", event.target.value)} disabled={params.logo.startsWith("data:")} placeholder="EX: /companies/dawos-logo-nova.png" style={inputStyle} />
             </label>
             <label style={{ ...wideLabelStyle, gridColumn: "1 / -1" }}>
               OBSERVACOES TECNICAS PADRAO
@@ -2019,25 +2052,16 @@ function formatGoalNumber(value: number) {
 
 const pageStyle = { color: "#141827" };
 const shellStyle = { margin: "0 auto", boxSizing: "border-box" as const, overflow: "hidden" , ...ui.shell };
-const managerSwitcherStyle = { ...ui.tabs, display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-5), minmax(0, 1fr))", marginBottom: 28, minWidth: 0 };
-const managerSwitchButtonStyle = { border: "none", background: "transparent", color: "#667085", lineHeight: 1.2, cursor: "pointer" , ...ui.tab };
-const activeManagerSwitchStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
 const generalRegistriesGridStyle = { display: "grid", gap: 28 };
 const generalRegistryPanelStyle = { ...ui.section, marginTop: 0 };
-const generalSubTabsStyle = { display: "inline-grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", marginBottom: 28, ...ui.tabs, minWidth: 0 };
-const generalSubTabStyle = { border: "none", background: "transparent", color: "#667085", cursor: "pointer" , ...ui.tab };
-const activeGeneralSubTabStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 10px 20px rgba(111,50,210,.2)" };
 const limitReportStyle = { marginTop: 28, padding: 26, border: "1px solid rgba(255,0,135,.24)", borderRadius: 18, background: "rgba(255,255,255,.8)" };
 const limitClientTitleStyle = { margin: "0 0 22px", color: "#141827", fontWeight: 900 , ...ui.title };
 const limitReportGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))", gap: 16 , minWidth: 0 };
 const limitMetricStyle = { display: "grid", gap: 10, minHeight: 90, padding: 18, border: "1px solid rgba(52,64,84,.12)", borderTop: "4px solid", borderRadius: 12, background: "#fff", boxSizing: "border-box" as const };
 const limitEmptyStyle = { marginTop: 24, padding: 28, border: "1px dashed rgba(111,50,210,.3)", borderRadius: 14, color: "#667085", fontSize: 16, fontWeight: 800, textAlign: "center" as const };
-const introStyle = { marginBottom: 32 };
+const managerEmptyStyle = { padding: "36px 0", borderTop: "1px solid var(--xb-line)" };
 const sectionTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
 const sectionSubtitleStyle = { margin: "12px 0 0", fontSize: 16, color: "#344054", fontWeight: 800 };
-const tabsStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", alignItems: "center", marginBottom: 38 , ...ui.tabs, minWidth: 0 };
-const tabButtonStyle = { width: "100%", minWidth: 0, border: "none", background: "transparent", color: "#667085", lineHeight: 1.2, display: "inline-flex", alignItems: "center", justifyContent: "center", textAlign: "center" as const, cursor: "pointer" , ...ui.button };
-const activeTabButtonStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#6f32d2)", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
 const panelStyle = { marginTop: 28 , ...ui.section };
 const formPanelStyle = { ...panelStyle, background: "rgba(255,250,253,.74)" };
 const panelHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 22, marginBottom: 24, flexWrap: "wrap" as const };

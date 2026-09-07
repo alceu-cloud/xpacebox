@@ -17,7 +17,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
   const router = useRouter();
   const slug = String(params.slug ?? "");
   const nomeEmpresa = slug.toUpperCase();
-  const logoEmpresa = slug === "dawos" ? "/companies/dawos-logo.jpg" : "";
+  const logoEmpresa = slug === "dawos" ? "/companies/dawos-logo-nova.png" : "";
   const noGerenciador = pathname.includes("/gerenciador");
   const [ehAdmin, setEhAdmin] = useState(false);
   const [emailLogado, setEmailLogado] = useState("");

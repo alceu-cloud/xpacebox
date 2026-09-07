@@ -222,6 +222,8 @@ body {
 .xb-module-chip span { display: grid; gap: 2px; }
 .xb-module-chip strong { font-size: 12px; font-weight: 700; letter-spacing: 0; }
 .xb-module-chip small { max-width: 150px; overflow: hidden; color: var(--xb-quiet); font-size: 9px; font-weight: 600; letter-spacing: .02em; text-overflow: ellipsis; white-space: nowrap; }
+.xb-manager-navigation { margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--xb-line); }
+.xb-manager-navigation .xb-module-list { padding: 3px; }
 
 .xb-workspace { min-width: 0; min-height: 540px; padding: 10px 0 32px; background: var(--xb-surface); }
 .xb-workspace--welcome { padding: 0; min-height: 0; background: transparent; }

@@ -238,7 +238,7 @@ export const defaultQuoteParametersByCompany: import("@/types/gerenciador").Quot
     phone: "",
     email: "",
     site: "",
-    logo: "/companies/dawos-logo.jpg",
+    logo: "/companies/dawos-logo-nova.png",
     technicalNotes: "",
     validityDays: 3,
   },
