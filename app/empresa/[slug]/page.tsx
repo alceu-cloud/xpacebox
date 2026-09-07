@@ -223,17 +223,7 @@ export default function EmpresaPage() {
       <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onSelect={setModuloAtivo} />
 
       <section className={`xb-workspace${!moduloSelecionado ? " xb-workspace--welcome" : ""}`}>
-        {!moduloSelecionado ? (
-          <WorkspaceWelcome />
-        ) : (
-          <div className="xb-workspace-header">
-            <div>
-              <span>Área selecionada</span>
-              <h1>{moduloSelecionado.nome}</h1>
-              <p>{moduloSelecionado.descricao}</p>
-            </div>
-          </div>
-        )}
+        {!moduloSelecionado && <WorkspaceWelcome />}
 
         {moduloEmExibicao === "gerenciador" ? (
           <GerenciadorEmpresa
