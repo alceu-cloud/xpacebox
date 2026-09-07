@@ -1,5 +1,6 @@
 "use client";
 
+import { ui } from "@/lib/ui/styles";
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -372,25 +373,25 @@ function money(value: number) { return new Intl.NumberFormat("pt-BR", { style: "
 
 const shellStyle = { display: "grid", gap: 18 };
 const headerStyle = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, flexWrap: "wrap" as const };
-const eyebrowStyle = { color: "#7c3aed", fontSize: 11, fontWeight: 900, letterSpacing: 2.4 };
-const titleStyle = { margin: "6px 0 4px", color: "#141827", fontSize: 29, fontWeight: 900, letterSpacing: 0 };
+const eyebrowStyle = { color: "#7c3aed", fontSize: 11, fontWeight: 900, letterSpacing: 0 };
+const titleStyle = { margin: "6px 0 4px", color: "#141827", fontWeight: 900, ...ui.title };
 const subtitleStyle = { margin: 0, color: "#667085", fontSize: 13, fontWeight: 700, maxWidth: 720 };
-const periodHintStyle = { padding: "10px 13px", border: "1px solid #d9cdf9", borderRadius: 8, background: "#faf8ff", color: "#6f32d2", fontSize: 11, fontWeight: 900, letterSpacing: .6 };
+const periodHintStyle = { padding: "10px 13px", border: "1px solid #d9cdf9", borderRadius: 8, background: "#faf8ff", color: "#6f32d2", fontSize: 11, fontWeight: 900, letterSpacing: 0 };
 const filterStyle = { display: "flex", alignItems: "end", gap: 12, flexWrap: "wrap" as const, padding: 14, border: "1px solid #ddd6fe", borderRadius: 8, background: "#fcfbff" };
-const filterLabelStyle = { display: "grid", gap: 5, color: "#475467", fontSize: 10, fontWeight: 900, letterSpacing: .8 };
-const selectStyle = { minHeight: 38, minWidth: 178, padding: "0 10px", border: "1px solid #cfd6e4", borderRadius: 6, background: "#fff", color: "#141827", fontSize: 12, fontWeight: 800 };
-const inputStyle = { minHeight: 38, padding: "0 10px", border: "1px solid #cfd6e4", borderRadius: 6, background: "#fff", color: "#141827", fontSize: 12, fontWeight: 800 };
-const ownDataStyle = { minHeight: 38, display: "grid", placeItems: "center", padding: "0 12px", borderRadius: 6, background: "#eefaf2", color: "#16803e", fontSize: 10, fontWeight: 900, letterSpacing: .7 };
-const contentStyle = { display: "grid", gap: 16, padding: 18, border: "1px solid #d8dee9", borderRadius: 8, background: "#fff" };
+const filterLabelStyle = { display: "grid", gap: 5, color: "#475467", ...ui.label };
+const selectStyle = { border: "1px solid #cfd6e4", background: "#fff", color: "#141827", ...ui.field };
+const inputStyle = { border: "1px solid #cfd6e4", background: "#fff", color: "#141827", ...ui.field };
+const ownDataStyle = { minHeight: 38, display: "grid", placeItems: "center", padding: "0 12px", borderRadius: 6, background: "#eefaf2", color: "#16803e", fontSize: 10, fontWeight: 900, letterSpacing: 0 };
+const contentStyle = { display: "grid", gap: 16, ...ui.section };
 const contentHeaderStyle = { display: "grid", gap: 5, paddingBottom: 13, borderBottom: "1px solid #eef0f4" };
-const contentTitleStyle = { margin: 0, color: "#141827", fontSize: 20, fontWeight: 900, letterSpacing: 0 };
+const contentTitleStyle = { margin: 0, color: "#141827", fontWeight: 900, ...ui.title };
 const contentDescriptionStyle = { margin: 0, color: "#667085", fontSize: 12, fontWeight: 700, lineHeight: 1.45 };
-const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))", gap: 10 };
+const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))", gap: 10 , minWidth: 0 };
 const metricCardStyle = { minHeight: 78, display: "grid", alignContent: "center", gap: 8, padding: "11px 13px", border: "1px solid #e2e6ef", borderTop: "4px solid", borderRadius: 7, background: "#fff" };
 const tableStyle = { width: "100%", borderCollapse: "collapse" as const, tableLayout: "fixed" as const };
 const lossDetailsStyle = { display: "grid", gap: 9, marginTop: 8 };
-const lossDetailsTitleStyle = { margin: 0, color: "#475467", fontSize: 12, fontWeight: 900, letterSpacing: .7 };
+const lossDetailsTitleStyle = { margin: 0, color: "#475467", fontWeight: 900, ...ui.title };
 const emptyStyle = { padding: 36, border: "1px dashed #c8b7f3", borderRadius: 8, color: "#667085", textAlign: "center" as const, fontSize: 13, fontWeight: 800 };
 const errorStyle = { padding: 14, border: "1px solid #fcb6be", borderRadius: 7, background: "#fff1f2", color: "#be123c", fontSize: 12, fontWeight: 800 };
 const emptyCellStyle = { padding: 20, textAlign: "center" as const, color: "#667085", fontWeight: 700 };
-const materialTypeGroupCellStyle = { padding: "10px 16px", background: "#f3edff", color: "#5d22c5", fontSize: 12, fontWeight: 900, letterSpacing: .7, textAlign: "left" as const };
+const materialTypeGroupCellStyle = { padding: "10px 16px", background: "#f3edff", color: "#5d22c5", fontSize: 12, fontWeight: 900, letterSpacing: 0, textAlign: "left" as const };

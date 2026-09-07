@@ -1,5 +1,6 @@
 "use client";
 
+import { ui } from "@/lib/ui/styles";
 import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -127,26 +128,26 @@ export default function BaldussiIntegrationPanel({ companySlug }: { companySlug?
   </section>;
 }
 
-const panelStyle = { display: "grid", gap: 18, padding: 24, border: "1px solid #d7dff0", borderRadius: 8, background: "#fff" };
+const panelStyle = { display: "grid", gap: 18, ...ui.section };
 const headerStyle = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" as const };
-const eyebrowStyle = { display: "block", color: "#6d28d9", fontSize: 10, fontWeight: 900, letterSpacing: 1.8 };
-const titleStyle = { margin: "6px 0", color: "#171b2e", fontSize: 21, letterSpacing: 0 };
+const eyebrowStyle = { display: "block", color: "#6d28d9", fontSize: 10, fontWeight: 900, letterSpacing: 0 };
+const titleStyle = { margin: "6px 0", color: "#171b2e", ...ui.title };
 const subtitleStyle = { margin: "6px 0", color: "#171b2e", fontSize: 14, letterSpacing: 0 };
 const descriptionStyle = { margin: 0, color: "#667085", fontSize: 12 };
 const statusStyle = { padding: "8px 12px", borderRadius: 5, background: "#fef2f2", color: "#b42318", fontSize: 11, fontWeight: 900 };
 const configuredStatusStyle = { background: "#ecfdf3", color: "#027a48" };
-const gridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 };
-const labelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 11, fontWeight: 900 };
-const inputStyle = { width: "100%", boxSizing: "border-box" as const, padding: "11px 12px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#111827", fontWeight: 700 };
+const gridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 , minWidth: 0 };
+const labelStyle = { display: "grid", gap: 7, color: "#344054", ...ui.label };
+const inputStyle = { width: "100%", boxSizing: "border-box" as const, border: "1px solid #cbd5e1", background: "#fff", color: "#111827", ...ui.field };
 const readOnlyInputStyle = { ...inputStyle, background: "#f8fafc", color: "#475467" };
 const webhookStyle = { display: "grid", gap: 13, padding: 18, border: "1px solid #d8ccff", borderRadius: 6, background: "#fbfaff" };
-const headerGridStyle = { display: "grid", gridTemplateColumns: "minmax(170px, .7fr) minmax(240px, 1.3fr)", gap: 14 };
+const headerGridStyle = { display: "grid", gridTemplateColumns: "minmax(170px, .7fr) minmax(240px, 1.3fr)", gap: 14 , minWidth: 0 };
 const extensionsStyle = { display: "grid", gap: 10, paddingTop: 4 };
-const extensionHeaderStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr)", gap: 14, padding: "0 12px", color: "#667085", fontSize: 10, fontWeight: 900 };
-const extensionRowStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr)", gap: 14, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #eaecf0", color: "#344054", fontSize: 13 };
-const actionsStyle = { display: "flex", justifyContent: "flex-end" };
-const primaryButtonStyle = { border: 0, borderRadius: 5, padding: "11px 16px", background: "#7c3aed", color: "#fff", fontWeight: 900, cursor: "pointer" };
-const secondaryButtonStyle = { width: "fit-content", border: "1px solid #f79009", borderRadius: 5, padding: "10px 14px", background: "#fffaeb", color: "#b54708", fontWeight: 900, cursor: "pointer" };
+const extensionHeaderStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr)", gap: 14, padding: "0 12px", color: "#667085", fontSize: 10, fontWeight: 900 , minWidth: 0 };
+const extensionRowStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(160px, 1fr) minmax(160px, 1fr)", gap: 14, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #eaecf0", color: "#344054", fontSize: 13 , minWidth: 0 };
+const actionsStyle = { display: "flex", justifyContent: "flex-end" , flexWrap: "wrap" as const };
+const primaryButtonStyle = { border: 0, background: "#7c3aed", color: "#fff", cursor: "pointer" , ...ui.button };
+const secondaryButtonStyle = { width: "fit-content", border: "1px solid #f79009", background: "#fffaeb", color: "#b54708", cursor: "pointer" , ...ui.button };
 const messageStyle = { padding: "11px 13px", border: "1px solid #86efac", borderRadius: 5, background: "#f0fdf4", color: "#027a48", fontWeight: 800, fontSize: 12 };
 const errorStyle = { padding: "11px 13px", border: "1px solid #fda29b", borderRadius: 5, background: "#fff1f3", color: "#b42318", fontWeight: 800, fontSize: 12 };
 const emptyStyle = { padding: 18, color: "#667085", fontSize: 12, fontWeight: 800 };

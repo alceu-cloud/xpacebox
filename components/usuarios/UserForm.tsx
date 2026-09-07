@@ -1,3 +1,5 @@
+
+import { ui } from "@/lib/ui/styles";
 import { useState } from "react";
 
 type UserFormProps = {
@@ -165,10 +167,10 @@ export default function UserForm({
 
 const formStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(2,minmax(300px,1fr))",
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   gap: 28,
   alignItems: "start",
-};
+ minWidth: 0 };
 
 const columnStyle = {
   display: "grid",
@@ -179,25 +181,18 @@ const labelStyle = {
   display: "grid",
   gap: 10,
   color: "#344054",
-  fontSize: 18,
-  fontWeight: 900,
-};
+ ...ui.label };
 
 const inputStyle = {
   width: "100%",
-  height: 68,
-  padding: "0 20px",
-  borderRadius: 16,
+  height: 44,
   border: "1px solid rgba(20,24,39,.14)",
   background: "#ffffff",
   color: "#141827",
-  fontSize: 21,
-  fontWeight: 800,
   outline: "none",
   boxSizing: "border-box" as const,
   colorScheme: "light",
-  boxShadow: "0 10px 28px rgba(20,24,39,.06)",
-};
+ ...ui.field };
 
 const passwordAreaStyle = {
   display: "grid",
@@ -206,13 +201,9 @@ const passwordAreaStyle = {
 
 const changePasswordButtonStyle = {
   height: 68,
-  padding: "0 22px",
-  borderRadius: 16,
   border: "1px solid rgba(111,50,210,.18)",
   background:
     "linear-gradient(145deg, rgba(111,50,210,.08), rgba(230,61,174,.06), rgba(255,59,37,.05)), #ffffff",
   color: "#6f32d2",
-  fontSize: 20,
-  fontWeight: 900,
   cursor: "pointer",
-};
+ ...ui.button };

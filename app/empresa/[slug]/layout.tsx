@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import BrandLogo from "@/components/ui/BrandLogo";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -48,7 +49,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
           </div>
           <div className="xb-company-actions">
             {noGerenciador ? <button type="button" className="xb-topbar-link" onClick={() => router.push(`/empresa/${slug}`)}>Início</button> : null}
-            <Image src="/xpacebox-logo-light.svg" alt="XPACEBOX" width={900} height={220} priority className="xb-platform-logo" />
+            <BrandLogo priority className="xb-platform-logo" />
             <button type="button" className="xb-topbar-action" onClick={ehAdmin ? () => router.push("/") : sair}>{ehAdmin ? "Central" : "Sair"}</button>
           </div>
         </header>

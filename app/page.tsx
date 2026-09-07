@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import BrandLogo from "@/components/ui/BrandLogo";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -40,11 +40,11 @@ export default function HomePage() {
 
   async function logout() { await supabase.auth.signOut(); router.replace("/login"); }
 
-  if (loading) return <main className="xb-central"><section className="xb-central-loading"><Image src="/xpacebox-logo-light.svg" alt="XPACEBOX" width={900} height={220} priority /><p>Carregando sua central</p></section></main>;
+  if (loading) return <main className="xb-central"><section className="xb-central-loading"><BrandLogo priority /><p>Carregando sua central</p></section></main>;
 
   return (
     <main className="xb-central">
-      <header className="xb-central-topbar"><Image src="/xpacebox-logo-light.svg" alt="XPACEBOX" width={900} height={220} priority /><button type="button" className="xb-topbar-action" onClick={logout}>Sair</button></header>
+      <header className="xb-central-topbar"><BrandLogo priority /><button type="button" className="xb-topbar-action" onClick={logout}>Sair</button></header>
       <section className="xb-central-intro"><span>{role === "platform_owner" ? "Administração" : "Empresas"}</span><h1>Escolha onde trabalhar.</h1><p>Seus painéis, empresas e acessos em um único lugar.</p></section>
       <section className="xb-company-grid" aria-label="Painéis disponíveis">
         {role === "platform_owner" ? <button type="button" className="xb-company-card xb-company-card--admin" onClick={() => router.push("/usuarios")}><small>Administração</small><strong>Usuários</strong><span>Gerenciar acessos</span><i aria-hidden="true">01</i></button> : null}

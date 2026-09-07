@@ -1,3 +1,5 @@
+
+import { ui } from "@/lib/ui/styles";
 import { ReactNode } from "react";
 
 type UserModalProps = {
@@ -21,10 +23,10 @@ export default function UserModal({
 
   return (
     <div style={overlayStyle}>
-      <div style={modalStyle}>
+      <div style={modalStyle} role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
         <span style={eyebrowStyle}>ADMINISTRACAO</span>
 
-        <h2 style={titleStyle}>
+        <h2 id="user-modal-title" style={titleStyle}>
           {modoEdicao ? "EDITAR USUARIO" : "NOVO USUARIO"}
         </h2>
 
@@ -57,18 +59,20 @@ const overlayStyle = {
   display: "grid",
   placeItems: "center",
   zIndex: 999,
-  padding: 28,
+  padding: 16,
   backdropFilter: "blur(8px)",
 };
 
 const modalStyle = {
   width: "100%",
-  maxWidth: 1060,
+  maxWidth: 860,
+  maxHeight: "calc(100dvh - 32px)",
+  overflowY: "auto" as const,
   background: "rgba(255,255,255,.96)",
   border: "1px solid rgba(20,24,39,.12)",
   borderRadius: 28,
-  padding: 48,
-  boxShadow: "0 30px 90px rgba(39,36,67,.22)",
+  padding: "var(--xb-panel-padding)",
+  boxShadow: "none",
 };
 
 const eyebrowStyle = {
@@ -77,15 +81,14 @@ const eyebrowStyle = {
   color: "#6f32d2",
   fontSize: 15,
   fontWeight: 900,
-  letterSpacing: "3px",
+  letterSpacing: 0,
 };
 
 const titleStyle = {
   margin: 0,
   color: "#141827",
-  fontSize: 46,
   fontWeight: 900,
-};
+ ...ui.title };
 
 const dividerStyle = {
   height: 1,
@@ -99,31 +102,24 @@ const actionsStyle = {
   display: "flex",
   justifyContent: "flex-end",
   gap: 14,
-  marginTop: 40,
+  marginTop: 24,
+  paddingTop: 16,
+  borderTop: "1px solid var(--xb-line)",
   flexWrap: "wrap" as const,
 };
 
 const cancelButtonStyle = {
   minWidth: 150,
-  padding: "20px 28px",
-  borderRadius: 16,
   border: "1px solid rgba(20,24,39,.14)",
   background: "#ffffff",
   color: "#344054",
   cursor: "pointer",
-  fontSize: 19,
-  fontWeight: 900,
-};
+ ...ui.button };
 
 const saveButtonStyle = {
-  minWidth: 230,
-  padding: "20px 32px",
+  minWidth: 180,
   border: "none",
-  borderRadius: 16,
   color: "#ffffff",
   cursor: "pointer",
-  fontSize: 19,
-  fontWeight: 900,
   background: "linear-gradient(90deg,#6f32d2,#e63dae,#ff3b25)",
-  boxShadow: "0 16px 34px rgba(230,61,174,.24)",
-};
+ ...ui.button };

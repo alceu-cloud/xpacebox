@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import BrandLogo from "@/components/ui/BrandLogo";
 import { useRouter } from "next/navigation";
 import { ReactNode } from "react";
 
@@ -38,13 +38,7 @@ export default function Header({
           gap: 28,
         }}
       >
-        <Image
-          src="/xpacebox-logo-dark.svg"
-          alt="XPACEBOX"
-          width={190}
-          height={90}
-          priority
-        />
+        <BrandLogo priority className="xb-brand-logo--light-surface" />
 
         <div
           style={{

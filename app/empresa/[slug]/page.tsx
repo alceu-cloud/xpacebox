@@ -1,10 +1,13 @@
 "use client";
 
+import { ui } from "@/lib/ui/styles";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
+import ModuleNavigation from "@/components/ui/ModuleNavigation";
+import WorkspaceWelcome from "@/components/ui/WorkspaceWelcome";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
 import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
@@ -217,30 +220,11 @@ export default function EmpresaPage() {
 
   return (
     <main className="xb-operating-shell">
-      <nav className="xb-module-strip" aria-label="Módulos da empresa">
-        <div className="xb-module-strip-heading"><span>Módulos</span><strong>Ambiente {slug.toUpperCase()}</strong></div>
-        <div className="xb-module-list">
-              {modulosDisponiveis.map((modulo) => {
-                const ativo = modulo.key === moduloEmExibicao;
-                return (
-                  <button
-                    key={modulo.key}
-                    type="button"
-                    onClick={() => setModuloAtivo(modulo.key)}
-                    className={`xb-module-chip${ativo ? " is-active" : ""}`}
-                    aria-current={ativo ? "page" : undefined}
-                  >
-                    <i aria-hidden="true">{String(modulos.indexOf(modulo) + 1).padStart(2, "0")}</i>
-                    <span><strong>{modulo.nome}</strong><small>{modulo.descricao}</small></span>
-                  </button>
-                );
-              })}
-        </div>
-      </nav>
+      <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onSelect={setModuloAtivo} />
 
-      <section className="xb-workspace">
+      <section className={`xb-workspace${!moduloSelecionado ? " xb-workspace--welcome" : ""}`}>
         {!moduloSelecionado ? (
-          <EmptyWorkspace />
+          <WorkspaceWelcome />
         ) : (
           <div className="xb-workspace-header">
             <div>
@@ -465,16 +449,6 @@ function QuoteContinuationModal({
         </div>
       </section>
     </div>
-  );
-}
-
-function EmptyWorkspace() {
-  return (
-    <section className="xb-empty-workspace">
-      <span>Comece por aqui</span>
-      <h1>Escolha um módulo para trabalhar.</h1>
-      <p>A navegação fica sempre disponível acima, sem menus ocultos.</p>
-    </section>
   );
 }
 
@@ -2277,7 +2251,7 @@ const sidebarDockStyle = {
   display: "flex",
   alignItems: "center",
   pointerEvents: "none" as const,
-};
+ flexWrap: "wrap" as const };
 
 const sidebarStyle = {
   width: 294,
@@ -2287,7 +2261,7 @@ const sidebarStyle = {
   transition: "transform .22s ease",
   filter: "drop-shadow(0 22px 42px rgba(39,36,67,.14))",
   pointerEvents: "auto" as const,
-};
+ flexWrap: "wrap" as const };
 
 const sidebarContentStyle = {
   width: 252,
@@ -2310,21 +2284,18 @@ const sidebarHandleStyle = {
   color: "#fff",
   fontSize: 13,
   fontWeight: 900,
-  letterSpacing: "1px",
+  letterSpacing: 0,
   writingMode: "vertical-rl" as const,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-};
+ flexWrap: "wrap" as const };
 
 const sidebarHeaderStyle = { display: "grid", gap: 8, padding: "6px 6px 16px" };
-const sidebarEyebrowStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 3 };
-const sidebarTitleStyle = { color: "#141827", fontSize: 21, fontWeight: 900 };
+const sidebarEyebrowStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 0 };
+const sidebarTitleStyle = { color: "#141827", fontWeight: 900 , ...ui.title };
 const moduleListStyle = { display: "grid", gap: 11 };
 const moduleButtonStyle = {
-  minHeight: 78,
-  padding: 0,
-  borderRadius: 16,
   border: "1px solid rgba(52,64,84,.12)",
   background: "rgba(255,255,255,.72)",
   color: "#141827",
@@ -2333,49 +2304,49 @@ const moduleButtonStyle = {
   overflow: "hidden",
   cursor: "pointer",
   textAlign: "left" as const,
-};
+ ...ui.button, minWidth: 0 };
 const activeModuleButtonStyle = { background: "linear-gradient(145deg,rgba(111,50,210,.08),rgba(255,59,37,.06)),#fff", boxShadow: "0 14px 30px rgba(39,36,67,.10)" };
 const moduleAccentStyle = { width: "100%", height: "100%" };
 const moduleTextStyle = { display: "grid", alignContent: "center", gap: 7, padding: "0 18px" };
-const moduleNameStyle = { fontSize: 17, fontWeight: 900, letterSpacing: 1 };
-const moduleDescriptionStyle = { color: "#667085", fontSize: 11, fontWeight: 900, lineHeight: 1.25, letterSpacing: 1 };
+const moduleNameStyle = { fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const moduleDescriptionStyle = { color: "#667085", fontSize: 11, fontWeight: 900, lineHeight: 1.25, letterSpacing: 0 };
 
 const workspaceStyle = {
   minHeight: 640,
   borderRadius: 28,
   border: "1px solid rgba(52,64,84,.18)",
   background: "rgba(255,255,255,.86)",
-  boxShadow: "0 24px 60px rgba(39,36,67,.10)",
+  boxShadow: "none",
   padding: 34,
   boxSizing: "border-box" as const,
 };
-const workspaceHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, marginBottom: 30 };
-const workspaceEyebrowStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 3 };
-const workspaceTitleStyle = { margin: "8px 0 0", color: "#141827", fontSize: 40, fontWeight: 900 };
-const workspaceSubtitleStyle = { margin: "8px 0 0", color: "#667085", fontSize: 18, fontWeight: 800, letterSpacing: 1 };
+const workspaceHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, marginBottom: 30 , flexWrap: "wrap" as const };
+const workspaceEyebrowStyle = { color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 0 };
+const workspaceTitleStyle = { margin: "8px 0 0", color: "#141827", fontWeight: 900 , ...ui.title };
+const workspaceSubtitleStyle = { margin: "8px 0 0", color: "#667085", fontSize: 16, fontWeight: 800, letterSpacing: 0 };
 const emptyWorkspaceStyle = { minHeight: 520, display: "grid", placeItems: "center", alignContent: "center", gap: 16, position: "relative" as const };
-const arrowHintStyle = { position: "absolute" as const, left: -20, top: 82, color: "#e6007e", fontSize: 64, fontWeight: 900, animation: "none" };
-const emptyBadgeStyle = { minHeight: 42, padding: "0 22px", display: "inline-grid", placeItems: "center", borderRadius: 999, background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", color: "#fff", fontSize: 15, fontWeight: 900, letterSpacing: 2 };
-const emptyTitleStyle = { maxWidth: 760, margin: 0, color: "#141827", fontSize: 42, fontWeight: 900, textAlign: "center" as const };
-const emptyTextStyle = { margin: 0, color: "#667085", fontSize: 18, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
+const arrowHintStyle = { position: "absolute" as const, left: -20, top: 82, color: "#e6007e", fontSize: 16, fontWeight: 900, animation: "none" };
+const emptyBadgeStyle = { minHeight: 42, padding: "0 22px", display: "inline-grid", placeItems: "center", borderRadius: 999, background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", color: "#fff", fontSize: 15, fontWeight: 900, letterSpacing: 0 };
+const emptyTitleStyle = { maxWidth: 760, margin: 0, color: "#141827", fontWeight: 900, textAlign: "center" as const , ...ui.title };
+const emptyTextStyle = { margin: 0, color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 0, textAlign: "center" as const };
 
-const pricingCardStyle = { width: "90%", maxWidth: "none", margin: "0 auto", padding: 36, borderRadius: 24, border: "1px solid rgba(52,64,84,.18)", background: "#fff", boxShadow: "0 20px 46px rgba(39,36,67,.08)" };
+const pricingCardStyle = { margin: "0 auto", ...ui.shell };
 const pricingIntroStyle = { marginBottom: 28 };
-const pricingTitleStyle = { margin: 0, color: "#141827", fontSize: 30, fontWeight: 900 };
-const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 17, fontWeight: 800 };
-const stepsStyle = { display: "grid", gridTemplateColumns: "repeat(6,1fr)", alignItems: "center", gap: 8, borderRadius: 999, padding: 8, background: "#eef2f7", border: "1px solid rgba(52,64,84,.12)", boxShadow: "inset 0 1px 5px rgba(39,36,67,.08)", marginBottom: 34 };
-const stepButtonStyle = { minHeight: 66, width: "100%", minWidth: 0, border: "none", borderRadius: 999, background: "transparent", color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 1, lineHeight: 1.25, whiteSpace: "normal" as const, textAlign: "center" as const, cursor: "pointer" };
+const pricingTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
+const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 16, fontWeight: 800 };
+const stepsStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))", alignItems: "center", marginBottom: 34 , ...ui.tabs, minWidth: 0 };
+const stepButtonStyle = { width: "100%", minWidth: 0, border: "none", background: "transparent", color: "#667085", lineHeight: 1.25, textAlign: "center" as const, cursor: "pointer" , ...ui.button };
 const activeStepButtonStyle = { background: "linear-gradient(135deg,#8b36e8,#6f32d2)", color: "#fff", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
-const sectionLabelStyle = { margin: "22px 0 14px", color: "#141827", fontSize: 17, fontWeight: 900, letterSpacing: 1 };
-const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 };
-const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(260px,1fr))", gap: 18, maxWidth: 760 };
-const optionCardStyle = { minHeight: 184, borderRadius: 16, border: "1px solid rgba(52,64,84,.18)", background: "#fff", display: "grid", placeItems: "center", alignContent: "center", gap: 8, color: "#141827", cursor: "pointer", padding: 18 };
+const sectionLabelStyle = { margin: "22px 0 14px", color: "#141827", ...ui.label };
+const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 18 , minWidth: 0 };
+const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 18, maxWidth: 760 , minWidth: 0 };
+const optionCardStyle = { minHeight: 184, display: "grid", placeItems: "center", alignContent: "center", gap: 8, color: "#141827", cursor: "pointer", ...ui.frame };
 const activeOptionStyle = { border: "1px solid #e6007e", background: "rgba(255,0,135,.04)", boxShadow: "0 18px 36px rgba(230,0,126,.12)" };
 const warmOptionStyle = { border: "1px solid #e68019", background: "rgba(230,128,25,.06)" };
 const optionImageStyle = { width: 132, height: 92, display: "grid", placeItems: "center" };
 const optionSvgStyle = { width: "100%", height: "100%", display: "block", filter: "drop-shadow(0 12px 18px rgba(230,128,25,.16))" };
-const optionTitleStyle = { fontSize: 18, fontWeight: 900, textAlign: "center" as const };
-const optionSubtitleStyle = { color: "#667085", fontSize: 13, fontWeight: 800, textAlign: "center" as const, letterSpacing: 1 };
+const optionTitleStyle = { fontWeight: 900, textAlign: "center" as const , ...ui.title };
+const optionSubtitleStyle = { color: "#667085", fontSize: 13, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0 };
 
 const formulaSummaryStyle = {
   marginTop: 26,
@@ -2384,10 +2355,10 @@ const formulaSummaryStyle = {
   border: "1px solid rgba(111,50,210,.16)",
   background: "linear-gradient(135deg,rgba(111,50,210,.06),rgba(230,61,174,.04),rgba(255,59,37,.04))",
   display: "grid",
-  gridTemplateColumns: "auto 1fr 1.4fr 1.4fr",
+  gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))",
   alignItems: "center",
   gap: 16,
-};
+ minWidth: 0 };
 const formulaBadgeStyle = {
   minHeight: 44,
   padding: "0 16px",
@@ -2399,17 +2370,13 @@ const formulaBadgeStyle = {
   fontSize: 16,
   fontWeight: 900,
 };
-const formulaSummaryTitleStyle = { color: "#141827", fontSize: 21, fontWeight: 900 };
-const formulaSummaryTextStyle = { color: "#667085", fontSize: 18, fontWeight: 900, textAlign: "center" as const };
+const formulaSummaryTitleStyle = { color: "#141827", fontWeight: 900 , ...ui.title };
+const formulaSummaryTextStyle = { color: "#667085", fontSize: 16, fontWeight: 900, textAlign: "center" as const };
 const dimensionsPanelStyle = {
   display: "grid",
   gap: 24,
-  padding: 28,
-  borderRadius: 20,
-  border: "1px solid rgba(230,0,126,.22)",
-  background: "rgba(255,255,255,.88)",
-};
-const dimensionHeroStyle = { display: "grid", gridTemplateColumns: "330px 1fr", gap: 28, alignItems: "stretch" };
+ ...ui.section };
+const dimensionHeroStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 28, alignItems: "stretch" , minWidth: 0 };
 const dimensionControlsStyle = { display: "grid", gap: 22, alignContent: "start" };
 const dimensionDrawingStyle = {
   minHeight: 304,
@@ -2421,23 +2388,23 @@ const dimensionDrawingStyle = {
   justifyItems: "center",
   gap: 12,
   padding: 22,
-  boxShadow: "0 18px 36px rgba(230,128,25,.08)",
+  boxShadow: "none",
 };
 const dimensionSvgStyle = { width: "100%", maxWidth: 280, height: 240, display: "block", filter: "drop-shadow(0 14px 20px rgba(230,128,25,.16))" };
 const dimensionLegendStyle = {
   width: "100%",
   display: "grid",
-  gridTemplateColumns: "repeat(3,1fr)",
+  gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))",
   gap: 8,
   color: "#667085",
   fontSize: 12,
   fontWeight: 900,
-  letterSpacing: 1,
+  letterSpacing: 0,
   textAlign: "center" as const,
-};
-const dimensionTitleStyle = { margin: "8px 0 0", color: "#141827", fontSize: 34, fontWeight: 900 };
-const dimensionSubtitleStyle = { margin: "8px 0 0", color: "#667085", fontSize: 18, fontWeight: 900 };
-const dimensionGridStyle = { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 };
+ minWidth: 0 };
+const dimensionTitleStyle = { margin: "8px 0 0", color: "#141827", fontWeight: 900 , ...ui.title };
+const dimensionSubtitleStyle = { margin: "8px 0 0", color: "#667085", fontSize: 16, fontWeight: 900 };
+const dimensionGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 18 , minWidth: 0 };
 const dimensionFieldStyle = {
   minHeight: 116,
   padding: 18,
@@ -2449,7 +2416,7 @@ const dimensionFieldStyle = {
   gap: 10,
 };
 const disabledDimensionFieldStyle = { opacity: 0.42, background: "#f2f4f7" };
-const dimensionLabelStyle = { color: "#344054", fontSize: 17, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
+const dimensionLabelStyle = { color: "#344054", textAlign: "center" as const , ...ui.label };
 const dimensionInputStyle = {
   width: "100%",
   height: 54,
@@ -2475,7 +2442,7 @@ const dimensionAlertStyle = {
   placeItems: "center",
   textAlign: "center" as const,
 };
-const formulaResultGridStyle = { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 14 };
+const formulaResultGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))", gap: 14 , minWidth: 0 };
 const formulaResultStyle = {
   minHeight: 112,
   padding: 16,
@@ -2490,21 +2457,17 @@ const formulaResultStyle = {
 };
 const formulaResultHighlightStyle = { border: "1px solid rgba(0,166,81,.28)", background: "rgba(0,166,81,.06)" };
 const formulaResultAccentStyle = { border: "1px solid rgba(0,135,215,.28)", background: "rgba(0,135,215,.06)" };
-const formulaResultLabelStyle = { color: "#667085", fontSize: 14, fontWeight: 900, letterSpacing: 1 };
+const formulaResultLabelStyle = { color: "#667085", ...ui.label };
 const formulaResultValueStyle = { color: "#141827", fontSize: 19, fontWeight: 900, lineHeight: 1.25 };
 const formulaResultSecondaryValueStyle = { color: "#6f32d2", fontSize: 18, fontWeight: 900, lineHeight: 1.15 };
 const lotPanelStyle = {
   display: "grid",
   gap: 26,
-  padding: 30,
-  borderRadius: 22,
-  border: "1px solid rgba(230,0,126,.22)",
-  background: "rgba(255,255,255,.88)",
-};
+ ...ui.section };
 const lotHeaderStyle = { display: "grid", gap: 8 };
-const lotTitleStyle = { margin: 0, color: "#141827", fontSize: 34, fontWeight: 900 };
-const lotSubtitleStyle = { margin: 0, color: "#667085", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
-const lotBodyStyle = { display: "grid", gridTemplateColumns: "1.35fr .65fr", gap: 24, alignItems: "stretch" };
+const lotTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
+const lotSubtitleStyle = { margin: 0, color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const lotBodyStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 24, alignItems: "stretch" , minWidth: 0 };
 const lotControlCardStyle = {
   minHeight: 230,
   borderRadius: 20,
@@ -2514,10 +2477,10 @@ const lotControlCardStyle = {
   display: "grid",
   alignContent: "center",
   gap: 26,
-  boxShadow: "0 18px 36px rgba(39,36,67,.06)",
+  boxShadow: "none",
 };
-const lotLabelStyle = { color: "#141827", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
-const lotSliderRowStyle = { display: "grid", gridTemplateColumns: "1fr 190px", gap: 24, alignItems: "center" };
+const lotLabelStyle = { color: "#141827", ...ui.label };
+const lotSliderRowStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 24, alignItems: "center" , minWidth: 0 };
 const lotRangeStyle = { width: "100%", accentColor: "#e68019", cursor: "pointer" };
 const lotQuantityBoxStyle = {
   height: 70,
@@ -2528,7 +2491,7 @@ const lotQuantityBoxStyle = {
   gridTemplateColumns: "1fr 64px",
   alignItems: "center",
   overflow: "hidden",
-};
+ minWidth: 0 };
 const lotQuantityInputStyle = {
   width: "100%",
   height: "100%",
@@ -2541,7 +2504,7 @@ const lotQuantityInputStyle = {
   textAlign: "center" as const,
 };
 const lotUnitStyle = { height: "100%", display: "grid", placeItems: "center", color: "#667085", fontSize: 14, fontWeight: 900, borderLeft: "1px solid rgba(52,64,84,.12)" };
-const lotHintStyle = { margin: 0, color: "#667085", fontSize: 15, fontWeight: 900, letterSpacing: 1 };
+const lotHintStyle = { margin: 0, color: "#667085", fontSize: 15, fontWeight: 900, letterSpacing: 0 };
 const lotChartCardStyle = {
   minHeight: 230,
   borderRadius: 20,
@@ -2552,27 +2515,23 @@ const lotChartCardStyle = {
   gap: 18,
   alignContent: "center",
 };
-const lotChartHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", color: "#6f32d2", fontSize: 15, fontWeight: 900, letterSpacing: 1 };
+const lotChartHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", color: "#6f32d2", fontSize: 15, fontWeight: 900, letterSpacing: 0 , flexWrap: "wrap" as const };
 const lotBarsStyle = { height: 132, display: "flex", alignItems: "end", justifyContent: "center", gap: 10 };
 const lotBarStyle = {
   width: 24,
   borderRadius: "10px 10px 4px 4px",
   background: "linear-gradient(180deg,#8b36e8,#e63dae,#ff3b25)",
-  boxShadow: "0 10px 18px rgba(230,61,174,.16)",
+  boxShadow: "none",
 };
-const lotChartFooterStyle = { display: "flex", justifyContent: "space-between", color: "#667085", fontSize: 12, fontWeight: 900, letterSpacing: 1 };
+const lotChartFooterStyle = { display: "flex", justifyContent: "space-between", color: "#667085", fontSize: 12, fontWeight: 900, letterSpacing: 0 , flexWrap: "wrap" as const };
 const companyPanelStyle = {
   display: "grid",
   gap: 28,
-  padding: 30,
-  borderRadius: 22,
-  border: "1px solid rgba(230,0,126,.22)",
-  background: "rgba(255,255,255,.88)",
-};
+ ...ui.section };
 const companyHeaderStyle = { display: "grid", gap: 8 };
-const companyTitleStyle = { margin: 0, color: "#141827", fontSize: 34, fontWeight: 900 };
-const companySubtitleStyle = { margin: 0, color: "#667085", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
-const companyGridStyle = { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 };
+const companyTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
+const companySubtitleStyle = { margin: 0, color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const companyGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 18 , minWidth: 0 };
 const companyCardStyle = {
   minHeight: 172,
   borderRadius: 18,
@@ -2585,37 +2544,33 @@ const companyCardStyle = {
   padding: 20,
   color: "#141827",
   cursor: "pointer",
-  boxShadow: "0 16px 32px rgba(39,36,67,.06)",
+  boxShadow: "none",
 };
 const activeCompanyCardStyle = { border: "1px solid #e6007e", background: "rgba(255,0,135,.04)", boxShadow: "0 20px 40px rgba(230,0,126,.12)" };
 const companyIconStyle = { width: 54, height: 54, display: "grid", placeItems: "center" };
 const companyIconSvgStyle = { width: "100%", height: "100%", display: "block", filter: "drop-shadow(0 10px 14px rgba(39,36,67,.10))" };
-const companyCardTitleStyle = { fontSize: 20, fontWeight: 900, textAlign: "center" as const };
-const companyCardTextStyle = { color: "#667085", fontSize: 13, fontWeight: 900, textAlign: "center" as const, letterSpacing: 1 };
+const companyCardTitleStyle = { fontWeight: 900, textAlign: "center" as const , ...ui.title };
+const companyCardTextStyle = { color: "#667085", fontSize: 13, fontWeight: 900, textAlign: "center" as const, letterSpacing: 0 };
 const companyTaxCardStyle = {
   borderRadius: 18,
   border: "1px solid rgba(111,50,210,.18)",
   background: "linear-gradient(145deg,rgba(111,50,210,.05),rgba(255,255,255,.92),rgba(230,128,25,.06))",
   padding: 24,
   display: "grid",
-  gridTemplateColumns: "260px 1fr",
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   gap: 24,
   alignItems: "center",
-};
-const companyTaxEyebrowStyle = { display: "block", color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 3, marginBottom: 8 };
-const companyTaxTitleStyle = { color: "#141827", fontSize: 28, fontWeight: 900 };
-const companyTaxGridStyle = { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 };
+ minWidth: 0 };
+const companyTaxEyebrowStyle = { display: "block", color: "#6f32d2", fontSize: 13, fontWeight: 900, letterSpacing: 0, marginBottom: 8 };
+const companyTaxTitleStyle = { color: "#141827", fontWeight: 900 , ...ui.title };
+const companyTaxGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-5), minmax(0, 1fr))", gap: 12 , minWidth: 0 };
 const companyTaxItemStyle = { minHeight: 88, borderRadius: 14, border: "1px solid rgba(52,64,84,.12)", background: "rgba(255,255,255,.78)", display: "grid", placeItems: "center", alignContent: "center", gap: 8, textAlign: "center" as const };
-const companyTaxLabelStyle = { color: "#667085", fontSize: 13, fontWeight: 900, letterSpacing: 1 };
+const companyTaxLabelStyle = { color: "#667085", ...ui.label };
 const companyTaxValueStyle = { fontSize: 22, fontWeight: 900 };
 const priceSummaryPanelStyle = {
   display: "grid",
   gap: 24,
-  padding: 30,
-  borderRadius: 22,
-  border: "1px solid rgba(230,0,126,.22)",
-  background: "rgba(255,255,255,.9)",
-};
+ ...ui.section };
 const priceBadgeStyle = {
   width: "fit-content",
   padding: "8px 18px",
@@ -2625,17 +2580,17 @@ const priceBadgeStyle = {
   color: "#e6007e",
   fontSize: 14,
   fontWeight: 900,
-  letterSpacing: 2,
+  letterSpacing: 0,
 };
-const priceSummaryTitleStyle = { margin: 0, color: "#141827", fontSize: 34, fontWeight: 900 };
-const priceSummarySubtitleStyle = { margin: "-10px 0 0", color: "#667085", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
+const priceSummaryTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
+const priceSummarySubtitleStyle = { margin: "-10px 0 0", color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
 const priceOverviewStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(0,1.35fr) minmax(330px,.65fr)",
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   gap: 34,
   padding: "24px 0 10px",
   borderTop: "1px solid rgba(52,64,84,.10)",
-};
+ minWidth: 0 };
 const priceOverviewMainStyle = { display: "grid", gap: 14, alignContent: "start" };
 const economicMaterialCardStyle = {
   gridColumn: "1 / -1",
@@ -2645,43 +2600,37 @@ const economicMaterialCardStyle = {
   border: "1px solid rgba(230,0,126,.24)",
   background: "linear-gradient(135deg,rgba(255,247,252,.98),rgba(255,255,255,.96))",
   display: "grid",
-  gridTemplateColumns: "minmax(190px,.8fr) minmax(360px,1.4fr) minmax(220px,.7fr)",
+  gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))",
   alignItems: "center",
   gap: 18,
-};
+ minWidth: 0 };
 const economicMaterialCardActiveStyle = {
   border: "1px solid rgba(0,166,81,.30)",
   background: "linear-gradient(135deg,rgba(240,253,244,.98),rgba(255,255,255,.96))",
 };
 const economicMaterialHeaderStyle = { display: "grid", gap: 7 };
-const economicMaterialEyebrowStyle = { color: "#e6007e", fontSize: 12, fontWeight: 900, letterSpacing: 1.3 };
-const economicMaterialCodeStyle = { color: "#6f32d2", fontSize: 21, fontWeight: 900 };
-const economicMaterialMetricsStyle = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 };
+const economicMaterialEyebrowStyle = { color: "#e6007e", fontSize: 12, fontWeight: 900, letterSpacing: 0 };
+const economicMaterialCodeStyle = { color: "#6f32d2", fontSize: 16, fontWeight: 900 };
+const economicMaterialMetricsStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 14 , minWidth: 0 };
 const economicMaterialMetricStyle = { display: "grid", gap: 5, color: "#141827", fontSize: 16, fontWeight: 900 };
-const economicMaterialLabelStyle = { color: "#667085", fontSize: 11, fontWeight: 900, letterSpacing: 1 };
+const economicMaterialLabelStyle = { color: "#667085", ...ui.label };
 const economicMaterialButtonStyle = {
-  minHeight: 46,
-  padding: "10px 16px",
-  borderRadius: 10,
   border: "none",
   background: "linear-gradient(100deg,#8b2ee8,#e6007e,#ff4b2b)",
   color: "#fff",
-  fontSize: 13,
-  fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "0 10px 22px rgba(230,0,126,.16)",
-};
-const economicMaterialRestoreButtonStyle = { background: "#fff", color: "#6f32d2", border: "1px solid rgba(111,50,210,.28)", boxShadow: "none" };
+ ...ui.button };
+const economicMaterialRestoreButtonStyle = { background: "#fff", color: "#6f32d2", border: "1px solid rgba(111,50,210,.28)", ...ui.button };
 const priceInfoRowStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(250px,.8fr) 1fr",
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   alignItems: "center",
   gap: 18,
   color: "#667085",
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: 900,
-  letterSpacing: 1,
-};
+  letterSpacing: 0,
+ minWidth: 0 };
 const productionOverviewStyle = {
   minWidth: 0,
   borderLeft: "1px solid rgba(111,50,210,.18)",
@@ -2692,23 +2641,23 @@ const productionOverviewStyle = {
 };
 const missingProductionStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))",
+  gridTemplateColumns: "repeat(auto-fit,minmax(min(100%, 300px),1fr))",
   gap: 24,
   alignItems: "center",
   padding: 24,
   borderRadius: 16,
   border: "1px solid rgba(230,128,25,.38)",
   background: "linear-gradient(135deg,rgba(255,247,237,.96),rgba(255,237,213,.72))",
-  boxShadow: "0 16px 34px rgba(230,128,25,.08)",
-};
+  boxShadow: "none",
+ minWidth: 0 };
 const missingProductionReadyStyle = {
   border: "1px solid rgba(0,166,81,.30)",
   background: "linear-gradient(135deg,rgba(240,253,244,.96),rgba(220,252,231,.72))",
 };
 const missingProductionCopyStyle = { display: "grid", gap: 9 };
-const missingProductionEyebrowStyle = { color: "#c45f00", fontSize: 15, fontWeight: 900, letterSpacing: 2 };
-const missingProductionTitleStyle = { margin: 0, color: "#141827", fontSize: 23, fontWeight: 900, lineHeight: 1.25 };
-const missingProductionTextStyle = { margin: 0, color: "#667085", fontSize: 16, fontWeight: 800, lineHeight: 1.55, letterSpacing: 0.5 };
+const missingProductionEyebrowStyle = { color: "#c45f00", fontSize: 15, fontWeight: 900, letterSpacing: 0 };
+const missingProductionTitleStyle = { margin: 0, color: "#141827", fontWeight: 900, ...ui.title };
+const missingProductionTextStyle = { margin: 0, color: "#667085", fontSize: 16, fontWeight: 800, lineHeight: 1.55, letterSpacing: 0 };
 const manualCapacityFieldStyle = {
   minHeight: 148,
   padding: 18,
@@ -2719,14 +2668,14 @@ const manualCapacityFieldStyle = {
   alignContent: "center",
   gap: 10,
 };
-const manualCapacityLabelStyle = { color: "#141827", fontSize: 17, fontWeight: 900, letterSpacing: 1, textAlign: "center" as const };
-const manualCapacityInputRowStyle = { display: "grid", gridTemplateColumns: "minmax(0,1fr) 82px", alignItems: "center", overflow: "hidden", borderRadius: 12, border: "1px solid rgba(230,128,25,.34)", background: "#fff" };
+const manualCapacityLabelStyle = { color: "#141827", textAlign: "center" as const , ...ui.label };
+const manualCapacityInputRowStyle = { display: "grid", gridTemplateColumns: "minmax(0,1fr) 82px", alignItems: "center", overflow: "hidden", borderRadius: 12, border: "1px solid rgba(230,128,25,.34)", background: "#fff" , minWidth: 0 };
 const manualCapacityInputStyle = { width: "100%", height: 58, border: "none", outline: "none", background: "transparent", color: "#141827", fontSize: 26, fontWeight: 900, textAlign: "center" as const };
-const manualCapacitySuffixStyle = { height: "100%", display: "grid", placeItems: "center", borderLeft: "1px solid rgba(230,128,25,.22)", color: "#c45f00", fontSize: 18, fontWeight: 900 };
-const manualCapacityHelpStyle = { color: "#667085", fontSize: 12, fontWeight: 900, letterSpacing: 1.2, textAlign: "center" as const };
-const productionOverviewEyebrowStyle = { color: "#6f32d2", fontSize: 15, fontWeight: 900, letterSpacing: 1.4 };
-const productionMetricRowStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18 };
-const productionMetricLabelStyle = { color: "#667085", fontSize: 17, fontWeight: 900, letterSpacing: 1 };
+const manualCapacitySuffixStyle = { height: "100%", display: "grid", placeItems: "center", borderLeft: "1px solid rgba(230,128,25,.22)", color: "#c45f00", fontSize: 16, fontWeight: 900 };
+const manualCapacityHelpStyle = { color: "#667085", fontSize: 12, fontWeight: 900, letterSpacing: 0, textAlign: "center" as const };
+const productionOverviewEyebrowStyle = { color: "#6f32d2", fontSize: 15, fontWeight: 900, letterSpacing: 0 };
+const productionMetricRowStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18 , flexWrap: "wrap" as const };
+const productionMetricLabelStyle = { color: "#667085", ...ui.label };
 const productionMetricValueStyle = { fontSize: 23, fontWeight: 900, whiteSpace: "nowrap" as const };
 const zeroSetupToggleStyle = {
   width: "fit-content",
@@ -2734,23 +2683,23 @@ const zeroSetupToggleStyle = {
   alignItems: "center",
   gap: 11,
   color: "#141827",
-  fontSize: 17,
+  fontSize: 16,
   fontWeight: 900,
-  letterSpacing: 1,
+  letterSpacing: 0,
   cursor: "pointer",
 };
-const productionToggleRowStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", alignItems: "center", gap: 12 };
+const productionToggleRowStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", alignItems: "center", gap: 12 , minWidth: 0 };
 const compactProductionToggleStyle = {
   ...zeroSetupToggleStyle,
   width: "100%",
   gap: 7,
   fontSize: 12,
-  letterSpacing: 0.4,
+  letterSpacing: 0,
   whiteSpace: "nowrap" as const,
 };
 const zeroSetupCheckboxStyle = { width: 23, height: 23, margin: 0, accentColor: "#e6007e", cursor: "pointer" };
 const additionalCostsCheckboxStyle = { ...zeroSetupCheckboxStyle, accentColor: "#6f32d2" };
-const configuredSetupNoteStyle = { marginTop: -10, color: "#9b59d0", fontSize: 13, fontWeight: 900, letterSpacing: 1 };
+const configuredSetupNoteStyle = { marginTop: -10, color: "#9b59d0", fontSize: 13, fontWeight: 900, letterSpacing: 0 };
 const configuredAdditionalCostsNoteStyle = { ...configuredSetupNoteStyle, color: "#6f32d2" };
 const productionDividerStyle = { height: 1, background: "rgba(230,0,126,.12)" };
 const productionCapacityOverrideStyle = {
@@ -2763,10 +2712,7 @@ const productionCapacityOverrideStyle = {
 };
 const productionCapacityOverrideLabelStyle = {
   color: "#667085",
-  fontSize: 13,
-  fontWeight: 900,
-  letterSpacing: 1,
-};
+ ...ui.label };
 const productionCapacityOverrideInputRowStyle = {
   display: "grid",
   gridTemplateColumns: "minmax(0,1fr) 64px",
@@ -2775,7 +2721,7 @@ const productionCapacityOverrideInputRowStyle = {
   borderRadius: 10,
   border: "1px solid rgba(0,135,215,.28)",
   background: "#fff",
-};
+ minWidth: 0 };
 const productionCapacityOverrideInputStyle = {
   width: "100%",
   height: 44,
@@ -2804,10 +2750,10 @@ const priceStandardPanelStyle = {
   display: "grid",
   gap: 22,
 };
-const priceStandardHeaderStyle = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" };
-const priceStandardTitleStyle = { color: "#00a651", fontSize: 20, fontWeight: 900, letterSpacing: 1 };
-const priceExpensesBadgeStyle = { color: "#00a651", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
-const priceAnalysisGridStyle = { display: "grid", gridTemplateColumns: "minmax(320px,.82fr) 1fr", gap: 24, alignItems: "stretch" };
+const priceStandardHeaderStyle = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" , flexWrap: "wrap" as const };
+const priceStandardTitleStyle = { color: "#00a651", fontWeight: 900, ...ui.title };
+const priceExpensesBadgeStyle = { color: "#00a651", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const priceAnalysisGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 24, alignItems: "stretch" , minWidth: 0 };
 const priceHighlightStackStyle = { display: "grid", gap: 14 };
 const priceHighlightPinkStyle = {
   minHeight: 92,
@@ -2820,9 +2766,9 @@ const priceHighlightPinkStyle = {
   alignContent: "center",
   gap: 8,
   textAlign: "center" as const,
-  fontSize: 20,
+  fontSize: 16,
   fontWeight: 900,
-  letterSpacing: 1,
+  letterSpacing: 0,
 };
 const priceHighlightBlueStyle = {
   ...priceHighlightPinkStyle,
@@ -2830,7 +2776,7 @@ const priceHighlightBlueStyle = {
   background: "linear-gradient(135deg,#e0f2fe,#bae6fd)",
   color: "#0087d7",
 };
-const priceHighlightLabelStyle = { fontSize: 18, fontWeight: 900, letterSpacing: 1 };
+const priceHighlightLabelStyle = { ...ui.label };
 const priceHighlightValueStyle = { fontSize: 34, fontWeight: 900, lineHeight: 1 };
 const priceMetricStyle = {
   minHeight: 62,
@@ -2843,10 +2789,10 @@ const priceMetricStyle = {
   gap: 14,
   padding: "0 22px",
   color: "#be185d",
-  fontSize: 20,
+  fontSize: 16,
   fontWeight: 900,
-  letterSpacing: 1,
-};
+  letterSpacing: 0,
+ flexWrap: "wrap" as const };
 const priceMetricValueStyle = { fontSize: 24, fontWeight: 900 };
 const priceDetailsCardStyle = {
   borderRadius: 18,
@@ -2863,10 +2809,10 @@ const priceDetailStyle = {
   gap: 18,
   borderBottom: "1px solid rgba(230,0,126,.12)",
   color: "#141827",
-  fontSize: 21,
+  fontSize: 16,
   fontWeight: 900,
-  letterSpacing: 1,
-};
+  letterSpacing: 0,
+ flexWrap: "wrap" as const };
 const simulatorPanelStyle = {
   borderRadius: 20,
   border: "1px solid rgba(111,50,210,.28)",
@@ -2875,14 +2821,14 @@ const simulatorPanelStyle = {
   display: "grid",
   gap: 22,
 };
-const simulatorHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "end", gap: 18 };
-const simulatorHeaderActionsStyle = { display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 8 };
-const simulatorEyebrowStyle = { color: "#6f32d2", fontSize: 17, fontWeight: 900, letterSpacing: 2 };
-const simulatorTitleStyle = { margin: "7px 0 0", color: "#141827", fontSize: 25, fontWeight: 900 };
-const simulatorExpensesStyle = { color: "#e68019", fontSize: 18, fontWeight: 900, letterSpacing: 1 };
-const pricingActionButtonStyle = { minHeight: 38, padding: "0 14px", border: "1px solid rgba(230,61,174,.28)", borderRadius: 10, color: "#d60078", background: "#fff", fontSize: 11, fontWeight: 900, letterSpacing: .8, cursor: "pointer" };
+const simulatorHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "end", gap: 18 , flexWrap: "wrap" as const };
+const simulatorHeaderActionsStyle = { display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 8 , flexWrap: "wrap" as const };
+const simulatorEyebrowStyle = { color: "#6f32d2", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const simulatorTitleStyle = { margin: "7px 0 0", color: "#141827", fontWeight: 900 , ...ui.title };
+const simulatorExpensesStyle = { color: "#e68019", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const pricingActionButtonStyle = { border: "1px solid rgba(230,61,174,.28)", color: "#d60078", background: "#fff", cursor: "pointer" , ...ui.button };
 const pricingSendMessageStyle = { margin: "14px 0", padding: "11px 14px", borderRadius: 10, background: "rgba(0,156,75,.08)", color: "#008f48", fontSize: 13, fontWeight: 900 };
-const simulatorGridStyle = { display: "grid", gridTemplateColumns: "1.15fr repeat(3,1fr)", gap: 16 };
+const simulatorGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))", gap: 16 , minWidth: 0 };
 const simulatorInputCardStyle = {
   minHeight: 116,
   borderRadius: 17,
@@ -2894,7 +2840,7 @@ const simulatorInputCardStyle = {
   gap: 10,
   padding: 16,
 };
-const simulatorInputLabelStyle = { color: "#be185d", fontSize: 19, fontWeight: 900, letterSpacing: 1 };
+const simulatorInputLabelStyle = { color: "#be185d", ...ui.label };
 const simulatorInputRowStyle = { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#be185d", fontSize: 22, fontWeight: 900 };
 const simulatorInputStyle = {
   width: 128,
@@ -2920,7 +2866,7 @@ const simulatorResultCardStyle = {
   padding: 16,
   textAlign: "center" as const,
 };
-const simulatorResultLabelStyle = { color: "#667085", fontSize: 19, fontWeight: 900, letterSpacing: 1 };
+const simulatorResultLabelStyle = { color: "#667085", ...ui.label };
 const simulatorResultValueStyle = { color: "#6f32d2", fontSize: 28, fontWeight: 900 };
 const simulatorToneStyles: Record<SimulatorTone, { border: string; background: string; color: string; boxShadow: string }> = {
   red: {
@@ -2942,14 +2888,14 @@ const simulatorToneStyles: Record<SimulatorTone, { border: string; background: s
     boxShadow: "0 14px 30px rgba(22,163,74,.10)",
   },
 };
-const inverseSimulatorGridStyle = { display: "grid", gridTemplateColumns: "1.35fr repeat(2,1fr)", gap: 16, alignItems: "stretch" };
+const inverseSimulatorGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 16, alignItems: "stretch" , minWidth: 0 };
 const inverseInputCardStyle = {
   ...simulatorInputCardStyle,
   minHeight: 172,
   gridTemplateColumns: "1fr auto",
   columnGap: 18,
-};
-const inverseResultLabelStyle = { marginTop: 4, color: "#be185d", fontSize: 19, fontWeight: 900, letterSpacing: 1 };
+ minWidth: 0 };
+const inverseResultLabelStyle = { marginTop: 4, color: "#be185d", ...ui.label };
 const inverseResultValueStyle = { color: "#be185d", fontSize: 31, fontWeight: 900, lineHeight: 1 };
 const simulatorDetailsStyle = {
   borderRadius: 16,
@@ -2957,9 +2903,9 @@ const simulatorDetailsStyle = {
   background: "rgba(255,255,255,.72)",
   padding: "10px 20px",
   display: "grid",
-  gridTemplateColumns: "repeat(2,1fr)",
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   columnGap: 32,
-};
+ minWidth: 0 };
 const simulatorPendingStyle = {
   minHeight: 76,
   borderRadius: 14,
@@ -2970,9 +2916,9 @@ const simulatorPendingStyle = {
   display: "grid",
   placeItems: "center",
   textAlign: "center" as const,
-  fontSize: 17,
+  fontSize: 16,
   fontWeight: 900,
-  letterSpacing: 1,
+  letterSpacing: 0,
 };
 const requiredLotStyle = {
   minHeight: 96,
@@ -2984,34 +2930,24 @@ const requiredLotStyle = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 24,
-};
-const requiredLotEyebrowStyle = { color: "#c45f00", fontSize: 17, fontWeight: 900, letterSpacing: 1 };
-const requiredLotTextStyle = { margin: "8px 0 0", color: "#667085", fontSize: 15, fontWeight: 900, letterSpacing: 1 };
+ flexWrap: "wrap" as const };
+const requiredLotEyebrowStyle = { color: "#c45f00", fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const requiredLotTextStyle = { margin: "8px 0 0", color: "#667085", fontSize: 15, fontWeight: 900, letterSpacing: 0 };
 const requiredLotValueStyle = { color: "#00a651", fontSize: 29, fontWeight: 900, whiteSpace: "nowrap" as const };
-const requiredLotNoSetupStyle = { display: "grid", gap: 7, color: "#00a651", textAlign: "right" as const, fontSize: 17, fontWeight: 900, letterSpacing: 1 };
-const requiredLotImpossibleStyle = { display: "grid", gap: 7, color: "#dc2626", textAlign: "right" as const, fontSize: 17, fontWeight: 900, letterSpacing: 1 };
+const requiredLotNoSetupStyle = { display: "grid", gap: 7, color: "#00a651", textAlign: "right" as const, fontSize: 16, fontWeight: 900, letterSpacing: 0 };
+const requiredLotImpossibleStyle = { display: "grid", gap: 7, color: "#dc2626", textAlign: "right" as const, fontSize: 16, fontWeight: 900, letterSpacing: 0 };
 const materialStepStyle = { display: "grid", gap: 18 };
 const pricingModeStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-  gap: 10,
-  padding: 7,
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   marginBottom: 18,
-  borderRadius: 18,
-  border: "1px solid rgba(111,50,210,.18)",
-  background: "#f3f5fa",
-};
+ ...ui.tabs, minWidth: 0 };
 const pricingModeButtonStyle = {
-  minHeight: 52,
   border: "1px solid transparent",
-  borderRadius: 14,
   background: "transparent",
   color: "#667085",
-  fontSize: 16,
-  fontWeight: 900,
-  letterSpacing: 1,
   cursor: "pointer",
-};
+ ...ui.tab };
 const activePricingModeStyle = {
   background: "linear-gradient(135deg,#8b36e8,#6f32d2)",
   color: "#fff",
@@ -3020,14 +2956,10 @@ const activePricingModeStyle = {
 const engineeringSelectionPanelStyle = {
   display: "grid",
   gap: 22,
-  padding: 26,
-  borderRadius: 18,
-  border: "1px solid rgba(230,0,126,.26)",
-  background: "linear-gradient(145deg,rgba(255,0,135,.035),rgba(255,255,255,.82))",
-};
-const engineeringSelectionTitleStyle = { margin: "8px 0 0", color: "#141827", fontSize: 30, fontWeight: 900 };
-const engineeringSelectionGridStyle = { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 18 };
-const engineeringSelectionLabelStyle = { display: "grid", gap: 9, color: "#141827", fontSize: 16, fontWeight: 900, letterSpacing: 1 };
+ ...ui.section };
+const engineeringSelectionTitleStyle = { margin: "8px 0 0", color: "#141827", fontWeight: 900 , ...ui.title };
+const engineeringSelectionGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 18 , minWidth: 0 };
+const engineeringSelectionLabelStyle = { display: "grid", gap: 9, color: "#141827", ...ui.label };
 const engineeringSelectionInputStyle = {
   minHeight: 56,
   borderRadius: 13,
@@ -3041,32 +2973,27 @@ const engineeringSelectionInputStyle = {
 };
 const engineeringFichaSummaryStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+  gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))",
   gap: 14,
   padding: 18,
   borderRadius: 15,
   border: "1px solid rgba(111,50,210,.18)",
   background: "rgba(255,255,255,.82)",
-};
+ minWidth: 0 };
 const engineeringFichaSummaryItemStyle = { display: "grid", gap: 6 };
-const engineeringSelectionAlertStyle = { padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(220,38,38,.24)", background: "#fff1f2", color: "#c62828", fontSize: 14, fontWeight: 900, letterSpacing: 1 };
-const engineeringSelectionActionsStyle = { display: "flex", justifyContent: "flex-end" };
-const engineeringContinueButtonStyle = { minHeight: 50, padding: "0 22px", border: 0, borderRadius: 13, background: "linear-gradient(135deg,#8b36e8,#ff3b25)", color: "#fff", fontSize: 16, fontWeight: 900, letterSpacing: 1 };
+const engineeringSelectionAlertStyle = { padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(220,38,38,.24)", background: "#fff1f2", color: "#c62828", fontSize: 14, fontWeight: 900, letterSpacing: 0 };
+const engineeringSelectionActionsStyle = { display: "flex", justifyContent: "flex-end" , flexWrap: "wrap" as const };
+const engineeringContinueButtonStyle = { border: 0, background: "linear-gradient(135deg,#8b36e8,#ff3b25)", color: "#fff", ...ui.button };
 const selectFieldStyle = { display: "grid", gap: 10 };
-const selectLabelStyle = { color: "#141827", fontSize: 17, fontWeight: 900, letterSpacing: 1 };
+const selectLabelStyle = { color: "#141827", ...ui.label };
 const selectStyle = {
   width: "100%",
-  minHeight: 58,
-  borderRadius: 14,
   border: "1px solid rgba(52,64,84,.18)",
   background: "#fff",
   color: "#141827",
-  padding: "0 18px",
-  fontSize: 20,
-  fontWeight: 900,
   outline: "none",
-};
-const materialHelpStyle = { margin: "-2px 0 8px", color: "#667085", fontSize: 15, fontWeight: 800, letterSpacing: 1 };
+ ...ui.field };
+const materialHelpStyle = { margin: "-2px 0 8px", color: "#667085", fontSize: 15, fontWeight: 800, letterSpacing: 0 };
 const materialSummaryStyle = {
   padding: 20,
   borderRadius: 16,
@@ -3075,18 +3002,18 @@ const materialSummaryStyle = {
   display: "grid",
   gap: 18,
 };
-const materialSummaryTitleStyle = { color: "#e6007e", fontSize: 17, fontWeight: 900, letterSpacing: 2 };
-const materialSummaryGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 18, alignItems: "center" };
-const materialSummaryGridAlternativeStyle = { gridTemplateColumns: "repeat(6,1fr) 8px 1fr" };
+const materialSummaryTitleStyle = { color: "#e6007e", fontWeight: 900, ...ui.title };
+const materialSummaryGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 18, alignItems: "center" , minWidth: 0 };
+const materialSummaryGridAlternativeStyle = { gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))" , minWidth: 0 };
 const alternativesListStyle = { display: "grid", gap: 14 };
 const alternativeRowStyle = {
   display: "grid",
-  gridTemplateColumns: "44px repeat(6,1fr) 8px 1fr",
+  gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))",
   gap: 14,
   alignItems: "center",
   padding: "16px 0",
   borderTop: "1px solid rgba(230,0,126,.14)",
-};
+ minWidth: 0 };
 const alternativeRankStyle = {
   width: 38,
   height: 38,
@@ -3095,20 +3022,20 @@ const alternativeRankStyle = {
   placeItems: "center",
   background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)",
   color: "#fff",
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: 900,
 };
 const summaryValueStyle = { display: "grid", gap: 8, alignContent: "center", justifyItems: "center", textAlign: "center" as const };
-const summaryLabelStyle = { color: "#667085", fontSize: 16, fontWeight: 900, letterSpacing: 2 };
+const summaryLabelStyle = { color: "#667085", ...ui.label };
 const summaryStrongStyle = { color: "#141827", fontSize: 24, fontWeight: 900 };
-const summarySuffixStyle = { color: "#667085", fontSize: 13, fontWeight: 900, letterSpacing: 1 };
+const summarySuffixStyle = { color: "#667085", fontSize: 13, fontWeight: 900, letterSpacing: 0 };
 const economyDividerStyle = {
   width: 8,
   minHeight: 76,
   borderRadius: 999,
   background: "linear-gradient(180deg,#8b36e8,#e63dae,#ff3b25)",
   justifySelf: "center",
-  boxShadow: "0 10px 22px rgba(230,61,174,.18)",
+  boxShadow: "none",
 };
 
 const quoteModalOverlayStyle = {
@@ -3157,20 +3084,18 @@ const quoteModalEyebrowStyle = {
   color: "#8b36e8",
   fontSize: 14,
   fontWeight: 900,
-  letterSpacing: 2,
+  letterSpacing: 0,
 };
 const quoteModalTitleStyle = {
   margin: "10px 0 0",
   color: "#141827",
-  fontSize: 27,
   fontWeight: 900,
-  letterSpacing: 0,
-};
+ ...ui.title };
 const quoteModalTextStyle = {
   maxWidth: 470,
   margin: "15px 0 0",
   color: "#667085",
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: 800,
   lineHeight: 1.5,
   letterSpacing: 0,
@@ -3179,36 +3104,23 @@ const quoteModalActionsStyle = {
   width: "100%",
   marginTop: 30,
   display: "grid",
-  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
   gap: 13,
-};
+ minWidth: 0 };
 const quoteModalContinueButtonStyle = {
-  minHeight: 56,
-  borderRadius: 14,
   border: 0,
   background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)",
   color: "#fff",
-  boxShadow: "0 14px 28px rgba(230,61,174,.20)",
-  padding: "0 18px",
-  fontSize: 15,
-  fontWeight: 900,
-  letterSpacing: 0,
   cursor: "pointer",
-};
+ ...ui.button };
 const quoteModalFinishButtonStyle = {
-  minHeight: 56,
-  borderRadius: 14,
   border: "1px solid rgba(111,50,210,.24)",
   background: "#fff",
   color: "#6f32d2",
-  padding: "0 18px",
-  fontSize: 15,
-  fontWeight: 900,
-  letterSpacing: 0,
   cursor: "pointer",
-};
+ ...ui.button };
 
 const placeholderStyle = { minHeight: 430, display: "grid", placeItems: "center", alignContent: "center", gap: 16, borderRadius: 22, border: "1px solid rgba(52,64,84,.12)", background: "rgba(255,255,255,.72)" };
 const placeholderIconStyle = { width: 84, height: 84, borderRadius: 22, display: "grid", placeItems: "center", color: "#fff", fontSize: 28, fontWeight: 900 };
-const placeholderTitleStyle = { margin: 0, color: "#141827", fontSize: 34, fontWeight: 900 };
-const placeholderTextStyle = { maxWidth: 520, margin: 0, color: "#667085", fontSize: 18, fontWeight: 800, textAlign: "center" as const, lineHeight: 1.45 };
+const placeholderTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
+const placeholderTextStyle = { maxWidth: 520, margin: 0, color: "#667085", fontSize: 16, fontWeight: 800, textAlign: "center" as const, lineHeight: 1.45 };

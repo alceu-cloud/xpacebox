@@ -1,6 +1,8 @@
 "use client";
 
-import Image from "next/image";
+import { ui } from "@/lib/ui/styles";
+import BrandLogo from "@/components/ui/BrandLogo";
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -143,34 +145,27 @@ export default function UsuariosPage() {
   }
 
   return (
-    <main style={pageStyle}>
+    <main className="xb-users">
       <section style={panelStyle}>
-        <header style={headerStyle}>
-          <Image
-            src="/xpacebox-logo-light.svg"
-            alt="XPACEBOX"
-            width={900}
-            height={220}
-            priority
-            style={logoStyle}
-          />
+        <header className="xb-central-topbar">
+          <BrandLogo priority />
 
-          <button onClick={() => router.push("/")} style={backButtonStyle}>
+          <button onClick={() => router.push("/")} className="xb-topbar-action">
             VOLTAR A CENTRAL
           </button>
         </header>
 
-        <div style={dividerStyle} />
-
-        <section style={heroStyle}>
+        <section className="xb-users-toolbar">
+          <div>
           <span style={eyebrowStyle}>ADMINISTRACAO</span>
           <h1 style={titleStyle}>USUARIOS</h1>
           <p style={descriptionStyle}>
             CADASTRE E GERENCIE OS ACESSOS DA PLATAFORMA.
           </p>
 
-          <button onClick={abrirNovo} style={actionButtonStyle}>
-            NOVO USUARIO
+          </div>
+          <button onClick={abrirNovo} className="xb-users-create">
+            <Plus size={18} aria-hidden="true" /> NOVO USUARIO
           </button>
         </section>
 
@@ -215,23 +210,16 @@ const pageStyle = {
 };
 
 const panelStyle = {
-  width: "100%",
-  maxWidth: 1280,
   margin: "0 auto",
-  padding: "54px 64px",
-  borderRadius: 32,
-  background: "rgba(255,255,255,.9)",
-  border: "1px solid rgba(20,24,39,.12)",
-  boxShadow: "0 30px 90px rgba(39,36,67,.16)",
   backdropFilter: "blur(24px)",
-};
+ ...ui.shell };
 
 const headerStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 24,
-};
+ flexWrap: "wrap" as const };
 
 const logoStyle = {
   width: "520px",
@@ -240,16 +228,11 @@ const logoStyle = {
 };
 
 const backButtonStyle = {
-  padding: "18px 34px",
-  borderRadius: 16,
   border: "1px solid rgba(111,50,210,.18)",
   background: "#ffffff",
   color: "#6f32d2",
-  fontWeight: 900,
-  fontSize: 22,
   cursor: "pointer",
-  boxShadow: "0 12px 28px rgba(39,36,67,.1)",
-};
+ ...ui.button };
 
 const dividerStyle = {
   height: 1,
@@ -269,34 +252,28 @@ const eyebrowStyle = {
   color: "#6f32d2",
   fontSize: 16,
   fontWeight: 900,
-  letterSpacing: "3px",
+  letterSpacing: 0,
 };
 
 const titleStyle = {
   margin: 0,
   color: "#141827",
-  fontSize: 54,
   fontWeight: 900,
-};
+ ...ui.title };
 
 const descriptionStyle = {
   margin: "12px 0 28px",
   color: "#667085",
-  fontSize: 20,
+  fontSize: 16,
   fontWeight: 800,
 };
 
 const actionButtonStyle = {
-  padding: "20px 36px",
-  borderRadius: 18,
   border: "none",
   cursor: "pointer",
   color: "#ffffff",
-  fontSize: 22,
-  fontWeight: 900,
   background: "linear-gradient(90deg,#6f32d2,#e63dae,#ff3b25)",
-  boxShadow: "0 16px 34px rgba(230,61,174,.24)",
-};
+ ...ui.button };
 
 const cardsAreaStyle = {
   marginTop: 38,

@@ -1,0 +1,90 @@
+/* Geometry is shared across modules; status colors remain in their module rules. */
+.xb-brand-logo { display: block; width: 240px; max-width: 100%; height: auto; object-fit: contain; }
+.xb-central-topbar > .xb-brand-logo, .xb-login-brand .xb-brand-logo { width: 260px; }
+.xb-company-actions .xb-brand-logo { width: 184px; }
+.xb-brand-logo--light-surface { background: #fff; border-radius: 14px; }
+.xb-welcome {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-height: 460px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #15191f;
+  color: #fff;
+}
+.xb-welcome-art { position: absolute; inset: -3%; z-index: -2; animation: xb-technology-drift 18s ease-in-out infinite alternate; }
+.xb-welcome-art img { object-fit: cover; }
+.xb-welcome::after { content: ""; position: absolute; inset: 0; z-index: -1; background: #0c101b30; }
+.xb-welcome-copy { display: grid; justify-items: center; gap: 20px; padding: 64px 28px; text-align: center; }
+.xb-welcome-copy > span { font-size: 13px; font-weight: 600; color: #cdeaff; letter-spacing: 0; }
+.xb-welcome-copy h1 { margin: 0; max-width: 900px; color: #fff; font-size: 52px; font-family: "Chillax", sans-serif; font-weight: 650; line-height: 1.12; letter-spacing: 0; text-transform: none; text-wrap: balance; }
+.xb-welcome-copy p { margin: 0; color: #e3e4f1; font-size: 15px; text-transform: none; }
+.xb-welcome-motion { position: absolute; bottom: 18px; right: 18px; display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #ffffff55; border-radius: 50%; background: #15191faa; color: #fff; cursor: pointer; }
+.xb-welcome-motion:hover { background: #443158; }
+.xb-welcome[data-paused="true"] .xb-welcome-art { animation-play-state: paused; }
+@keyframes xb-technology-drift { from { transform: scale(1) translate3d(-.5%, 0, 0); } to { transform: scale(1.06) translate3d(.5%, -.7%, 0); } }
+
+.xb-users { width: min(100%, 1440px); margin: 0 auto; padding: 24px 32px 60px; }
+.xb-users-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 36px 0 24px; border-bottom: 1px solid var(--xb-line); }
+.xb-users-toolbar h1 { margin: 6px 0; font-size: 32px; }
+.xb-users-toolbar p { margin: 0; color: var(--xb-quiet); font-size: 13px; }
+.xb-users-toolbar span { color: var(--xb-accent); font-size: 11px; }
+.xb-users-create { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; background: var(--xb-accent); color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+:where(.xb-workspace, .xb-users, .xb-company-content) :where(input, select, textarea, button) { font-family: inherit; }
+:where(.xb-workspace, .xb-users, .xb-company-content) :where(button, input, select, textarea):focus-visible { outline: 3px solid #a580df; outline-offset: 3px; }
+:where(.xb-workspace, .xb-users) :where(button):disabled { cursor: not-allowed; }
+:where(.xb-workspace, .xb-users) :where(h1, h2, h3, label, button) { overflow-wrap: anywhere; }
+.xb-workspace .clients-module, .xb-workspace .crm-shell { padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+.xb-workspace .clients-cnpj-band, .xb-workspace .clients-list-section { border: 0; border-top: 1px solid var(--xb-line); border-radius: 0; padding: 24px 0; }
+.xb-workspace .crm-field input, .xb-workspace .crm-field select, .xb-workspace .clients-field input, .xb-workspace .clients-field select { min-height: 44px; }
+.xb-workspace .crm-form-actions button, .xb-workspace .crm-customer-actions button { min-height: 42px; }
+.xb-workspace .reports-domain-nav, .xb-workspace .reports-category-nav { border-radius: 24px; }
+.xb-workspace .reports-domain-button, .xb-workspace .reports-category-button { border-radius: 999px; }
+.xb-workspace .crm-list-panel, .xb-workspace .crm-detail-panel { border-color: var(--xb-line); }
+.xb-workspace .crm-detail-panel { padding: 22px; }
+.xb-workspace .crm-call-row, .xb-workspace .crm-opportunity-card { border-radius: 18px; }
+.xb-workspace .clients-tab, .xb-workspace .crm-nav button { border-radius: 999px; }
+.xb-company-content { padding-top: 24px; }
+.xb-workspace-header { margin-bottom: 22px; }
+.xb-central-intro { min-width: 0; }
+.xb-central-intro h1 { min-width: 0; overflow-wrap: anywhere; }
+.xb-login-options { flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  :root { --xb-cols-3: 2; --xb-cols-4: 2; --xb-cols-5: 3; --xb-cols-6: 3; }
+  .xb-welcome-copy h1 { font-size: 44px; }
+  .xb-module-chip { padding: 10px 16px; }
+}
+@media (max-width: 680px) {
+  .xb-central-intro h1 { font-size: 38px; }
+  .xb-central-topbar > .xb-brand-logo { width: 180px; }
+  .xb-login-brand .xb-brand-logo { width: 240px; }
+  :root { --xb-cols-2: 1; --xb-cols-3: 1; --xb-cols-4: 1; --xb-cols-5: 2; --xb-cols-6: 2; --xb-panel-padding: 16px; --xb-section-padding: 20px 0; }
+  .xb-company-brand { min-width: 0; }
+  .xb-company-logo { width: 112px; }
+  .xb-company-actions { gap: 6px; }
+  .xb-company-topbar { gap: 10px; position: static; }
+  .xb-platform-logo { display: none; }
+  .xb-topbar-action, .xb-topbar-link { padding: 0 13px; }
+  .xb-module-chip { flex-basis: calc(50% - 4px); padding: 10px 8px; gap: 7px; }
+  .xb-module-chip strong { font-size: 10px; }
+  .xb-module-strip { gap: 10px; padding-bottom: 16px; }
+  .xb-module-list { padding: 0; }
+  .xb-operating-shell { gap: 18px; }
+  .xb-welcome { min-height: 370px; border-radius: 22px; }
+  .xb-welcome-copy { gap: 16px; padding: 48px 20px 64px; }
+  .xb-welcome-copy h1 { font-size: 32px; }
+  .xb-welcome-copy p { font-size: 13px; max-width: 240px; }
+  .xb-welcome-art img { object-position: 45% center; }
+  .xb-workspace-header h1 { font-size: 28px; }
+  .xb-workspace .crm-detail-panel { padding: 16px; }
+  .xb-users { padding: 14px 16px 40px; }
+  .xb-users-toolbar { padding-top: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xb-welcome-art { animation: none; }
+  .xb-module-chip, .xb-company-card { transition: none; }
+}
