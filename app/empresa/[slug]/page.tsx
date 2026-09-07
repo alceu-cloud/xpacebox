@@ -51,8 +51,18 @@ const etapasPreco = ["MATERIAIS", "TIPO DE CAIXA", "CONFIGURAR DIMENSOES", "LOTE
 type PricingStep = (typeof etapasPreco)[number];
 type PricingMode = "direct" | "engineering";
 type EngineeringPricingStep = "CLIENTE / PRODUTO" | "LOTE & LOGISTICA" | "VER PRECO";
-type BoxCategory = "maleta" | "corte-vinco" | "tabuleiro";
-type BoxModelKey = "caixa-4-abas" | "caixa-4-abas-transpasse" | "corte-vinco-geral" | "caixa-sedex" | "tabuleiro";
+type BoxCategory = "maleta" | "corte-vinco" | "envoltoria" | "tabuleiro";
+type BoxModelKey = string;
+type BoxIllustrationType = "maleta" | "sedex" | "tabuleiro" | "transpasse";
+type BoxDimensionMode = "full" | "hide-height" | "disabled-height";
+type BoxModelOption = {
+  key: BoxModelKey;
+  title: string;
+  subtitle: string;
+  formulaId: string;
+  image: BoxIllustrationType;
+  dimensionMode: BoxDimensionMode;
+};
 type SellerCompanyKey = "dawos" | "carcat" | "gta";
 
 const sellerCompanies: Array<{
@@ -74,36 +84,114 @@ const sellerCompanies: Array<{
 ];
 
 const categoryOptions: Array<{
-  key: BoxCategory;
+  key?: BoxCategory;
   title: string;
   subtitle: string;
-  image: "maleta" | "sedex" | "tabuleiro" | "transpasse";
+  image: BoxIllustrationType;
+  disabled?: boolean;
 }> = [
-  { key: "maleta", title: "CAIXA MALETA", subtitle: "MODELOS RSC COMUNS", image: "maleta" },
-  { key: "corte-vinco", title: "CORTE & VINCO", subtitle: "MODELOS ESPECIAIS", image: "sedex" },
-  { key: "tabuleiro", title: "TABULEIRO", subtitle: "CHAPAS PLANAS (C x L)", image: "tabuleiro" },
+  { key: "maleta", title: "Caixa maleta", subtitle: "Modelos RSC comuns", image: "maleta" },
+  { key: "corte-vinco", title: "Corte & vinco", subtitle: "Modelos especiais", image: "sedex" },
+  { key: "envoltoria", title: "Caixa envoltória", subtitle: "Abas e transpasses", image: "transpasse" },
+  { key: "tabuleiro", title: "Tabuleiro", subtitle: "Chapas planas (C x L)", image: "tabuleiro" },
+  { title: "Em desenvolvimento", subtitle: "Nova categoria", image: "maleta", disabled: true },
+  { title: "Em desenvolvimento", subtitle: "Nova categoria", image: "sedex", disabled: true },
 ];
 
-const modelOptions: Record<BoxCategory, Array<{
-  key: BoxModelKey;
-  title: string;
-  subtitle: string;
-  formulaId: string;
-  image: "maleta" | "sedex" | "tabuleiro" | "transpasse";
-  dimensionMode: "full" | "hide-height" | "disabled-height";
-}>> = {
+const defaultModelOptions: Record<BoxCategory, BoxModelOption[]> = {
   maleta: [
-    { key: "caixa-4-abas", title: "CAIXA 4 ABAS", subtitle: "MODELO CLASSICO RSC", formulaId: "mn-b", image: "maleta", dimensionMode: "full" },
-    { key: "caixa-4-abas-transpasse", title: "CAIXA 4 ABAS - TRANSPASSE TOTAL", subtitle: "ABAS COBREM TODO O TOPO E TODO O FUNDO", formulaId: "mt-b", image: "transpasse", dimensionMode: "full" },
+    { key: "caixa-4-abas", title: "Caixa 4 abas", subtitle: "Modelo clássico RSC", formulaId: "mn-b", image: "maleta", dimensionMode: "full" },
+    { key: "caixa-4-abas-transpasse", title: "Caixa 4 abas - transpasse total", subtitle: "Abas cobrem todo o topo e fundo", formulaId: "mt-b", image: "transpasse", dimensionMode: "full" },
   ],
   "corte-vinco": [
-    { key: "corte-vinco-geral", title: "CORTE E VINCO GERAL", subtitle: "MODELO SEM ALTURA", formulaId: "cv-geral", image: "tabuleiro", dimensionMode: "disabled-height" },
-    { key: "caixa-sedex", title: "CAIXA SEDEX", subtitle: "MODELO COM COMPRIMENTO, LARGURA E ALTURA", formulaId: "sedex-b", image: "sedex", dimensionMode: "full" },
+    { key: "corte-vinco-geral", title: "Corte e vinco geral", subtitle: "Modelo sem altura", formulaId: "cv-geral", image: "tabuleiro", dimensionMode: "disabled-height" },
+    { key: "caixa-sedex", title: "Caixa Sedex", subtitle: "Comprimento, largura e altura", formulaId: "sedex-b", image: "sedex", dimensionMode: "full" },
   ],
   tabuleiro: [
-    { key: "tabuleiro", title: "TABULEIRO", subtitle: "CHAPA PLANA SEM ALTURA", formulaId: "tab-b", image: "tabuleiro", dimensionMode: "disabled-height" },
+    { key: "tabuleiro", title: "Tabuleiro", subtitle: "Chapa plana sem altura", formulaId: "tab-b", image: "tabuleiro", dimensionMode: "disabled-height" },
   ],
+  envoltoria: [],
 };
+
+function normalizeFormulaText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+}
+
+function formulaCategory(formula: EngineeringFormula): BoxCategory | null {
+  const text = normalizeFormulaText(`${formula.category} ${formula.style} ${formula.description}`);
+  if (text.includes("ENVOLTOR")) return "envoltoria";
+  if (text.includes("TABULEIRO")) return "tabuleiro";
+  if (text.includes("MALETA")) return "maleta";
+  if (text.includes("CORTE") || text.includes("VINCO") || text.includes("SEDEX")) return "corte-vinco";
+  return null;
+}
+
+function formulaFamily(formula: EngineeringFormula) {
+  return normalizeFormulaText(formula.description || formula.style)
+    .replace(/\s*-\s*(?:B|BC|BB)$/u, "")
+    .replace(/\s+(?:B|BC|BB)$/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formulaTitle(value: string) {
+  const withoutWave = value.replace(/\s*-\s*(?:B|BC|BB)$/iu, "").replace(/\s+(?:B|BC|BB)$/iu, "").trim();
+  if (!withoutWave) return "Fórmula sem nome";
+  const sentence = withoutWave.toLocaleLowerCase("pt-BR");
+  return sentence.charAt(0).toLocaleUpperCase("pt-BR") + sentence.slice(1);
+}
+
+function formulaImage(category: BoxCategory, formula: EngineeringFormula): BoxIllustrationType {
+  const text = normalizeFormulaText(`${formula.style} ${formula.description}`);
+  if (category === "tabuleiro") return "tabuleiro";
+  if (category === "envoltoria" || text.includes("TRANSPASSE")) return "transpasse";
+  if (text.includes("SEDEX")) return "sedex";
+  return "maleta";
+}
+
+function formulaDimensionMode(category: BoxCategory, formula: EngineeringFormula): BoxDimensionMode {
+  if (category === "tabuleiro" || !formulaUsesDimension(formula, "A")) return "disabled-height";
+  return "full";
+}
+
+function buildModelOptions(formulas: EngineeringFormula[]): Record<BoxCategory, BoxModelOption[]> {
+  const options = Object.fromEntries(
+    (Object.keys(defaultModelOptions) as BoxCategory[]).map((category) => [
+      category,
+      defaultModelOptions[category].filter((model) => formulas.some((formula) => formula.id === model.formulaId)),
+    ])
+  ) as Record<BoxCategory, BoxModelOption[]>;
+
+  const grouped = new Map<string, EngineeringFormula>();
+  for (const formula of formulas) {
+    const category = formulaCategory(formula);
+    if (!category) continue;
+    const family = formulaFamily(formula);
+    const key = `${category}:${family}`;
+    if (!grouped.has(key)) grouped.set(key, formula);
+  }
+
+  for (const formula of grouped.values()) {
+    const category = formulaCategory(formula);
+    if (!category) continue;
+    const family = formulaFamily(formula);
+    const alreadyMapped = options[category].some((model) => {
+      const mappedFormula = formulas.find((candidate) => candidate.id === model.formulaId);
+      return mappedFormula && formulaFamily(mappedFormula) === family;
+    });
+    if (alreadyMapped) continue;
+    options[category].push({
+      key: `${category}:${family.toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/gu, "-")}`,
+      title: formulaTitle(formula.description),
+      subtitle: `Fórmula ${formula.wave || "cadastrada"}`,
+      formulaId: formula.id,
+      image: formulaImage(category, formula),
+      dimensionMode: formulaDimensionMode(category, formula),
+    });
+  }
+
+  return options;
+}
 
 export default function EmpresaPage() {
   const params = useParams();
@@ -515,8 +603,9 @@ function PricingPreview({
     : [];
   const economicAlternative = cheapestAlternatives[0];
   const wave = pricingMaterial?.paperType.includes("BC") || pricingMaterial?.paperType.includes("BB") ? "BC" : "B";
+  const modelOptions = useMemo(() => buildModelOptions(engineeringFormulas), [engineeringFormulas]);
   const currentModels = modelOptions[category];
-  const selectedModel = currentModels.find((model) => model.key === modelKey) ?? currentModels[0];
+  const selectedModel = currentModels.find((model) => model.key === modelKey) ?? currentModels[0] ?? defaultModelOptions.maleta[0];
   const modelFormula = findFormulaForModel(engineeringFormulas, selectedModel.formulaId, wave);
   const engineeringClientFichas = productFichas.filter((ficha) => ficha.clientId === engineeringClientId);
   const selectedEngineeringFicha = productFichas.find((ficha) => ficha.id === engineeringFichaId);
@@ -566,7 +655,8 @@ function PricingPreview({
 
   function chooseCategory(nextCategory: BoxCategory) {
     setCategory(nextCategory);
-    setModelKey(modelOptions[nextCategory][0].key);
+    const firstModel = modelOptions[nextCategory][0];
+    if (firstModel) setModelKey(firstModel.key);
   }
 
   function chooseSupplier(nextSupplierId: string) {
@@ -613,21 +703,13 @@ function PricingPreview({
     }
 
     if (formula) {
-      const formulaId = formula.id.toLowerCase();
-      const formulaText = `${formula.style} ${formula.description} ${formula.category}`.toUpperCase();
-      const isMaleta = formula.category.toUpperCase() === "MALETA" || formulaText.includes("MALETA");
-      const isTabuleiro = formulaId.startsWith("tab-") || formulaText.includes("TABULEIRO");
-      const isTranspasse = formulaId.startsWith("mt-") || formulaText.includes("TRANSPASSE");
-      const nextCategory: BoxCategory = isMaleta ? "maleta" : isTabuleiro ? "tabuleiro" : "corte-vinco";
-      const nextModel: BoxModelKey = isMaleta
-        ? isTranspasse ? "caixa-4-abas-transpasse" : "caixa-4-abas"
-        : formulaId.startsWith("sedex-")
-          ? "caixa-sedex"
-          : isTabuleiro
-            ? "tabuleiro"
-            : "corte-vinco-geral";
+      const nextCategory = formulaCategory(formula) ?? "corte-vinco";
+      const nextModel = modelOptions[nextCategory].find((model) => {
+        const modelFormula = engineeringFormulas.find((candidate) => candidate.id === model.formulaId);
+        return modelFormula && formulaFamily(modelFormula) === formulaFamily(formula);
+      }) ?? modelOptions[nextCategory][0];
       setCategory(nextCategory);
-      setModelKey(nextModel);
+      if (nextModel) setModelKey(nextModel.key);
     }
 
     setDimensions({
@@ -738,21 +820,24 @@ function PricingPreview({
 
       {activeStep === "TIPO DE CAIXA" && (
         <>
-          <div style={sectionLabelStyle}>ESCOLHA A CATEGORIA DA EMBALAGEM:</div>
+          <div style={sectionLabelStyle}>Escolha a categoria da embalagem:</div>
           <div style={categoryGridStyle}>
-            {categoryOptions.map((option) => (
-              <OptionCard
-                key={option.key}
+            {categoryOptions.map((option) => {
+              const categoryKey = option.key;
+              return <OptionCard
+                key={categoryKey ?? option.title}
                 title={option.title}
                 subtitle={option.subtitle}
                 image={option.image}
-                active={option.key === category}
-                onClick={() => chooseCategory(option.key)}
-              />
-            ))}
+                active={categoryKey === category}
+                compact
+                disabled={option.disabled}
+                onClick={categoryKey ? () => chooseCategory(categoryKey) : undefined}
+              />;
+            })}
           </div>
 
-          <div style={sectionLabelStyle}>ESCOLHA O MODELO ESPECIFICO:</div>
+          <div style={sectionLabelStyle}>Escolha o modelo específico:</div>
           <div style={modelGridStyle}>
             {currentModels.map((model) => (
               <OptionCard
@@ -766,8 +851,7 @@ function PricingPreview({
               />
             ))}
           </div>
-
-          <FormulaSummary formula={selectedFormula} />
+          {currentModels.length ? <FormulaSummary formula={selectedFormula} /> : <div style={modelEmptyStyle}>Nenhuma fórmula cadastrada nesta categoria.</div>}
         </>
       )}
 
@@ -883,28 +967,35 @@ function OptionCard({
   image,
   active,
   warm,
+  compact,
+  disabled,
   onClick,
 }: {
   title: string;
   subtitle: string;
-  image: "maleta" | "sedex" | "tabuleiro" | "transpasse";
+  image: BoxIllustrationType;
   active?: boolean;
   warm?: boolean;
+  compact?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       style={{
         ...optionCardStyle,
+        ...(compact ? compactOptionCardStyle : {}),
         ...(active ? activeOptionStyle : {}),
         ...(warm ? warmOptionStyle : {}),
+        ...(disabled ? disabledOptionCardStyle : {}),
       }}
     >
-      <BoxIllustration type={image} />
-      <strong style={optionTitleStyle}>{title}</strong>
-      <small style={optionSubtitleStyle}>{subtitle}</small>
+      <BoxIllustration type={image} compact={compact} />
+      <strong style={{ ...optionTitleStyle, ...(compact ? compactOptionTitleStyle : {}) }}>{title}</strong>
+      <small style={{ ...optionSubtitleStyle, ...(compact ? compactOptionSubtitleStyle : {}) }}>{subtitle}</small>
     </button>
   );
 }
@@ -1159,9 +1250,9 @@ function FormulaSummary({ formula }: { formula: (typeof initialEngineeringFormul
   return (
     <div style={formulaSummaryStyle}>
       <span style={formulaBadgeStyle}>{formula.style}</span>
-      <strong style={formulaSummaryTitleStyle}>{formula.description}</strong>
-      <span style={formulaSummaryTextStyle}>LARGURA: {formula.widthFormula}</span>
-      <span style={formulaSummaryTextStyle}>COMPRIMENTO: {formula.lengthFormula}</span>
+      <strong style={formulaSummaryTitleStyle}>{formulaTitle(formula.description)}</strong>
+      <span style={formulaSummaryTextStyle}>Largura: {formula.widthFormula}</span>
+      <span style={formulaSummaryTextStyle}>Comprimento: {formula.lengthFormula}</span>
     </div>
   );
 }
@@ -1417,7 +1508,7 @@ function PriceSummaryStep({
   onSendToQuote,
 }: {
   sellerCompany: (typeof sellerCompanies)[number];
-  selectedModel: (typeof modelOptions)[BoxCategory][number];
+  selectedModel: BoxModelOption;
   selectedFormula: (typeof initialEngineeringFormulas)[number];
   selectedMaterial?: (typeof initialMaterials)[number];
   originalMaterial?: (typeof initialMaterials)[number];
@@ -2140,20 +2231,7 @@ function findFormulaForModel(formulas: EngineeringFormula[], formulaId: string, 
   const base = formulas.find((formula) => formula.id === formulaId);
   if (!base) return formulas[0] ?? initialEngineeringFormulas[0];
 
-  if (base.category === "MALETA") {
-    const targetId = wave === "BC" ? formulaId.replace("-b", "-bc") : formulaId.replace("-bc", "-b");
-    return formulas.find((formula) => formula.id === targetId) ?? base;
-  }
-
-  if (base.style.startsWith("SEDEX")) {
-    return formulas.find((formula) => formula.id === (wave === "BC" ? "sedex-bc" : "sedex-b")) ?? base;
-  }
-
-  if (base.style.startsWith("TAB")) {
-    return formulas.find((formula) => formula.id === (wave === "BC" ? "tab-bc" : "tab-b")) ?? base;
-  }
-
-  return base;
+  return formulas.find((formula) => formulaFamily(formula) === formulaFamily(base) && normalizeFormulaText(formula.wave) === wave) ?? base;
 }
 
 function parseDecimal(value: string) {
@@ -2185,7 +2263,7 @@ function formatCurrency(value: number) {
   });
 }
 
-function BoxIllustration({ type }: { type: "maleta" | "sedex" | "tabuleiro" | "transpasse" }) {
+function BoxIllustration({ type, compact }: { type: BoxIllustrationType; compact?: boolean }) {
   const lines =
     type === "sedex"
       ? [
@@ -2219,7 +2297,7 @@ function BoxIllustration({ type }: { type: "maleta" | "sedex" | "tabuleiro" | "t
             ];
 
   return (
-    <span style={optionImageStyle}>
+    <span style={{ ...optionImageStyle, ...(compact ? compactOptionImageStyle : {}) }}>
       <svg viewBox="0 0 156 124" aria-hidden="true" style={optionSvgStyle}>
         {lines.map((path) => (
           <path key={path} d={path} fill="none" stroke="#e68019" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
@@ -2348,16 +2426,22 @@ const pricingCardStyle = { margin: "0 auto", ...ui.shell };
 const pricingIntroStyle = { marginBottom: 28 };
 const pricingTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
 const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 16, fontWeight: 800 };
-const sectionLabelStyle = { margin: "18px 0 12px", color: "#141827", ...ui.label };
-const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 14 , minWidth: 0 };
-const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 14, maxWidth: 640 , minWidth: 0 };
+const sectionLabelStyle = { margin: "18px 0 12px", color: "#141827", textTransform: "none" as const, ...ui.label };
+const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))", gap: 10, minWidth: 0 };
+const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 12, maxWidth: 920, minWidth: 0 };
 const optionCardStyle = { minHeight: 150, display: "grid", placeItems: "center", alignContent: "center", gap: 6, color: "#141827", cursor: "pointer", ...ui.frame, padding: 18 };
+const compactOptionCardStyle = { minHeight: 116, gap: 4, padding: 12 };
+const disabledOptionCardStyle = { cursor: "not-allowed", opacity: .45, background: "#f7f7fa" };
 const activeOptionStyle = { border: "1px solid #e6007e", background: "rgba(255,0,135,.04)", boxShadow: "0 18px 36px rgba(230,0,126,.12)" };
 const warmOptionStyle = { border: "1px solid #e68019", background: "rgba(230,128,25,.06)" };
 const optionImageStyle = { width: 106, height: 74, display: "grid", placeItems: "center" };
+const compactOptionImageStyle = { width: 68, height: 46 };
 const optionSvgStyle = { width: "100%", height: "100%", display: "block", filter: "drop-shadow(0 12px 18px rgba(230,128,25,.16))" };
-const optionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 900, textAlign: "center" as const };
-const optionSubtitleStyle = { color: "#667085", fontSize: 11, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0 };
+const optionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 900, textAlign: "center" as const, textTransform: "none" as const };
+const compactOptionTitleStyle = { fontSize: 15, lineHeight: 1.15 };
+const optionSubtitleStyle = { color: "#667085", fontSize: 11, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0, textTransform: "none" as const };
+const compactOptionSubtitleStyle = { fontSize: 9, lineHeight: 1.2 };
+const modelEmptyStyle = { minHeight: 128, display: "grid", placeItems: "center", border: "1px dashed rgba(102,112,133,.42)", borderRadius: 16, color: "#667085", fontSize: 13, fontWeight: 800, textAlign: "center" as const, textTransform: "none" as const, padding: 18 };
 
 const formulaSummaryStyle = {
   marginTop: 26,
@@ -2381,8 +2465,8 @@ const formulaBadgeStyle = {
   fontSize: 16,
   fontWeight: 900,
 };
-const formulaSummaryTitleStyle = { color: "#141827", fontWeight: 900 , ...ui.title };
-const formulaSummaryTextStyle = { color: "#667085", fontSize: 16, fontWeight: 900, textAlign: "center" as const };
+const formulaSummaryTitleStyle = { color: "#141827", fontWeight: 900, textTransform: "none" as const, ...ui.title };
+const formulaSummaryTextStyle = { color: "#667085", fontSize: 16, fontWeight: 900, textAlign: "center" as const, textTransform: "none" as const };
 const dimensionsPanelStyle = {
   display: "grid",
   gap: 24,

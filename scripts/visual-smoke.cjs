@@ -16,6 +16,22 @@ const client = {id:'client-test',clientNumber:1,clientCode:'CLI-000001',legalNam
 const emptyOverview={currentProfileId:user.id,currentProfileName:rep.name,isManager:true,profiles:[],activities:[],telephonyCalls:[],opportunities:[],quotes:[],expiredQuotes:[],whatsappConnections:[]};
 const report={isManager:true,currentProfileId:user.id,clients:[],profiles:[],opportunities:[],activities:[],quotes:[],productFichas:[],materials:[],representatives:[rep],salesGoals:{},lostReasons:[]};
 
+const visualEngineeringFormulas=[
+  ['mn-b','MALETA NORMAL - B','MALETA','B','(L/2)+3 + A+6 + (L/2)+3','C+3 + L+3 + C+3 + L+3 + 30'],
+  ['mn-bc','MALETA NORMAL - BC','MALETA','BC','(L/2)+6 + A+12 + (L/2)+6','C+6 + L+6 + C+6 + L+6 + 35'],
+  ['mn-positive-b','MALETA NORMAL FUNDO POSITIVO - B','MALETA','B','L + A + 12','C + L + 30'],
+  ['mn-positive-bc','MALETA NORMAL FUNDO POSITIVO - BC','MALETA','BC','L + A + 24','C + L + 42'],
+  ['mt-b','MALETA TRANSPASSE TOTAL - B','MALETA','B','L+3 + A+6 + L+3','C+3 + L+3 + C+3 + L+3 + 30'],
+  ['mt-bc','MALETA TRANSPASSE TOTAL - BC','MALETA','BC','L+6 + A+12 + L+6','C+6 + L+6 + C+6 + L+6 + 35'],
+  ['env-trans-b','CAIXA ENVOLTÓRIA ABA TRANSPASSADA - B','CAIXA ENVOLTÓRIA','B','(L/2)+3+S + A+3 + L+6 + A+3 + (L/2)+3+S','C+6 + L+6 + C+6 + L+6 + 35'],
+  ['env-trans-bc','CAIXA ENVOLTÓRIA ABA TRANSPASSADA - BC','CAIXA ENVOLTÓRIA','BC','(L/2)+6+S + A+6 + L+12 + A+6 + (L/2)+6+S','C+12 + L+12 + C+12 + L+12 + 70'],
+  ['cv-geral','CORTE E VINCO GERAL','CORTE-VINCO','B / BC','L + 30','C + 30'],
+  ['sedex-b','CAIXA SEDEX - B','CORTE-VINCO','B','A + L + 30','C + L + 30'],
+  ['sedex-bc','CAIXA SEDEX - BC','CORTE-VINCO','BC','A + L + 60','C + L + 60'],
+  ['tab-b','TABULEIRO - B','ACESSÓRIO','B','L','C'],
+  ['tab-bc','TABULEIRO - BC','ACESSÓRIO','BC','L','C'],
+].map(([id,description,category,wave,widthFormula,lengthFormula])=>({id,style:id.toUpperCase(),description,category,wave,widthFormula,lengthFormula}));
+
 async function setup(browser,viewport,role='platform_owner') {
   const context=await browser.newContext({viewport,deviceScaleFactor:1});
   // Test-only session and network fixtures. No authentication or data changes reach Supabase.
@@ -36,7 +52,7 @@ async function setup(browser,viewport,role='platform_owner') {
     }
     if(url.pathname.startsWith('/api/')) {
       if(req.method()!=='GET'){writes.push(req.method()+' '+url.pathname);return send({success:false,message:'Test blocks writes'});}
-      if(url.pathname==='/api/gerenciador')return send({success:true,settings:{},representatives:[rep]});
+      if(url.pathname==='/api/gerenciador')return send({success:true,settings:{engineeringFormulas:visualEngineeringFormulas},representatives:[rep]});
       if(url.pathname==='/api/clientes')return send({success:true,clients:[client]});
       if(url.pathname==='/api/clientes/opcoes')return send({success:true,options:{sellerCompanies:[company],representatives:[rep]}});
       if(url.pathname==='/api/crm')return send({success:true,overview:emptyOverview});
@@ -144,6 +160,14 @@ async function snapshot(page,name){
           await page.getByRole('button',{name:'PRECO DIRETO',exact:true}).click();
           for (const step of ['TIPO DE CAIXA','CONFIGURAR DIMENSOES','LOTE & LOGISTICA','EMPRESA','VER PRECO']) {
             await page.getByRole('button',{name:step,exact:true}).click();
+            if(step==='TIPO DE CAIXA') {
+              assert.equal(await page.getByRole('button',{name:/^Em desenvolvimento/}).count(),2,'Two unavailable categories are visible');
+              await snapshot(page,`${label}-pricing-categories`);
+              await page.getByRole('button',{name:/^Caixa envoltória/}).click();
+              await snapshot(page,`${label}-pricing-envoltoria-selected`);
+              await page.getByRole('button',{name:/^Caixa envoltória aba transpassada/}).waitFor();
+              await snapshot(page,`${label}-pricing-envoltoria`);
+            }
             if(step==='CONFIGURAR DIMENSOES') {
               const fields=page.locator('.xb-workspace input[type="number"]:enabled');
               for(let i=0;i<Math.min(await fields.count(),3);i++) await fields.nth(i).fill(['450','400','300'][i]);
