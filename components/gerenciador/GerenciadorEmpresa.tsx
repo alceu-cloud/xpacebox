@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowLeft, Boxes, Building2, ClipboardList, DollarSign, FileText, Layers3, Package, Palette, Plug, Settings2, SlidersHorizontal, Target, Timer, Truck, Wrench, type LucideIcon } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import ManagerWelcome from "@/components/ui/ManagerWelcome";
 import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
 
 import {
@@ -360,22 +361,7 @@ export default function GerenciadorEmpresa({
       <main style={pageStyle}>
         <section style={shellStyle}>
           {managerNavigation}
-          <section className="xb-manager-empty">
-            <div className="xb-manager-tech" aria-hidden="true">
-              <span className="xb-manager-tech-ring xb-manager-tech-ring--outer" />
-              <span className="xb-manager-tech-ring xb-manager-tech-ring--middle" />
-              <span className="xb-manager-tech-ring xb-manager-tech-ring--inner" />
-              <span className="xb-manager-tech-node xb-manager-tech-node--one" />
-              <span className="xb-manager-tech-node xb-manager-tech-node--two" />
-              <span className="xb-manager-tech-node xb-manager-tech-node--three" />
-              <div className="xb-manager-tech-core"><Boxes size={34} strokeWidth={1.8} /></div>
-            </div>
-            <div className="xb-manager-empty-copy">
-              <span>GERENCIADOR DA EMPRESA</span>
-              <h2>ESCOLHA UMA AREA PARA CONFIGURAR.</h2>
-              <p>SELECIONE UMA OPCAO ACIMA PARA ABRIR OS CONTROLES.</p>
-            </div>
-          </section>
+          <ManagerWelcome />
         </section>
       </main>
     );

@@ -47,6 +47,7 @@ async function setup(browser,viewport,role='platform_owner') {
     return route.continue();
   });
   const page=await context.newPage();
+  page.setDefaultTimeout(20000);
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   return {context,page,errors,writes};
@@ -93,6 +94,30 @@ async function snapshot(page,name){
         await page.waitForTimeout(350);
         await snapshot(page,`${label}-${key}`);
         if(key==='manager') {
+          const banner=page.locator('.xb-manager-empty');
+          const signal=banner.locator('.xb-manager-signal-track span').first();
+          await banner.scrollIntoViewIfNeeded();
+          await banner.locator('img').evaluate(img=>img.decode());
+          assert.equal(await signal.evaluate(e=>getComputedStyle(e).animationName),'none','Manager respects reduced motion');
+          await page.emulateMedia({reducedMotion:'no-preference'});
+          await page.waitForFunction(()=>document.querySelector('.xb-manager-empty').dataset.paused==='false');
+          const firstFrame=await signal.evaluate(e=>getComputedStyle(e).transform);
+          const firstPixels=await banner.screenshot();
+          await page.waitForTimeout(450);
+          assert.notEqual(await signal.evaluate(e=>getComputedStyle(e).transform),firstFrame,'Manager signal moves');
+          assert.notDeepEqual(await banner.screenshot(),firstPixels,'Manager pixels change');
+          await banner.getByRole('button',{name:'Pausar animação'}).click();
+          await page.waitForTimeout(100);
+          const pausedFrame=await signal.evaluate(e=>getComputedStyle(e).transform);
+          await page.waitForTimeout(250);
+          assert.equal(await signal.evaluate(e=>getComputedStyle(e).transform),pausedFrame,'Manager pause is stable');
+          await snapshot(page,`${label}-manager-motion`);
+          await banner.getByRole('button',{name:'Retomar animação'}).click();
+          await page.waitForTimeout(150);
+          assert.notEqual(await signal.evaluate(e=>getComputedStyle(e).transform),pausedFrame,'Manager resumes');
+          await page.emulateMedia({reducedMotion:'reduce'});
+          await banner.locator('button').waitFor({state:'hidden'});
+          assert.equal(await banner.locator('button').count(),0,'No motion control needed with reduced motion');
           for(const [section,child] of [
             ['CONFIGURACOES DAS EMBALAGENS','TIPOS DE PAPELAO'],
             ['CONFIGURACOES DOS FORNECEDORES','FORNECEDORES'],
@@ -116,6 +141,7 @@ async function snapshot(page,name){
           await snapshot(page,`${label}-portfolio`);
         }
         if(key==='pricing') {
+          await page.getByRole('button',{name:'PRECO DIRETO',exact:true}).click();
           for (const step of ['TIPO DE CAIXA','CONFIGURAR DIMENSOES','LOTE & LOGISTICA','EMPRESA','VER PRECO']) {
             await page.getByRole('button',{name:step,exact:true}).click();
             if(step==='CONFIGURAR DIMENSOES') {
@@ -132,9 +158,10 @@ async function snapshot(page,name){
           await snapshot(page,`${label}-product-accessory`);
         }
         if(key==='reports') {
+          await page.getByRole('button',{name:'COMERCIAL',exact:true}).click();
           await page.getByRole('button',{name:'GESTAO',exact:true}).click();
-          const color=await page.locator('.reports-category-button.is-active').evaluate(e=>getComputedStyle(e).backgroundColor);
-          assert.equal(color,'rgb(217, 47, 140)','Management semantic color');
+          const color=await page.locator('.xb-section-navigation .is-active').evaluate(e=>getComputedStyle(e).backgroundColor);
+          assert.equal(color,'rgb(192, 38, 211)','Current reports navigation color');
           await snapshot(page,`${label}-reports-management`);
         }
       }
