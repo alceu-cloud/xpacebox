@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
+import { CalendarDays, ContactRound, PhoneCall, Target, TrendingUp } from "lucide-react";
 
 import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import TelephonyCallHistory from "@/components/clientes/TelephonyCallHistory";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import SectionNavigation from "@/components/ui/SectionNavigation";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
   CrmActivityInput,
@@ -579,16 +581,20 @@ export default function CrmEmpresa({
         ) : null}
       </header>
 
-      <nav className="crm-nav" aria-label="VISOES DO CRM">
-        {(["agenda", "carteira", "pipeline"] as CrmView[]).map((item) => (
-          <button key={item} type="button" className={view === item ? "crm-nav-active" : ""} onClick={() => {
-            if (item === "carteira" && view !== "carteira") setDetailEntryTab("resumo");
-            setView(item);
-          }}>
-            {item === "agenda" ? "AGENDA" : item === "carteira" ? "CARTEIRA" : "OPORTUNIDADES"}
-          </button>
-        ))}
-      </nav>
+      <SectionNavigation
+        label="VISOES DO CRM"
+        value={view}
+        onChange={(item) => {
+          if (item === "carteira" && view !== "carteira") setDetailEntryTab("resumo");
+          setView(item);
+        }}
+        accent="#8f63f4"
+        items={[
+          { key: "agenda", label: "AGENDA", icon: CalendarDays },
+          { key: "carteira", label: "CARTEIRA", icon: ContactRound },
+          { key: "pipeline", label: "OPORTUNIDADES", icon: TrendingUp },
+        ]}
+      />
 
       {error && <div className="clients-feedback clients-feedback-error">{error}</div>}
       {message && <div className="clients-feedback clients-feedback-success">{message}</div>}
@@ -992,12 +998,20 @@ function ClientDetail({
         </div>
       ) : null}
 
-      <nav className="crm-detail-tabs">
-        <button type="button" className={`crm-contact-tab ${detailTab === "contato" ? "active" : ""}`} onClick={() => setDetailTab("contato")}>REGISTRAR CONTATO</button>
-        {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "resumo" ? "active" : ""} onClick={() => setDetailTab("resumo")}>RESUMO</button> : null}
-        {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "ligacoes" ? "active" : ""} onClick={() => setDetailTab("ligacoes")}>LIGACOES</button> : null}
-        {!mustResolveOverdueAgenda ? <button type="button" className={detailTab === "negocio" ? "active" : ""} onClick={() => setDetailTab("negocio")}>NOVA OPORTUNIDADE</button> : null}
-      </nav>
+      <SectionNavigation
+        label="ACOES DO CLIENTE"
+        value={detailTab}
+        onChange={setDetailTab}
+        accent="#8f63f4"
+        items={[
+          { key: "contato", label: "REGISTRAR CONTATO", icon: PhoneCall },
+          ...(!mustResolveOverdueAgenda ? [
+            { key: "resumo" as const, label: "RESUMO", icon: ContactRound },
+            { key: "ligacoes" as const, label: "LIGACOES", icon: PhoneCall },
+            { key: "negocio" as const, label: "NOVA OPORTUNIDADE", icon: Target },
+          ] : []),
+        ]}
+      />
 
       {detailTab === "resumo" && !mustResolveOverdueAgenda ? (
         <>

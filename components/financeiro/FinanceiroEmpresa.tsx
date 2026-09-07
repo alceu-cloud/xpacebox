@@ -2,9 +2,11 @@
 
 import { ui } from "@/lib/ui/styles";
 import { useEffect, useMemo, useState } from "react";
+import { FileText, Wrench } from "lucide-react";
 
 import { createQuote, deleteQuote, loadLinkableCrmOpportunities, loadQuotes, updateQuote } from "@/lib/orcamentos";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import SectionNavigation from "@/components/ui/SectionNavigation";
 import { loadClientOptions, loadClients } from "@/lib/clientes";
 import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
 import type { EngineeringFormula, ProductFicha, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial } from "@/types/gerenciador";
@@ -419,10 +421,16 @@ export default function FinanceiroEmpresa({
 
   return (
     <section style={shellStyle}>
-      <div style={modeTabsStyle}>
-        <button type="button" onClick={() => changeKind("DIRECT")} style={{ ...modeTabStyle, ...(kind === "DIRECT" ? activeModeTabStyle : {}) }}>ORCAMENTO DIRETO</button>
-        <button type="button" onClick={() => changeKind("ENGINEERING")} style={{ ...modeTabStyle, ...(kind === "ENGINEERING" ? activeModeTabStyle : {}) }}>ORCAMENTO ENGENHARIA</button>
-      </div>
+      <SectionNavigation
+        label="TIPO DE ORCAMENTO"
+        value={kind}
+        onChange={changeKind}
+        accent="#e68019"
+        items={[
+          { key: "DIRECT", label: "ORCAMENTO DIRETO", icon: FileText },
+          { key: "ENGINEERING", label: "ORCAMENTO ENGENHARIA", icon: Wrench },
+        ]}
+      />
 
       <section style={panelStyle}>
         <div style={panelHeaderStyle}>
@@ -688,9 +696,6 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
 }
 
 const shellStyle = { display: "grid", gap: 22 };
-const modeTabsStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", ...ui.tabs, minWidth: 0 };
-const modeTabStyle = { border: "none", background: "transparent", color: "#667085", cursor: "pointer" , ...ui.tab };
-const activeModeTabStyle = { color: "#fff", background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
 const panelStyle = { ...ui.section };
 const panelHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20 , flexWrap: "wrap" as const };
 const formPanelStyle = { ...panelStyle, background: "linear-gradient(135deg,rgba(0,180,90,.06),rgba(255,255,255,.96))", borderColor: "rgba(0,156,75,.30)" };

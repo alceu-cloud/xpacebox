@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ClipboardList, ContactRound, PackageCheck } from "lucide-react";
 
 import {
   deactivateClient,
@@ -12,6 +13,7 @@ import {
 import AmostrasEmpresa from "@/components/clientes/AmostrasEmpresa";
 import CrmEmpresa from "@/components/clientes/CrmEmpresa";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import SectionNavigation from "@/components/ui/SectionNavigation";
 import type {
   ClientFormData,
   ClientRecord,
@@ -254,11 +256,16 @@ export default function ClientesEmpresa({
 
   return (
     <section className="clients-module">
-      <nav className="clients-tabs" aria-label="ETAPAS DO MODULO CLIENTES">
-        <button type="button" className={`clients-tab ${activeTab === "crm" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("crm")}>CRM</button>
-        {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "cadastro" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("cadastro")}>CADASTRO</button> : null}
-        {!forceCrm ? <button type="button" className={`clients-tab ${activeTab === "amostras" ? "clients-tab-active" : ""}`} onClick={() => setActiveTab("amostras")}>AMOSTRAS</button> : null}
-      </nav>
+      <SectionNavigation
+        label="ETAPAS DO MODULO CLIENTES"
+        value={activeTab}
+        onChange={setActiveTab}
+        accent="#8f63f4"
+        items={[
+          { key: "crm", label: "CRM", icon: ContactRound },
+          ...(!forceCrm ? [{ key: "cadastro" as const, label: "CADASTRO", icon: ClipboardList }, { key: "amostras" as const, label: "AMOSTRAS", icon: PackageCheck }] : []),
+        ]}
+      />
 
       {activeTab === "crm" && (
         <CrmEmpresa

@@ -3,10 +3,12 @@
 import { ui } from "@/lib/ui/styles";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import ModuleNavigation from "@/components/ui/ModuleNavigation";
+import SectionNavigation from "@/components/ui/SectionNavigation";
 import WorkspaceWelcome from "@/components/ui/WorkspaceWelcome";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
@@ -646,38 +648,40 @@ function PricingPreview({
 
   return (
     <section style={pricingCardStyle}>
-      <nav style={pricingModeStyle} aria-label="TIPO DE FORMACAO DE PRECO">
-        <button type="button" onClick={() => changePricingMode("direct")} style={{ ...pricingModeButtonStyle, ...(pricingMode === "direct" ? activePricingModeStyle : {}) }}>PRECO DIRETO</button>
-        <button type="button" onClick={() => changePricingMode("engineering")} style={{ ...pricingModeButtonStyle, ...(pricingMode === "engineering" ? activePricingModeStyle : {}) }}>PRECO ENGENHARIA</button>
-      </nav>
+      <SectionNavigation
+        label="TIPO DE FORMACAO DE PRECO"
+        value={pricingMode}
+        onChange={changePricingMode}
+        accent="#ff3b25"
+        items={[
+          { key: "direct", label: "PRECO DIRETO", icon: Calculator },
+          { key: "engineering", label: "PRECO ENGENHARIA", icon: Wrench },
+        ]}
+      />
 
-      {pricingMode === "direct" && (
-        <nav style={stepsStyle}>
-          {etapasPreco.map((etapa) => (
-            <button
-              key={etapa}
-              type="button"
-              onClick={() => setActiveStep(etapa)}
-              style={{
-                ...stepButtonStyle,
-                ...(etapa === activeStep ? activeStepButtonStyle : {}),
-              }}
-            >
-              {etapa}
-            </button>
-          ))}
-        </nav>
-      )}
+      {pricingMode === "direct" ? <SectionNavigation
+        label="ETAPAS DA FORMACAO DE PRECO DIRETA"
+        value={activeStep as PricingStep}
+        onChange={(step) => setActiveStep(step)}
+        accent="#ff3b25"
+        items={etapasPreco.map((step) => ({
+          key: step,
+          label: step,
+          icon: step === "MATERIAIS" ? PackageSearch : step === "TIPO DE CAIXA" ? Box : step === "CONFIGURAR DIMENSOES" ? Ruler : step === "LOTE & LOGISTICA" ? Truck : step === "EMPRESA" ? Building2 : CircleDollarSign,
+        }))}
+      /> : null}
 
-      {pricingMode === "engineering" && (
-        <nav style={stepsStyle}>
-          {(["CLIENTE / PRODUTO", "LOTE & LOGISTICA", "VER PRECO"] as EngineeringPricingStep[]).map((step) => (
-            <button key={step} type="button" onClick={() => setActiveStep(step)} style={{ ...stepButtonStyle, ...(step === activeStep ? activeStepButtonStyle : {}) }}>
-              {step}
-            </button>
-          ))}
-        </nav>
-      )}
+      {pricingMode === "engineering" ? <SectionNavigation
+        label="ETAPAS DA FORMACAO DE PRECO POR ENGENHARIA"
+        value={activeStep as EngineeringPricingStep}
+        onChange={(step) => setActiveStep(step)}
+        accent="#ff3b25"
+        items={(["CLIENTE / PRODUTO", "LOTE & LOGISTICA", "VER PRECO"] as EngineeringPricingStep[]).map((step) => ({
+          key: step,
+          label: step,
+          icon: step === "CLIENTE / PRODUTO" ? ContactRound : step === "LOTE & LOGISTICA" ? Truck : CircleDollarSign,
+        }))}
+      /> : null}
 
       {pricingMode === "engineering" && activeStep === "CLIENTE / PRODUTO" && (
         <EngineeringProductStep
@@ -2324,9 +2328,6 @@ const pricingCardStyle = { margin: "0 auto", ...ui.shell };
 const pricingIntroStyle = { marginBottom: 28 };
 const pricingTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
 const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 16, fontWeight: 800 };
-const stepsStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))", alignItems: "center", marginBottom: 34 , ...ui.tabs, minWidth: 0 };
-const stepButtonStyle = { width: "100%", minWidth: 0, border: "none", background: "transparent", color: "#667085", lineHeight: 1.25, textAlign: "center" as const, cursor: "pointer" , ...ui.button };
-const activeStepButtonStyle = { background: "linear-gradient(135deg,#8b36e8,#6f32d2)", color: "#fff", boxShadow: "0 12px 24px rgba(111,50,210,.24)" };
 const sectionLabelStyle = { margin: "22px 0 14px", color: "#141827", ...ui.label };
 const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 18 , minWidth: 0 };
 const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 18, maxWidth: 760 , minWidth: 0 };
@@ -2927,22 +2928,6 @@ const requiredLotValueStyle = { color: "#00a651", fontSize: 29, fontWeight: 900,
 const requiredLotNoSetupStyle = { display: "grid", gap: 7, color: "#00a651", textAlign: "right" as const, fontSize: 16, fontWeight: 900, letterSpacing: 0 };
 const requiredLotImpossibleStyle = { display: "grid", gap: 7, color: "#dc2626", textAlign: "right" as const, fontSize: 16, fontWeight: 900, letterSpacing: 0 };
 const materialStepStyle = { display: "grid", gap: 18 };
-const pricingModeStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))",
-  marginBottom: 18,
- ...ui.tabs, minWidth: 0 };
-const pricingModeButtonStyle = {
-  border: "1px solid transparent",
-  background: "transparent",
-  color: "#667085",
-  cursor: "pointer",
- ...ui.tab };
-const activePricingModeStyle = {
-  background: "linear-gradient(135deg,#8b36e8,#6f32d2)",
-  color: "#fff",
-  boxShadow: "0 10px 22px rgba(111,50,210,.22)",
-};
 const engineeringSelectionPanelStyle = {
   display: "grid",
   gap: 22,

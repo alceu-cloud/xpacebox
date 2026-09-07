@@ -2,13 +2,16 @@
 
 import { ui } from "@/lib/ui/styles";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, BarChart3, BriefcaseBusiness, Factory, FileBarChart2, PackageSearch, ShoppingCart } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import SectionNavigation from "@/components/ui/SectionNavigation";
 
 type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive" | "no-agenda";
 type PeriodPreset = "CURRENT" | "PREVIOUS" | "CUSTOM";
 type ReportCategory = "RESULTADOS" | "CARTEIRA" | "OPERACAO" | "GESTAO";
 type ReportArea = "COMMERCIAL" | "PURCHASES" | "PRODUCTION";
+type ReportNavigationLevel = "area" | "category" | "report";
 
 type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
@@ -53,6 +56,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
   const [activeArea, setActiveArea] = useState<ReportArea>("COMMERCIAL");
   const [activeReport, setActiveReport] = useState<ReportKey>("closing");
   const [activeCategory, setActiveCategory] = useState<ReportCategory>("RESULTADOS");
+  const [navigationLevel, setNavigationLevel] = useState<ReportNavigationLevel>("area");
   const [representativeId, setRepresentativeId] = useState("ALL");
   const [preset, setPreset] = useState<PeriodPreset>("CURRENT");
   const [customStart, setCustomStart] = useState(isoMonthStart(new Date()));
@@ -110,6 +114,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
     const firstAvailable = definition.reports.map((key) => reports.find((item) => item.key === key)!).find((item) => !item.managerOnly || data?.isManager);
     setActiveCategory(category);
     if (firstAvailable) setActiveReport(firstAvailable.key);
+    setNavigationLevel("report");
   }
 
   const areaTitle = activeArea === "PURCHASES" ? "INTELIGENCIA DE COMPRAS" : activeArea === "PRODUCTION" ? "INTELIGENCIA DE PRODUCAO" : "INTELIGENCIA COMERCIAL";
@@ -122,6 +127,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
   function selectArea(area: ReportArea) {
     if (area === "PURCHASES" && !data?.isManager) return;
     setActiveArea(area);
+    setNavigationLevel(area === "PRODUCTION" ? "area" : area === "PURCHASES" ? "report" : "category");
   }
 
   return <section style={shellStyle}>
@@ -129,45 +135,68 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
       <div><span style={eyebrowStyle}>{areaTitle}</span><h2 style={titleStyle}>RELATORIOS</h2><p style={subtitleStyle}>{areaDescription}</p></div>
       {activeArea === "COMMERCIAL" ? <div style={periodHintStyle}>PERIODO: {displayDate(range.start)} A {displayDate(range.end)}</div> : null}
     </header>
-    <nav className="reports-navigation" aria-label="AREAS DE RELATORIOS">
-      <div className="reports-domain-nav">
-        <button type="button" onClick={() => selectArea("COMMERCIAL")} className={`reports-domain-button${activeArea === "COMMERCIAL" ? " is-active is-commercial" : ""}`} aria-current={activeArea === "COMMERCIAL" ? "page" : undefined}>COMERCIAL</button>
-        <button type="button" onClick={() => selectArea("PURCHASES")} disabled={!data?.isManager} className={`reports-domain-button${activeArea === "PURCHASES" ? " is-active is-purchases" : ""}${!data?.isManager ? " is-restricted" : ""}`} aria-current={activeArea === "PURCHASES" ? "page" : undefined}>COMPRAS</button>
-        <button type="button" onClick={() => selectArea("PRODUCTION")} className={`reports-domain-button${activeArea === "PRODUCTION" ? " is-active is-production" : ""}`} aria-current={activeArea === "PRODUCTION" ? "page" : undefined}>PRODUCAO</button>
-      </div>
-      {activeArea === "COMMERCIAL" ? <>
-        <div className="reports-category-nav">
-          {visibleCategories.map((category) => <button key={category.key} type="button" onClick={() => selectCategory(category.key)} className={`reports-category-button ${category.key === activeCategory ? `is-active is-${category.key.toLowerCase()}` : ""}`} aria-current={category.key === activeCategory ? "page" : undefined}>{category.label}</button>)}
-        </div>
-        <section className={`reports-navigation-panel is-${activeCategory.toLowerCase()}`} aria-label={`RELATORIOS DE ${activeCategoryDefinition.label}`}>
-          <div className="reports-navigation-panel-header"><span>RELATORIOS</span><strong>{activeCategoryDefinition.label}</strong></div>
-          <div className="reports-navigation-list">
-            {categoryReports.map((item) => {
-              const restricted = item.managerOnly && !data?.isManager;
-              const active = activeReport === item.key;
-              return <button key={item.key} type="button" disabled={restricted} onClick={() => setActiveReport(item.key)} className={`reports-navigation-button${active ? " is-active" : ""}${restricted ? " is-restricted" : ""}`} aria-current={active ? "page" : undefined}>
-                <span>{String(item.number).padStart(2, "0")}</span><b>{item.title}</b>{restricted ? <small>GERENCIA</small> : null}
-              </button>;
-            })}
-          </div>
-        </section>
-      </> : null}
-      {activeArea === "PURCHASES" && data?.isManager ? <section className="reports-navigation-panel is-purchases" aria-label="RELATORIOS DE COMPRAS">
-        <div className="reports-navigation-panel-header"><span>RELATORIOS</span><strong>COMPRAS</strong></div>
-        <div className="reports-navigation-list"><button type="button" className="reports-navigation-button is-active" aria-current="page"><span>01</span><b>COMPARATIVO DE MATERIA PRIMA</b></button></div>
-      </section> : null}
-    </nav>
-    {activeArea === "COMMERCIAL" ? <section style={filterStyle}>
+    {navigationLevel === "area" ? <SectionNavigation
+      label="AREAS DE RELATORIOS"
+      value={activeArea}
+      onChange={selectArea}
+      accent="#c026d3"
+      items={[
+        { key: "COMMERCIAL", label: "COMERCIAL", icon: BarChart3 },
+        { key: "PURCHASES", label: "COMPRAS", icon: ShoppingCart, disabled: !data?.isManager, title: !data?.isManager ? "DISPONIVEL PARA GERENCIA" : undefined },
+        { key: "PRODUCTION", label: "PRODUCAO", icon: Factory },
+      ]}
+    /> : null}
+    {navigationLevel === "category" && activeArea === "COMMERCIAL" ? <SectionNavigation
+      label="CATEGORIAS DE RELATORIOS COMERCIAIS"
+      value={activeCategory}
+      onChange={(value) => {
+        if (value === "back") setNavigationLevel("area");
+        else selectCategory(value);
+      }}
+      accent="#c026d3"
+      items={[
+        { key: "back", label: "RELATORIOS", icon: ArrowLeft },
+        ...visibleCategories.map((category) => ({
+          key: category.key,
+          label: category.label,
+          icon: category.key === "RESULTADOS" ? FileBarChart2 : category.key === "CARTEIRA" ? BriefcaseBusiness : category.key === "OPERACAO" ? PackageSearch : BarChart3,
+        })),
+      ]}
+    /> : null}
+    {navigationLevel === "report" && activeArea === "COMMERCIAL" ? <SectionNavigation
+      label={`RELATORIOS DE ${activeCategoryDefinition.label}`}
+      value={activeReport}
+      onChange={(value) => {
+        if (value === "back") setNavigationLevel("category");
+        else setActiveReport(value);
+      }}
+      accent="#c026d3"
+      items={[
+        { key: "back", label: activeCategoryDefinition.label, icon: ArrowLeft },
+        ...categoryReports.map((item) => ({ key: item.key, label: item.title, icon: FileBarChart2, disabled: item.managerOnly && !data?.isManager, title: item.managerOnly && !data?.isManager ? "DISPONIVEL PARA GERENCIA" : undefined })),
+      ]}
+    /> : null}
+    {navigationLevel === "report" && activeArea === "PURCHASES" && data?.isManager ? <SectionNavigation
+      label="RELATORIOS DE COMPRAS"
+      value="materials"
+      onChange={(value) => { if (value === "back") setNavigationLevel("area"); }}
+      accent="#c026d3"
+      items={[
+        { key: "back", label: "RELATORIOS", icon: ArrowLeft },
+        { key: "materials", label: "COMPARATIVO DE MATERIA PRIMA", icon: ShoppingCart },
+      ]}
+    /> : null}
+    {activeArea === "COMMERCIAL" && navigationLevel === "report" ? <section style={filterStyle}>
       <label style={filterLabelStyle}>PERIODO<select value={preset} onChange={(event) => setPreset(event.target.value as PeriodPreset)} style={selectStyle}><option value="CURRENT">MES ATUAL</option><option value="PREVIOUS">MES ANTERIOR</option><option value="CUSTOM">PERSONALIZADO</option></select></label>
       {preset === "CUSTOM" ? <><label style={filterLabelStyle}>DE<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} style={inputStyle} /></label><label style={filterLabelStyle}>ATE<input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} style={inputStyle} /></label></> : null}
       {data?.isManager ? <label style={filterLabelStyle}>REPRESENTANTE<select value={representativeId} onChange={(event) => setRepresentativeId(event.target.value)} style={selectStyle}><option value="ALL">TODA A EQUIPE</option>{data.representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : <div style={ownDataStyle}>EXIBINDO SOMENTE SEUS DADOS</div>}
     </section> : null}
     {loading ? <div style={emptyStyle}>CARREGANDO RELATORIOS...</div> : null}
     {error ? <div style={errorStyle}>{error}</div> : null}
-    {!loading && !error && data && activeArea === "COMMERCIAL" && canViewActive ? <ReportContent report={activeReport} data={scoped as ReportData} rawData={data} range={range} /> : null}
+    {!loading && !error && data && activeArea === "COMMERCIAL" && navigationLevel === "report" && canViewActive ? <ReportContent report={activeReport} data={scoped as ReportData} rawData={data} range={range} /> : null}
     {!loading && !error && data && activeArea === "PURCHASES" && data.isManager ? <MaterialComparisonReport materials={data.materials} /> : null}
     {!loading && !error && data && activeArea === "PRODUCTION" ? <ProductionComingSoon /> : null}
-    {!loading && data && activeArea === "COMMERCIAL" && !canViewActive ? <div style={emptyStyle}>ESTE RELATORIO E EXCLUSIVO PARA ADMINISTRADORES E GERENTES.</div> : null}
+    {!loading && data && activeArea === "COMMERCIAL" && navigationLevel === "report" && !canViewActive ? <div style={emptyStyle}>ESTE RELATORIO E EXCLUSIVO PARA ADMINISTRADORES E GERENTES.</div> : null}
   </section>;
 }
 
