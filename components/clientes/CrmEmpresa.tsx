@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
-import { CalendarDays, ContactRound, PhoneCall, Target, TrendingUp } from "lucide-react";
+import { ContactRound, PhoneCall, Target } from "lucide-react";
 
 import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
@@ -24,7 +24,7 @@ import type {
 import type { ProductFicha } from "@/types/gerenciador";
 import type { GeneralOption } from "@/types/cadastros-gerais";
 
-type CrmView = "agenda" | "carteira" | "pipeline";
+export type CrmView = "agenda" | "carteira" | "pipeline";
 type CrmClosedPeriod = "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM";
 type CrmDetailEntryTab = "resumo" | "contato";
 type PurchaseAverageAlert = {
@@ -112,6 +112,8 @@ export default function CrmEmpresa({
   sellerCompanies,
   productFichas,
   lostReasons,
+  view,
+  onViewChange,
   forcedClientId = "",
 }: {
   slug: string;
@@ -120,11 +122,12 @@ export default function CrmEmpresa({
   sellerCompanies: SellerCompanyOption[];
   productFichas: ProductFicha[];
   lostReasons: GeneralOption[];
+  view: CrmView;
+  onViewChange: (view: CrmView) => void;
   forcedClientId?: string;
 }) {
   const { isBlocked: crmBlocked, lock: crmLock, refreshOperationalLock } = useCrmOperationalLock();
   const [overview, setOverview] = useState<CrmOverview>(emptyOverview);
-  const [view, setView] = useState<CrmView>("agenda");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [detailEntryTab, setDetailEntryTab] = useState<CrmDetailEntryTab>("resumo");
   const [agendaSearch, setAgendaSearch] = useState("");
@@ -154,9 +157,9 @@ export default function CrmEmpresa({
     if (!forcedClientId) return;
     setSelectedClientId(forcedClientId);
     setDetailEntryTab("resumo");
-    setView("carteira");
+    onViewChange("carteira");
     setPortfolioSearch("");
-  }, [forcedClientId]);
+  }, [forcedClientId, onViewChange]);
 
   async function refresh(silent = false) {
     if (!silent) setLoading(true);
@@ -581,21 +584,6 @@ export default function CrmEmpresa({
         ) : null}
       </header>
 
-      <SectionNavigation
-        label="VISOES DO CRM"
-        value={view}
-        onChange={(item) => {
-          if (item === "carteira" && view !== "carteira") setDetailEntryTab("resumo");
-          setView(item);
-        }}
-        accent="#8f63f4"
-        items={[
-          { key: "agenda", label: "AGENDA", icon: CalendarDays },
-          { key: "carteira", label: "CARTEIRA", icon: ContactRound },
-          { key: "pipeline", label: "OPORTUNIDADES", icon: TrendingUp },
-        ]}
-      />
-
       {error && <div className="clients-feedback clients-feedback-error">{error}</div>}
       {message && <div className="clients-feedback clients-feedback-success">{message}</div>}
       {loading ? <div className="clients-empty crm-loading">CARREGANDO CENTRAL COMERCIAL...</div> : null}
@@ -616,7 +604,7 @@ export default function CrmEmpresa({
           postponingClientId={postponingClientId}
           onOpenClient={(clientId) => {
             selectClient(clientId, "contato");
-            setView("carteira");
+            onViewChange("carteira");
           }}
         />
       ) : null}
@@ -708,7 +696,7 @@ export default function CrmEmpresa({
           setOpenCompanyFilter={setPipelineOpenCompanyFilter}
           openClientFilter={pipelineOpenClientFilter}
           setOpenClientFilter={setPipelineOpenClientFilter}
-          onSelectClient={(clientId) => { selectClient(clientId, "resumo"); setView("carteira"); }}
+          onSelectClient={(clientId) => { selectClient(clientId, "resumo"); onViewChange("carteira"); }}
           onStageChange={handleStageChange}
           onLinkClient={handleLinkOpportunityClient}
           saving={saving}
@@ -733,7 +721,7 @@ export default function CrmEmpresa({
         onClose={() => setPurchaseAverageAlert(null)}
         onReview={() => {
           selectClient(purchaseAverageAlert.clientId, "resumo");
-          setView("carteira");
+          onViewChange("carteira");
           setPurchaseAverageAlert(null);
         }}
       /> : null}

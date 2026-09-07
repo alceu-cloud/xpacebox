@@ -20,7 +20,7 @@ export default function SectionNavigation<Key extends string>({
 }: {
   label: string;
   items: SectionNavigationItem<Key>[];
-  value: Key;
+  value: Key | null;
   onChange: (value: Key) => void;
   accent?: string;
 }) {

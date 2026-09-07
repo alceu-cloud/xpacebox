@@ -3,7 +3,7 @@
 import { ui } from "@/lib/ui/styles";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
+import { ArrowLeft, Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
@@ -471,7 +471,7 @@ function PricingPreview({
   productFichas: ProductFicha[];
   onSendToQuote: (prefill: PricingQuotePrefill) => void;
 }) {
-  const [pricingMode, setPricingMode] = useState<PricingMode>("direct");
+  const [pricingMode, setPricingMode] = useState<PricingMode | null>(null);
   const [activeStep, setActiveStep] = useState<PricingStep | EngineeringPricingStep>("MATERIAIS");
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? "");
   const [paperTypeId, setPaperTypeId] = useState("");
@@ -648,7 +648,7 @@ function PricingPreview({
 
   return (
     <section style={pricingCardStyle}>
-      <SectionNavigation
+      {pricingMode === null ? <SectionNavigation
         label="TIPO DE FORMACAO DE PRECO"
         value={pricingMode}
         onChange={changePricingMode}
@@ -657,32 +657,51 @@ function PricingPreview({
           { key: "direct", label: "PRECO DIRETO", icon: Calculator },
           { key: "engineering", label: "PRECO ENGENHARIA", icon: Wrench },
         ]}
-      />
+      /> : null}
 
       {pricingMode === "direct" ? <SectionNavigation
         label="ETAPAS DA FORMACAO DE PRECO DIRETA"
         value={activeStep as PricingStep}
-        onChange={(step) => setActiveStep(step)}
+        onChange={(step) => {
+          if (step === "back") {
+            setPricingMode(null);
+            return;
+          }
+          setActiveStep(step);
+        }}
         accent="#ff3b25"
-        items={etapasPreco.map((step) => ({
+        items={[
+          { key: "back" as const, label: "FORMACAO DE PRECO", icon: ArrowLeft },
+          ...etapasPreco.map((step) => ({
           key: step,
           label: step,
           icon: step === "MATERIAIS" ? PackageSearch : step === "TIPO DE CAIXA" ? Box : step === "CONFIGURAR DIMENSOES" ? Ruler : step === "LOTE & LOGISTICA" ? Truck : step === "EMPRESA" ? Building2 : CircleDollarSign,
-        }))}
+          })),
+        ]}
       /> : null}
 
       {pricingMode === "engineering" ? <SectionNavigation
         label="ETAPAS DA FORMACAO DE PRECO POR ENGENHARIA"
         value={activeStep as EngineeringPricingStep}
-        onChange={(step) => setActiveStep(step)}
+        onChange={(step) => {
+          if (step === "back") {
+            setPricingMode(null);
+            return;
+          }
+          setActiveStep(step);
+        }}
         accent="#ff3b25"
-        items={(["CLIENTE / PRODUTO", "LOTE & LOGISTICA", "VER PRECO"] as EngineeringPricingStep[]).map((step) => ({
+        items={[
+          { key: "back" as const, label: "FORMACAO DE PRECO", icon: ArrowLeft },
+          ...(["CLIENTE / PRODUTO", "LOTE & LOGISTICA", "VER PRECO"] as EngineeringPricingStep[]).map((step) => ({
           key: step,
           label: step,
           icon: step === "CLIENTE / PRODUTO" ? ContactRound : step === "LOTE & LOGISTICA" ? Truck : CircleDollarSign,
-        }))}
+          })),
+        ]}
       /> : null}
 
+      {pricingMode !== null ? <>
       {pricingMode === "engineering" && activeStep === "CLIENTE / PRODUTO" && (
         <EngineeringProductStep
           clients={filteredEngineeringClients}
@@ -853,6 +872,7 @@ function PricingPreview({
           onSendToQuote={onSendToQuote}
         />
       )}
+      </> : null}
     </section>
   );
 }

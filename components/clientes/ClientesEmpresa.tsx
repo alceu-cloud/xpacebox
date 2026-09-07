@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, ContactRound, PackageCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, ContactRound, PackageCheck, TrendingUp } from "lucide-react";
 
 import {
   deactivateClient,
@@ -83,7 +83,8 @@ export default function ClientesEmpresa({
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [search, setSearch] = useState("");
   const [clientNameSearch, setClientNameSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras">("crm");
+  const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras" | null>(null);
+  const [crmView, setCrmView] = useState<"agenda" | "carteira" | "pipeline">("agenda");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -256,16 +257,37 @@ export default function ClientesEmpresa({
 
   return (
     <section className="clients-module">
-      <SectionNavigation
-        label="ETAPAS DO MODULO CLIENTES"
-        value={activeTab}
-        onChange={setActiveTab}
-        accent="#8f63f4"
-        items={[
-          { key: "crm", label: "CRM", icon: ContactRound },
-          ...(!forceCrm ? [{ key: "cadastro" as const, label: "CADASTRO", icon: ClipboardList }, { key: "amostras" as const, label: "AMOSTRAS", icon: PackageCheck }] : []),
-        ]}
-      />
+      {activeTab === "crm" ? (
+        <SectionNavigation
+          label="VISOES DO CRM"
+          value={crmView}
+          onChange={(item) => {
+            if (item === "back") {
+              setActiveTab(null);
+              return;
+            }
+            setCrmView(item);
+          }}
+          accent="#8f63f4"
+          items={[
+            ...(!forceCrm ? [{ key: "back" as const, label: "CLIENTES", icon: ArrowLeft }] : []),
+            { key: "agenda" as const, label: "AGENDA", icon: CalendarDays },
+            { key: "carteira" as const, label: "CARTEIRA", icon: ContactRound },
+            { key: "pipeline" as const, label: "OPORTUNIDADES", icon: TrendingUp },
+          ]}
+        />
+      ) : (
+        <SectionNavigation
+          label="ETAPAS DO MODULO CLIENTES"
+          value={activeTab}
+          onChange={setActiveTab}
+          accent="#8f63f4"
+          items={[
+            { key: "crm", label: "CRM", icon: ContactRound },
+            ...(!forceCrm ? [{ key: "cadastro" as const, label: "CADASTRO", icon: ClipboardList }, { key: "amostras" as const, label: "AMOSTRAS", icon: PackageCheck }] : []),
+          ]}
+        />
+      )}
 
       {activeTab === "crm" && (
         <CrmEmpresa
@@ -276,6 +298,8 @@ export default function ClientesEmpresa({
           productFichas={productFichas}
           lostReasons={lostReasons}
           forcedClientId={forcedClientId}
+          view={crmView}
+          onViewChange={setCrmView}
         />
       )}
 

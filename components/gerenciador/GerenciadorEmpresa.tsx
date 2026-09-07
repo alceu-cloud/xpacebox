@@ -360,9 +360,21 @@ export default function GerenciadorEmpresa({
       <main style={pageStyle}>
         <section style={shellStyle}>
           {managerNavigation}
-          <section style={managerEmptyStyle}>
-            <h2 style={sectionTitleStyle}>ESCOLHA UMA AREA PARA CONFIGURAR.</h2>
-            <p style={sectionSubtitleStyle}>OS DETALHES DE CADA AREA APARECEM NA MESMA BARRA, COM ICONE E NAVEGACAO DE VOLTA.</p>
+          <section className="xb-manager-empty">
+            <div className="xb-manager-tech" aria-hidden="true">
+              <span className="xb-manager-tech-ring xb-manager-tech-ring--outer" />
+              <span className="xb-manager-tech-ring xb-manager-tech-ring--middle" />
+              <span className="xb-manager-tech-ring xb-manager-tech-ring--inner" />
+              <span className="xb-manager-tech-node xb-manager-tech-node--one" />
+              <span className="xb-manager-tech-node xb-manager-tech-node--two" />
+              <span className="xb-manager-tech-node xb-manager-tech-node--three" />
+              <div className="xb-manager-tech-core"><Boxes size={34} strokeWidth={1.8} /></div>
+            </div>
+            <div className="xb-manager-empty-copy">
+              <span>GERENCIADOR DA EMPRESA</span>
+              <h2>ESCOLHA UMA AREA PARA CONFIGURAR.</h2>
+              <p>SELECIONE UMA OPCAO ACIMA PARA ABRIR OS CONTROLES.</p>
+            </div>
           </section>
         </section>
       </main>
@@ -2059,9 +2071,6 @@ const limitClientTitleStyle = { margin: "0 0 22px", color: "#141827", fontWeight
 const limitReportGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))", gap: 16 , minWidth: 0 };
 const limitMetricStyle = { display: "grid", gap: 10, minHeight: 90, padding: 18, border: "1px solid rgba(52,64,84,.12)", borderTop: "4px solid", borderRadius: 12, background: "#fff", boxSizing: "border-box" as const };
 const limitEmptyStyle = { marginTop: 24, padding: 28, border: "1px dashed rgba(111,50,210,.3)", borderRadius: 14, color: "#667085", fontSize: 16, fontWeight: 800, textAlign: "center" as const };
-const managerEmptyStyle = { padding: "36px 0", borderTop: "1px solid var(--xb-line)" };
-const sectionTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
-const sectionSubtitleStyle = { margin: "12px 0 0", fontSize: 16, color: "#344054", fontWeight: 800 };
 const panelStyle = { marginTop: 28 , ...ui.section };
 const formPanelStyle = { ...panelStyle, background: "rgba(255,250,253,.74)" };
 const panelHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 22, marginBottom: 24, flexWrap: "wrap" as const };
