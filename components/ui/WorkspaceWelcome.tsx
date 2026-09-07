@@ -30,7 +30,7 @@ export default function WorkspaceWelcome() {
       </div>
       <div className="xb-welcome-copy">
         <span>XPACEBOX</span>
-        <h1>Escolha um módulo<br />para trabalhar.</h1>
+        <h1>ESCOLHA UM MÓDULO<br />PARA TRABALHAR.</h1>
       </div>
       {!reducedMotion && (
         <button type="button" className="xb-welcome-motion" onClick={() => setPaused(!paused)}

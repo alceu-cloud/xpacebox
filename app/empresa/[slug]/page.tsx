@@ -2348,16 +2348,16 @@ const pricingCardStyle = { margin: "0 auto", ...ui.shell };
 const pricingIntroStyle = { marginBottom: 28 };
 const pricingTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
 const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 16, fontWeight: 800 };
-const sectionLabelStyle = { margin: "22px 0 14px", color: "#141827", ...ui.label };
-const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 18 , minWidth: 0 };
-const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 18, maxWidth: 760 , minWidth: 0 };
-const optionCardStyle = { minHeight: 184, display: "grid", placeItems: "center", alignContent: "center", gap: 8, color: "#141827", cursor: "pointer", ...ui.frame };
+const sectionLabelStyle = { margin: "18px 0 12px", color: "#141827", ...ui.label };
+const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 14 , minWidth: 0 };
+const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 14, maxWidth: 640 , minWidth: 0 };
+const optionCardStyle = { minHeight: 150, display: "grid", placeItems: "center", alignContent: "center", gap: 6, color: "#141827", cursor: "pointer", ...ui.frame, padding: 18 };
 const activeOptionStyle = { border: "1px solid #e6007e", background: "rgba(255,0,135,.04)", boxShadow: "0 18px 36px rgba(230,0,126,.12)" };
 const warmOptionStyle = { border: "1px solid #e68019", background: "rgba(230,128,25,.06)" };
-const optionImageStyle = { width: 132, height: 92, display: "grid", placeItems: "center" };
+const optionImageStyle = { width: 106, height: 74, display: "grid", placeItems: "center" };
 const optionSvgStyle = { width: "100%", height: "100%", display: "block", filter: "drop-shadow(0 12px 18px rgba(230,128,25,.16))" };
-const optionTitleStyle = { fontWeight: 900, textAlign: "center" as const , ...ui.title };
-const optionSubtitleStyle = { color: "#667085", fontSize: 13, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0 };
+const optionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 900, textAlign: "center" as const };
+const optionSubtitleStyle = { color: "#667085", fontSize: 11, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0 };
 
 const formulaSummaryStyle = {
   marginTop: 26,
@@ -3003,11 +3003,12 @@ const materialSummaryGridAlternativeStyle = { gridTemplateColumns: "repeat(var(-
 const alternativesListStyle = { display: "grid", gap: 14 };
 const alternativeRowStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))",
-  gap: 14,
+  gridTemplateColumns: "42px repeat(6, minmax(110px, 1fr)) 8px minmax(110px, 1fr)",
+  gap: 12,
   alignItems: "center",
   padding: "16px 0",
   borderTop: "1px solid rgba(230,0,126,.14)",
+  overflowX: "auto" as const,
  minWidth: 0 };
 const alternativeRankStyle = {
   width: 38,
