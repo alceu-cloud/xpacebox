@@ -1417,12 +1417,14 @@ button {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
   gap: 10px;
+  transform: translateY(-8px);
 }
 
 .samples-view-tabs {
   display: flex;
   align-items: center;
   gap: 7px;
+  transform: translateY(-8px);
 }
 
 .samples-view-tabs button {
@@ -1570,8 +1572,9 @@ button {
     flex-direction: column;
   }
 
+  .samples-view-tabs { transform: none; }
   .samples-view-tabs button { flex: 1; min-width: 0; }
-  .samples-filters { grid-template-columns: 1fr; }
+  .samples-filters { grid-template-columns: 1fr; transform: none; }
 
   .clients-cnpj-band {
     gap: 24px;
