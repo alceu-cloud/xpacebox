@@ -69,6 +69,7 @@ function handleError(error: unknown) {
   if (message.includes("CONFIGURACAO DO SUPABASE")) return failure("O SUPABASE NAO ESTA CONFIGURADO NO SERVIDOR.", 503);
   if (message.includes("CREDENCIAL") || message.includes("CRIPTOGRAFIA")) return failure(message, 503);
   if (message.includes("REMETENTE") || message.includes("E-MAIL DE RESPOSTA") || message.includes("CONFIGURE A CHAVE")) return failure(message, 400);
+  if (message) return failure(`RESEND: ${message}`, 502);
   console.error("EMAIL INTEGRATION ERROR", error);
   return failure("NAO FOI POSSIVEL ENVIAR O E-MAIL DE TESTE.", 500);
 }
