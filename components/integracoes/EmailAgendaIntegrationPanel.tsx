@@ -6,7 +6,7 @@ import { ui } from "@/lib/ui/styles";
 import { supabase } from "@/lib/supabase";
 
 type Recipient = { id: string; name: string; email: string };
-type Integration = { configured: boolean; sender: string; scheduleLabel: string };
+type Integration = { configured: boolean; sender: string; replyTo: string; enabled: boolean; scheduleLabel: string };
 type Payload = { success: boolean; message?: string; integration: Integration; recipients: Recipient[] };
 
 export default function EmailAgendaIntegrationPanel({ companySlug }: { companySlug?: string }) {
@@ -15,6 +15,11 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sendingTo, setSendingTo] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [sender, setSender] = useState("");
+  const [replyTo, setReplyTo] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   async function request(path: string, init?: RequestInit) {
     const { data } = await supabase.auth.getSession();
@@ -33,6 +38,9 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
       const payload = await request(`/api/integracoes/email?slug=${encodeURIComponent(companySlug)}`) as Payload;
       setIntegration(payload.integration);
       setRecipients(payload.recipients);
+      setSender(payload.integration.sender || "");
+      setReplyTo(payload.integration.replyTo || "");
+      setEnabled(payload.integration.enabled);
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL CARREGAR A INTEGRACAO DE E-MAIL.");
@@ -57,6 +65,22 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
     }
   }
 
+  async function save() {
+    if (!companySlug) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const payload = await request("/api/integracoes/email", { method: "PATCH", body: JSON.stringify({ slug: companySlug, apiKey: apiKey || undefined, sender, replyTo, enabled }) });
+      setIntegration(payload.integration);
+      setApiKey("");
+      setMessage("CONFIGURACAO DE E-MAIL SALVA. USE ENVIAR TESTE PARA VALIDAR O DISPARO.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL SALVAR A INTEGRACAO.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <div style={emptyStyle}>CARREGANDO INTEGRACAO DE E-MAIL...</div>;
   if (!integration) return <div style={errorStyle}>{message || "INTEGRACAO DE E-MAIL INDISPONIVEL."}</div>;
 
@@ -66,11 +90,15 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
       <span style={{ ...statusStyle, ...(integration.configured ? configuredStatusStyle : {}) }}>{integration.configured ? "E-MAIL CONFIGURADO" : "CONFIGURACAO PENDENTE"}</span>
     </div>
 
-    {message ? <div style={message.startsWith("TESTE ENVIADO") ? messageStyle : errorStyle}>{message}</div> : null}
+    {message ? <div style={message.startsWith("TESTE ENVIADO") || message.startsWith("CONFIGURACAO") ? messageStyle : errorStyle}>{message}</div> : null}
 
-    <section style={detailsStyle}>
-      <div><small style={detailLabelStyle}>REMETENTE</small><strong style={detailValueStyle}>{integration.sender || "NAO CONFIGURADO"}</strong></div>
+    <section style={configurationStyle}>
+      <label style={labelStyle}>REMETENTE<input value={sender} onChange={(event) => setSender(event.target.value)} placeholder="XPACEBOX <NOTIFICACOES@SEUDOMINIO.COM.BR>" style={inputStyle} /></label>
+      <label style={labelStyle}>E-MAIL PARA RESPOSTAS<input value={replyTo} onChange={(event) => setReplyTo(event.target.value)} placeholder="OPCIONAL" style={inputStyle} /></label>
+      <label style={labelStyle}>API KEY DO RESEND<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={integration.configured ? "CHAVE CONFIGURADA - INFORME OUTRA PARA TROCAR" : "COLE A CHAVE DO RESEND"} style={inputStyle} /></label>
+      <label style={checkLabelStyle}><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> ENVIO AUTOMATICO ATIVO</label>
       <div><small style={detailLabelStyle}>AGENDAMENTO</small><strong style={detailValueStyle}>{integration.scheduleLabel}</strong></div>
+      <div style={saveAreaStyle}><button type="button" onClick={() => void save()} disabled={saving} style={saveButtonStyle}>{saving ? "SALVANDO..." : "SALVAR E-MAIL"}</button></div>
     </section>
 
     <section style={recipientSectionStyle}>
@@ -80,7 +108,7 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
       {!recipients.length ? <div style={emptyStyle}>NENHUM USUARIO ATIVO COM E-MAIL ENCONTRADO NESTA EMPRESA.</div> : null}
     </section>
 
-    {!integration.configured ? <p style={noteStyle}>PARA ATIVAR, CADASTRE NO VERCEL AS VARIAVEIS RESEND_API_KEY E EMAIL_FROM. DEPOIS, VOLTE AQUI E USE ENVIAR TESTE.</p> : <p style={noteStyle}>O ENVIO AUTOMATICO OCORRE EM DIAS UTEIS. O SISTEMA REGISTRA O ENVIO PARA NAO DISPARAR A MESMA AGENDA DUAS VEZES.</p>}
+    {!integration.configured ? <p style={noteStyle}>COLE A API KEY E INFORME O REMETENTE. A CHAVE E SALVA CRIPTOGRAFADA E NUNCA VOLTA A APARECER NA TELA.</p> : <p style={noteStyle}>O ENVIO AUTOMATICO OCORRE EM DIAS UTEIS. O SISTEMA REGISTRA O ENVIO PARA NAO DISPARAR A MESMA AGENDA DUAS VEZES.</p>}
   </section>;
 }
 
@@ -92,9 +120,14 @@ const subtitleStyle = { margin: "6px 0", color: "#171b2e", fontSize: 14, letterS
 const descriptionStyle = { margin: 0, color: "#667085", fontSize: 12 };
 const statusStyle = { padding: "8px 12px", borderRadius: 5, background: "#fef2f2", color: "#b42318", fontSize: 11, fontWeight: 900 };
 const configuredStatusStyle = { background: "#ecfdf3", color: "#027a48" };
-const detailsStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, padding: 16, border: "1px solid #d8ccff", borderRadius: 6, background: "#fbfaff" };
+const configurationStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, padding: 16, border: "1px solid #d8ccff", borderRadius: 6, background: "#fbfaff" };
+const labelStyle = { display: "grid", gap: 7, color: "#344054", fontSize: 10, fontWeight: 900 };
+const inputStyle = { width: "100%", boxSizing: "border-box" as const, border: "1px solid #cbd5e1", borderRadius: 5, padding: "10px 11px", background: "#fff", color: "#111827", font: "inherit", fontSize: 12 };
+const checkLabelStyle = { display: "flex", alignItems: "center", gap: 8, color: "#344054", fontSize: 11, fontWeight: 900 };
 const detailLabelStyle = { display: "block", color: "#667085", fontSize: 10, fontWeight: 900 };
 const detailValueStyle = { display: "block", marginTop: 5, color: "#1d2939", fontSize: 13 };
+const saveAreaStyle = { display: "flex", justifyContent: "flex-end", alignItems: "end" };
+const saveButtonStyle = { border: 0, borderRadius: 5, padding: "10px 13px", background: "#7c3aed", color: "#fff", cursor: "pointer", font: "inherit", fontSize: 10, fontWeight: 900 };
 const recipientSectionStyle = { display: "grid", gap: 10, paddingTop: 4 };
 const recipientHeaderStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(220px, 1.2fr) auto", gap: 14, padding: "0 12px", color: "#667085", fontSize: 10, fontWeight: 900 };
 const recipientRowStyle = { display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(220px, 1.2fr) auto", gap: 14, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #eaecf0", color: "#344054", fontSize: 13 };

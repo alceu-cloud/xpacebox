@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { decryptIntegrationCredential, encryptIntegrationCredential } from "@/lib/server/telephony-credentials";
 
 type AgendaTask = {
   clientName: string;
@@ -19,16 +20,51 @@ type RecipientAgenda = {
 
 type Profile = { id: string; full_name: string | null; email: string | null; active: boolean; platform_role: string | null };
 type Company = { id: string; name: string; slug: string };
+type EmailConnection = {
+  id: string;
+  tenant_company_id: string;
+  enabled: boolean;
+  sender_email: string | null;
+  reply_to_email: string | null;
+  api_key_ciphertext: string | null;
+  api_key_iv: string | null;
+  api_key_auth_tag: string | null;
+};
 
 const timeZone = "America/Sao_Paulo";
 
-export function emailIntegrationStatus() {
-  const sender = process.env.EMAIL_FROM?.trim() || "";
+export function emailIntegrationStatus(connection: EmailConnection) {
+  const sender = connection.sender_email?.trim() || "";
   return {
-    configured: Boolean(process.env.RESEND_API_KEY?.trim() && sender),
+    configured: Boolean(connection.enabled && connection.api_key_ciphertext && connection.api_key_iv && connection.api_key_auth_tag && sender),
     sender,
+    replyTo: connection.reply_to_email?.trim() || "",
+    enabled: connection.enabled,
     scheduleLabel: "DIAS UTEIS, 07:30 (HORARIO DE BRASILIA)",
   };
+}
+
+export async function getCompanyEmailIntegration(companyId: string) {
+  const admin = createSupabaseAdmin();
+  const connection = await emailConnectionForCompany(admin, companyId);
+  return emailIntegrationStatus(connection);
+}
+
+export async function saveCompanyEmailIntegration(input: { companyId: string; apiKey?: string; sender: string; replyTo: string; enabled: boolean }) {
+  const sender = input.sender.trim();
+  const replyTo = input.replyTo.trim();
+  if (!isEmailSender(sender)) throw new Error("INFORME UM REMETENTE VALIDO, EX: XPACEBOX <NOTIFICACOES@XPACEBOX.COM.BR>.");
+  if (replyTo && !isEmailSender(replyTo)) throw new Error("INFORME UM E-MAIL DE RESPOSTA VALIDO.");
+  const admin = createSupabaseAdmin();
+  const connection = await emailConnectionForCompany(admin, input.companyId);
+  const update: Record<string, unknown> = { sender_email: sender, reply_to_email: replyTo || null, enabled: input.enabled, updated_at: new Date().toISOString() };
+  if (input.apiKey?.trim()) {
+    const credential = encryptIntegrationCredential(input.apiKey.trim());
+    Object.assign(update, { api_key_ciphertext: credential.ciphertext, api_key_iv: credential.iv, api_key_auth_tag: credential.authTag });
+  }
+  const { data, error } = await admin.from("email_integration_connections").update(update).eq("id", connection.id).select("*").single();
+  if (error) throw error;
+  return emailIntegrationStatus(data as EmailConnection);
 }
 
 export async function listCompanyEmailRecipients(companyId: string, currentProfileId: string) {
@@ -55,20 +91,28 @@ export async function sendCompanyAgendaTest(input: { companyId: string; companyN
   const agendas = await collectRecipientAgendas({ companyIds: new Set([input.companyId]), profileIds: new Set([input.profileId]) });
   const agenda = agendas.find((item) => item.companyId === input.companyId && item.profileId === input.profileId);
   if (!agenda) throw new Error("O USUARIO NAO POSSUI E-MAIL ATIVO PARA RECEBER O TESTE.");
-  await sendAgendaEmail(agenda, true);
+  const connection = await emailConnectionForCompany(createSupabaseAdmin(), input.companyId);
+  await sendAgendaEmail(agenda, connection, true);
   return { recipientEmail: agenda.recipientEmail, overdueCount: agenda.overdue.length, todayCount: agenda.today.length };
 }
 
 export async function sendScheduledAgendaEmails() {
-  const integration = emailIntegrationStatus();
-  if (!integration.configured) throw new Error("A INTEGRACAO DE E-MAIL AINDA NAO FOI CONFIGURADA.");
-
   const agendas = await collectRecipientAgendas();
   const scheduledFor = saoPauloDay(new Date());
   const results = { sent: 0, skipped: 0, failed: 0, recipients: agendas.length };
   const admin = createSupabaseAdmin();
+  const connections = new Map<string, EmailConnection>();
 
   for (const agenda of agendas) {
+    let connection = connections.get(agenda.companyId);
+    if (!connection) {
+      connection = await emailConnectionForCompany(admin, agenda.companyId);
+      connections.set(agenda.companyId, connection);
+    }
+    if (!emailIntegrationStatus(connection).configured) {
+      results.skipped += 1;
+      continue;
+    }
     const { data: delivery, error: insertError } = await admin
       .from("daily_agenda_email_deliveries")
       .upsert({
@@ -90,7 +134,7 @@ export async function sendScheduledAgendaEmails() {
     }
 
     try {
-      const providerMessageId = await sendAgendaEmail(agenda, false);
+      const providerMessageId = await sendAgendaEmail(agenda, connection, false);
       const { error } = await admin
         .from("daily_agenda_email_deliveries")
         .update({ status: "SENT", provider_message_id: providerMessageId, sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -109,6 +153,23 @@ export async function sendScheduledAgendaEmails() {
   }
 
   return results;
+}
+
+async function emailConnectionForCompany(admin: ReturnType<typeof createSupabaseAdmin>, companyId: string) {
+  const { data: existing, error } = await admin
+    .from("email_integration_connections")
+    .select("*")
+    .eq("tenant_company_id", companyId)
+    .maybeSingle();
+  if (error) throw error;
+  if (existing) return existing as EmailConnection;
+  const { data, error: insertError } = await admin
+    .from("email_integration_connections")
+    .insert({ tenant_company_id: companyId })
+    .select("*")
+    .single();
+  if (insertError) throw insertError;
+  return data as EmailConnection;
 }
 
 async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; profileIds?: Set<string> }) {
@@ -211,9 +272,14 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
   }));
 }
 
-async function sendAgendaEmail(agenda: RecipientAgenda, test: boolean) {
-  const integration = emailIntegrationStatus();
-  if (!integration.configured) throw new Error("CADASTRE RESEND_API_KEY E EMAIL_FROM NO VERCEL ANTES DE ENVIAR.");
+async function sendAgendaEmail(agenda: RecipientAgenda, connection: EmailConnection, test: boolean) {
+  const integration = emailIntegrationStatus(connection);
+  if (!integration.configured) throw new Error("CONFIGURE A CHAVE E O REMETENTE DO RESEND EM INTEGRACOES.");
+  const apiKey = decryptIntegrationCredential({
+    ciphertext: connection.api_key_ciphertext || "",
+    iv: connection.api_key_iv || "",
+    authTag: connection.api_key_auth_tag || "",
+  });
   const subjectPrefix = test ? "TESTE - " : "";
   const date = formatDate(saoPauloDay(new Date()));
   const subject = `${subjectPrefix}AGENDA COMERCIAL ${date} - ${agenda.companyName}`;
@@ -222,8 +288,8 @@ async function sendAgendaEmail(agenda: RecipientAgenda, test: boolean) {
   const text = renderText({ ...agenda, appUrl, date, test });
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: integration.sender, to: [agenda.recipientEmail], subject, html, text, reply_to: process.env.EMAIL_REPLY_TO?.trim() || undefined }),
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: integration.sender, to: [agenda.recipientEmail], subject, html, text, reply_to: integration.replyTo || undefined }),
   });
   const payload = await response.json().catch(() => ({})) as { id?: string; message?: string };
   if (!response.ok) throw new Error(payload.message || "O PROVEDOR DE E-MAIL RECUSOU O ENVIO.");
@@ -268,6 +334,11 @@ function formatDateTime(value: string) {
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] || character);
+}
+
+function isEmailSender(value: string) {
+  const email = value.match(/<([^>]+)>/)?.[1] || value;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function byScheduledAt(first: AgendaTask, second: AgendaTask) {
