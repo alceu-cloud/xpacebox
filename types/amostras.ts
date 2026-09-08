@@ -12,6 +12,7 @@ export type ClientSampleRecord = {
   responsibleName: string;
   requestedAt: string;
   deliveryDate: string;
+  closedAt: string;
   status: SampleStatus;
   productDescription: string;
   dimensions: string;
@@ -28,6 +29,7 @@ export type ClientSampleFormData = {
   responsibleProfileId: string;
   requestedAt: string;
   deliveryDate: string;
+  closedAt: string;
   status: SampleStatus;
   productDescription: string;
   dimensions: string;

@@ -40,3 +40,11 @@ export async function deleteClientSample(slug: string, id: string) {
     body: JSON.stringify({ slug, id }),
   });
 }
+
+export async function closeClientSample(slug: string, id: string): Promise<string> {
+  const payload = await authorizedFetch(`/api/clientes/amostras/${id}/baixa`, {
+    method: "POST",
+    body: JSON.stringify({ slug }),
+  });
+  return payload.closedAt;
+}

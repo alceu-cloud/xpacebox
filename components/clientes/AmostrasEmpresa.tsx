@@ -13,6 +13,7 @@ const emptyForm: ClientSampleFormData = {
   responsibleProfileId: "",
   requestedAt: today,
   deliveryDate: "",
+  closedAt: "",
   status: "REQUESTED",
   productDescription: "",
   dimensions: "",
@@ -44,6 +45,7 @@ export default function AmostrasEmpresa({
   const [form, setForm] = useState<ClientSampleFormData>(emptyForm);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SampleStatus | "ALL">("ALL");
+  const [sampleView, setSampleView] = useState<"OPEN" | "CLOSED">("OPEN");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -71,11 +73,12 @@ export default function AmostrasEmpresa({
   const filteredSamples = useMemo(() => {
     const term = search.trim().toLocaleUpperCase("pt-BR");
     return samples.filter((sample) => {
+      const matchesView = sampleView === "OPEN" ? !sample.closedAt : Boolean(sample.closedAt);
       const matchesStatus = statusFilter === "ALL" || sample.status === statusFilter;
       const matchesTerm = !term || `${sample.sampleCode} ${sample.clientName} ${sample.productDescription} ${sample.dimensions}`.toLocaleUpperCase("pt-BR").includes(term);
-      return matchesStatus && matchesTerm;
+      return matchesView && matchesStatus && matchesTerm;
     });
-  }, [samples, search, statusFilter]);
+  }, [samples, search, statusFilter, sampleView]);
 
   function update(key: keyof ClientSampleFormData, value: string) {
     setForm((current) => ({ ...current, [key]: key === "status" ? value as SampleStatus : upper(value) }));
@@ -115,6 +118,7 @@ export default function AmostrasEmpresa({
       responsibleProfileId: sample.responsibleProfileId,
       requestedAt: sample.requestedAt,
       deliveryDate: sample.deliveryDate,
+      closedAt: sample.closedAt,
       status: sample.status,
       productDescription: sample.productDescription,
       dimensions: sample.dimensions,
@@ -150,9 +154,9 @@ export default function AmostrasEmpresa({
           <p>CADASTRE SOLICITACOES, ACOMPANHE PRAZOS E MANTENHA O HISTORICO POR CLIENTE.</p>
         </div>
         <div className="samples-summary">
-          <Summary label="ABERTAS" value={samples.filter((sample) => ["REQUESTED", "IN_PRODUCTION"].includes(sample.status)).length} />
-          <Summary label="ENVIADAS" value={samples.filter((sample) => sample.status === "SENT").length} />
-          <Summary label="APROVADAS" value={samples.filter((sample) => sample.status === "APPROVED").length} />
+          <Summary label="ABERTAS" value={samples.filter((sample) => !sample.closedAt).length} />
+          <Summary label="BAIXADAS" value={samples.filter((sample) => Boolean(sample.closedAt)).length} />
+          <Summary label="COM PRAZO" value={samples.filter((sample) => !sample.closedAt && sample.deliveryDate).length} />
         </div>
       </header>
 
@@ -165,6 +169,7 @@ export default function AmostrasEmpresa({
           <SampleSelect label="RESPONSAVEL" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
           <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
           <SampleInput label="ENTREGA PREVISTA" type="date" value={form.deliveryDate} onChange={(value) => update("deliveryDate", value)} />
+          <SampleInput label="DATA DA BAIXA" type="date" value={form.closedAt} onChange={(value) => update("closedAt", value)} />
           <SampleSelect label="STATUS" value={form.status} onChange={(value) => update("status", value)} options={statusOptions} />
           <SampleInput label="DESCRICAO DA AMOSTRA" value={form.productDescription} onChange={(value) => update("productDescription", value)} wide />
           <SampleInput label="MEDIDAS / MODELO" value={form.dimensions} onChange={(value) => update("dimensions", value)} />
@@ -186,8 +191,12 @@ export default function AmostrasEmpresa({
       <section className="samples-list">
         <div className="samples-list-header">
           <div>
-            <span className="clients-eyebrow">HISTORICO</span>
-            <h3>AMOSTRAS CADASTRADAS</h3>
+            <span className="clients-eyebrow">CONTROLE DE PRAZOS</span>
+            <h3>{sampleView === "OPEN" ? "AMOSTRAS EM ABERTO" : "AMOSTRAS BAIXADAS"}</h3>
+          </div>
+          <div className="samples-view-tabs" role="tablist" aria-label="VISAO DE AMOSTRAS">
+            <button type="button" className={sampleView === "OPEN" ? "active" : ""} onClick={() => setSampleView("OPEN")}>ABERTAS ({samples.filter((sample) => !sample.closedAt).length})</button>
+            <button type="button" className={sampleView === "CLOSED" ? "active" : ""} onClick={() => setSampleView("CLOSED")}>BAIXADAS ({samples.filter((sample) => Boolean(sample.closedAt)).length})</button>
           </div>
           <div className="samples-filters">
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR AMOSTRA" />
@@ -214,6 +223,7 @@ export default function AmostrasEmpresa({
                   <div><dt>MEDIDAS</dt><dd>{sample.dimensions || "-"}</dd></div>
                   <div><dt>QTDE.</dt><dd>{sample.quantity}</dd></div>
                   <div><dt>ENTREGA</dt><dd>{displayDate(sample.deliveryDate)}</dd></div>
+                  <div><dt>BAIXA</dt><dd>{displayDate(sample.closedAt)}</dd></div>
                   <div><dt>RESP.</dt><dd>{sample.responsibleName || "-"}</dd></div>
                 </dl>
                 <div className="samples-card-actions">

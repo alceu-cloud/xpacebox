@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 import { ContactRound, PhoneCall, Target } from "lucide-react";
 
+import { closeClientSample } from "@/lib/amostras";
 import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
@@ -20,6 +21,7 @@ import type {
   CrmOpportunityStage,
   CrmOverview,
   CrmProfileInput,
+  CrmSampleAgendaItem,
 } from "@/types/crm";
 import type { ProductFicha } from "@/types/gerenciador";
 import type { GeneralOption } from "@/types/cadastros-gerais";
@@ -57,6 +59,7 @@ const emptyOverview: CrmOverview = {
   opportunities: [],
   quotes: [],
   expiredQuotes: [],
+  samples: [],
   whatsappConnections: [],
 };
 
@@ -144,6 +147,7 @@ export default function CrmEmpresa({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [postponingClientId, setPostponingClientId] = useState("");
+  const [closingSampleId, setClosingSampleId] = useState("");
   const [dialingClientId, setDialingClientId] = useState("");
   const [openingWhatsappClientId, setOpeningWhatsappClientId] = useState("");
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
@@ -271,6 +275,22 @@ export default function CrmEmpresa({
   const agendaTodayCount = agendaClients.filter((item) => item.daysToAction === 0).length;
   const agendaTomorrowCount = agendaClients.filter((item) => item.daysToAction === 1).length;
   const agendaUpcomingCount = agendaClients.filter((item) => item.daysToAction >= 2 && item.daysToAction <= 7).length;
+  const sampleAgendaItems = useMemo(() => {
+    const term = upper(agendaSearch);
+    const clientsById = new Map(clients.map((client) => [client.id, client]));
+    return overview.samples
+      .map((sample) => {
+        const client = clientsById.get(sample.clientId);
+        const clientName = client?.tradeName || client?.legalName || "CLIENTE";
+        return { ...sample, clientName, daysToDue: daysUntil(sample.deliveryDate) };
+      })
+      .filter((sample) => {
+        const matchesTerm = !term || upper(`${sample.clientName} ${sample.productDescription}`).includes(term);
+        const matchesOwner = agendaOwnerFilter === "ALL" || sample.responsibleProfileId === agendaOwnerFilter;
+        return matchesTerm && matchesOwner && sample.daysToDue <= 7;
+      })
+      .sort((first, second) => first.deliveryDate.localeCompare(second.deliveryDate));
+  }, [agendaOwnerFilter, agendaSearch, clients, overview.samples]);
   const pipelineClientCompanyIds = useMemo(
     () => new Map(clients.map((client) => [client.id, client.sellerCompanyId])),
     [clients]
@@ -480,6 +500,23 @@ export default function CrmEmpresa({
     }
   }
 
+  async function handleCloseSample(sampleId: string) {
+    setClosingSampleId(sampleId);
+    clearFeedback();
+    try {
+      await closeClientSample(slug, sampleId);
+      setOverview((current) => ({
+        ...current,
+        samples: current.samples.filter((sample) => sample.id !== sampleId),
+      }));
+      setMessage("AMOSTRA BAIXADA COM SUCESSO.");
+    } catch (closeError) {
+      setError(messageFrom(closeError));
+    } finally {
+      setClosingSampleId("");
+    }
+  }
+
   async function handleDial(clientId: string) {
     setDialingClientId(clientId);
     clearFeedback();
@@ -589,24 +626,27 @@ export default function CrmEmpresa({
       {loading ? <div className="clients-empty crm-loading">CARREGANDO CENTRAL COMERCIAL...</div> : null}
 
       {!loading && view === "agenda" ? (
-        <AgendaBoard
-          items={agendaClients}
-          search={agendaSearch}
-          setSearch={setAgendaSearch}
-          ownerFilter={agendaOwnerFilter}
-          setOwnerFilter={setAgendaOwnerFilter}
-          representatives={representatives}
-          isManager={overview.isManager}
-          opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
-          quoteCount={(clientId) => quoteByClient.get(clientId)?.count || 0}
-          expiredQuoteCount={(clientId) => expiredQuoteCountByClient.get(clientId) || 0}
-          onPostpone={handlePostponeAgenda}
-          postponingClientId={postponingClientId}
-          onOpenClient={(clientId) => {
-            selectClient(clientId, "contato");
-            onViewChange("carteira");
-          }}
-        />
+        <>
+          <AgendaBoard
+            items={agendaClients}
+            search={agendaSearch}
+            setSearch={setAgendaSearch}
+            ownerFilter={agendaOwnerFilter}
+            setOwnerFilter={setAgendaOwnerFilter}
+            representatives={representatives}
+            isManager={overview.isManager}
+            opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
+            quoteCount={(clientId) => quoteByClient.get(clientId)?.count || 0}
+            expiredQuoteCount={(clientId) => expiredQuoteCountByClient.get(clientId) || 0}
+            onPostpone={handlePostponeAgenda}
+            postponingClientId={postponingClientId}
+            onOpenClient={(clientId) => {
+              selectClient(clientId, "contato");
+              onViewChange("carteira");
+            }}
+          />
+          <SampleAgendaBoard items={sampleAgendaItems} closingSampleId={closingSampleId} onClose={handleCloseSample} />
+        </>
       ) : null}
 
       {!loading && view === "carteira" ? (
@@ -846,6 +886,60 @@ function AgendaBoard({
                 );
               })}
               {!group.items.length ? <p>NENHUMA ACAO NESTA FAIXA.</p> : null}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type SampleAgendaRow = CrmSampleAgendaItem & {
+  clientName: string;
+  daysToDue: number;
+};
+
+function SampleAgendaBoard({
+  items,
+  closingSampleId,
+  onClose,
+}: {
+  items: SampleAgendaRow[];
+  closingSampleId: string;
+  onClose: (sampleId: string) => void;
+}) {
+  const groups = [
+    { key: "overdue", label: "ATRASADAS", items: items.filter((item) => item.daysToDue < 0) },
+    { key: "today", label: "PARA HOJE", items: items.filter((item) => item.daysToDue === 0) },
+    { key: "tomorrow", label: "AMANHA", items: items.filter((item) => item.daysToDue === 1) },
+    { key: "soon", label: "PROXIMOS 7 DIAS", items: items.filter((item) => item.daysToDue >= 2 && item.daysToDue <= 7) },
+  ];
+
+  return (
+    <section className="sample-agenda">
+      <header className="sample-agenda-header">
+        <div>
+          <span className="clients-eyebrow">CONTROLE OPERACIONAL</span>
+          <h3>AGENDA DE AMOSTRAS</h3>
+          <p>PRAZOS DE AMOSTRAS EM ABERTO. A BAIXA REGISTRA A DATA REAL DE CONCLUSAO.</p>
+        </div>
+        <b>{items.length} EM ABERTO</b>
+      </header>
+
+      <div className="sample-agenda-groups">
+        {groups.map((group) => (
+          <section className="sample-agenda-group" key={group.key}>
+            <header><strong>{group.label}</strong><span>{group.items.length}</span></header>
+            <div>
+              {group.items.map((item) => (
+                <article className="sample-agenda-item" key={item.id}>
+                  <i className="sample-agenda-dot" />
+                  <div className="sample-agenda-client"><strong>{item.clientName}</strong></div>
+                  <div className="sample-agenda-date"><span>DATA PREVISTA</span><strong>{displayDate(item.deliveryDate)}</strong></div>
+                  <button type="button" onClick={() => onClose(item.id)} disabled={closingSampleId === item.id}>{closingSampleId === item.id ? "BAIXANDO..." : "DAR BAIXA"}</button>
+                </article>
+              ))}
+              {!group.items.length ? <p>NENHUMA AMOSTRA NESTA FAIXA.</p> : null}
             </div>
           </section>
         ))}

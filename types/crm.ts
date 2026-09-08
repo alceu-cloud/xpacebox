@@ -87,6 +87,15 @@ export type CrmExpiredQuoteSummary = {
   count: number;
 };
 
+export type CrmSampleAgendaItem = {
+  id: string;
+  clientId: string;
+  responsibleProfileId: string;
+  deliveryDate: string;
+  status: string;
+  productDescription: string;
+};
+
 export type WhatsAppConnection = {
   sellerCompanyId: string;
   sellerCompanyName: string;
@@ -107,6 +116,7 @@ export type CrmOverview = {
   opportunities: CrmOpportunity[];
   quotes: CrmQuoteSummary[];
   expiredQuotes: CrmExpiredQuoteSummary[];
+  samples: CrmSampleAgendaItem[];
   whatsappConnections: WhatsAppConnection[];
 };
 

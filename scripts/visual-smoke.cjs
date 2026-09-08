@@ -13,7 +13,7 @@ const user = {id:'00000000-0000-4000-8000-000000000001',email:'visual@example.te
 const company={id:'company-test',name:'DAWOS',slug:'dawos'};
 const rep={id:user.id,name:'Representante de teste',email:user.email};
 const client = {id:'client-test',clientNumber:1,clientCode:'CLI-000001',legalName:'CLIENTE DE TESTE VISUAL',tradeName:'TESTE VISUAL',buyerName:'Contato',whatsapp:'47999999999',phone:'4730000000',cnpj:'00000000000000',sellerCompanyId:company.id,sellerCompanyName:'DAWOS',representativeUserId:user.id,representativeName:rep.name,active:true,updatedAt:'2026-09-01',state:'SC',city:'Joinville'};
-const emptyOverview={currentProfileId:user.id,currentProfileName:rep.name,isManager:true,profiles:[],activities:[],telephonyCalls:[],opportunities:[],quotes:[],expiredQuotes:[],whatsappConnections:[]};
+const emptyOverview={currentProfileId:user.id,currentProfileName:rep.name,isManager:true,profiles:[],activities:[],telephonyCalls:[],opportunities:[],quotes:[],expiredQuotes:[],samples:[{id:'sample-test',clientId:client.id,responsibleProfileId:rep.id,deliveryDate:'2026-09-08',status:'IN_PRODUCTION',productDescription:'AMOSTRA DE TESTE'}],whatsappConnections:[]};
 const report={isManager:true,currentProfileId:user.id,clients:[],profiles:[],opportunities:[],activities:[],quotes:[],productFichas:[],materials:[],representatives:[rep],salesGoals:{},lostReasons:[]};
 
 const visualEngineeringFormulas=[

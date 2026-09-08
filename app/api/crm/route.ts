@@ -22,8 +22,17 @@ export async function GET(request: Request) {
       .order("started_at", { ascending: false })
       .limit(300);
     if (!isManager) telephonyCallsQuery = telephonyCallsQuery.eq("representative_profile_id", profile.id);
+    let samplesQuery = admin
+      .from("client_samples")
+      .select("id,client_id,responsible_profile_id,delivery_date,status,product_description")
+      .eq("tenant_company_id", company.id)
+      .is("closed_at", null)
+      .not("delivery_date", "is", null)
+      .order("delivery_date", { ascending: true })
+      .limit(500);
+    if (!isManager) samplesQuery = samplesQuery.eq("responsible_profile_id", profile.id);
 
-    const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult] = await Promise.all([
+    const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult, samplesResult] = await Promise.all([
       admin.from("crm_customer_profiles").select("*").eq("tenant_company_id", company.id),
       admin.from("crm_activities").select("*").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),
       admin.from("crm_opportunities").select("*").eq("tenant_company_id", company.id).order("updated_at", { ascending: false }).limit(300),
@@ -31,9 +40,10 @@ export async function GET(request: Request) {
       admin.from("seller_companies").select("id, name").eq("tenant_company_id", company.id).eq("active", true).order("name"),
       admin.from("profiles").select("id, full_name, email").eq("active", true),
       telephonyCallsQuery,
+      samplesQuery,
     ]);
 
-    for (const result of [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult]) {
+    for (const result of [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult, samplesResult]) {
       if (result.error) throw result.error;
     }
 
@@ -153,6 +163,14 @@ export async function GET(request: Request) {
         })),
         quotes: [...quoteMap.entries()].map(([clientId, value]) => ({ clientId, ...value })),
         expiredQuotes: [...expiredQuoteMap.entries()].map(([clientId, count]) => ({ clientId, count })),
+        samples: (samplesResult.data ?? []).map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          responsibleProfileId: row.responsible_profile_id || "",
+          deliveryDate: row.delivery_date || "",
+          status: row.status || "",
+          productDescription: row.product_description || "",
+        })),
         whatsappConnections: (connectionsResult.data ?? []).map((row) => ({
           sellerCompanyId: row.seller_company_id,
           sellerCompanyName: sellerNames.get(row.seller_company_id) || "EMPRESA",

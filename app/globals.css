@@ -1412,6 +1412,29 @@ button {
   gap: 10px;
 }
 
+.samples-view-tabs {
+  display: flex;
+  gap: 7px;
+}
+
+.samples-view-tabs button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(111, 50, 210, 0.2);
+  border-radius: 9px;
+  background: #fff;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.samples-view-tabs button.active {
+  border-color: #6f32d2;
+  background: #6f32d2;
+  color: #fff;
+}
+
 .samples-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1831,6 +1854,105 @@ button {
 .crm-agenda-buttons a:hover { border-color: #16b76e; color: #078c50; }
 .crm-agenda-buttons button:hover { background: #6221ca; }
 .crm-agenda-buttons .crm-agenda-more-button:hover { border-color: #7a31e8; background: #f7f2ff; color: #6f2ee4; }
+
+.sample-agenda {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 59, 37, 0.28);
+  border-radius: 8px;
+  background: #fffaf7;
+}
+
+.sample-agenda-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.sample-agenda-header h3 {
+  margin: 5px 0;
+  color: #171b2d;
+  font-size: 23px;
+}
+
+.sample-agenda-header p {
+  margin: 0;
+  color: #7c6259;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sample-agenda-header > b {
+  min-width: 110px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: #fff0ea;
+  color: var(--xb-orange);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.sample-agenda-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sample-agenda-group {
+  overflow: hidden;
+  border: 1px solid #f2d7ca;
+  border-top: 4px solid var(--xb-orange);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sample-agenda-group > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid #f4e4dc;
+}
+
+.sample-agenda-group > header strong { color: #171b2d; font-size: 15px; }
+.sample-agenda-group > header span { color: var(--xb-orange); font-size: 17px; font-weight: 900; }
+.sample-agenda-group > div { display: grid; }
+.sample-agenda-group > div > p { margin: 0; padding: 24px; color: #9d7a6f; font-size: 13px; font-weight: 800; text-align: center; }
+
+.sample-agenda-item {
+  display: grid;
+  grid-template-columns: 10px minmax(160px, 1fr) minmax(130px, .65fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f7e8e1;
+}
+
+.sample-agenda-item:last-child { border-bottom: 0; }
+.sample-agenda-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--xb-orange); box-shadow: 0 0 0 4px rgba(255, 59, 37, 0.12); }
+.sample-agenda-client { min-width: 0; }
+.sample-agenda-client strong { display: block; overflow: hidden; color: #171b2d; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.sample-agenda-date { display: grid; gap: 3px; }
+.sample-agenda-date span { color: #9d7a6f; font-size: 10px; font-weight: 900; }
+.sample-agenda-date strong { color: #6b3429; font-size: 12px; }
+.sample-agenda-item button {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--xb-orange);
+  border-radius: 6px;
+  background: var(--xb-orange);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.sample-agenda-item button:hover { background: #e9311d; }
+.sample-agenda-item button:disabled { cursor: wait; opacity: .6; }
 
 .crm-workspace {
   display: grid;
@@ -2584,6 +2706,7 @@ button {
   .crm-summary { width: 100%; }
   .crm-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .crm-agenda-groups { grid-template-columns: 1fr; }
+  .sample-agenda-groups { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {
@@ -2596,6 +2719,9 @@ button {
   .crm-agenda-action,
   .crm-agenda-context { grid-column: 2; }
   .crm-agenda-buttons { grid-column: 3; grid-row: 1 / span 3; flex-direction: column; }
+  .sample-agenda-item { grid-template-columns: 10px minmax(0, 1fr) auto; }
+  .sample-agenda-date { grid-column: 2; }
+  .sample-agenda-item button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
 @media (max-width: 640px) {
@@ -2625,6 +2751,13 @@ button {
   .crm-agenda-context,
   .crm-agenda-buttons { grid-column: 2; }
   .crm-agenda-buttons { grid-row: auto; flex-direction: row; }
+  .sample-agenda { padding: 16px; }
+  .sample-agenda-header { align-items: stretch; flex-direction: column; }
+  .sample-agenda-header > b { width: fit-content; }
+  .sample-agenda-item { grid-template-columns: 10px minmax(0, 1fr); }
+  .sample-agenda-date,
+  .sample-agenda-item button { grid-column: 2; }
+  .sample-agenda-item button { grid-row: auto; justify-self: start; }
 }
 
 /* Operating modules: same component language, keeping their existing markup and behavior. */
