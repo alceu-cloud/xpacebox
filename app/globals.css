@@ -1266,12 +1266,19 @@ button {
   gap: 22px;
 }
 
-.samples-header,
-.samples-list-header {
+.samples-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
+}
+
+.samples-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 76px;
 }
 
 .samples-header h2,
@@ -1414,17 +1421,19 @@ button {
 
 .samples-view-tabs {
   display: flex;
+  align-items: center;
   gap: 7px;
 }
 
 .samples-view-tabs button {
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 48px;
+  min-width: 112px;
+  padding: 0 16px;
   border: 1px solid rgba(111, 50, 210, 0.2);
   border-radius: 9px;
   background: #fff;
   color: #667085;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -1554,6 +1563,15 @@ button {
   .clients-address-grid {
     grid-template-columns: 1fr;
   }
+
+  .samples-header,
+  .samples-list-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .samples-view-tabs button { flex: 1; min-width: 0; }
+  .samples-filters { grid-template-columns: 1fr; }
 
   .clients-cnpj-band {
     gap: 24px;
