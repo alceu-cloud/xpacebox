@@ -19,8 +19,8 @@
 .xb-welcome::after { content: ""; position: absolute; inset: 0; z-index: -1; background: #0c101b30; }
 .xb-welcome-copy { display: grid; justify-items: center; gap: 20px; padding: 64px 28px; text-align: center; }
 .xb-welcome-copy > span { font-size: 13px; font-weight: 600; color: #cdeaff; letter-spacing: 0; }
-.xb-welcome-copy h1 { margin: 0; max-width: 900px; color: #fff; font-size: 52px; font-family: "Chillax", sans-serif; font-weight: 650; line-height: 1.12; letter-spacing: 0; text-transform: none; text-wrap: balance; }
-.xb-welcome-copy p { margin: 0; color: #e3e4f1; font-size: 15px; text-transform: none; }
+.xb-welcome-copy h1 { margin: 0; max-width: 900px; color: #fff; font-size: 52px; font-family: "Chillax", sans-serif; font-weight: 650; line-height: 1.12; letter-spacing: 0; text-transform: uppercase; text-wrap: balance; }
+.xb-welcome-copy p { margin: 0; color: #e3e4f1; font-size: 15px; text-transform: uppercase; }
 .xb-welcome-motion { position: absolute; bottom: 18px; right: 18px; display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #ffffff55; border-radius: 50%; background: #15191faa; color: #fff; cursor: pointer; }
 .xb-welcome-motion:hover { background: #443158; }
 .xb-welcome[data-paused="true"] .xb-welcome-art { animation-play-state: paused; }

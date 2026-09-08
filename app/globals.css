@@ -159,7 +159,11 @@ body {
   letter-spacing: 0;
   text-wrap: balance;
 }
-.xb-central-intro p { max-width: 510px; margin: 0; color: var(--xb-quiet); font-size: 16px; line-height: 1.65; text-transform: none; }
+.xb-central-intro h1,
+.xb-central-intro p,
+.xb-company-card { text-transform: uppercase; }
+
+.xb-central-intro p { max-width: 510px; margin: 0; color: var(--xb-quiet); font-size: 16px; line-height: 1.65; }
 
 .xb-company-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
 .xb-company-card {
@@ -266,7 +270,7 @@ body {
 }
 .xb-manager-empty-copy { position: relative; display: grid; justify-items: center; gap: 20px; max-width: 650px; padding: 76px 28px; text-align: center; }
 .xb-manager-empty-copy > span { color: #a6edff; font-size: 11px; font-weight: 700; letter-spacing: 0; }
-.xb-manager-empty-copy h2 { margin: 0; color: #fff; font-family: "Chillax", sans-serif; font-size: 40px; font-weight: 650; letter-spacing: 0; line-height: 1.15; text-transform: none; text-wrap: balance; text-shadow: 0 2px 16px #090c16; }
+.xb-manager-empty-copy h2 { margin: 0; color: #fff; font-family: "Chillax", sans-serif; font-size: 40px; font-weight: 650; letter-spacing: 0; line-height: 1.15; text-transform: uppercase; text-wrap: balance; text-shadow: 0 2px 16px #090c16; }
 .xb-manager-motion { position: absolute; right: 20px; bottom: 20px; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #ffffff66; border-radius: 50%; background: #101319cc; color: #fff; cursor: pointer; }
 .xb-manager-motion:hover { background: #393044; }
 .xb-manager-motion:focus-visible { outline: 2px solid #a6edff; outline-offset: 4px; }
