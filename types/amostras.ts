@@ -25,7 +25,6 @@ export type ClientSampleRecord = {
 export type ClientSampleFormData = {
   id?: string;
   clientId: string;
-  sellerCompanyId: string;
   responsibleProfileId: string;
   requestedAt: string;
   deliveryDate: string;

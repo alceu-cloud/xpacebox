@@ -33,11 +33,11 @@ export async function POST(request: Request) {
     validateSample(slug, sample);
 
     const { admin, company, user } = await requireCompanyAccess(request, slug);
-    await validateRelations(admin, company.id, sample);
+    const client = await validateRelations(admin, company.id, sample);
 
     const { data, error } = await admin
       .from("client_samples")
-      .insert({ ...toDatabase(sample), tenant_company_id: company.id, created_by: user.id })
+      .insert({ ...toDatabase(sample, client.seller_company_id), tenant_company_id: company.id, created_by: user.id })
       .select("*")
       .single();
 
@@ -57,11 +57,11 @@ export async function PATCH(request: Request) {
     validateSample(slug, sample, true);
 
     const { admin, company } = await requireCompanyAccess(request, slug);
-    await validateRelations(admin, company.id, sample);
+    const client = await validateRelations(admin, company.id, sample);
 
     const { data, error } = await admin
       .from("client_samples")
-      .update({ ...toDatabase(sample), updated_at: new Date().toISOString() })
+      .update({ ...toDatabase(sample, client.seller_company_id), updated_at: new Date().toISOString() })
       .eq("id", sample.id)
       .eq("tenant_company_id", company.id)
       .select("*")
@@ -114,24 +114,14 @@ async function validateRelations(admin: Awaited<ReturnType<typeof requireCompany
     .maybeSingle();
   if (!client) throw new RequestError("CLIENTE NAO ENCONTRADO.", 404);
 
-  if (sample.sellerCompanyId) {
-    const { data: seller } = await admin
-      .from("seller_companies")
-      .select("id")
-      .eq("id", sample.sellerCompanyId)
-      .eq("tenant_company_id", companyId)
-      .eq("active", true)
-      .maybeSingle();
-    if (!seller) throw new RequestError("EMPRESA ATENDENTE INVALIDA.", 400);
-  }
-
   if (sample.responsibleProfileId) await requireCompanyProfile(admin, companyId, sample.responsibleProfileId);
+  return client;
 }
 
-function toDatabase(sample: ClientSampleFormData) {
+function toDatabase(sample: ClientSampleFormData, sellerCompanyId: string | null) {
   return {
     client_id: sample.clientId,
-    seller_company_id: sample.sellerCompanyId || null,
+    seller_company_id: sellerCompanyId,
     responsible_profile_id: sample.responsibleProfileId || null,
     requested_at: sample.requestedAt || new Date().toISOString().slice(0, 10),
     delivery_date: sample.deliveryDate || null,

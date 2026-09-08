@@ -4,13 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { deleteClientSample, loadClientSamples, saveClientSample } from "@/lib/amostras";
 import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
-import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
+import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
 
 const today = new Date().toISOString().slice(0, 10);
 
 const emptyForm: ClientSampleFormData = {
   clientId: "",
-  sellerCompanyId: "",
   responsibleProfileId: "",
   requestedAt: today,
   deliveryDate: "",
@@ -36,12 +35,10 @@ export default function AmostrasEmpresa({
   slug,
   clients,
   representatives,
-  sellerCompanies,
 }: {
   slug: string;
   clients: ClientRecord[];
   representatives: RepresentativeOption[];
-  sellerCompanies: SellerCompanyOption[];
 }) {
   const [samples, setSamples] = useState<ClientSampleRecord[]>([]);
   const [form, setForm] = useState<ClientSampleFormData>(emptyForm);
@@ -89,7 +86,6 @@ export default function AmostrasEmpresa({
     setForm((current) => ({
       ...current,
       clientId,
-      sellerCompanyId: client?.sellerCompanyId || current.sellerCompanyId || sellerCompanies[0]?.id || "",
       responsibleProfileId: client?.representativeUserId || current.responsibleProfileId || representatives[0]?.id || "",
     }));
   }
@@ -116,7 +112,6 @@ export default function AmostrasEmpresa({
     setForm({
       id: sample.id,
       clientId: sample.clientId,
-      sellerCompanyId: sample.sellerCompanyId,
       responsibleProfileId: sample.responsibleProfileId,
       requestedAt: sample.requestedAt,
       deliveryDate: sample.deliveryDate,
@@ -167,7 +162,6 @@ export default function AmostrasEmpresa({
       <section className="samples-form">
         <div className="samples-form-grid">
           <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
-          <SampleSelect label="EMPRESA ATENDENTE" value={form.sellerCompanyId} onChange={(value) => update("sellerCompanyId", value)} options={sellerCompanies.map((seller) => ({ value: seller.id, label: seller.name }))} />
           <SampleSelect label="RESPONSAVEL" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
           <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
           <SampleInput label="ENTREGA PREVISTA" type="date" value={form.deliveryDate} onChange={(value) => update("deliveryDate", value)} />
