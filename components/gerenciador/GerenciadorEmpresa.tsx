@@ -7,6 +7,7 @@ import { ArrowLeft, Boxes, Building2, ClipboardList, DollarSign, FileText, Layer
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import ManagerWelcome from "@/components/ui/ManagerWelcome";
 import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
+import EmailAgendaIntegrationPanel from "@/components/integracoes/EmailAgendaIntegrationPanel";
 
 import {
   defaultQuoteParametersByCompany,
@@ -696,7 +697,10 @@ export default function GerenciadorEmpresa({
           )}
 
           {activeTab === "integracoes" && (
-            <BaldussiIntegrationPanel companySlug={companySlug} />
+            <div style={{ display: "grid", gap: 18 }}>
+              <EmailAgendaIntegrationPanel companySlug={companySlug} />
+              <BaldussiIntegrationPanel companySlug={companySlug} />
+            </div>
           )}
 
           {activeTab === "tempos" && (

@@ -1,5 +1,11 @@
 {
   "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/cron/daily-agenda",
+      "schedule": "30 10 * * 1-5"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
