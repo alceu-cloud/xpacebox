@@ -1612,7 +1612,21 @@ function crmCalendarDate(value: string) {
 function whatsAppLink(value: string, name: string) {
   const clean = value.replace(/\D/g, "");
   const phone = clean.startsWith("55") ? clean : `55${clean}`;
-  return `whatsapp://send?phone=${phone}&text=${encodeURIComponent(`OLA ${name}, TUDO BEM?`)}`;
+  return `whatsapp://send?phone=${phone}&text=${encodeURIComponent(`Olá ${portugueseName(name)}, tudo bem?`)}`;
+}
+
+function portugueseName(value: string) {
+  const connectors = new Set(["da", "das", "de", "do", "dos", "e"]);
+  return (value || "CLIENTE")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .split(/\s+/)
+    .map((word, index) => index > 0 && connectors.has(word) ? word : word.split("-").map(capitalizeNamePart).join("-"))
+    .join(" ");
+}
+
+function capitalizeNamePart(value: string) {
+  return value ? `${value.slice(0, 1).toLocaleUpperCase("pt-BR")}${value.slice(1)}` : "";
 }
 
 function healthLabel(value: CrmHealth) {
