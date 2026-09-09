@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
-import { ContactRound, PhoneCall, Target } from "lucide-react";
+import { ContactRound, PackageCheck, PhoneCall, Target } from "lucide-react";
 
 import { closeClientSample } from "@/lib/amostras";
-import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
+import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, registerCrmOrder, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import TelephonyCallHistory from "@/components/clientes/TelephonyCallHistory";
@@ -14,11 +14,13 @@ import SectionNavigation from "@/components/ui/SectionNavigation";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
   CrmActivityInput,
+  CrmAgendaKind,
   CrmCustomerProfile,
   CrmHealth,
   CrmOpportunity,
   CrmOpportunityInput,
   CrmOpportunityStage,
+  CrmOrderInput,
   CrmOverview,
   CrmProfileInput,
   CrmSampleAgendaItem,
@@ -28,7 +30,7 @@ import type { GeneralOption } from "@/types/cadastros-gerais";
 
 export type CrmView = "agenda" | "carteira" | "pipeline";
 type CrmClosedPeriod = "ALL" | "MONTH" | "QUARTER" | "SEMESTER" | "CUSTOM";
-type CrmDetailEntryTab = "resumo" | "contato";
+type CrmDetailEntryTab = "resumo" | "contato" | "pedido";
 type PurchaseAverageAlert = {
   clientId: string;
   clientName: string;
@@ -108,6 +110,15 @@ const emptyOpportunity: CrmOpportunityInput = {
   nextActionAt: "",
 };
 
+const emptyOrder: CrmOrderInput = {
+  clientId: "",
+  representativeProfileId: "",
+  title: "PEDIDO MANUAL",
+  totalValue: 0,
+  orderDate: localDateKey(),
+  notes: "",
+};
+
 export default function CrmEmpresa({
   slug,
   clients,
@@ -146,13 +157,14 @@ export default function CrmEmpresa({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [postponingClientId, setPostponingClientId] = useState("");
+  const [postponingAgendaId, setPostponingAgendaId] = useState("");
   const [closingSampleId, setClosingSampleId] = useState("");
   const [dialingClientId, setDialingClientId] = useState("");
   const [openingWhatsappClientId, setOpeningWhatsappClientId] = useState("");
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
   const [activityDraft, setActivityDraft] = useState<CrmActivityInput>(emptyActivity);
   const [opportunityDraft, setOpportunityDraft] = useState<CrmOpportunityInput>(emptyOpportunity);
+  const [orderDraft, setOrderDraft] = useState<CrmOrderInput>(emptyOrder);
   const [lostStagePrompt, setLostStagePrompt] = useState<CrmOpportunity | null>(null);
   const [lostStageReason, setLostStageReason] = useState("");
   const [purchaseAverageAlert, setPurchaseAverageAlert] = useState<PurchaseAverageAlert | null>(null);
@@ -205,7 +217,7 @@ export default function CrmEmpresa({
     if (!selectedClient) return undefined;
     const nextContactAt = selectedProfile?.nextContactAt || "";
     return overview.activities.find((activity) => {
-      if (activity.clientId !== selectedClient.id || !activity.nextActionAt || activity.opportunityId) return false;
+      if (activity.clientId !== selectedClient.id || !activity.nextActionAt || activity.agendaKind !== "FOLLOW_UP") return false;
       return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
     });
   }, [overview.activities, selectedClient, selectedProfile?.nextContactAt]);
@@ -239,25 +251,14 @@ export default function CrmEmpresa({
       nextActionAt: "",
     });
     setOpportunityDraft({ ...emptyOpportunity, clientId: selectedClient.id, representativeProfileId: owner });
+    setOrderDraft({ ...emptyOrder, clientId: selectedClient.id, representativeProfileId: owner, orderDate: localDateKey() });
   }, [overview.currentProfileId, selectedClient, selectedProfile, scheduledActivity]);
 
   const activeOpportunities = useMemo(
     () => overview.opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST"),
     [overview.opportunities]
   );
-  const activeOpportunityClientIds = useMemo(
-    () => new Set(activeOpportunities.map((item) => item.clientId)),
-    [activeOpportunities]
-  );
   const rankedClients = useMemo(() => rankClients(clients, overview.profiles), [clients, overview.profiles]);
-  const agendaFilteredClients = useMemo(() => {
-    const term = upper(agendaSearch);
-    return rankedClients.filter(({ client, profile }) => {
-      const matchesTerm = !term || upper(`${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`).includes(term);
-      const matchesOwner = agendaOwnerFilter === "ALL" || (profile?.ownerProfileId || client.representativeUserId) === agendaOwnerFilter;
-      return matchesTerm && matchesOwner;
-    });
-  }, [agendaOwnerFilter, agendaSearch, rankedClients]);
   const portfolioFilteredClients = useMemo(() => {
     const term = upper(portfolioSearch);
     return rankedClients.filter(({ client, profile }) => {
@@ -266,15 +267,37 @@ export default function CrmEmpresa({
       return matchesTerm && matchesOwner;
     });
   }, [portfolioOwnerFilter, portfolioSearch, rankedClients]);
-  const agendaClients = agendaFilteredClients.filter((item) => {
-    const hasActiveOpportunity = activeOpportunityClientIds.has(item.client.id);
-    const hasScheduledContact = Boolean(item.profile?.nextContactAt);
-    return (!hasActiveOpportunity || hasScheduledContact) && (item.health !== "GREEN" || item.daysToAction <= 7);
-  });
-  const agendaOverdueCount = agendaClients.filter((item) => item.daysToAction < 0).length;
-  const agendaTodayCount = agendaClients.filter((item) => item.daysToAction === 0).length;
-  const agendaTomorrowCount = agendaClients.filter((item) => item.daysToAction === 1).length;
-  const agendaUpcomingCount = agendaClients.filter((item) => item.daysToAction >= 2 && item.daysToAction <= 7).length;
+  const agendaItems = useMemo(() => {
+    const clientById = new Map(clients.map((client) => [client.id, client]));
+    const profileById = new Map(overview.profiles.map((profile) => [profile.clientId, profile]));
+    const rows: AgendaItem[] = [];
+    for (const profile of overview.profiles) {
+      if (!profile.nextContactAt) continue;
+      const client = clientById.get(profile.clientId);
+      if (!client) continue;
+      const activity = overview.activities.find((item) => item.clientId === client.id && item.agendaKind === "CYCLE" && item.nextActionAt === profile.nextContactAt);
+      rows.push({ id: `cycle:${client.id}`, client, ownerId: profile.ownerProfileId || client.representativeUserId, ownerName: profile.ownerName || client.representativeName, activityId: activity?.id || "", kind: "CYCLE", actionType: "ACOMPANHAR", opportunityTitle: "", scheduledAt: profile.nextContactAt, daysToAction: daysUntil(profile.nextContactAt) });
+    }
+    for (const activity of overview.activities) {
+      if (!activity.nextActionAt || activity.agendaKind === "CYCLE") continue;
+      const client = clientById.get(activity.clientId);
+      if (!client) continue;
+      const opportunity = activity.opportunityId ? overview.opportunities.find((item) => item.id === activity.opportunityId) : undefined;
+      if (activity.agendaKind === "OPPORTUNITY" && (!opportunity || opportunity.stage === "WON" || opportunity.stage === "LOST")) continue;
+      const profile = profileById.get(client.id);
+      rows.push({ id: activity.id, client, ownerId: activity.representativeProfileId || profile?.ownerProfileId || client.representativeUserId, ownerName: activity.representativeName || profile?.ownerName || client.representativeName, activityId: activity.id, kind: activity.agendaKind, actionType: activity.nextActionType || "FOLLOW_UP", opportunityTitle: opportunity?.title || "", scheduledAt: activity.nextActionAt, daysToAction: daysUntil(activity.nextActionAt) });
+    }
+    const term = upper(agendaSearch);
+    return rows.filter((item) => {
+      const matchesTerm = !term || upper(`${item.client.clientCode} ${item.client.legalName} ${item.client.tradeName} ${item.opportunityTitle}`).includes(term);
+      const matchesOwner = agendaOwnerFilter === "ALL" || item.ownerId === agendaOwnerFilter;
+      return matchesTerm && matchesOwner && item.daysToAction <= 7;
+    }).sort((first, second) => first.scheduledAt.localeCompare(second.scheduledAt) || first.client.legalName.localeCompare(second.client.legalName, "pt-BR"));
+  }, [agendaOwnerFilter, agendaSearch, clients, overview.activities, overview.opportunities, overview.profiles]);
+  const agendaOverdueCount = agendaItems.filter((item) => item.daysToAction < 0).length;
+  const agendaTodayCount = agendaItems.filter((item) => item.daysToAction === 0).length;
+  const agendaTomorrowCount = agendaItems.filter((item) => item.daysToAction === 1).length;
+  const agendaUpcomingCount = agendaItems.filter((item) => item.daysToAction >= 2 && item.daysToAction <= 7).length;
   const sampleAgendaItems = useMemo(() => {
     const term = upper(agendaSearch);
     const clientsById = new Map(clients.map((client) => [client.id, client]));
@@ -302,7 +325,7 @@ export default function CrmEmpresa({
         const matchesClient = pipelineOpenClientFilter === "ALL" || item.clientId === pipelineOpenClientFilter;
         return matchesCompany && matchesClient;
       }
-      return isInsideClosedPeriod(item.updatedAt || item.createdAt, pipelineClosedPeriod, pipelineClosedStart, pipelineClosedEnd);
+      return isInsideClosedPeriod(item.closedAt || item.updatedAt || item.createdAt, pipelineClosedPeriod, pipelineClosedStart, pipelineClosedEnd);
     }),
     [overview.opportunities, pipelineClientCompanyIds, pipelineClosedEnd, pipelineClosedPeriod, pipelineClosedStart, pipelineOpenClientFilter, pipelineOpenCompanyFilter]
   );
@@ -406,8 +429,6 @@ export default function CrmEmpresa({
         : "OPORTUNIDADE EXISTENTE ATUALIZADA."
         : opportunityDraft.linkedActivityId || opportunityDraft.reuseExistingAgenda
         ? "OPORTUNIDADE SALVA E VINCULADA A AGENDA JA EXISTENTE."
-        : result.previousCycleCancelled
-        ? "OPORTUNIDADE SALVA. O AGENDAMENTO AUTOMATICO ANTERIOR FOI ENCERRADO."
         : "OPORTUNIDADE SALVA NO FUNIL E COM AGENDA PROGRAMADA.");
     } catch (saveError) {
       setError(messageFrom(saveError));
@@ -485,18 +506,49 @@ export default function CrmEmpresa({
     }
   }
 
-  async function handlePostponeAgenda(clientId: string) {
-    setPostponingClientId(clientId);
+  async function handlePostponeAgenda(clientId: string, activityId: string) {
+    setPostponingAgendaId(activityId);
     clearFeedback();
     try {
-      await postponeCrmAgenda(slug, clientId);
+      await postponeCrmAgenda(slug, clientId, activityId);
       await refresh(true);
       await refreshOperationalLock();
       setMessage("AGENDA ADIADA PARA O PROXIMO DIA UTIL.");
     } catch (postponeError) {
       setError(messageFrom(postponeError));
     } finally {
-      setPostponingClientId("");
+      setPostponingAgendaId("");
+    }
+  }
+
+  async function handleRegisterOrder() {
+    if (!selectedClient || !orderDraft.title.trim() || !orderDraft.orderDate) {
+      setError("INFORME O PEDIDO E A DATA DE REGISTRO.");
+      return;
+    }
+    setSaving(true);
+    clearFeedback();
+    try {
+      const result = await registerCrmOrder(slug, {
+        ...orderDraft,
+        clientId: selectedClient.id,
+      });
+      await refresh(true);
+      await refreshOperationalLock();
+      setOrderDraft({
+        ...emptyOrder,
+        clientId: selectedClient.id,
+        representativeProfileId: orderDraft.representativeProfileId,
+        orderDate: localDateKey(),
+      });
+      setDetailEntryTab("resumo");
+      setMessage(result.cycleScheduled
+        ? "PEDIDO REGISTRADO. O PROXIMO CICLO DE COMPRA FOI AGENDADO."
+        : "PEDIDO REGISTRADO. DEFINA A FREQUENCIA DE COMPRA PARA GERAR O PROXIMO CICLO.");
+    } catch (saveError) {
+      setError(messageFrom(saveError));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -628,18 +680,15 @@ export default function CrmEmpresa({
       {!loading && view === "agenda" ? (
         <>
           <AgendaBoard
-            items={agendaClients}
+            items={agendaItems}
             search={agendaSearch}
             setSearch={setAgendaSearch}
             ownerFilter={agendaOwnerFilter}
             setOwnerFilter={setAgendaOwnerFilter}
             representatives={representatives}
             isManager={overview.isManager}
-            opportunityCount={(clientId) => activeOpportunities.filter((opportunity) => opportunity.clientId === clientId).length}
-            quoteCount={(clientId) => quoteByClient.get(clientId)?.count || 0}
-            expiredQuoteCount={(clientId) => expiredQuoteCountByClient.get(clientId) || 0}
             onPostpone={handlePostponeAgenda}
-            postponingClientId={postponingClientId}
+            postponingAgendaId={postponingAgendaId}
             onOpenClient={(clientId) => {
               selectClient(clientId, "contato");
               onViewChange("carteira");
@@ -701,6 +750,8 @@ export default function CrmEmpresa({
               setActivityDraft={setActivityDraft}
               opportunityDraft={opportunityDraft}
               setOpportunityDraft={setOpportunityDraft}
+              orderDraft={orderDraft}
+              setOrderDraft={setOrderDraft}
               scheduledActivity={scheduledActivity}
               scheduledAgendaAt={scheduledAgendaAt}
               productFichas={productFichas}
@@ -708,6 +759,7 @@ export default function CrmEmpresa({
               onSaveProfile={handleSaveProfile}
               onSaveActivity={handleSaveActivity}
               onSaveOpportunity={handleSaveOpportunity}
+              onRegisterOrder={handleRegisterOrder}
               onDial={handleDial}
               dialing={dialingClientId === selectedClient?.id}
               onOpenWhatsapp={handleWhatsappOpen}
@@ -797,6 +849,19 @@ function PurchaseAverageAlertModal({ alert, onClose, onReview }: { alert: Purcha
   </div>;
 }
 
+type AgendaItem = {
+  id: string;
+  client: ClientRecord;
+  ownerId: string;
+  ownerName: string;
+  activityId: string;
+  kind: CrmAgendaKind;
+  actionType: string;
+  opportunityTitle: string;
+  scheduledAt: string;
+  daysToAction: number;
+};
+
 function AgendaBoard({
   items,
   search,
@@ -805,28 +870,22 @@ function AgendaBoard({
   setOwnerFilter,
   representatives,
   isManager,
-  opportunityCount,
-  quoteCount,
-  expiredQuoteCount,
   onPostpone,
-  postponingClientId,
+  postponingAgendaId,
   onOpenClient,
 }: {
-  items: RankedClient[];
+  items: AgendaItem[];
   search: string;
   setSearch: (value: string) => void;
   ownerFilter: string;
   setOwnerFilter: (value: string) => void;
   representatives: RepresentativeOption[];
   isManager: boolean;
-  opportunityCount: (clientId: string) => number;
-  quoteCount: (clientId: string) => number;
-  expiredQuoteCount: (clientId: string) => number;
-  onPostpone: (clientId: string) => void;
-  postponingClientId: string;
+  onPostpone: (clientId: string, activityId: string) => void;
+  postponingAgendaId: string;
   onOpenClient: (clientId: string) => void;
 }) {
-  const [postponeMenuClientId, setPostponeMenuClientId] = useState("");
+  const [postponeMenuAgendaId, setPostponeMenuAgendaId] = useState("");
   const groups = [
     { key: "overdue", label: "ATRASADOS", tone: "red", items: items.filter((item) => item.daysToAction < 0) },
     { key: "today", label: "PARA HOJE", tone: "purple", items: items.filter((item) => item.daysToAction === 0) },
@@ -860,26 +919,24 @@ function AgendaBoard({
             <div>
               {group.items.map((item) => {
                 return (
-                  <article className="crm-agenda-item" key={item.client.id}>
+                  <article className={`crm-agenda-item crm-agenda-item-${item.kind.toLowerCase()}`} key={item.id}>
                     <i className={`crm-dot crm-dot-${group.tone}`} />
                     <div className="crm-agenda-client">
                       <strong>{item.client.tradeName || item.client.legalName}</strong>
-                      <span>{item.profile?.ownerName || item.client.representativeName || "SEM RESPONSAVEL"}</span>
+                      <span>{item.ownerName || "SEM RESPONSAVEL"}</span>
                     </div>
                     <div className="crm-agenda-action">
-                      <b>{agendaActionLabel(item)}</b>
-                      <span>{nextActionLabel(item)} · {agendaDateLabel(item)}</span>
+                      <b>{agendaTaskLabel(item)}</b>
+                      <span>{agendaTaskDueLabel(item)}</span>
                     </div>
                     <div className="crm-agenda-context">
-                      <span>{opportunityCount(item.client.id)} NEGOCIACAO(OES)</span>
-                      <span>{quoteCount(item.client.id)} ORCAMENTO(S)</span>
-                      {expiredQuoteCount(item.client.id) ? <span className="crm-expired-quote-alert">{expiredQuoteCount(item.client.id)} ORC. VENCIDO(S)</span> : null}
+                      <span className={`crm-agenda-kind crm-agenda-kind-${item.kind.toLowerCase()}`}>{agendaKindLabel(item)}</span>
                     </div>
                     <div className="crm-agenda-buttons">
                       <button type="button" onClick={() => onOpenClient(item.client.id)}>ATENDER</button>
-                      {group.key === "overdue" ? <div className="crm-agenda-postpone-menu">
-                        <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuClientId((current) => current === item.client.id ? "" : item.client.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.client.tradeName || item.client.legalName}`} aria-expanded={postponeMenuClientId === item.client.id}>...</button>
-                        {postponeMenuClientId === item.client.id ? <div className="crm-agenda-postpone-options"><button type="button" onClick={() => { setPostponeMenuClientId(""); onPostpone(item.client.id); }} disabled={postponingClientId === item.client.id}>ADIAR PARA PROXIMO DIA UTIL</button></div> : null}
+                      {group.key === "overdue" && item.activityId ? <div className="crm-agenda-postpone-menu">
+                        <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuAgendaId((current) => current === item.id ? "" : item.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.client.tradeName || item.client.legalName}`} aria-expanded={postponeMenuAgendaId === item.id}>...</button>
+                        {postponeMenuAgendaId === item.id ? <div className="crm-agenda-postpone-options"><button type="button" onClick={() => { setPostponeMenuAgendaId(""); onPostpone(item.client.id, item.activityId); }} disabled={postponingAgendaId === item.activityId}>ADIAR PARA PROXIMO DIA UTIL</button></div> : null}
                       </div> : null}
                     </div>
                   </article>
@@ -963,6 +1020,8 @@ function ClientDetail({
   setActivityDraft,
   opportunityDraft,
   setOpportunityDraft,
+  orderDraft,
+  setOrderDraft,
   scheduledActivity,
   scheduledAgendaAt,
   productFichas,
@@ -970,6 +1029,7 @@ function ClientDetail({
   onSaveProfile,
   onSaveActivity,
   onSaveOpportunity,
+  onRegisterOrder,
   onDial,
   dialing,
   onOpenWhatsapp,
@@ -993,6 +1053,8 @@ function ClientDetail({
   setActivityDraft: (value: CrmActivityInput) => void;
   opportunityDraft: CrmOpportunityInput;
   setOpportunityDraft: (value: CrmOpportunityInput) => void;
+  orderDraft: CrmOrderInput;
+  setOrderDraft: (value: CrmOrderInput) => void;
   scheduledActivity?: CrmOverview["activities"][number];
   scheduledAgendaAt: string;
   productFichas: ProductFicha[];
@@ -1000,6 +1062,7 @@ function ClientDetail({
   onSaveProfile: () => void;
   onSaveActivity: () => void;
   onSaveOpportunity: () => void;
+  onRegisterOrder: () => void;
   onDial: (clientId: string) => void;
   dialing: boolean;
   onOpenWhatsapp: (clientId: string, whatsappUrl: string) => void;
@@ -1009,7 +1072,7 @@ function ClientDetail({
   operationalLockRepresentativeId: string;
   operationalLockActionAt: string;
 }) {
-  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "ligacoes" | "negocio">("resumo");
+  const [detailTab, setDetailTab] = useState<"resumo" | "contato" | "ligacoes" | "negocio" | "pedido">("resumo");
   const [showExistingOpportunityWarning, setShowExistingOpportunityWarning] = useState(false);
   useEffect(() => {
     setShowExistingOpportunityWarning(false);
@@ -1050,6 +1113,7 @@ function ClientDetail({
       stage: opportunity.stage,
       estimatedValue: opportunity.estimatedValue,
       expectedCloseDate: opportunity.expectedCloseDate,
+      closedAt: opportunity.closedAt,
       notes: opportunity.notes,
       lostReason: opportunity.lostReason,
       nextActionType: agenda?.nextActionType || "",
@@ -1091,6 +1155,7 @@ function ClientDetail({
             { key: "resumo" as const, label: "RESUMO", icon: ContactRound },
             { key: "ligacoes" as const, label: "LIGACOES", icon: PhoneCall },
             { key: "negocio" as const, label: "NOVA OPORTUNIDADE", icon: Target },
+            { key: "pedido" as const, label: "REGISTRAR PEDIDO", icon: PackageCheck },
           ] : []),
         ]}
       />
@@ -1173,6 +1238,7 @@ function ClientDetail({
             {selectedProduct ? <CrmInput label="PRECO UNITARIO" value={opportunityDraft.productUnitPrice || ""} onChange={() => undefined} currency readOnly /> : null}
             <CrmInput label="VALOR ESTIMADO" value={opportunityDraft.estimatedValue || ""} onChange={(value) => setOpportunityDraft({ ...opportunityDraft, estimatedValue: Number(value || 0) })} currency readOnly={Boolean(selectedProduct)} />
             <CrmInput label="PREVISAO DE FECHAMENTO" type="date" value={opportunityDraft.expectedCloseDate} onChange={(expectedCloseDate) => setOpportunityDraft({ ...opportunityDraft, expectedCloseDate })} />
+            {opportunityDraft.stage === "WON" || opportunityDraft.stage === "LOST" ? <CrmInput label="DATA DO FECHAMENTO" type="date" value={opportunityDraft.closedAt || ""} onChange={(closedAt) => setOpportunityDraft({ ...opportunityDraft, closedAt })} /> : null}
             <CrmSelect label="REPRESENTANTE" value={opportunityDraft.representativeProfileId} onChange={(representativeProfileId) => setOpportunityDraft({ ...opportunityDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
             {isUsingExistingAgenda ? <div className="crm-linked-agenda crm-span-2">AGENDA VINCULADA</div> : null}
             <CrmSelect label="PROXIMA ACAO" value={opportunityDraft.nextActionType || ""} onChange={(nextActionType) => setOpportunityDraft({ ...opportunityDraft, nextActionType: nextActionType as CrmOpportunityInput["nextActionType"] })} options={[{ value: "FOLLOW_UP", label: "ACOMPANHAR" }, { value: "WHATSAPP", label: "WHATSAPP" }, { value: "CALL", label: "LIGAR" }, { value: "EMAIL", label: "E-MAIL" }, { value: "VISIT", label: "VISITAR" }, { value: "QUOTE", label: "ORCAMENTO" }]} />
@@ -1205,6 +1271,19 @@ function ClientDetail({
               onSaveOpportunity();
             }} disabled={saving}>{opportunityDraft.id ? "ATUALIZAR OPORTUNIDADE" : "CRIAR OPORTUNIDADE"}</button>
           </div>
+        </div>
+      ) : null}
+
+      {detailTab === "pedido" && !mustResolveOverdueAgenda ? (
+        <div className="crm-entry-form">
+          <div className="crm-profile-grid">
+            <CrmInput label="PEDIDO" value={orderDraft.title} onChange={(title) => setOrderDraft({ ...orderDraft, title: upper(title) })} />
+            <CrmInput label="DATA DO PEDIDO" type="date" value={orderDraft.orderDate} onChange={(orderDate) => setOrderDraft({ ...orderDraft, orderDate })} />
+            <CrmInput label="VALOR DO PEDIDO" value={orderDraft.totalValue || ""} onChange={(value) => setOrderDraft({ ...orderDraft, totalValue: Number(value || 0) })} currency />
+            <CrmSelect label="REPRESENTANTE" value={orderDraft.representativeProfileId} onChange={(representativeProfileId) => setOrderDraft({ ...orderDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
+            <label className="crm-textarea crm-span-2"><span>OBSERVACOES</span><textarea value={orderDraft.notes} onChange={(event) => setOrderDraft({ ...orderDraft, notes: upper(event.target.value) })} /></label>
+          </div>
+          <div className="crm-form-actions"><button type="button" onClick={onRegisterOrder} disabled={saving || !orderDraft.title.trim() || !orderDraft.orderDate}>REGISTRAR PEDIDO</button></div>
         </div>
       ) : null}
 
@@ -1613,6 +1692,25 @@ function whatsAppLink(value: string, name: string) {
   const clean = value.replace(/\D/g, "");
   const phone = clean.startsWith("55") ? clean : `55${clean}`;
   return `whatsapp://send?phone=${phone}&text=${encodeURIComponent(`Olá ${portugueseName(name)}, tudo bem?`)}`;
+}
+
+function agendaTaskLabel(item: AgendaItem) {
+  if (item.kind === "CYCLE") return "CICLO DE COMPRA";
+  if (item.kind === "OPPORTUNITY") return item.actionType === "FOLLOW_UP" ? "ACOMPANHAR OPORTUNIDADE" : item.actionType;
+  return item.actionType === "FOLLOW_UP" ? "ACOMPANHAR" : item.actionType;
+}
+
+function agendaTaskDueLabel(item: AgendaItem) {
+  if (item.daysToAction < 0) return `${Math.abs(item.daysToAction)} DIA(S) ATRASADO · ${displayDate(item.scheduledAt)}`;
+  if (item.daysToAction === 0) return `HOJE · ${displayDate(item.scheduledAt)}`;
+  if (item.daysToAction === 1) return `AMANHA · ${displayDate(item.scheduledAt)}`;
+  return `EM ${item.daysToAction} DIA(S) · ${displayDate(item.scheduledAt)}`;
+}
+
+function agendaKindLabel(item: AgendaItem) {
+  if (item.kind === "CYCLE") return "CICLO DE COMPRA";
+  if (item.kind === "OPPORTUNITY") return item.opportunityTitle ? `OPORTUNIDADE · ${item.opportunityTitle}` : "OPORTUNIDADE";
+  return "ACOMPANHAMENTO";
 }
 
 function portugueseName(value: string) {

@@ -1,4 +1,4 @@
-import type { CrmActivityInput, CrmOperationalLock, CrmOpportunityInput, CrmOverview, CrmProfileInput } from "@/types/crm";
+import type { CrmActivityInput, CrmOperationalLock, CrmOpportunityInput, CrmOrderInput, CrmOverview, CrmProfileInput } from "@/types/crm";
 
 async function authorizedFetch(path: string, init?: RequestInit) {
   const { supabase } = await import("@/lib/supabase");
@@ -76,4 +76,12 @@ export async function saveCrmOpportunity(slug: string, opportunity: CrmOpportuni
     previousCycleCancelled: Boolean(payload.previousCycleCancelled),
     agendaLinked: Boolean(payload.agendaLinked),
   };
+}
+
+export async function registerCrmOrder(slug: string, order: CrmOrderInput) {
+  const payload = await authorizedFetch("/api/crm/pedidos", {
+    method: "POST",
+    body: JSON.stringify({ slug, order }),
+  });
+  return { opportunity: payload.opportunity, cycleScheduled: Boolean(payload.cycleScheduled) };
 }

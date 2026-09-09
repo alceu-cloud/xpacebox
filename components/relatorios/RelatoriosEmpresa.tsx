@@ -15,7 +15,7 @@ type ReportNavigationLevel = "area" | "category" | "report";
 
 type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
-type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; quote_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; created_at: string; updated_at: string };
+type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; quote_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; closed_at: string | null; created_at: string; updated_at: string };
 type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
 type QuoteItem = { item_number: number; ft_number: string | null; description: string; total: number; snapshot?: Record<string, unknown> };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string; quote_items: QuoteItem[] };
@@ -203,7 +203,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
 function ReportContent({ report, data, rawData, range }: { report: ReportKey; data: ReportData; rawData: ReportData; range: { start: string; end: string } }) {
   const clientById = new Map(data.clients.map((item) => [item.id, item]));
   const profileByClient = new Map(data.profiles.map((item) => [item.client_id, item]));
-  const inRangeOpps = data.opportunities.filter((item) => inRange(item.updated_at, range));
+  const inRangeOpps = data.opportunities.filter((item) => inRange(opportunityReportDate(item), range));
   const won = inRangeOpps.filter((item) => item.stage === "WON");
   const lost = inRangeOpps.filter((item) => item.stage === "LOST");
   const open = data.opportunities.filter((item) => !["WON", "LOST"].includes(item.stage));
@@ -212,7 +212,7 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
 
   if (report === "closing") {
     const qualified = [...won, ...lost];
-    return <ReportLayout title="FECHAMENTO DO MES" description="GANHOS E PERDAS SAO CLASSIFICADOS PELA ULTIMA ATUALIZACAO DA OPORTUNIDADE, POIS O CRM AINDA NAO REGISTRA UMA DATA DE FECHAMENTO SEPARADA.">
+    return <ReportLayout title="FECHAMENTO DO MES" description="GANHOS E PERDAS SAO CLASSIFICADOS PELA DATA REAL DE FECHAMENTO. REGISTROS ANTIGOS SEM DATA USAM A ULTIMA ATUALIZACAO.">
       <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("GANHO", totalWon, "#16a34a"), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO", qualified.length ? `${Math.round((won.length / qualified.length) * 100)}%` : "-", "#0284c7", true), metric("TICKET MEDIO GANHO", won.length ? totalWon / won.length : 0, "#e68019")]}/>
       <StageTable opportunities={inRangeOpps} />
     </ReportLayout>;
@@ -246,7 +246,7 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
   }
   if (report === "cycle") {
     const closed = [...won, ...lost];
-    return <ReportLayout title="CICLO DE VENDAS" description="Tempo entre criacao e ultima atualizacao da oportunidade. Para os registros atuais, a ultima atualizacao e usada como data de encerramento."><MetricGrid items={[metric("CICLO MEDIO GANHO", average(won.map((item) => daysBetween(item.created_at, item.updated_at))), "#16a34a", true), metric("CICLO MEDIO PERDIDO", average(lost.map((item) => daysBetween(item.created_at, item.updated_at))), "#f43f5e", true), metric("NEGOCIOS ENCERRADOS", closed.length, "#7c3aed", true)]}/><StageTable opportunities={closed} showAge /></ReportLayout>;
+    return <ReportLayout title="CICLO DE VENDAS" description="Tempo entre criacao e fechamento da oportunidade. Registros antigos sem data de fechamento usam a ultima atualizacao."><MetricGrid items={[metric("CICLO MEDIO GANHO", average(won.map((item) => daysBetween(item.created_at, opportunityReportDate(item)))), "#16a34a", true), metric("CICLO MEDIO PERDIDO", average(lost.map((item) => daysBetween(item.created_at, opportunityReportDate(item)))), "#f43f5e", true), metric("NEGOCIOS ENCERRADOS", closed.length, "#7c3aed", true)]}/><StageTable opportunities={closed} showAge /></ReportLayout>;
   }
   if (report === "risk") {
     const activeClientIds = new Set(open.map((item) => item.client_id || ""));
@@ -282,6 +282,12 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
   }
   const overdueAgenda = data.activities.filter((item) => item.next_action_at && item.next_action_at < new Date().toISOString()).length;
   return <ReportLayout title="RELATORIO EXECUTIVO" description="Resumo gerencial do periodo selecionado."><MetricGrid items={[metric("GANHO", totalWon, "#16a34a"), metric("PERDIDO", totalLost, "#f43f5e"), metric("EM ABERTO", sum(open, (item) => item.estimated_value), "#7c3aed"), metric("AGENDA ATRASADA", overdueAgenda, "#e68019", true), metric("CLIENTES EM CARTEIRA", data.clients.length, "#0284c7", true)]}/><StageTable opportunities={inRangeOpps}/></ReportLayout>;
+}
+
+function opportunityReportDate(opportunity: Opportunity) {
+  return ["WON", "LOST"].includes(opportunity.stage)
+    ? opportunity.closed_at || opportunity.updated_at
+    : opportunity.updated_at;
 }
 
 function MaterialComparisonReport({ materials }: { materials: Material[] }) {

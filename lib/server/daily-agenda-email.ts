@@ -202,18 +202,25 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
   const range = saoPauloRange();
   const recipients = new Map<string, RecipientAgenda>();
   for (const company of selectedCompanies) {
-    const [agendaResult, clientsResult] = await Promise.all([
+    const [agendaResult, opportunityAgendaResult, clientsResult] = await Promise.all([
       admin.from("crm_customer_profiles")
         .select("client_id,owner_profile_id,next_contact_at")
         .eq("tenant_company_id", company.id)
         .not("next_contact_at", "is", null)
         .lt("next_contact_at", range.end.toISOString()),
+      admin.from("crm_activities")
+        .select("client_id,representative_profile_id,next_action_at,next_action_type,agenda_kind,subject")
+        .eq("tenant_company_id", company.id)
+        .in("agenda_kind", ["OPPORTUNITY", "FOLLOW_UP"])
+        .not("next_action_at", "is", null)
+        .lt("next_action_at", range.end.toISOString()),
       admin.from("clients")
         .select("id,legal_name,trade_name,representative_profile_id")
         .eq("tenant_company_id", company.id)
         .eq("active", true),
     ]);
     if (agendaResult.error) throw agendaResult.error;
+    if (opportunityAgendaResult.error) throw opportunityAgendaResult.error;
     if (clientsResult.error) throw clientsResult.error;
 
     const clientsById = new Map((clientsResult.data ?? []).map((client) => [client.id, client]));
@@ -258,6 +265,37 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
         clientName: client.trade_name || client.legal_name || "CLIENTE SEM NOME",
         scheduledAt: scheduled.next_contact_at || "",
         actionType: "ACOMPANHAR",
+      };
+      if (when < range.start) recipient.overdue.push(task);
+      else recipient.today.push(task);
+      recipients.set(key, recipient);
+    }
+    for (const scheduled of opportunityAgendaResult.data ?? []) {
+      const when = new Date(scheduled.next_action_at || "");
+      if (Number.isNaN(when.getTime()) || when >= range.end) continue;
+      const client = clientsById.get(scheduled.client_id);
+      if (!client) continue;
+      const profileId = scheduled.representative_profile_id || client.representative_profile_id || "";
+      const profile = profiles.get(profileId);
+      const canReceiveCompanyAgenda = companyMemberIds.has(profileId) || profile?.platform_role === "platform_owner";
+      if (!profile || !profile.email || !canReceiveCompanyAgenda) continue;
+      if (filters?.profileIds && !filters.profileIds.has(profileId)) continue;
+
+      const key = `${company.id}:${profileId}`;
+      const recipient: RecipientAgenda = recipients.get(key) ?? {
+        companyId: company.id,
+        companyName: company.name,
+        companySlug: company.slug,
+        profileId,
+        recipientName: profile.full_name || profile.email,
+        recipientEmail: profile.email,
+        overdue: [],
+        today: [],
+      };
+      const task = {
+        clientName: client.trade_name || client.legal_name || "CLIENTE SEM NOME",
+        scheduledAt: scheduled.next_action_at || "",
+        actionType: `${scheduled.agenda_kind === "OPPORTUNITY" ? "OPORTUNIDADE" : "ACOMPANHAMENTO"} · ${scheduled.next_action_type || "ACOMPANHAR"}`,
       };
       if (when < range.start) recipient.overdue.push(task);
       else recipient.today.push(task);

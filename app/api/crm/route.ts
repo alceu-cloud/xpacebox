@@ -124,6 +124,7 @@ export async function GET(request: Request) {
           occurredAt: row.occurred_at,
           nextActionType: row.next_action_type || "",
           nextActionAt: row.next_action_at || "",
+          agendaKind: row.agenda_kind || (row.opportunity_id ? "OPPORTUNITY" : "CYCLE"),
         })),
         telephonyCalls: (telephonyCallsResult.data ?? []).map((row) => ({
           id: row.id,
@@ -158,6 +159,7 @@ export async function GET(request: Request) {
           quoteId: row.quote_id || "",
           notes: row.notes || "",
           lostReason: row.lost_reason || "",
+          closedAt: row.closed_at || "",
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })),
@@ -202,7 +204,7 @@ async function activateDueCommercialCycles({
     .from("crm_activities")
     .select("id,client_id,representative_profile_id,next_action_at")
     .eq("tenant_company_id", companyId)
-    .eq("subject", "PROXIMO CICLO COMERCIAL AGENDADO")
+    .eq("agenda_kind", "CYCLE")
     .is("opportunity_id", null)
     .not("next_action_at", "is", null)
     .lte("next_action_at", activationCutoff)
@@ -211,32 +213,6 @@ async function activateDueCommercialCycles({
   if (cyclesError) throw cyclesError;
 
   for (const cycle of cycles ?? []) {
-    const { count: activeCount, error: activeError } = await admin
-      .from("crm_opportunities")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_company_id", companyId)
-      .eq("client_id", cycle.client_id)
-      .not("stage", "in", "(WON,LOST)");
-    if (activeError) throw activeError;
-
-    if (Number(activeCount || 0) > 0) {
-      const { error: dismissError } = await admin
-        .from("crm_activities")
-        .update({ next_action_type: null, next_action_at: null })
-        .eq("id", cycle.id)
-        .eq("tenant_company_id", companyId)
-        .is("opportunity_id", null);
-      if (dismissError) throw dismissError;
-
-      const { error: profileError } = await admin
-        .from("crm_customer_profiles")
-        .update({ next_purchase_at: null, updated_at: now })
-        .eq("tenant_company_id", companyId)
-        .eq("client_id", cycle.client_id);
-      if (profileError) throw profileError;
-      continue;
-    }
-
     const { data: customerProfile, error: profileError } = await admin
       .from("crm_customer_profiles")
       .select("owner_profile_id,average_purchase_value")
@@ -269,6 +245,7 @@ async function activateDueCommercialCycles({
       .eq("id", cycle.id)
       .eq("tenant_company_id", companyId)
       .is("opportunity_id", null)
+      .eq("agenda_kind", "CYCLE")
       .select("id")
       .maybeSingle();
     if (linkError) throw linkError;

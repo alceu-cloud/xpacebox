@@ -142,44 +142,13 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
         occurred_at: now,
         next_action_type: "FOLLOW_UP",
         next_action_at: nextActionAt,
+        agenda_kind: "OPPORTUNITY",
         created_by: input.createdBy,
       });
       if (activityError) throw activityError;
     }
   }
 
-  if (!input.clientId) return;
-
-  const { data: profile, error: profileError } = await admin
-    .from("crm_customer_profiles")
-    .select("id, owner_profile_id")
-    .eq("tenant_company_id", input.tenantCompanyId)
-    .eq("client_id", input.clientId)
-    .maybeSingle();
-
-  if (profileError) throw profileError;
-
-  if (profile) {
-    const { error } = await admin
-      .from("crm_customer_profiles")
-      .update({
-        owner_profile_id: profile.owner_profile_id || input.representativeProfileId,
-        next_contact_at: nextActionAt,
-        updated_at: now,
-      })
-      .eq("id", profile.id);
-    if (error) throw error;
-  } else {
-    const { error } = await admin.from("crm_customer_profiles").insert({
-      tenant_company_id: input.tenantCompanyId,
-      client_id: input.clientId,
-      owner_profile_id: input.representativeProfileId,
-      next_contact_at: nextActionAt,
-      relationship_status: "ACTIVE",
-      created_by: input.createdBy,
-    });
-    if (error) throw error;
-  }
 }
 
 export async function syncExistingDirectQuotesWithCrm(

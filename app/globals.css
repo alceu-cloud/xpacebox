@@ -1821,6 +1821,13 @@ button {
 .crm-expired-quote-alert { color: #e03b45 !important; font-style: normal; font-weight: 900; }
 .crm-agenda-action b { color: #e9007f; font-size: 12px; }
 .crm-agenda-context { padding-left: 10px; border-left: 1px solid #e5e7ee; }
+.crm-agenda-kind { width: fit-content; padding: 4px 7px; border-radius: 999px; font-size: 10px !important; letter-spacing: .3px; }
+.crm-agenda-kind-cycle { background: #eee8ff; color: #6231c7 !important; }
+.crm-agenda-kind-opportunity { background: #ffe7f3; color: #cc1470 !important; }
+.crm-agenda-kind-follow_up { background: #e5f5ff; color: #0879b8 !important; }
+.crm-agenda-item-cycle .crm-agenda-action b { color: #6231c7; }
+.crm-agenda-item-opportunity .crm-agenda-action b { color: #cc1470; }
+.crm-agenda-item-follow_up .crm-agenda-action b { color: #0879b8; }
 .crm-agenda-buttons { display: flex; align-items: center; gap: 6px; }
 .crm-agenda-postpone-menu { position: relative; }
 .crm-agenda-buttons a,

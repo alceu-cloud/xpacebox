@@ -84,6 +84,7 @@ async function syncProfileAgenda({
       .update({ next_action_type: null, next_action_at: null })
       .eq("tenant_company_id", companyId)
       .eq("client_id", clientId)
+      .eq("agenda_kind", "CYCLE")
       .is("opportunity_id", null)
       .eq("next_action_at", previousNextContactAt);
     if (error) throw error;
@@ -95,6 +96,7 @@ async function syncProfileAgenda({
     .select("id")
     .eq("tenant_company_id", companyId)
     .eq("client_id", clientId)
+    .eq("agenda_kind", "CYCLE")
     .eq("next_action_at", nextContactAt)
     .limit(1);
   if (agendaAtTargetError) throw agendaAtTargetError;
@@ -106,6 +108,7 @@ async function syncProfileAgenda({
       .select("id,next_action_type")
       .eq("tenant_company_id", companyId)
       .eq("client_id", clientId)
+      .eq("agenda_kind", "CYCLE")
       .is("opportunity_id", null)
       .eq("next_action_at", previousNextContactAt)
       .order("occurred_at", { ascending: false })
@@ -127,6 +130,7 @@ async function syncProfileAgenda({
       .select("id,next_action_type")
       .eq("tenant_company_id", companyId)
       .eq("client_id", clientId)
+      .eq("agenda_kind", "CYCLE")
       .eq("next_action_at", previousNextContactAt)
       .limit(2);
     if (agendasAtPreviousDateError) throw agendasAtPreviousDateError;
@@ -153,6 +157,7 @@ async function syncProfileAgenda({
     occurred_at: new Date().toISOString(),
     next_action_type: "FOLLOW_UP",
     next_action_at: nextContactAt,
+    agenda_kind: "CYCLE",
     created_by: userId,
   });
   if (error) throw error;

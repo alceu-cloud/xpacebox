@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     const agendaQuery = admin
       .from("crm_activities")
-      .select("id,opportunity_id,representative_profile_id,next_action_type,next_action_at")
+      .select("id,opportunity_id,representative_profile_id,next_action_type,next_action_at,agenda_kind")
       .eq("tenant_company_id", company.id)
       .eq("client_id", clientId)
       .not("next_action_at", "is", null);
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const currentActionAt = agenda.next_action_at || "";
     if (!currentActionAt) return failure("NAO HA UMA AGENDA EM ABERTO PARA ADIAR.", 400);
     if (currentActionAt.slice(0, 10) >= saoPauloDate()) return failure("ESTA AGENDA NAO ESTA ATRASADA.", 400);
-    if (activityId && !sameInstant(profile?.next_contact_at || "", currentActionAt)) {
+    if (activityId && agenda.agenda_kind === "CYCLE" && !sameInstant(profile?.next_contact_at || "", currentActionAt)) {
       return failure("ESTA AGENDA JA FOI SUBSTITUIDA POR UMA ACAO MAIS RECENTE.", 409);
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       .eq("tenant_company_id", company.id);
     if (updateAgendaError) throw updateAgendaError;
 
-    if (sameInstant(profile?.next_contact_at || "", currentActionAt)) {
+    if (agenda.agenda_kind === "CYCLE" && sameInstant(profile?.next_contact_at || "", currentActionAt)) {
       const { error: updateProfileError } = await admin
         .from("crm_customer_profiles")
         .update({ next_contact_at: nextActionAt, updated_at: now })
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
       occurred_at: now,
       next_action_type: null,
       next_action_at: null,
+      agenda_kind: agenda.agenda_kind || "FOLLOW_UP",
       created_by: user.id,
     });
     if (historyError) throw historyError;

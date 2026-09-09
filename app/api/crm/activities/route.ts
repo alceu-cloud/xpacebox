@@ -15,32 +15,16 @@ export async function POST(request: Request) {
     const { data: client } = await admin.from("clients").select("id").eq("id", input.clientId).eq("tenant_company_id", company.id).eq("active", true).maybeSingle();
     if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
 
-    // crm_customer_profiles stores the single current agenda for each client.
-    // Do not block a representative because an old timeline item kept a date.
-    const { data: overdueProfile, error: overdueProfileError } = await admin
-      .from("crm_customer_profiles")
-      .select("client_id,next_contact_at")
+    const { data: overdueAgenda, error: overdueAgendaError } = await admin
+      .from("crm_activities")
+      .select("id,client_id,opportunity_id,agenda_kind")
       .eq("tenant_company_id", company.id)
-      .eq("owner_profile_id", profile.id)
-      .not("next_contact_at", "is", null)
-      .lt("next_contact_at", startOfSaoPauloDay())
-      .order("next_contact_at", { ascending: true })
+      .eq("representative_profile_id", profile.id)
+      .not("next_action_at", "is", null)
+      .lt("next_action_at", startOfSaoPauloDay())
+      .order("next_action_at", { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (overdueProfileError) throw overdueProfileError;
-
-    const { data: overdueAgenda, error: overdueAgendaError } = overdueProfile?.next_contact_at
-      ? await admin
-          .from("crm_activities")
-          .select("id,client_id")
-          .eq("tenant_company_id", company.id)
-          .eq("client_id", overdueProfile.client_id)
-          .eq("representative_profile_id", profile.id)
-          .eq("next_action_at", overdueProfile.next_contact_at)
-          .order("occurred_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : { data: null, error: null };
     if (overdueAgendaError) throw overdueAgendaError;
     if (overdueAgenda && overdueAgenda.client_id !== input.clientId) {
       return failure("EXISTE UM ATENDIMENTO ATRASADO. REGISTRE-O ANTES DE ATUALIZAR OUTRO CLIENTE.", 409);
@@ -60,7 +44,8 @@ export async function POST(request: Request) {
       .eq("client_id", input.clientId)
       .not("stage", "in", "(WON,LOST)");
     if (activeOpportunitiesError) throw activeOpportunitiesError;
-    const opportunityId = activeOpportunities?.length === 1 ? activeOpportunities[0].id : null;
+    const opportunityId = overdueAgenda?.opportunity_id || (activeOpportunities?.length === 1 ? activeOpportunities[0].id : null);
+    const agendaKind = overdueAgenda?.agenda_kind || (opportunityId ? "OPPORTUNITY" : "FOLLOW_UP");
 
     const { error: clearDirectAgendaError } = await admin
       .from("crm_activities")
@@ -68,14 +53,16 @@ export async function POST(request: Request) {
       .eq("tenant_company_id", company.id)
       .eq("client_id", input.clientId)
       .is("opportunity_id", null)
+      .eq("agenda_kind", "FOLLOW_UP")
       .not("next_action_at", "is", null);
     if (clearDirectAgendaError) throw clearDirectAgendaError;
-    if (opportunityId) {
+    if (opportunityId && agendaKind === "OPPORTUNITY") {
       const { error: clearOpportunityAgendaError } = await admin
         .from("crm_activities")
         .update({ next_action_type: null, next_action_at: null })
         .eq("tenant_company_id", company.id)
         .eq("opportunity_id", opportunityId)
+        .eq("agenda_kind", "OPPORTUNITY")
         .not("next_action_at", "is", null);
       if (clearOpportunityAgendaError) throw clearOpportunityAgendaError;
     }
@@ -92,6 +79,7 @@ export async function POST(request: Request) {
       tenant_company_id: company.id,
       client_id: input.clientId,
       opportunity_id: opportunityId,
+      agenda_kind: agendaKind,
       representative_profile_id: representativeId,
       activity_type: input.activityType,
       outcome: input.outcome,
@@ -104,15 +92,14 @@ export async function POST(request: Request) {
     }).select("*").single();
     if (error) throw error;
 
-    const { error: profileError } = await admin.from("crm_customer_profiles").upsert({
-      tenant_company_id: company.id,
-      client_id: input.clientId,
-      owner_profile_id: representativeId,
-      next_contact_at: nextActionAt,
-      created_by: user.id,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "tenant_company_id,client_id" });
-    if (profileError) throw profileError;
+    if (agendaKind === "CYCLE") {
+      const { error: profileUpdateError } = await admin
+        .from("crm_customer_profiles")
+        .update({ next_contact_at: nextActionAt, updated_at: new Date().toISOString() })
+        .eq("tenant_company_id", company.id)
+        .eq("client_id", input.clientId);
+      if (profileUpdateError) throw profileUpdateError;
+    }
 
     return NextResponse.json({
       success: true,
@@ -129,6 +116,7 @@ export async function POST(request: Request) {
         occurredAt: data.occurred_at,
         nextActionType: data.next_action_type || "",
         nextActionAt: data.next_action_at || "",
+        agendaKind: data.agenda_kind || (data.opportunity_id ? "OPPORTUNITY" : "FOLLOW_UP"),
       },
     }, { status: 201 });
   } catch (error) {

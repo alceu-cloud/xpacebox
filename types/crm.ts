@@ -3,6 +3,7 @@ export type CrmHealth = "GREEN" | "YELLOW" | "RED" | "GRAY";
 export type CrmActivityType = "WHATSAPP" | "CALL" | "EMAIL" | "VISIT" | "NOTE" | "QUOTE";
 export type CrmActivityOutcome = "CONTACTED" | "NO_RESPONSE" | "QUOTE_REQUESTED" | "PURCHASE_EXPECTED" | "FOLLOW_UP" | "NO_INTEREST" | "OTHER";
 export type CrmNextActionType = "WHATSAPP" | "CALL" | "EMAIL" | "VISIT" | "QUOTE" | "FOLLOW_UP";
+export type CrmAgendaKind = "CYCLE" | "OPPORTUNITY" | "FOLLOW_UP";
 export type CrmOpportunityStage = "CONTACT_PENDING" | "CONTACTED" | "QUOTE_PREPARATION" | "QUOTE_SENT" | "NEGOTIATION" | "WON" | "LOST";
 
 export type CrmCustomerProfile = {
@@ -35,6 +36,7 @@ export type CrmActivity = {
   occurredAt: string;
   nextActionType: CrmNextActionType | "";
   nextActionAt: string;
+  agendaKind: CrmAgendaKind;
 };
 
 export type CrmTelephonyCall = {
@@ -71,6 +73,7 @@ export type CrmOpportunity = {
   quoteId: string;
   notes: string;
   lostReason: string;
+  closedAt: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -127,6 +130,7 @@ export type CrmOperationalLock = {
   representativeProfileId: string;
   opportunityId: string;
   opportunityTitle: string;
+  agendaKind: CrmAgendaKind;
   nextActionType: CrmNextActionType | "";
   nextActionAt: string;
   postponementCount: number;
@@ -175,6 +179,16 @@ export type CrmOpportunityInput = {
   expectedCloseDate: string;
   notes: string;
   lostReason: string;
+  closedAt?: string;
   nextActionType?: CrmNextActionType | "";
   nextActionAt?: string;
+};
+
+export type CrmOrderInput = {
+  clientId: string;
+  representativeProfileId: string;
+  title: string;
+  totalValue: number;
+  orderDate: string;
+  notes: string;
 };
