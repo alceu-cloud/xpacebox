@@ -1825,9 +1825,14 @@ button {
 .crm-agenda-kind-cycle { background: #eee8ff; color: #6231c7 !important; }
 .crm-agenda-kind-opportunity { background: #ffe7f3; color: #cc1470 !important; }
 .crm-agenda-kind-follow_up { background: #e5f5ff; color: #0879b8 !important; }
-.crm-agenda-item-cycle .crm-agenda-action b { color: #6231c7; }
-.crm-agenda-item-opportunity .crm-agenda-action b { color: #cc1470; }
-.crm-agenda-item-follow_up .crm-agenda-action b { color: #0879b8; }
+.crm-agenda-red .crm-agenda-action b { color: #e11d48; }
+.crm-agenda-purple .crm-agenda-action b { color: #6f2ee4; }
+.crm-agenda-yellow .crm-agenda-action b { color: #b77900; }
+.crm-agenda-gray .crm-agenda-action b { color: #657089; }
+.crm-agenda-red .crm-agenda-kind { background: #ffe8ec; color: #d71942 !important; }
+.crm-agenda-purple .crm-agenda-kind { background: #eee8ff; color: #6231c7 !important; }
+.crm-agenda-yellow .crm-agenda-kind { background: #fff3d4; color: #a56800 !important; }
+.crm-agenda-gray .crm-agenda-kind { background: #edf0f5; color: #657089 !important; }
 .crm-agenda-buttons { display: flex; align-items: center; gap: 6px; }
 .crm-agenda-postpone-menu { position: relative; }
 .crm-agenda-buttons a,

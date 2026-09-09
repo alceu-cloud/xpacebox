@@ -1695,7 +1695,7 @@ function whatsAppLink(value: string, name: string) {
 }
 
 function agendaTaskLabel(item: AgendaItem) {
-  if (item.kind === "CYCLE") return "CICLO DE COMPRA";
+  if (item.kind === "CYCLE") return "VERIFICAR NECESSIDADE DE COMPRA";
   if (item.kind === "OPPORTUNITY") return item.actionType === "FOLLOW_UP" ? "ACOMPANHAR OPORTUNIDADE" : item.actionType;
   return item.actionType === "FOLLOW_UP" ? "ACOMPANHAR" : item.actionType;
 }
