@@ -36,5 +36,6 @@ export const initialLostReasons = options([
   "CONCORRENTE",
   "SEM RETORNO",
   "SEM INTERESSE",
+  "ESTOQUE SUFICIENTE NO CLIENTE",
   "ESPECIFICACAO",
 ]);
