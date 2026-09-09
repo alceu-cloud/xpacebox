@@ -2874,6 +2874,7 @@ button {
 .xb-workspace .reports-navigation-button.is-active { box-shadow: none; }
 .xb-workspace .reports-table-wrap { border: 1px solid var(--xb-line); border-radius: 18px; }
 .xb-workspace .reports-table th { background: #f7f5f8; }
+.xb-module-loading { min-height: 360px; border: 1px solid var(--xb-line); border-radius: 20px; background: #fff; }
 
 @media (max-width: 640px) {
   .xb-workspace .clients-tabs,

@@ -4,16 +4,13 @@ import { ui } from "@/lib/ui/styles";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { ArrowLeft, Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 
-import ClientesEmpresa from "@/components/clientes/ClientesEmpresa";
 import ModuleNavigation from "@/components/ui/ModuleNavigation";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import WorkspaceWelcome from "@/components/ui/WorkspaceWelcome";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
-import GerenciadorEmpresa, { ProductCatalogPanel } from "@/components/gerenciador/GerenciadorEmpresa";
-import FinanceiroEmpresa from "@/components/financeiro/FinanceiroEmpresa";
-import RelatoriosEmpresa from "@/components/relatorios/RelatoriosEmpresa";
 import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany, normalizeSalesGoals } from "@/lib/gerenciador/data";
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
@@ -28,6 +25,19 @@ import type { ClientRecord } from "@/types/clientes";
 import type { CfopOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { GeneralOption } from "@/types/cadastros-gerais";
 import type { PricingQuotePrefill, QuoteItem } from "@/types/orcamentos";
+
+function ModuleLoading() {
+  return <div className="xb-module-loading" aria-busy="true" aria-label="CARREGANDO MODULO" />;
+}
+
+const ClientesEmpresa = dynamic(() => import("@/components/clientes/ClientesEmpresa"), { loading: ModuleLoading });
+const GerenciadorEmpresa = dynamic(() => import("@/components/gerenciador/GerenciadorEmpresa"), { loading: ModuleLoading });
+const ProductCatalogPanel = dynamic(
+  () => import("@/components/gerenciador/GerenciadorEmpresa").then((module) => module.ProductCatalogPanel),
+  { loading: ModuleLoading }
+);
+const FinanceiroEmpresa = dynamic(() => import("@/components/financeiro/FinanceiroEmpresa"), { loading: ModuleLoading });
+const RelatoriosEmpresa = dynamic(() => import("@/components/relatorios/RelatoriosEmpresa"), { loading: ModuleLoading });
 
 type ModuloKey = "gerenciador" | "clientes" | "produtos" | "formacao-preco" | "financeiro" | "relatorios";
 
@@ -242,11 +252,14 @@ export default function EmpresaPage() {
         perfil?.platform_role === "company_manager";
 
       setPodeGerenciar(gerente);
-      if (!gerente && moduloAtivo === "gerenciador") setModuloAtivo(null);
     }
 
     carregarPermissao();
-  }, [moduloAtivo]);
+  }, []);
+
+  useEffect(() => {
+    if (!podeGerenciar && moduloAtivo === "gerenciador") setModuloAtivo(null);
+  }, [moduloAtivo, podeGerenciar]);
 
   useEffect(() => {
     let active = true;
