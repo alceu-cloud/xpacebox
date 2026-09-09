@@ -861,7 +861,7 @@ function AgendaBoard({
               {group.items.map((item) => {
                 return (
                   <article className="crm-agenda-item" key={item.client.id}>
-                    <i className={`crm-dot crm-dot-${item.health.toLowerCase()}`} />
+                    <i className={`crm-dot crm-dot-${group.tone}`} />
                     <div className="crm-agenda-client">
                       <strong>{item.client.tradeName || item.client.legalName}</strong>
                       <span>{item.profile?.ownerName || item.client.representativeName || "SEM RESPONSAVEL"}</span>
