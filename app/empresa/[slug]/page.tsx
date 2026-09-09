@@ -2426,7 +2426,7 @@ const pricingCardStyle = { margin: "0 auto", ...ui.shell };
 const pricingIntroStyle = { marginBottom: 28 };
 const pricingTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui.title };
 const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 16, fontWeight: 800 };
-const sectionLabelStyle = { margin: "18px 0 12px", color: "#141827", textTransform: "none" as const, ...ui.label };
+const sectionLabelStyle = { margin: "18px 0 12px", color: "#141827", textTransform: "uppercase" as const, ...ui.label };
 const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))", gap: 10, minWidth: 0 };
 const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 12, maxWidth: 920, minWidth: 0 };
 const optionCardStyle = { minHeight: 150, display: "grid", placeItems: "center", alignContent: "center", gap: 6, color: "#141827", cursor: "pointer", ...ui.frame, padding: 18 };
@@ -2437,11 +2437,11 @@ const warmOptionStyle = { border: "1px solid #e68019", background: "rgba(230,128
 const optionImageStyle = { width: 106, height: 74, display: "grid", placeItems: "center" };
 const compactOptionImageStyle = { width: 68, height: 46 };
 const optionSvgStyle = { width: "100%", height: "100%", display: "block", filter: "drop-shadow(0 12px 18px rgba(230,128,25,.16))" };
-const optionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 900, textAlign: "center" as const, textTransform: "none" as const };
+const optionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 900, textAlign: "center" as const, textTransform: "uppercase" as const };
 const compactOptionTitleStyle = { fontSize: 15, lineHeight: 1.15 };
-const optionSubtitleStyle = { color: "#667085", fontSize: 11, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0, textTransform: "none" as const };
+const optionSubtitleStyle = { color: "#667085", fontSize: 11, fontWeight: 800, textAlign: "center" as const, letterSpacing: 0, textTransform: "uppercase" as const };
 const compactOptionSubtitleStyle = { fontSize: 9, lineHeight: 1.2 };
-const modelEmptyStyle = { minHeight: 128, display: "grid", placeItems: "center", border: "1px dashed rgba(102,112,133,.42)", borderRadius: 16, color: "#667085", fontSize: 13, fontWeight: 800, textAlign: "center" as const, textTransform: "none" as const, padding: 18 };
+const modelEmptyStyle = { minHeight: 128, display: "grid", placeItems: "center", border: "1px dashed rgba(102,112,133,.42)", borderRadius: 16, color: "#667085", fontSize: 13, fontWeight: 800, textAlign: "center" as const, textTransform: "uppercase" as const, padding: 18 };
 
 const formulaSummaryStyle = {
   marginTop: 26,
@@ -2465,8 +2465,8 @@ const formulaBadgeStyle = {
   fontSize: 16,
   fontWeight: 900,
 };
-const formulaSummaryTitleStyle = { color: "#141827", fontWeight: 900, textTransform: "none" as const, ...ui.title };
-const formulaSummaryTextStyle = { color: "#667085", fontSize: 16, fontWeight: 900, textAlign: "center" as const, textTransform: "none" as const };
+const formulaSummaryTitleStyle = { color: "#141827", fontWeight: 900, textTransform: "uppercase" as const, ...ui.title };
+const formulaSummaryTextStyle = { color: "#667085", fontSize: 16, fontWeight: 900, textAlign: "center" as const, textTransform: "uppercase" as const };
 const dimensionsPanelStyle = {
   display: "grid",
   gap: 24,
