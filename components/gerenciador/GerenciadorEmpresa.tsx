@@ -756,8 +756,8 @@ export default function GerenciadorEmpresa({
           {activeTab === "lembretes" && (
             <div style={remindersGridStyle}>
               {reminderFormulas.map((section) => (
-                <article key={section.id} style={reminderCardStyle}>
-                  <h4 style={reminderTitleStyle}>{section.title}</h4>
+                <article key={section.id} style={section.id === "comercial" ? reminderCommercialCardStyle : reminderCardStyle}>
+                  <h4 style={section.id === "comercial" ? reminderCommercialTitleStyle : reminderTitleStyle}>{section.title}</h4>
                   <p style={panelTextStyle}>{section.description}</p>
                   <ul style={reminderListStyle}>
                     {section.items.map((item) => (
@@ -2204,7 +2204,9 @@ const blueCellStyle = { ...centerCellStyle, color: "#0284c7", fontSize: 16 };
 const greenCellStyle = { ...centerCellStyle, color: "#16a34a", fontSize: 16 };
 const remindersGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 22 , minWidth: 0 };
 const reminderCardStyle = { ...ui.frame };
+const reminderCommercialCardStyle = { ...ui.frame, gridColumn: "1 / -1", borderColor: "rgba(111,50,210,.28)", background: "var(--xb-accent-soft)" };
 const reminderTitleStyle = { margin: 0, color: "#e6007e", fontWeight: 900, ...ui.title };
+const reminderCommercialTitleStyle = { ...reminderTitleStyle, color: "var(--xb-accent-strong)" };
 const reminderListStyle = { display: "grid", gap: 12, margin: "22px 0 0", paddingLeft: 22 };
 const reminderItemStyle = { color: "#344054", fontSize: 16, fontWeight: 800, lineHeight: 1.5 };
 const formBodyStyle = { display: "grid", gap: 24, marginTop: 26 };
