@@ -18,7 +18,7 @@ type Client = { id: string; name: string; sellerCompanyId: string; sellerCompany
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
 type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; quote_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; closed_at: string | null; created_at: string; updated_at: string };
 type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
-type QuoteItem = { item_number: number; ft_number: string | null; description: string; quantity: number; unit_price: number; total: number; snapshot?: Record<string, unknown> };
+type QuoteItem = { item_number: number; ft_number: string | null; description: string; material: string | null; quantity: number; unit_price: number; total: number; snapshot?: Record<string, unknown> };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string; quote_items: QuoteItem[] };
 type SalesOrder = { id: string; client_id: string; representative_profile_id: string | null; crm_opportunity_id: string | null; sale_number: string; product_total: number; ipi_total: number; grand_total: number; contribution_total: number | null; mc_percent: number | null; ordered_at: string; created_at: string };
 type MaterialSnapshot = { materialId?: string; materialCode?: string; paperType?: string; createdAt?: string; price?: number; mcPercent?: number; netPrice?: number; marginValue?: number };
@@ -247,7 +247,7 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
     const materialById = new Map(data.materials.map((item) => [item.id || "", item]));
     const fichaByClientNumber = uniqueFichasByNumber(data.productFichas);
     const quoteItems = data.quotes.filter((quote) => inRange(quote.created_at, range)).flatMap((quote) => quote.quote_items.map((item) => ({ quote, item })));
-    return <ReportLayout title="RANKING POR MATERIAL" description="AGRUPA CADA ITEM ORCADO PELO MATERIAL DA FICHA TECNICA. ISSO MANTEM O RELATORIO CORRETO MESMO QUANDO UM ORCAMENTO TEM MAIS DE UMA FICHA."><RankTable rows={groupRows(quoteItems, ({ quote, item }) => materialLabelForQuoteItem(quote, item, fichaByClientNumber, materialById), ({ item }) => item.total)} labels={["MATERIAL", "ITENS ORCADOS", "VALOR ORCADO"]} /></ReportLayout>;
+    return <ReportLayout title="RANKING POR MATERIAL" description="AGRUPA CADA ITEM PELO MATERIAL REGISTRADO NO ORCAMENTO. PARA REGISTROS ANTIGOS, USA A FICHA TECNICA COMO ALTERNATIVA."><RankTable rows={groupRows(quoteItems, ({ quote, item }) => materialLabelForQuoteItem(quote, item, fichaByClientNumber, materialById), ({ item }) => item.total)} labels={["MATERIAL", "ITENS ORCADOS", "VALOR ORCADO"]} /></ReportLayout>;
   }
   if (report === "team") return <ReportLayout title="DESEMPENHO POR VENDEDOR" description="Visao gerencial: compara conversao, valor ganho e tempo de ciclo por representante."><TeamTable opportunities={inRangeOpps} clients={clientById} representatives={new Map(data.representatives.map((item) => [item.id, item.name]))} /></ReportLayout>;
   if (report === "followup") {
@@ -438,12 +438,22 @@ function opportunityRepresentativeId(opportunity: Opportunity, clients: Map<stri
 function groupRows<T>(items: T[], getLabel: (item: T) => string, getValue: (item: T) => number) { const groups = new Map<string, { label: string; count: number; value: number }>(); items.forEach((item) => { const label = getLabel(item); const current = groups.get(label) || { label, count: 0, value: 0 }; current.count += 1; current.value += Number(getValue(item) || 0); groups.set(label, current); }); return [...groups.values()].sort((a, b) => b.value - a.value || b.count - a.count); }
 function uniqueFichasByNumber(fichas: ProductFicha[]) { const index = new Map<string, ProductFicha | null>(); fichas.forEach((ficha) => { const key = fichaNumberKey(ficha.clientId, ficha.ftNumber); if (!key) return; index.set(key, index.has(key) ? null : ficha); }); return index; }
 function materialLabelForQuoteItem(quote: Quote, item: QuoteItem, fichaByClientNumber: Map<string, ProductFicha | null>, materialById: Map<string, Material>) {
+  const quotedSnapshot = item.snapshot as MaterialSnapshot | undefined;
+  const quotedMaterial = materialById.get(quotedSnapshot?.materialId || "");
+  const quotedLabel = materialText(quotedSnapshot?.materialCode)
+    || materialText(item.material)
+    || materialText(quotedMaterial?.code)
+    || materialText(quotedSnapshot?.paperType)
+    || materialText(quotedMaterial?.paperType);
+  if (quotedLabel) return quotedLabel;
+
   const ficha = fichaByClientNumber.get(fichaNumberKey(quote.client_id, item.ft_number)) || undefined;
-  if (!ficha) return "SEM FICHA TECNICA VINCULADA";
+  if (!ficha) return "SEM MATERIAL IDENTIFICADO";
   const snapshot = latestMaterialSnapshot(ficha);
   const material = materialById.get(ficha.materialId || "") || materialById.get(snapshot?.materialId || "");
   return material?.code || snapshot?.materialCode || material?.paperType || snapshot?.paperType || "MATERIAL NAO CADASTRADO";
 }
+function materialText(value: unknown) { return typeof value === "string" ? value.trim().toLocaleUpperCase("pt-BR") : ""; }
 function latestMaterialSnapshot(ficha: ProductFicha) { return [ficha.pricingData, ...(ficha.priceHistory || [])].filter((item): item is MaterialSnapshot => Boolean(item)).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0]; }
 function fichaNumberKey(clientId?: string | null, ftNumber?: string | null) { return clientId && ftNumber ? `${clientId}::${ftNumber.trim().toUpperCase()}` : ""; }
 function sum<T>(items: T[], getValue: (item: T) => number) { return items.reduce((total, item) => total + Number(getValue(item) || 0), 0); }
