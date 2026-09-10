@@ -973,6 +973,7 @@ export function ProductCatalogPanel({
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [productPanel, setProductPanel] = useState<"dados" | "arte" | "historico" | "alteracoes" | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [duplicatedFrom, setDuplicatedFrom] = useState<string | null>(null);
 
   useEffect(() => {
     if (!companySlug) return;
@@ -999,6 +1000,7 @@ export function ProductCatalogPanel({
     setProductMenuOpen(false);
     setProductPanel(null);
     setSelectedHistoryId(null);
+    setDuplicatedFrom(null);
   }
 
   function openFicha(item: ProductFicha) {
@@ -1008,6 +1010,7 @@ export function ProductCatalogPanel({
     setProductMenuOpen(false);
     setProductPanel(null);
     setSelectedHistoryId(null);
+    setDuplicatedFrom(null);
     const selection: Record<string, string> = {};
     [item, ...item.accessories].forEach((component) => {
       const material = materials.find((candidate) => candidate.id === component.materialId);
@@ -1024,6 +1027,47 @@ export function ProductCatalogPanel({
     setProductMenuOpen(false);
     setProductPanel(null);
     setSelectedHistoryId(null);
+    setDuplicatedFrom(null);
+  }
+
+  function duplicateEngineering(item: ProductFicha) {
+    const copyComponent = (component: ProductComponent): ProductComponent => ({
+      ...component,
+      id: crypto.randomUUID(),
+      price: 0,
+      revision: "1",
+      company: "",
+      clientId: "",
+      areaM2: 0,
+    });
+    const mainComponent = copyComponent(item);
+    const accessoryCopies = item.accessories.map(copyComponent);
+
+    setEditingId(null);
+    setViewOnly(false);
+    setDraft({
+      ...mainComponent,
+      ftNumber: nextFichaNumber(fichas),
+      accessories: accessoryCopies,
+      totalAreaM2: 0,
+      pricingData: undefined,
+      priceHistory: [],
+      changeHistory: [],
+    });
+    const selection: Record<string, string> = {};
+    [item, ...item.accessories].forEach((component) => {
+      const material = materials.find((candidate) => candidate.id === component.materialId);
+      if (material?.supplier) selection[component.id] = material.supplier;
+    });
+    setSupplierSelection(Object.fromEntries(
+      [[mainComponent, item], ...accessoryCopies.map((component, index) => [component, item.accessories[index]] as const)]
+        .map(([component, source]) => [component.id, selection[source.id]] as const)
+        .filter(([, supplier]) => Boolean(supplier)),
+    ));
+    setProductMenuOpen(false);
+    setProductPanel(null);
+    setSelectedHistoryId(null);
+    setDuplicatedFrom(`${item.ftNumber} - ${item.reference}`);
   }
 
   function updateMain<K extends keyof ProductFicha>(key: K, value: ProductFicha[K]) {
@@ -1105,10 +1149,10 @@ export function ProductCatalogPanel({
       window.alert(`INFORME O TRANSPASSE SUPERIOR (S) PARA ${componentMissingTopOverlap === draft ? "A CAIXA PRINCIPAL" : "O ACESSORIO"}.`);
       return;
     }
-    const matchingFicha = fichas.find((item) => item.id !== draft.id && item.clientId === draft.clientId && hasSameProductSpecification(item, draft));
+    const matchingFicha = fichas.find((item) => item.id !== draft.id && hasSameProductSpecification(item, draft));
     if (matchingFicha) {
       const clientName = productClientName(clientsById.get(matchingFicha.clientId)) || "CLIENTE NAO INFORMADO";
-      const shouldContinue = window.confirm(`JA EXISTE UMA FICHA SEMELHANTE PARA ESTE CLIENTE.\n\n${matchingFicha.ftNumber} - ${matchingFicha.reference}\nCLIENTE: ${clientName}\n\nMESMO MATERIAL, TIPO DE CAIXA E MEDIDAS.\n\nDESEJA SALVAR MESMO ASSIM?`);
+      const shouldContinue = window.confirm(`JA EXISTE UMA FICHA SEMELHANTE.\n\n${matchingFicha.ftNumber} - ${matchingFicha.reference}\nCLIENTE: ${clientName}\n\nMESMO MATERIAL, ENGENHARIA E MEDIDAS.\n\nPARA APROVEITAR A CONFIGURACAO PARA OUTRO CLIENTE, USE DUPLICAR ENGENHARIA NESTA FICHA.\n\nDESEJA SALVAR MESMO ASSIM?`);
       if (!shouldContinue) return;
     }
     const calculatedDraft = recalculateProductFichaAreas([{
@@ -1137,6 +1181,7 @@ export function ProductCatalogPanel({
     setProductMenuOpen(false);
     setProductPanel(null);
     setSelectedHistoryId(null);
+    setDuplicatedFrom(null);
   }
 
   function selectProductPanel(panel: "dados" | "arte" | "historico" | "alteracoes") {
@@ -1258,8 +1303,9 @@ export function ProductCatalogPanel({
         <FormPanel title={viewOnly ? "VISUALIZAR FICHA TECNICA" : editingId ? "EDITAR FICHA TECNICA" : "CADASTRAR NOVA FICHA TECNICA"}>
           <div style={productFichaTopbarStyle}>
             <label style={{ ...wideLabelStyle, flex: "1 1 360px" }}>NUMERO DA FT<input value={draft.ftNumber} readOnly style={{ ...inputStyle, background: "#f5f1ff", color: "#7c3aed", fontWeight: 800 }} /></label>
-            {viewOnly && <div style={productFichaTopActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>SAIR</button><button type="button" onClick={() => setViewOnly(false)} style={editButtonStyle}>EDITAR</button></div>}
+            {viewOnly && <div style={productFichaTopActionsStyle}><button type="button" onClick={closeFicha} style={cancelButtonStyle}>SAIR</button><button type="button" onClick={() => duplicateEngineering(draft)} style={duplicateButtonStyle}>DUPLICAR ENGENHARIA</button><button type="button" onClick={() => setViewOnly(false)} style={editButtonStyle}>EDITAR</button></div>}
           </div>
+          {duplicatedFrom && <div style={productDuplicateNoticeStyle}><strong>ENGENHARIA DUPLICADA DE {duplicatedFrom}</strong><span>SELECIONE O NOVO CLIENTE E REVISE A REFERENCIA E O PRECO. O HISTORICO E AS FORMACOES ANTERIORES NAO FORAM COPIADOS.</span></div>}
           <div style={productColumnsStyle}>
             <section style={productSideStyle}>
               <div style={productSideHeaderStyle}>
@@ -1291,7 +1337,7 @@ export function ProductCatalogPanel({
             <label style={productSearchFieldStyle}>BUSCAR POR FICHA<input type="search" value={fichaSearch} onChange={(event) => setFichaSearch(event.target.value)} placeholder="NUMERO DA FT OU REFERENCIA" style={productInputStyle} /></label>
             <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientSearch || fichaSearch) && <button type="button" onClick={() => { setClientSearch(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
           </div>
-          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => { const client = clientsById.get(ficha.clientId); const clientName = productClientName(client) || "CLIENTE NAO INFORMADO"; return <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaClientStyle}>{clientName}</small><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S)</small></div><div style={fichaActionsStyle}><button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>; })}
+          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => { const client = clientsById.get(ficha.clientId); const clientName = productClientName(client) || "CLIENTE NAO INFORMADO"; return <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaClientStyle}>{clientName}</small><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S)</small></div><div style={fichaActionsStyle}><button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button><button type="button" onClick={() => duplicateEngineering(ficha)} style={duplicateButtonStyle}>DUPLICAR ENGENHARIA</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>; })}
         </Panel>
       )}
     </>
@@ -2076,6 +2122,7 @@ const actionCellStyle = { ...strongCellStyle, textAlign: "center" as const, whit
 const supplierNameCellStyle = { ...strongCellStyle, textAlign: "left" as const, paddingLeft: 28 };
 const supplierActionCellStyle = { ...actionCellStyle, textAlign: "right" as const, paddingRight: 28 };
 const editButtonStyle = { border: "none", background: "#7c3aed", color: "#fff", cursor: "pointer", marginRight: 12 , ...ui.button };
+const duplicateButtonStyle = { border: "1px solid rgba(234,88,12,.26)", background: "#fff7ed", color: "#c2410c", cursor: "pointer", marginRight: 0, ...ui.button };
 const deleteButtonStyle = { ...editButtonStyle, marginRight: 0, background: "#ff4b4b" };
 const tagStyle = { display: "inline-flex", padding: "3px 7px", background: "rgba(255,128,0,.12)", color: "#e68019", border: "1px solid rgba(230,128,25,.24)", borderRadius: 3 };
 const priceCellStyle = { ...centerCellStyle, color: "#22c55e" };
@@ -2188,6 +2235,7 @@ const productLabelStyle = { display: "grid", gap: 7, color: "#344054", ...ui.lab
 const productInputStyle = { width: "100%", border: "1px solid rgba(52,64,84,.18)", background: "#fff", color: "#141827", outline: "none", boxSizing: "border-box" as const , ...ui.field };
 const productFichaTopbarStyle = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 16 };
 const productFichaTopActionsStyle = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, paddingBottom: 1 , flexWrap: "wrap" as const };
+const productDuplicateNoticeStyle = { display: "grid", gap: 5, margin: "16px 0 20px", padding: "13px 15px", border: "1px solid rgba(234,88,12,.24)", borderRadius: 10, background: "#fff7ed", color: "#9a3412", fontSize: 12, fontWeight: 800, lineHeight: 1.45 };
 const productReadOnlyFieldsetStyle = { minWidth: 0, margin: 0, padding: 0, border: "none" };
 const productSearchBarStyle = { display: "flex", alignItems: "flex-end", flexWrap: "wrap" as const, gap: 14, marginBottom: 20, padding: 18, borderRadius: 12, border: "1px solid rgba(111,50,210,.16)", background: "linear-gradient(135deg, rgba(247,242,255,.86), rgba(255,247,251,.92))" };
 const productSearchFieldStyle = { ...productLabelStyle, flex: "1 1 320px" };
