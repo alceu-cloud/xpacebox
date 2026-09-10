@@ -1,6 +1,7 @@
 "use client";
 
 import { ui } from "@/lib/ui/styles";
+import { isPendingCrmAgenda } from "@/lib/crm-agenda";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BarChart3, BriefcaseBusiness, Factory, FileBarChart2, PackageSearch, ShoppingCart } from "lucide-react";
 
@@ -17,7 +18,7 @@ type ReportNavigationLevel = "area" | "category" | "report";
 type Client = { id: string; name: string; sellerCompanyId: string; sellerCompanyName: string; sellerCompanySlug: string; representativeProfileId: string; representativeName: string; updatedAt: string };
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
 type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; quote_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; closed_at: string | null; created_at: string; updated_at: string };
-type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
+type Activity = { id: string; client_id: string; opportunity_id: string | null; agenda_kind: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
 type QuoteItem = { item_number: number; ft_number: string | null; description: string; quantity: number; unit_price: number; total: number; snapshot?: Record<string, unknown> };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string; quote_items: QuoteItem[] };
 type SalesOrder = { id: string; client_id: string; representative_profile_id: string | null; crm_opportunity_id: string | null; sale_number: string; product_total: number; ipi_total: number; grand_total: number; contribution_total: number | null; mc_percent: number | null; ordered_at: string; created_at: string };
@@ -266,9 +267,14 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
     return <ReportLayout title="CLIENTES EM RISCO" description="Clientes que passaram da frequencia de compra definida e nao possuem oportunidade ativa."><RiskTable rows={atRisk} /></ReportLayout>;
   }
   if (report === "no-agenda") {
+    const stages = new Map(rawData.opportunities.map((item) => [item.id, item.stage]));
     const clientIdsWithAgenda = new Set([
       ...data.profiles.filter((item) => item.next_contact_at).map((item) => item.client_id),
-      ...data.activities.filter((item) => item.next_action_at).map((item) => item.client_id),
+      ...data.activities.filter((item) => isPendingCrmAgenda({
+        nextActionAt: item.next_action_at,
+        opportunityId: item.opportunity_id,
+        agendaKind: item.agenda_kind,
+      }, stages)).map((item) => item.client_id),
     ]);
     const lastActivityByClient = new Map<string, Activity>();
     data.activities.forEach((activity) => {

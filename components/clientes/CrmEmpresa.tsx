@@ -5,6 +5,7 @@ import type { DragEvent } from "react";
 import { ContactRound, PackageCheck, PhoneCall, Plus, Target, Trash2 } from "lucide-react";
 
 import { closeClientSample } from "@/lib/amostras";
+import { isPendingCrmAgenda } from "@/lib/crm-agenda";
 import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, registerCrmOrder, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
@@ -230,7 +231,16 @@ export default function CrmEmpresa({
       return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
     });
   }, [overview.activities, selectedClient, selectedProfile?.nextContactAt]);
-  const scheduledAgendaAt = scheduledActivity?.nextActionAt || selectedProfile?.nextContactAt || "";
+  const scheduledAgendaAt = useMemo(() => {
+    if (!selectedClient) return "";
+    const stages = new Map(overview.opportunities.map((item) => [item.id, item.stage]));
+    const dates = overview.activities
+      .filter((item) => item.clientId === selectedClient.id && isPendingCrmAgenda(item, stages))
+      .map((item) => item.nextActionAt);
+    if (selectedProfile?.nextContactAt) dates.push(selectedProfile.nextContactAt);
+    return dates.filter((date) => Number.isFinite(Date.parse(date)))
+      .sort((a, b) => Date.parse(a) - Date.parse(b))[0] || "";
+  }, [overview.activities, overview.opportunities, selectedClient, selectedProfile?.nextContactAt]);
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -1379,7 +1389,7 @@ function ClientDetail({
             </div>
           ) : null}
           <div className="crm-form-actions">
-            {scheduledActivityToLink ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivityToLink.id, reuseExistingAgenda: true, nextActionType: scheduledActivityToLink.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledAgendaAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
+            {scheduledActivityToLink ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: scheduledActivityToLink.id, reuseExistingAgenda: true, nextActionType: scheduledActivityToLink.nextActionType || "FOLLOW_UP", nextActionAt: toLocalDateTime(scheduledActivityToLink.nextActionAt) })} disabled={saving}>VINCULAR AGENDA ABERTA</button> : null}
             {isUsingExistingAgenda ? <button type="button" className="crm-secondary-action" onClick={() => setOpportunityDraft({ ...opportunityDraft, linkedActivityId: "", reuseExistingAgenda: false })} disabled={saving}>CRIAR NOVA AGENDA</button> : null}
             <button type="button" onClick={() => {
               if (!opportunityDraft.id && activeOpportunities.length) {
