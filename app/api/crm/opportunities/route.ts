@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/server/company-access";
 import { saoPauloDate as currentSaoPauloDate, scheduleCommercialCycle } from "@/lib/server/commercial-cycle";
-import type { ProductFicha } from "@/types/gerenciador";
+import type { ProductFicha, ProductPriceSnapshot } from "@/types/gerenciador";
 import type { CrmOpportunityInput } from "@/types/crm";
 
 const purchaseAverageAlertThreshold = 0.3;
+
+class AutomaticCycleValidationError extends Error {}
 
 export async function POST(request: Request) { return save(request, false); }
 export async function PATCH(request: Request) { return save(request, true); }
@@ -35,6 +37,8 @@ async function save(request: Request, editing: boolean) {
     await requireCompanyProfile(admin, company.id, representativeId);
     let previousStage = "";
     let previousClientId = "";
+    let previousEstimatedValue = 0;
+    let ownsCycleAgenda = false;
     let existingProduct: { id: string; reference: string; quantity: number; unitPrice: number; total: number } | null = null;
     let existingClosedAt = "";
     if (editing) {
@@ -47,7 +51,9 @@ async function save(request: Request, editing: boolean) {
       if (currentOpportunityError) throw currentOpportunityError;
       previousStage = currentOpportunity.stage || "";
       previousClientId = currentOpportunity.client_id || "";
+      previousEstimatedValue = Number(currentOpportunity.estimated_value || 0);
       existingClosedAt = currentOpportunity.closed_at || "";
+      ownsCycleAgenda = await opportunityOwnsCycleAgenda(admin, company.id, input.id || "");
       if (currentOpportunity.product_ficha_id) {
         existingProduct = {
           id: currentOpportunity.product_ficha_id,
@@ -56,6 +62,24 @@ async function save(request: Request, editing: boolean) {
           unitPrice: Number(currentOpportunity.product_unit_price || 0),
           total: Number(currentOpportunity.estimated_value || 0),
         };
+      }
+    }
+
+    let automaticCycleResolution: { value: number; detail: string } | null = null;
+    if (editing && input.stage === "WON" && previousStage !== "WON" && ownsCycleAgenda) {
+      const confirmation = input.automaticCycleConfirmation;
+      if (!confirmation) return failure("CONFIRME O VALOR DO CICLO AUTOMATICO ANTES DE MARCAR COMO GANHO.", 400);
+      if (confirmation.mode === "BASE_VALUE") {
+        if (previousEstimatedValue <= 0) return failure("O CICLO AUTOMATICO NAO POSSUI VALOR BASE. INFORME O VALOR GANHO.", 400);
+        automaticCycleResolution = { value: previousEstimatedValue, detail: "VALOR BASE CONFIRMADO." };
+      } else if (confirmation.mode === "CUSTOM_VALUE") {
+        const value = Number(confirmation.value || 0);
+        if (!Number.isFinite(value) || value <= 0) return failure("INFORME UM VALOR GANHO VALIDO.", 400);
+        automaticCycleResolution = { value, detail: "VALOR FINAL INFORMADO PELO USUARIO." };
+      } else if (confirmation.mode === "PRODUCTS") {
+        automaticCycleResolution = await resolveAutomaticCycleItems(admin, company.id, input.clientId, confirmation.items || []);
+      } else {
+        return failure("FORMA DE CONFIRMACAO DO CICLO AUTOMATICO INVALIDA.", 400);
       }
     }
 
@@ -71,7 +95,7 @@ async function save(request: Request, editing: boolean) {
       product_quantity: product?.quantity || null,
       product_unit_price: product?.unitPrice || null,
       stage: input.stage,
-      estimated_value: product?.total ?? Math.max(0, Number(input.estimatedValue || 0)),
+      estimated_value: automaticCycleResolution?.value ?? product?.total ?? Math.max(0, Number(input.estimatedValue || 0)),
       expected_close_date: input.expectedCloseDate || null,
       notes: upper(input.notes) || null,
       lost_reason: input.stage === "LOST" ? upper(input.lostReason) || null : null,
@@ -131,7 +155,6 @@ async function save(request: Request, editing: boolean) {
       });
     }
     if (editing && input.clientId && closesNow) {
-      const ownsCycleAgenda = await opportunityOwnsCycleAgenda(admin, company.id, data.id);
       await clearOpportunityAgenda(admin, company.id, data.id);
       if (input.stage === "WON" || ownsCycleAgenda) {
         const cycle = await scheduleCommercialCycle({
@@ -146,6 +169,21 @@ async function save(request: Request, editing: boolean) {
         });
         cycleScheduled = cycle.scheduled;
       }
+    }
+
+
+    if (automaticCycleResolution && input.clientId) {
+      await registerAutomaticCycleConfirmation({
+        admin,
+        companyId: company.id,
+        clientId: input.clientId,
+        opportunityId: data.id,
+        representativeId,
+        userId: user.id,
+        baseValue: previousEstimatedValue,
+        confirmedValue: automaticCycleResolution.value,
+        detail: automaticCycleResolution.detail,
+      }).catch((error) => console.error("AUTOMATIC CYCLE CONFIRMATION NOTE ERROR", error));
     }
 
     if (!editing && input.clientId && input.stage === "WON") {
@@ -182,6 +220,87 @@ async function save(request: Request, editing: boolean) {
   } catch (error) {
     return handleError(error);
   }
+}
+
+async function resolveAutomaticCycleItems(
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"],
+  companyId: string,
+  clientId: string,
+  inputItems: Array<{ productFichaId: string; quantity: number }>
+) {
+  if (!inputItems.length) throw new AutomaticCycleValidationError("SELECIONE PELO MENOS UM ITEM VENDIDO.");
+  const { data, error } = await admin
+    .from("company_manager_settings")
+    .select("data")
+    .eq("tenant_company_id", companyId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const stored = (data?.data as { productFichas?: unknown } | null)?.productFichas;
+  const fichas = Array.isArray(stored) ? stored as ProductFicha[] : [];
+  const selectedIds = new Set<string>();
+  const details: string[] = [];
+  let value = 0;
+
+  for (const item of inputItems) {
+    const fichaId = String(item.productFichaId || "").trim();
+    if (!fichaId) throw new AutomaticCycleValidationError("SELECIONE A FICHA TECNICA DE CADA ITEM.");
+    if (selectedIds.has(fichaId)) throw new AutomaticCycleValidationError("A MESMA FICHA TECNICA NAO PODE SER REPETIDA.");
+    selectedIds.add(fichaId);
+    const ficha = fichas.find((candidate) => candidate.id === fichaId && candidate.clientId === clientId && candidate.status !== "INATIVO");
+    if (!ficha) throw new AutomaticCycleValidationError("UMA DAS FICHAS NAO PERTENCE AO CLIENTE OU ESTA INATIVA.");
+    const snapshot = currentPriceSnapshot(ficha);
+    if (!snapshot) throw new AutomaticCycleValidationError(`${productReference(ficha)} NAO POSSUI FORMACAO DE PRECO SALVA.`);
+    const baseQuantity = Number(snapshot.quantity || 0);
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(snapshot.price || ficha.price || 0);
+    if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) throw new AutomaticCycleValidationError(`${productReference(ficha)} NAO POSSUI LOTE DE FORMACAO DE PRECO.`);
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new AutomaticCycleValidationError(`INFORME UMA QUANTIDADE VALIDA PARA ${productReference(ficha)}.`);
+    if (quantity < baseQuantity) throw new AutomaticCycleValidationError(`${productReference(ficha)} FOI FORMADA PARA NO MINIMO ${baseQuantity} UNIDADES.`);
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new AutomaticCycleValidationError(`${productReference(ficha)} NAO POSSUI PRECO VALIDO.`);
+    const itemTotal = quantity * unitPrice * (1 + Number(snapshot.ipiPercent || 0) / 100);
+    value += itemTotal;
+    details.push(`${productReference(ficha)}: ${quantity} UN. = ${formatCurrency(itemTotal)}`);
+  }
+
+  return { value, detail: `ITENS CONFIRMADOS: ${details.join("; ")}.` };
+}
+
+async function registerAutomaticCycleConfirmation({
+  admin,
+  companyId,
+  clientId,
+  opportunityId,
+  representativeId,
+  userId,
+  baseValue,
+  confirmedValue,
+  detail,
+}: {
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
+  companyId: string;
+  clientId: string;
+  opportunityId: string;
+  representativeId: string;
+  userId: string;
+  baseValue: number;
+  confirmedValue: number;
+  detail: string;
+}) {
+  const { error } = await admin.from("crm_activities").insert({
+    tenant_company_id: companyId,
+    client_id: clientId,
+    opportunity_id: opportunityId,
+    representative_profile_id: representativeId,
+    activity_type: "NOTE",
+    outcome: "PURCHASE_EXPECTED",
+    subject: "SISTEMA: CICLO AUTOMATICO CONFIRMADO",
+    notes: `VALOR BASE DO CICLO: ${formatCurrency(baseValue)}. VALOR GANHO CONFIRMADO: ${formatCurrency(confirmedValue)}. ${detail}`,
+    occurred_at: new Date().toISOString(),
+    agenda_kind: "OPPORTUNITY",
+    created_by: userId,
+  });
+  if (error) throw error;
 }
 
 async function registerPurchaseAverageAlert({
@@ -429,6 +548,11 @@ function productReference(product: ProductFicha) {
   return [product.ftNumber, product.reference].filter(Boolean).join(" - ") || "PRODUTO SEM REFERENCIA";
 }
 
+function currentPriceSnapshot(product: ProductFicha): ProductPriceSnapshot | undefined {
+  if (product.pricingData && Number(product.pricingData.price || 0) > 0) return product.pricingData;
+  return [...(product.priceHistory ?? [])].reverse().find((snapshot) => Number(snapshot.price || 0) > 0);
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
@@ -437,6 +561,7 @@ function upper(value: string) { return (value || "").trim().toLocaleUpperCase("p
 function failure(message: string, status: number) { return NextResponse.json({ success: false, message }, { status }); }
 function handleError(error: unknown) {
   if (error instanceof AccessError) return failure(error.message, error.status);
+  if (error instanceof AutomaticCycleValidationError) return failure(error.message, 400);
   console.error("CRM OPPORTUNITY ERROR", error);
   return failure("NAO FOI POSSIVEL SALVAR A OPORTUNIDADE.", 500);
 }

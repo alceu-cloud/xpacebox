@@ -2852,6 +2852,27 @@ button {
 .crm-purchase-average-modal p strong { color: #141827; }
 .crm-purchase-average-modal p + p { color: #6f2ee4; font-size: 10px; font-weight: 900; letter-spacing: .45px; }
 .crm-purchase-average-modal button:last-child { border-color: #6f2ee4; background: #6f2ee4; }
+.crm-cycle-win-modal { width: min(100%, 680px); border-color: rgba(22,163,74,.35); }
+.crm-cycle-win-modal > span { color: #15803d; }
+.crm-cycle-win-modal > p { margin: -5px 0 0; color: #525b72; font-size: 12px; font-weight: 700; line-height: 1.55; }
+.crm-cycle-win-modal > p strong { color: #141827; }
+.crm-cycle-win-modal > .crm-cycle-win-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: stretch; gap: 8px; }
+.crm-cycle-win-options button { min-height: 48px; padding: 7px 9px; }
+.crm-cycle-win-options button:last-child { border-color: #cfd6e4; background: #fff; color: #475467; }
+.crm-cycle-win-options button.active { border-color: #16a34a; background: #ecfdf3; color: #166534; }
+.crm-cycle-win-modal > .crm-cycle-win-items { display: grid; justify-content: stretch; gap: 10px; }
+.crm-cycle-win-item { display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; align-items: end; gap: 8px; padding: 12px; border: 1px solid #dfe4ec; border-radius: 7px; background: #f8fafc; }
+.crm-cycle-win-item .crm-field { min-width: 0; }
+.crm-cycle-win-item > small { grid-column: 1 / -1; color: #c2410c; font-size: 10px; font-weight: 900; }
+.crm-cycle-win-modal .crm-cycle-remove-item { min-height: 42px; display: inline-flex; align-items: center; gap: 5px; border-color: #fecdd3; color: #be123c; }
+.crm-cycle-win-modal .crm-cycle-add-item { justify-self: start; display: inline-flex; align-items: center; gap: 5px; border-color: #bbf7d0; color: #166534; }
+.crm-cycle-win-modal .crm-cycle-add-item:last-child { border-color: #bbf7d0; background: #fff; color: #166534; }
+.crm-cycle-win-items > p { margin: 0; color: #c2410c; font-size: 10px; font-weight: 900; }
+.crm-cycle-win-total { color: #166534; font-size: 18px; }
+.crm-cycle-custom-value { display: grid; gap: 6px; }
+.crm-cycle-custom-value > span { color: #657084; font-size: 10px; font-weight: 900; letter-spacing: .7px; }
+.crm-cycle-win-modal > .crm-cycle-win-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.crm-cycle-win-actions button:last-child { border-color: #16a34a; background: #16a34a; color: #fff; }
 
 @media (max-width: 1250px) {
   .crm-header { align-items: stretch; flex-direction: column; }
@@ -2875,6 +2896,8 @@ button {
   .sample-agenda-item { grid-template-columns: 10px minmax(0, 1fr) auto; }
   .sample-agenda-date { grid-column: 2; }
   .sample-agenda-item button { grid-column: 3; grid-row: 1 / span 2; }
+  .crm-cycle-win-modal > .crm-cycle-win-options { grid-template-columns: 1fr; }
+  .crm-cycle-win-item { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {

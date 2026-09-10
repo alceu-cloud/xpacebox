@@ -221,9 +221,9 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
     const crmWon = crmOpportunities.filter((item) => item.stage === "WON");
     const crmLost = crmOpportunities.filter((item) => item.stage === "LOST");
     const qualified = [...crmWon, ...crmLost];
-    return <ReportLayout title="FECHAMENTO DO MES" description="FATURAMENTO E MC VEM DOS PEDIDOS CONFIRMADOS. GANHOS E PERDAS CONTINUAM MOSTRANDO O DESEMPENHO DO CRM.">
-      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("FATURAMENTO CONFIRMADO", sum(salesInRange, (item) => item.grand_total), "#16a34a"), metric("MC MEDIA DAS VENDAS", salesWithMargin.length ? `${weightedSalesMc.toFixed(2)}%` : "SEM DADOS", "#0284c7", true), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO CRM", qualified.length ? `${Math.round((crmWon.length / qualified.length) * 100)}%` : "-", "#e68019", true)]}/>
-      <StageTable opportunities={crmOpportunities} />
+    return <ReportLayout title="FECHAMENTO DO MES" description="O VALOR PREVISTO SOMA TODAS AS OPORTUNIDADES GANHAS NO PERIODO. A MC CONTINUA VINDO SOMENTE DOS PEDIDOS REGISTRADOS.">
+      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("VALOR PREVISTO", totalWon, "#16a34a"), metric("MC MEDIA DAS VENDAS", salesWithMargin.length ? `${weightedSalesMc.toFixed(2)}%` : "SEM DADOS", "#0284c7", true), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO CRM", qualified.length ? `${Math.round((crmWon.length / qualified.length) * 100)}%` : "-", "#e68019", true)]}/>
+      <StageTable opportunities={inRangeOpps} />
     </ReportLayout>;
   }
   if (report === "pipeline") return <ReportLayout title="FUNIL COMERCIAL" description="MOSTRA VALOR, quantidade e tempo medio em cada etapa aberta."><StageTable opportunities={open} showAge /></ReportLayout>;

@@ -38,6 +38,8 @@ type PurchaseAverageAlert = {
   averageValue: number;
   differencePercent: number;
 };
+type AutomaticCycleConfirmation = NonNullable<CrmOpportunityInput["automaticCycleConfirmation"]>;
+type AutomaticCycleWinPrompt = { opportunity: CrmOpportunity };
 
 const purchaseAverageAlertThreshold = 0.3;
 
@@ -167,6 +169,7 @@ export default function CrmEmpresa({
   const [lostStagePrompt, setLostStagePrompt] = useState<CrmOpportunity | null>(null);
   const [lostStageReason, setLostStageReason] = useState("");
   const [purchaseAverageAlert, setPurchaseAverageAlert] = useState<PurchaseAverageAlert | null>(null);
+  const [automaticCycleWinPrompt, setAutomaticCycleWinPrompt] = useState<AutomaticCycleWinPrompt | null>(null);
 
   useEffect(() => {
     if (!forcedClientId) return;
@@ -201,6 +204,12 @@ export default function CrmEmpresa({
   const profileByClient = useMemo(
     () => new Map(overview.profiles.map((profile) => [profile.clientId, profile])),
     [overview.profiles]
+  );
+  const automaticCycleOpportunityIds = useMemo(
+    () => new Set(overview.activities
+      .filter((activity) => activity.agendaKind === "CYCLE" && activity.opportunityId)
+      .map((activity) => activity.opportunityId)),
+    [overview.activities]
   );
   const quoteByClient = useMemo(
     () => new Map(overview.quotes.map((quote) => [quote.clientId, quote])),
@@ -436,17 +445,27 @@ export default function CrmEmpresa({
     }
   }
 
-  async function handleStageChange(opportunity: CrmOpportunity, stage: CrmOpportunityStage, selectedLostReason = "") {
+  async function handleStageChange(
+    opportunity: CrmOpportunity,
+    stage: CrmOpportunityStage,
+    selectedLostReason = "",
+    automaticCycleConfirmation?: { value: number; input: AutomaticCycleConfirmation }
+  ) {
     if (stage === "LOST" && !(selectedLostReason || opportunity.lostReason).trim()) {
       setLostStagePrompt(opportunity);
       setLostStageReason("");
       return;
     }
     const previousStage = opportunity.stage;
+    if (stage === "WON" && previousStage !== "WON" && automaticCycleOpportunityIds.has(opportunity.id) && !automaticCycleConfirmation) {
+      setAutomaticCycleWinPrompt({ opportunity });
+      return;
+    }
     const lostReason = stage === "LOST" ? selectedLostReason || opportunity.lostReason : opportunity.lostReason;
     const client = clients.find((item) => item.id === opportunity.clientId);
     const averageValue = Number(profileByClient.get(opportunity.clientId)?.averagePurchaseValue || 0);
-    const opportunityValue = Number(opportunity.estimatedValue || 0);
+    const previousOpportunityValue = Number(opportunity.estimatedValue || 0);
+    const opportunityValue = automaticCycleConfirmation?.value ?? previousOpportunityValue;
     const differencePercent = averageValue > 0 ? Math.abs(opportunityValue - averageValue) / averageValue : 0;
     const shouldAlertPurchaseAverage = stage === "WON"
       && previousStage !== "WON"
@@ -463,7 +482,7 @@ export default function CrmEmpresa({
     clearFeedback();
     setOverview((current) => ({
       ...current,
-      opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage } : item),
+      opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage, estimatedValue: opportunityValue } : item),
     }));
     if (immediatePurchaseAverageAlert) setPurchaseAverageAlert(immediatePurchaseAverageAlert);
     try {
@@ -477,10 +496,11 @@ export default function CrmEmpresa({
         productQuantity: opportunity.productQuantity,
         productUnitPrice: opportunity.productUnitPrice,
         stage,
-        estimatedValue: opportunity.estimatedValue,
+        estimatedValue: opportunityValue,
         expectedCloseDate: opportunity.expectedCloseDate,
         notes: opportunity.notes,
         lostReason,
+        automaticCycleConfirmation: automaticCycleConfirmation?.input,
       });
       await refresh(true);
       await refreshOperationalLock();
@@ -496,7 +516,7 @@ export default function CrmEmpresa({
     } catch (saveError) {
       setOverview((current) => ({
         ...current,
-        opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage: previousStage } : item),
+        opportunities: current.opportunities.map((item) => item.id === opportunity.id ? { ...item, stage: previousStage, estimatedValue: previousOpportunityValue } : item),
       }));
       if (immediatePurchaseAverageAlert) setPurchaseAverageAlert(null);
       setError(messageFrom(saveError));
@@ -807,6 +827,18 @@ export default function CrmEmpresa({
         }}
       /> : null}
 
+      {automaticCycleWinPrompt ? <AutomaticCycleWinModal
+        opportunity={automaticCycleWinPrompt.opportunity}
+        clientName={clients.find((client) => client.id === automaticCycleWinPrompt.opportunity.clientId)?.tradeName || clients.find((client) => client.id === automaticCycleWinPrompt.opportunity.clientId)?.legalName || "CLIENTE"}
+        productFichas={productFichas}
+        onCancel={() => setAutomaticCycleWinPrompt(null)}
+        onConfirm={(value, input) => {
+          const opportunity = automaticCycleWinPrompt.opportunity;
+          setAutomaticCycleWinPrompt(null);
+          void handleStageChange(opportunity, "WON", "", { value, input });
+        }}
+      /> : null}
+
       {purchaseAverageAlert ? <PurchaseAverageAlertModal
         alert={purchaseAverageAlert}
         onClose={() => setPurchaseAverageAlert(null)}
@@ -831,6 +863,70 @@ function LostReasonModal({ reasons, value, onChange, onCancel, onConfirm }: { re
         {reasons.map((reason) => <option key={reason.id} value={reason.name}>{reason.name}</option>)}
       </select>
       <div><button type="button" onClick={onCancel}>CANCELAR</button><button type="button" disabled={!value} onClick={onConfirm}>CONFIRMAR PERDA</button></div>
+    </section>
+  </div>;
+}
+
+function AutomaticCycleWinModal({
+  opportunity,
+  clientName,
+  productFichas,
+  onCancel,
+  onConfirm,
+}: {
+  opportunity: CrmOpportunity;
+  clientName: string;
+  productFichas: ProductFicha[];
+  onCancel: () => void;
+  onConfirm: (value: number, input: AutomaticCycleConfirmation) => void;
+}) {
+  const [mode, setMode] = useState<AutomaticCycleConfirmation["mode"]>("BASE_VALUE");
+  const [customValue, setCustomValue] = useState(0);
+  const [items, setItems] = useState<Array<{ productFichaId: string; quantity: number }>>([{ productFichaId: "", quantity: 0 }]);
+  const availableProducts = productFichas.filter((product) => product.clientId === opportunity.clientId && product.status !== "INATIVO" && Number(productPriceSnapshot(product)?.price || product.price || 0) > 0);
+  const resolvedItems = items.map((item) => {
+    const product = availableProducts.find((candidate) => candidate.id === item.productFichaId);
+    const snapshot = product ? productPriceSnapshot(product) : undefined;
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(snapshot?.price || product?.price || 0);
+    const ipiPercent = Number(snapshot?.ipiPercent || 0);
+    const baseQuantity = Number(snapshot?.quantity || 0);
+    return { product, quantity, baseQuantity, total: quantity * unitPrice * (1 + ipiPercent / 100) };
+  });
+  const productTotal = resolvedItems.reduce((total, item) => total + item.total, 0);
+  const hasRepeatedProduct = items.some((item, index) => item.productFichaId && items.findIndex((candidate) => candidate.productFichaId === item.productFichaId) !== index);
+  const productsAreValid = items.length > 0 && !hasRepeatedProduct && resolvedItems.every((item) => item.product && item.quantity > 0 && item.baseQuantity > 0 && item.quantity >= item.baseQuantity);
+  const confirmedValue = mode === "BASE_VALUE" ? Number(opportunity.estimatedValue || 0) : mode === "CUSTOM_VALUE" ? customValue : productTotal;
+  const canConfirm = confirmedValue > 0 && (mode !== "PRODUCTS" || productsAreValid);
+
+  return <div className="crm-lost-reason-overlay" role="presentation">
+    <section className="crm-lost-reason-modal crm-cycle-win-modal" role="dialog" aria-modal="true" aria-label="CONFIRMAR VALOR DO CICLO AUTOMATICO">
+      <span>CICLO AUTOMATICO</span>
+      <h3>CONFIRMAR O VALOR GANHO</h3>
+      <p><strong>{clientName}</strong> entrou no funil com base na compra media de <strong>{money(opportunity.estimatedValue)}</strong>.</p>
+      <div className="crm-cycle-win-options">
+        <button type="button" className={mode === "BASE_VALUE" ? "active" : ""} onClick={() => setMode("BASE_VALUE")}>CONFIRMAR VALOR BASE</button>
+        <button type="button" className={mode === "PRODUCTS" ? "active" : ""} onClick={() => setMode("PRODUCTS")}>SELECIONAR ITENS</button>
+        <button type="button" className={mode === "CUSTOM_VALUE" ? "active" : ""} onClick={() => setMode("CUSTOM_VALUE")}>INFORMAR OUTRO VALOR</button>
+      </div>
+      {mode === "PRODUCTS" ? <div className="crm-cycle-win-items">
+        {items.map((item, index) => {
+          const resolved = resolvedItems[index];
+          const invalidLot = resolved.product && resolved.quantity > 0 && resolved.baseQuantity > 0 && resolved.quantity < resolved.baseQuantity;
+          return <div className="crm-cycle-win-item" key={`${item.productFichaId}-${index}`}>
+            <CrmSelect label={`ITEM ${index + 1}`} value={item.productFichaId} onChange={(productFichaId) => setItems((current) => current.map((entry, itemIndex) => itemIndex === index ? { productFichaId, quantity: orderQuantity(availableProducts.find((product) => product.id === productFichaId)) } : entry))} options={availableProducts.map((product) => ({ value: product.id, label: `${productLabel(product)} · ${money(productPriceSnapshot(product)?.price || product.price)}` }))} />
+            <CrmInput label="QUANTIDADE" type="number" value={item.quantity || ""} onChange={(quantity) => setItems((current) => current.map((entry, itemIndex) => itemIndex === index ? { ...entry, quantity: Number(quantity || 0) } : entry))} />
+            {items.length > 1 ? <button type="button" className="crm-cycle-remove-item" onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={14} /> REMOVER</button> : null}
+            {invalidLot ? <small>A FICHA FOI FORMADA PARA NO MINIMO {resolved.baseQuantity} UNIDADES.</small> : null}
+          </div>;
+        })}
+        {!availableProducts.length ? <p>NENHUMA FICHA COM PRECO ESTA DISPONIVEL PARA ESTE CLIENTE.</p> : null}
+        {hasRepeatedProduct ? <p>NAO REPITA A MESMA FICHA. SOME AS QUANTIDADES EM UM UNICO ITEM.</p> : null}
+        <button type="button" className="crm-cycle-add-item" onClick={() => setItems((current) => [...current, { productFichaId: "", quantity: 0 }])}><Plus size={14} /> ADICIONAR ITEM</button>
+        <strong className="crm-cycle-win-total">TOTAL PREVISTO: {money(productTotal)}</strong>
+      </div> : null}
+      {mode === "CUSTOM_VALUE" ? <label className="crm-cycle-custom-value"><span>VALOR GANHO</span><CurrencyInput value={customValue || ""} onValueChange={(value) => setCustomValue(Number(value || 0))} /></label> : null}
+      <div className="crm-cycle-win-actions"><button type="button" onClick={onCancel}>CANCELAR</button><button type="button" disabled={!canConfirm} onClick={() => onConfirm(confirmedValue, { mode, value: mode === "CUSTOM_VALUE" ? customValue : undefined, items: mode === "PRODUCTS" ? items : undefined })}>CONFIRMAR GANHO · {money(confirmedValue)}</button></div>
     </section>
   </div>;
 }

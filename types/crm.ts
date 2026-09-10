@@ -182,6 +182,14 @@ export type CrmOpportunityInput = {
   closedAt?: string;
   nextActionType?: CrmNextActionType | "";
   nextActionAt?: string;
+  automaticCycleConfirmation?: {
+    mode: "BASE_VALUE" | "PRODUCTS" | "CUSTOM_VALUE";
+    value?: number;
+    items?: Array<{
+      productFichaId: string;
+      quantity: number;
+    }>;
+  };
 };
 
 export type CrmOrderInput = {
