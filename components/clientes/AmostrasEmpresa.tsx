@@ -182,7 +182,8 @@ export default function AmostrasEmpresa({
       {error && <div className="clients-feedback clients-feedback-error">{error}</div>}
       {message && <div className="clients-feedback clients-feedback-success">{message}</div>}
 
-      <section className="samples-form">
+      <section className={`samples-form${form.id ? " is-editing" : ""}`}>
+        {form.id ? <div className="samples-edit-state">EDITANDO {form.id ? `AMOSTRA SELECIONADA` : ""}</div> : null}
         <div className="samples-form-grid">
           <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
           <SampleSelect label="CONSULTOR DE VENDAS" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
@@ -229,12 +230,15 @@ export default function AmostrasEmpresa({
           <div className="samples-grid">
             {filteredSamples.map((sample) => (
               <article key={sample.id} className="samples-card">
-                <header>
-                  <div><strong>{sample.sampleCode}</strong><span>{statusLabel(sample.status)}</span></div>
-                  <small>{displayDate(sample.requestedAt)}</small>
-                </header>
-                <h4>{sample.clientName}</h4>
-                <p>{sample.productDescription}</p>
+                <div className="samples-card-code">
+                  <strong>{sample.sampleCode}</strong>
+                  <span>{statusLabel(sample.status)}</span>
+                  <small>SOLICITADA {displayDate(sample.requestedAt)}</small>
+                </div>
+                <div className="samples-card-product">
+                  <h4>{sample.clientName}</h4>
+                  <p>{sample.productDescription}</p>
+                </div>
                 <dl>
                   <div><dt>QTDE.</dt><dd>{sample.quantity}</dd></div>
                   <div><dt>ENTREGA</dt><dd>{displayDate(sample.deliveryDate)}</dd></div>
