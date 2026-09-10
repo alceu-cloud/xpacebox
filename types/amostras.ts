@@ -14,6 +14,7 @@ export type ClientSampleRecord = {
   deliveryDate: string;
   closedAt: string;
   status: SampleStatus;
+  productFichaId: string;
   productDescription: string;
   dimensions: string;
   quantity: number;
@@ -31,6 +32,7 @@ export type ClientSampleFormData = {
   deliveryDate: string;
   closedAt: string;
   status: SampleStatus;
+  productFichaId: string;
   productDescription: string;
   dimensions: string;
   quantity: string;

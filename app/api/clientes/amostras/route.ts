@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/server/company-access";
-import type { ClientSampleFormData, SampleStatus } from "@/types/amostras";
+import { sendSampleRequestEmail } from "@/lib/server/daily-agenda-email";
+import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
+import type { ProductFicha } from "@/types/gerenciador";
 
 const sampleStatuses: SampleStatus[] = ["REQUESTED", "IN_PRODUCTION", "SENT", "APPROVED", "REJECTED", "CANCELLED"];
 
@@ -33,17 +35,40 @@ export async function POST(request: Request) {
     validateSample(slug, sample);
 
     const { admin, company, user } = await requireCompanyAccess(request, slug);
-    const client = await validateRelations(admin, company.id, sample);
+    const { client, productFicha, consultantEmail } = await validateRelations(admin, company.id, sample);
 
     const { data, error } = await admin
       .from("client_samples")
-      .insert({ ...toDatabase(sample, client.seller_company_id), tenant_company_id: company.id, created_by: user.id })
+      .insert({ ...toDatabase(sample, client.seller_company_id, productFicha), tenant_company_id: company.id, created_by: user.id })
       .select("*")
       .single();
 
     if (error) throw error;
-    const [saved] = await enrichSamples(admin, [data]);
-    return NextResponse.json({ success: true, sample: saved }, { status: 201 });
+    const [saved] = await enrichSamples(admin, [data]) as ClientSampleRecord[];
+    if (!saved) throw new Error("NAO FOI POSSIVEL LER A AMOSTRA SALVA.");
+    let notificationSent = false;
+    let notificationError = "";
+    if (company.slug === "dawos") {
+      try {
+        await sendSampleRequestEmail({
+          companyId: company.id,
+          companySlug: company.slug,
+          sampleCode: saved.sampleCode,
+          clientName: saved.clientName,
+          productDescription: saved.productDescription,
+          quantity: saved.quantity,
+          requestedAt: saved.requestedAt,
+          deliveryDate: saved.deliveryDate,
+          notes: saved.notes,
+          consultantEmail,
+        });
+        notificationSent = true;
+      } catch (emailError) {
+        notificationError = emailError instanceof Error ? emailError.message : "NAO FOI POSSIVEL ENVIAR A NOTIFICACAO.";
+        console.error("SAMPLE NOTIFICATION ERROR", { sampleId: saved.id, emailError });
+      }
+    }
+    return NextResponse.json({ success: true, sample: saved, notificationSent, notificationError }, { status: 201 });
   } catch (error) {
     return handleError(error);
   }
@@ -57,18 +82,19 @@ export async function PATCH(request: Request) {
     validateSample(slug, sample, true);
 
     const { admin, company } = await requireCompanyAccess(request, slug);
-    const client = await validateRelations(admin, company.id, sample);
+    const { client, productFicha } = await validateRelations(admin, company.id, sample);
 
     const { data, error } = await admin
       .from("client_samples")
-      .update({ ...toDatabase(sample, client.seller_company_id), updated_at: new Date().toISOString() })
+      .update({ ...toDatabase(sample, client.seller_company_id, productFicha), updated_at: new Date().toISOString() })
       .eq("id", sample.id)
       .eq("tenant_company_id", company.id)
       .select("*")
       .single();
 
     if (error) throw error;
-    const [saved] = await enrichSamples(admin, [data]);
+    const [saved] = await enrichSamples(admin, [data]) as ClientSampleRecord[];
+    if (!saved) throw new Error("NAO FOI POSSIVEL LER A AMOSTRA SALVA.");
     return NextResponse.json({ success: true, sample: saved });
   } catch (error) {
     return handleError(error);
@@ -98,7 +124,9 @@ function normalizeSample(value?: ClientSampleFormData): ClientSampleFormData {
 function validateSample(slug: string, sample: ClientSampleFormData, editing = false) {
   if (!slug) throw new RequestError("EMPRESA NAO INFORMADA.", 400);
   if (editing && !sample.id) throw new RequestError("AMOSTRA NAO INFORMADA.", 400);
-  if (!sample.clientId || !sample.productDescription) throw new RequestError("PREENCHA CLIENTE E DESCRICAO DA AMOSTRA.", 400);
+  if (!sample.clientId) throw new RequestError("PREENCHA O CLIENTE DA AMOSTRA.", 400);
+  if (!editing && !sample.productFichaId) throw new RequestError("SELECIONE O ITEM CADASTRADO PARA A AMOSTRA.", 400);
+  if (!sample.deliveryDate) throw new RequestError("INFORME A DATA PREVISTA DE ENTREGA.", 400);
   if (!sampleStatuses.includes(sample.status)) throw new RequestError("STATUS DA AMOSTRA INVALIDO.", 400);
   const quantity = Number(sample.quantity || 0);
   if (!Number.isFinite(quantity) || quantity <= 0) throw new RequestError("INFORME UMA QUANTIDADE VALIDA.", 400);
@@ -114,11 +142,35 @@ async function validateRelations(admin: Awaited<ReturnType<typeof requireCompany
     .maybeSingle();
   if (!client) throw new RequestError("CLIENTE NAO ENCONTRADO.", 404);
 
-  if (sample.responsibleProfileId) await requireCompanyProfile(admin, companyId, sample.responsibleProfileId);
-  return client;
+  let consultantEmail = "";
+  if (sample.responsibleProfileId) {
+    await requireCompanyProfile(admin, companyId, sample.responsibleProfileId);
+    const { data: consultant, error: consultantError } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", sample.responsibleProfileId)
+      .maybeSingle();
+    if (consultantError) throw consultantError;
+    consultantEmail = String(consultant?.email || "").trim().toLowerCase();
+  }
+  let productFicha: ProductFicha | undefined;
+  if (sample.productFichaId) {
+    const { data: settings, error: settingsError } = await admin
+      .from("company_manager_settings")
+      .select("data")
+      .eq("tenant_company_id", companyId)
+      .maybeSingle();
+    if (settingsError) throw settingsError;
+    const fichas = (settings?.data as { productFichas?: unknown } | null)?.productFichas;
+    productFicha = Array.isArray(fichas)
+      ? (fichas as ProductFicha[]).find((item) => item.id === sample.productFichaId && item.clientId === sample.clientId && item.status !== "INATIVO")
+      : undefined;
+    if (!productFicha) throw new RequestError("O ITEM SELECIONADO NAO PERTENCE A ESTE CLIENTE OU ESTA INATIVO.", 400);
+  }
+  return { client, productFicha, consultantEmail };
 }
 
-function toDatabase(sample: ClientSampleFormData, sellerCompanyId: string | null) {
+function toDatabase(sample: ClientSampleFormData, sellerCompanyId: string | null, productFicha?: ProductFicha) {
   return {
     client_id: sample.clientId,
     seller_company_id: sellerCompanyId,
@@ -127,11 +179,12 @@ function toDatabase(sample: ClientSampleFormData, sellerCompanyId: string | null
     delivery_date: sample.deliveryDate || null,
     closed_at: sample.closedAt || null,
     status: sample.status,
-    product_description: upper(sample.productDescription),
-    dimensions: upper(sample.dimensions) || null,
+    product_ficha_id: productFicha?.id || null,
+    product_description: productFicha ? productFichaLabel(productFicha) : upper(sample.productDescription),
+    dimensions: null,
     quantity: Math.trunc(Number(sample.quantity || 1)),
-    shipping_method: upper(sample.shippingMethod) || null,
-    tracking_code: upper(sample.trackingCode) || null,
+    shipping_method: null,
+    tracking_code: null,
     notes: upper(sample.notes) || null,
   };
 }
@@ -163,6 +216,7 @@ async function enrichSamples(admin: Awaited<ReturnType<typeof requireCompanyAcce
     deliveryDate: row.delivery_date || "",
     closedAt: row.closed_at || "",
     status: row.status,
+    productFichaId: row.product_ficha_id || "",
     productDescription: row.product_description || "",
     dimensions: row.dimensions || "",
     quantity: Number(row.quantity || 0),
@@ -174,6 +228,7 @@ async function enrichSamples(admin: Awaited<ReturnType<typeof requireCompanyAcce
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }
+function productFichaLabel(ficha: ProductFicha) { return [ficha.ftNumber, ficha.reference].filter(Boolean).join(" - ") || "ITEM SEM REFERENCIA"; }
 function failure(message: string, status: number) { return NextResponse.json({ success: false, message }, { status }); }
 
 class RequestError extends Error {

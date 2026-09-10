@@ -26,12 +26,12 @@ export async function loadClientSamples(slug: string): Promise<ClientSampleRecor
   return payload.samples;
 }
 
-export async function saveClientSample(slug: string, sample: ClientSampleFormData): Promise<ClientSampleRecord> {
+export async function saveClientSample(slug: string, sample: ClientSampleFormData): Promise<{ sample: ClientSampleRecord; notificationSent: boolean; notificationError: string }> {
   const payload = await authorizedFetch("/api/clientes/amostras", {
     method: sample.id ? "PATCH" : "POST",
     body: JSON.stringify({ slug, sample }),
   });
-  return payload.sample;
+  return { sample: payload.sample, notificationSent: Boolean(payload.notificationSent), notificationError: payload.notificationError || "" };
 }
 
 export async function deleteClientSample(slug: string, id: string) {

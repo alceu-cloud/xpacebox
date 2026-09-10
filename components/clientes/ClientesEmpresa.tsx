@@ -308,6 +308,7 @@ export default function ClientesEmpresa({
           slug={slug}
           clients={clients}
           representatives={representatives}
+          productFichas={productFichas}
         />
       )}
 

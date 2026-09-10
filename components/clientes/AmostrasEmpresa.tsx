@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { deleteClientSample, loadClientSamples, saveClientSample } from "@/lib/amostras";
 import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
+import type { ProductFicha } from "@/types/gerenciador";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -15,6 +16,7 @@ const emptyForm: ClientSampleFormData = {
   deliveryDate: "",
   closedAt: "",
   status: "REQUESTED",
+  productFichaId: "",
   productDescription: "",
   dimensions: "",
   quantity: "1",
@@ -36,10 +38,12 @@ export default function AmostrasEmpresa({
   slug,
   clients,
   representatives,
+  productFichas,
 }: {
   slug: string;
   clients: ClientRecord[];
   representatives: RepresentativeOption[];
+  productFichas: ProductFicha[];
 }) {
   const [samples, setSamples] = useState<ClientSampleRecord[]>([]);
   const [form, setForm] = useState<ClientSampleFormData>(emptyForm);
@@ -70,6 +74,7 @@ export default function AmostrasEmpresa({
   }, [slug]);
 
   const selectedClient = clients.find((client) => client.id === form.clientId);
+  const clientFichas = useMemo(() => productFichas.filter((ficha) => ficha.clientId === form.clientId && ficha.status !== "INATIVO"), [form.clientId, productFichas]);
   const filteredSamples = useMemo(() => {
     const term = search.trim().toLocaleUpperCase("pt-BR");
     return samples.filter((sample) => {
@@ -89,7 +94,18 @@ export default function AmostrasEmpresa({
     setForm((current) => ({
       ...current,
       clientId,
+      productFichaId: "",
+      productDescription: "",
       responsibleProfileId: client?.representativeUserId || current.responsibleProfileId || representatives[0]?.id || "",
+    }));
+  }
+
+  function selectProductFicha(productFichaId: string) {
+    const ficha = clientFichas.find((item) => item.id === productFichaId);
+    setForm((current) => ({
+      ...current,
+      productFichaId,
+      productDescription: ficha ? productFichaLabel(ficha) : "",
     }));
   }
 
@@ -99,11 +115,13 @@ export default function AmostrasEmpresa({
     setMessage("");
     try {
       const saved = await saveClientSample(slug, form);
-      setSamples((current) => current.some((sample) => sample.id === saved.id)
-        ? current.map((sample) => sample.id === saved.id ? saved : sample)
-        : [saved, ...current]);
+      setSamples((current) => current.some((sample) => sample.id === saved.sample.id)
+        ? current.map((sample) => sample.id === saved.sample.id ? saved.sample : sample)
+        : [saved.sample, ...current]);
       setForm(emptyForm);
-      setMessage(`${saved.sampleCode} SALVA COM SUCESSO.`);
+      setMessage(saved.notificationSent
+        ? `${saved.sample.sampleCode} SALVA E NOTIFICADA AO PPCP.`
+        : `${saved.sample.sampleCode} SALVA COM SUCESSO.${saved.notificationError ? ` E-MAIL NAO ENVIADO: ${saved.notificationError}` : ""}`);
     } catch (saveError) {
       setError(messageFrom(saveError));
     } finally {
@@ -120,6 +138,7 @@ export default function AmostrasEmpresa({
       deliveryDate: sample.deliveryDate,
       closedAt: sample.closedAt,
       status: sample.status,
+      productFichaId: sample.productFichaId,
       productDescription: sample.productDescription,
       dimensions: sample.dimensions,
       quantity: String(sample.quantity || 1),
@@ -166,16 +185,13 @@ export default function AmostrasEmpresa({
       <section className="samples-form">
         <div className="samples-form-grid">
           <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
-          <SampleSelect label="RESPONSAVEL" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
+          <SampleSelect label="CONSULTOR DE VENDAS" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
           <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
           <SampleInput label="ENTREGA PREVISTA" type="date" value={form.deliveryDate} onChange={(value) => update("deliveryDate", value)} />
           <SampleInput label="DATA DA BAIXA" type="date" value={form.closedAt} onChange={(value) => update("closedAt", value)} />
           <SampleSelect label="STATUS" value={form.status} onChange={(value) => update("status", value)} options={statusOptions} />
-          <SampleInput label="DESCRICAO DA AMOSTRA" value={form.productDescription} onChange={(value) => update("productDescription", value)} wide />
-          <SampleInput label="MEDIDAS / MODELO" value={form.dimensions} onChange={(value) => update("dimensions", value)} />
+          <SampleSelect label="ITEM CADASTRADO" value={form.productFichaId} onChange={selectProductFicha} options={clientFichas.map((ficha) => ({ value: ficha.id, label: productFichaLabel(ficha) }))} />
           <SampleInput label="QUANTIDADE" type="number" value={form.quantity} onChange={(value) => update("quantity", value)} />
-          <SampleInput label="ENVIO / TRANSPORTE" value={form.shippingMethod} onChange={(value) => update("shippingMethod", value)} />
-          <SampleInput label="RASTREIO" value={form.trackingCode} onChange={(value) => update("trackingCode", value)} />
           <label className="samples-field samples-span-2">
             <span>OBSERVACOES</span>
             <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} />
@@ -220,11 +236,10 @@ export default function AmostrasEmpresa({
                 <h4>{sample.clientName}</h4>
                 <p>{sample.productDescription}</p>
                 <dl>
-                  <div><dt>MEDIDAS</dt><dd>{sample.dimensions || "-"}</dd></div>
                   <div><dt>QTDE.</dt><dd>{sample.quantity}</dd></div>
                   <div><dt>ENTREGA</dt><dd>{displayDate(sample.deliveryDate)}</dd></div>
                   <div><dt>BAIXA</dt><dd>{displayDate(sample.closedAt)}</dd></div>
-                  <div><dt>RESP.</dt><dd>{sample.responsibleName || "-"}</dd></div>
+                  <div><dt>CONSULTOR</dt><dd>{sample.responsibleName || "-"}</dd></div>
                 </dl>
                 <div className="samples-card-actions">
                   <button type="button" onClick={() => handleEdit(sample)}>EDITAR</button>
@@ -270,6 +285,10 @@ function displayDate(value: string) {
 
 function statusLabel(status: SampleStatus) {
   return statusOptions.find((item) => item.value === status)?.label || status;
+}
+
+function productFichaLabel(ficha: ProductFicha) {
+  return [ficha.ftNumber, ficha.reference].filter(Boolean).join(" - ") || "ITEM SEM REFERENCIA";
 }
 
 function messageFrom(error: unknown) {

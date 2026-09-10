@@ -31,6 +31,19 @@ type EmailConnection = {
   api_key_auth_tag: string | null;
 };
 
+type SampleRequestEmail = {
+  companyId: string;
+  companySlug: string;
+  sampleCode: string;
+  clientName: string;
+  productDescription: string;
+  quantity: number;
+  requestedAt: string;
+  deliveryDate: string;
+  notes: string;
+  consultantEmail?: string;
+};
+
 const timeZone = "America/Sao_Paulo";
 
 export function emailIntegrationStatus(connection: EmailConnection) {
@@ -94,6 +107,40 @@ export async function sendCompanyAgendaTest(input: { companyId: string; companyN
   const connection = await emailConnectionForCompany(createSupabaseAdmin(), input.companyId);
   await sendAgendaEmail(agenda, connection, true);
   return { recipientEmail: agenda.recipientEmail, overdueCount: agenda.overdue.length, todayCount: agenda.today.length };
+}
+
+export async function sendSampleRequestEmail(sample: SampleRequestEmail) {
+  const connection = await emailConnectionForCompany(createSupabaseAdmin(), sample.companyId);
+  const integration = emailIntegrationStatus(connection);
+  if (!integration.configured) throw new Error("CONFIGURE A CHAVE E O REMETENTE DO RESEND EM INTEGRACOES.");
+  const apiKey = decryptIntegrationCredential({
+    ciphertext: connection.api_key_ciphertext || "",
+    iv: connection.api_key_iv || "",
+    authTag: connection.api_key_auth_tag || "",
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://xpacebox.com.br";
+  const subject = `NOVA AMOSTRA ${sample.sampleCode} - ${sample.clientName}`;
+  const html = renderSampleRequestHtml({ ...sample, appUrl });
+  const text = renderSampleRequestText({ ...sample, appUrl });
+  const primaryRecipients = new Set(["ppcp@dawos.com.br", "suporte@dawos.com.br"]);
+  const consultantEmail = sample.consultantEmail?.trim().toLowerCase() || "";
+  const consultantCc = consultantEmail && !primaryRecipients.has(consultantEmail) ? [consultantEmail] : undefined;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: integration.sender,
+      to: ["ppcp@dawos.com.br", "suporte@dawos.com.br"],
+      cc: consultantCc,
+      subject,
+      html,
+      text,
+      reply_to: integration.replyTo || undefined,
+    }),
+  });
+  const payload = await response.json().catch(() => ({})) as { id?: string; message?: string };
+  if (!response.ok) throw new Error(payload.message || "O PROVEDOR DE E-MAIL RECUSOU O ENVIO.");
+  return payload.id || "";
 }
 
 export async function sendScheduledAgendaEmails() {
@@ -346,6 +393,15 @@ function renderHtml(input: RecipientAgenda & { appUrl: string; date: string; tes
 function renderText(input: RecipientAgenda & { appUrl: string; date: string; test: boolean }) {
   const list = (title: string, tasks: AgendaTask[]) => `${title} (${tasks.length})\n${tasks.length ? tasks.map((task) => `- ${task.clientName} · ${task.actionType} · ${formatDateTime(task.scheduledAt)}`).join("\n") : "- NENHUMA TAREFA NESTA LISTA."}`;
   return `XPACEBOX${input.test ? " - ENVIO DE TESTE" : ""}\n\nOLÁ, ${input.recipientName}.\nRESUMO DA AGENDA DA ${input.companyName} PARA ${input.date}.\n\n${list("TAREFAS ATRASADAS", input.overdue)}\n\n${list("TAREFAS DE HOJE", input.today)}\n\nABRIR CRM: ${input.appUrl}/empresa/${input.companySlug}`;
+}
+
+function renderSampleRequestHtml(input: SampleRequestEmail & { appUrl: string }) {
+  const notes = input.notes ? escapeHtml(input.notes).replace(/\n/g, "<br>") : "SEM OBSERVACOES.";
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#e68019;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">NOVA AMOSTRA SOLICITADA</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">A PROGRAMACAO DE UMA NOVA AMOSTRA FOI REGISTRADA.</p><section style="padding:18px;border:1px solid #e8e3eb;border-left:4px solid #e68019;border-radius:8px;background:#fff"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>DATA DA SOLICITACAO:</strong> ${formatDate(input.requestedAt)}<br><strong>ENTREGA PREVISTA:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#7435d9;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
+}
+
+function renderSampleRequestText(input: SampleRequestEmail & { appUrl: string }) {
+  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nNOVA AMOSTRA SOLICITADA\n\n${input.sampleCode} - ${input.productDescription}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nENTREGA PREVISTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
 }
 
 function saoPauloRange() {
