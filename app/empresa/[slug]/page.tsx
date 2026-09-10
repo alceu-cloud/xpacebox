@@ -430,6 +430,13 @@ export default function EmpresaPage() {
                   totalAreaM2: typeof snapshot.totalAreaM2 === "number" ? snapshot.totalAreaM2 : item.area,
                   weightKg: typeof snapshot.weightKg === "number" ? snapshot.weightKg : undefined,
                   totalOrder: item.total,
+                  ipiPercent: item.ipiPercent,
+                  netPrice: typeof snapshot.netPrice === "number" ? snapshot.netPrice : undefined,
+                  materialCost: typeof snapshot.materialCost === "number" ? snapshot.materialCost : undefined,
+                  marginValue: typeof snapshot.marginValue === "number" ? snapshot.marginValue : undefined,
+                  expensesPercent: typeof snapshot.expensesPercent === "number" ? snapshot.expensesPercent : undefined,
+                  hourlyExpensesPercent: typeof snapshot.hourlyExpensesPercent === "number" ? snapshot.hourlyExpensesPercent : undefined,
+                  contributionSource: "SNAPSHOT",
                 };
                 return {
                   ...ficha,
@@ -1600,6 +1607,22 @@ function PriceSummaryStep({
       return;
     }
 
+    const selectedResult = source === "PADRAO"
+      ? {
+        netPrice: analysis.netPrice,
+        marginValue: analysis.marginValue,
+        expensesPercent: analysis.expensesPercent,
+        hourlyExpensesPercent: analysis.hourlyExpensesPercent,
+        mcPercent: analysis.mcDefault,
+        mcrHour: analysis.mchStandard,
+        pricePerKg: analysis.pricePerKg,
+        commissionPercent: analysis.commissionPercent,
+      }
+      : source === "SIMULADOR A" ? simulatorA : source === "SIMULADOR B" ? simulatorB : simulatorC;
+    const selectedMcrHour = source === "PADRAO" ? analysis.mchStandard
+      : source === "SIMULADOR A" ? simulatorA.mch
+        : source === "SIMULADOR B" ? simulatorB.mch
+          : simulatorC.mch;
     const ipiPercent = sellerCompany.key === "gta" ? pricingParams.outputIpi : 0;
     const totalWithoutIpi = lotQuantity * price;
     const item: QuoteItem = {
@@ -1629,15 +1652,22 @@ function PriceSummaryStep({
         mainAreaM2: mainSheetArea,
         totalAreaM2: sheetArea,
         sellerCompanyKey: sellerCompany.key,
-        mcPercent: source === "PADRAO" ? analysis.mcDefault : source === "SIMULADOR A" ? simulatorA.mcPercent : source === "SIMULADOR B" ? simulatorB.mcPercent : simulatorC.mcPercent,
-        mcrHour: source === "PADRAO" ? analysis.mchStandard : source === "SIMULADOR A" ? simulatorA.mch : source === "SIMULADOR B" ? simulatorB.mch : simulatorC.mch,
-        pricePerKg: source === "PADRAO" ? analysis.pricePerKg : source === "SIMULADOR A" ? simulatorA.pricePerKg : source === "SIMULADOR B" ? simulatorB.pricePerKg : simulatorC.pricePerKg,
-        commissionPercent: source === "PADRAO" ? analysis.commissionPercent : source === "SIMULADOR A" ? simulatorA.commissionPercent : source === "SIMULADOR B" ? simulatorB.commissionPercent : simulatorC.commissionPercent,
+        mcPercent: selectedResult.mcPercent,
+        mcrHour: selectedMcrHour,
+        pricePerKg: selectedResult.pricePerKg,
+        commissionPercent: selectedResult.commissionPercent,
         boxesPerHour: analysis.boxesPerHour,
         setupMinutes: analysis.setupMinutes,
         totalMinutes: analysis.totalMinutes,
         weightKg: analysis.unitWeightKg,
         totalOrder: totalWithoutIpi * (1 + ipiPercent / 100),
+        ipiPercent,
+        netPrice: selectedResult.netPrice,
+        materialCost: analysis.pricingMaterialCost,
+        marginValue: selectedResult.marginValue,
+        expensesPercent: selectedResult.expensesPercent,
+        hourlyExpensesPercent: selectedResult.hourlyExpensesPercent,
+        contributionSource: "SNAPSHOT",
       },
     };
 

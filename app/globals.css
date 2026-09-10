@@ -2361,6 +2361,60 @@ button {
 
 .crm-entry-form { padding-top: 4px; }
 
+.crm-order-items {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 12px;
+  padding: 14px;
+  border: 1px solid #ded1fa;
+  border-radius: 8px;
+  background: #fcfbff;
+}
+
+.crm-order-items > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crm-order-items > header > div { display: grid; gap: 3px; }
+.crm-order-items > header span { color: #7a31e8; font-size: 10px; font-weight: 900; letter-spacing: 1.2px; }
+.crm-order-items > header strong { color: #30374a; font-size: 12px; }
+.crm-order-items .crm-secondary-action { display: inline-flex; align-items: center; gap: 6px; }
+
+.crm-order-item {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.5fr) minmax(120px, .45fr) minmax(220px, .9fr) 34px;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e4e0ec;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.crm-order-item-summary { display: grid; min-height: 42px; align-content: center; gap: 2px; color: #667085; }
+.crm-order-item-summary span { font-size: 10px; font-weight: 900; }
+.crm-order-item-summary strong { color: #20263a; font-size: 12px; }
+.crm-order-item-summary small { color: #d92d20; font-size: 10px; font-weight: 900; }
+.crm-order-item-summary.is-invalid strong { color: #d92d20; }
+.crm-order-remove { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #f5c5c0; border-radius: 6px; color: #d92d20; background: #fff; cursor: pointer; }
+.crm-order-remove:hover { background: #fff2f0; }
+
+.crm-order-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 7px;
+  background: #f3edff;
+  color: #43217e;
+}
+.crm-order-total span { font-size: 11px; font-weight: 900; letter-spacing: .7px; }
+.crm-order-total strong { font-size: 18px; }
+
 .crm-timeline {
   display: grid;
   gap: 0;
@@ -2780,6 +2834,10 @@ button {
   .crm-call-actions { grid-auto-flow: column; justify-content: start; align-items: center; }
   .crm-metrics { grid-template-columns: 1fr; }
   .crm-span-2 { grid-column: auto; }
+  .crm-order-items > header { align-items: stretch; flex-direction: column; }
+  .crm-order-items > header .crm-secondary-action { justify-content: center; }
+  .crm-order-item { grid-template-columns: 1fr; align-items: stretch; }
+  .crm-order-remove { justify-self: end; }
   .crm-agenda-item { grid-template-columns: 10px minmax(0, 1fr); }
   .crm-agenda-action,
   .crm-agenda-context,

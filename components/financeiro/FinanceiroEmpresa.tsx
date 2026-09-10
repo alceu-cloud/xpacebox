@@ -2,9 +2,10 @@
 
 import { ui } from "@/lib/ui/styles";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Wrench } from "lucide-react";
+import { FileText, PackageCheck, Wrench } from "lucide-react";
 
 import { createQuote, deleteQuote, loadLinkableCrmOpportunities, loadQuotes, updateQuote } from "@/lib/orcamentos";
+import { loadSalesOrders } from "@/lib/pedidos";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import { loadClientOptions, loadClients } from "@/lib/clientes";
@@ -13,6 +14,7 @@ import type { EngineeringFormula, ProductFicha, QuoteCompanyKey, QuoteParameters
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
 import type { PaymentCondition } from "@/types/cadastros-gerais";
 import type { CrmOpportunityLinkCandidate, PricingQuotePrefill, QuoteDraft, QuoteItem, QuoteRecord } from "@/types/orcamentos";
+import type { SalesOrder } from "@/types/pedidos";
 
 const companies = [
   { name: "DAWOS", slug: "dawos" },
@@ -162,6 +164,8 @@ export default function FinanceiroEmpresa({
 }) {
   const [kind, setKind] = useState<"DIRECT" | "ENGINEERING">("DIRECT");
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [salesOrdersMessage, setSalesOrdersMessage] = useState("");
   const [quoteListTab, setQuoteListTab] = useState<"PENDING" | "WON" | "ALL">("PENDING");
   const [quoteDateFrom, setQuoteDateFrom] = useState("");
   const [quoteDateUntil, setQuoteDateUntil] = useState("");
@@ -189,6 +193,7 @@ export default function FinanceiroEmpresa({
         setRepresentatives([]);
       });
     refreshQuotes("DIRECT");
+    void refreshSalesOrders();
   }, [companySlug]);
 
   useEffect(() => {
@@ -237,6 +242,16 @@ export default function FinanceiroEmpresa({
       setQuotes(await loadQuotes(companySlug, nextKind, nextSearch));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL CARREGAR OS ORCAMENTOS.");
+    }
+  }
+
+  async function refreshSalesOrders() {
+    try {
+      setSalesOrdersMessage("");
+      setSalesOrders(await loadSalesOrders(companySlug));
+    } catch (error) {
+      setSalesOrders([]);
+      setSalesOrdersMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL CARREGAR OS PEDIDOS.");
     }
   }
 
@@ -466,6 +481,22 @@ export default function FinanceiroEmpresa({
           <span style={countStyle}>{visibleQuotes.length} REGISTRO(S)</span>
         </div>
         {visibleQuotes.length === 0 ? <div style={emptyStyle}>{quoteListTab === "PENDING" ? "NENHUM ORCAMENTO PENDENTE." : quoteListTab === "WON" ? "NENHUM ORCAMENTO GANHO." : "NENHUM ORCAMENTO ENCONTRADO."}</div> : <div style={quoteListStyle}>{visibleQuotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}
+      </section>
+
+      <section style={panelStyle}>
+        <div style={panelHeaderStyle}>
+          <div><span style={eyebrowStyle}>VENDAS REGISTRADAS</span><h2 style={titleStyle}>PEDIDOS CONFIRMADOS</h2><p style={descriptionStyle}>PEDIDOS GERADOS NO CRM COM ITENS E MARGEM CONGELADOS NA DATA DA VENDA.</p></div>
+          <button type="button" onClick={() => void refreshSalesOrders()} style={secondaryButtonStyle}>ATUALIZAR</button>
+        </div>
+        {salesOrdersMessage ? <div style={messageStyle}>{salesOrdersMessage}</div> : null}
+        {salesOrders.length === 0 ? <div style={emptyStyle}>NENHUM PEDIDO CONFIRMADO.</div> : <div style={quoteListStyle}>{salesOrders.map((order) => <article key={order.id} style={quoteRowStyle}>
+          <div>
+            <strong style={{ ...quoteNumberStyle, color: "#e68019" }}>{order.saleNumber}</strong>
+            <span style={quoteClientStyle}>{order.clientName}</span>
+            <small style={quoteMetaStyle}>{formatDate(order.orderedAt)} · {order.items.length} ITEM(NS) · {formatCurrency(order.grandTotal)} · {order.mcPercent == null ? "MC LEGADA" : `MC ${order.mcPercent.toFixed(2)}%`}</small>
+          </div>
+          <div style={{ ...quoteActionsStyle, color: "#667085", fontSize: 11, fontWeight: 900 }}><PackageCheck size={17} /> VENDA DEFINITIVA</div>
+        </article>)}</div>}
       </section>
     </section>
   );

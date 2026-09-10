@@ -171,6 +171,13 @@ export type ProductPriceSnapshot = {
   totalAreaM2?: number;
   weightKg?: number;
   totalOrder?: number;
+  ipiPercent?: number;
+  netPrice?: number;
+  materialCost?: number;
+  marginValue?: number;
+  expensesPercent?: number;
+  hourlyExpensesPercent?: number;
+  contributionSource?: "SNAPSHOT" | "LEGACY_REFERENCE";
 };
 
 export type ProductChangeLog = {

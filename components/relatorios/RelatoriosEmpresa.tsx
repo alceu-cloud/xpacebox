@@ -19,10 +19,11 @@ type Opportunity = { id: string; client_id: string | null; representative_profil
 type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
 type QuoteItem = { item_number: number; ft_number: string | null; description: string; total: number; snapshot?: Record<string, unknown> };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string; quote_items: QuoteItem[] };
+type SalesOrder = { id: string; client_id: string; representative_profile_id: string | null; crm_opportunity_id: string | null; sale_number: string; product_total: number; ipi_total: number; grand_total: number; contribution_total: number | null; mc_percent: number | null; ordered_at: string; created_at: string };
 type MaterialSnapshot = { materialId?: string; materialCode?: string; paperType?: string; createdAt?: string };
 type ProductFicha = { id?: string; ftNumber?: string; clientId?: string; reference?: string; materialId?: string; company?: string; pricingData?: MaterialSnapshot; priceHistory?: MaterialSnapshot[] };
 type Material = { id?: string; code?: string; paperType?: string; supplier?: string; pressure?: string; costIpi?: number };
-type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; productFichas: ProductFicha[]; materials: Material[]; salesGoals: { byRepresentative?: Record<string, number> } | null };
+type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; salesOrders: SalesOrder[]; productFichas: ProductFicha[]; materials: Material[]; salesGoals: { byRepresentative?: Record<string, number> } | null };
 
 const reports: Array<{ key: ReportKey; number: number; title: string; managerOnly?: boolean }> = [
   { key: "closing", number: 1, title: "FECHAMENTO DO MES" },
@@ -89,7 +90,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
 
   const range = useMemo(() => resolveRange(preset, customStart, customEnd), [preset, customStart, customEnd]);
   const scoped = useMemo(() => {
-    if (!data) return { clients: [] as Client[], profiles: [] as Profile[], opportunities: [] as Opportunity[], activities: [] as Activity[], quotes: [] as Quote[] };
+    if (!data) return { clients: [] as Client[], profiles: [] as Profile[], opportunities: [] as Opportunity[], activities: [] as Activity[], quotes: [] as Quote[], salesOrders: [] as SalesOrder[] };
     if (!data.isManager || representativeId === "ALL") return data;
     const clientIds = new Set(data.clients.filter((item) => item.representativeProfileId === representativeId).map((item) => item.id));
     return {
@@ -100,6 +101,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
       opportunities: data.opportunities.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id || "")),
       activities: data.activities.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id)),
       quotes: data.quotes.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id || "")),
+      salesOrders: data.salesOrders.filter((item) => item.representative_profile_id === representativeId || clientIds.has(item.client_id)),
     };
   }, [data, representativeId]);
 
@@ -209,12 +211,19 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
   const open = data.opportunities.filter((item) => !["WON", "LOST"].includes(item.stage));
   const totalWon = sum(won, (item) => item.estimated_value);
   const totalLost = sum(lost, (item) => item.estimated_value);
+  const salesInRange = data.salesOrders.filter((item) => inRange(item.ordered_at, range));
+  const salesWithMargin = salesInRange.filter((item) => item.mc_percent != null && item.product_total > 0);
+  const weightedSalesMc = sum(salesWithMargin, (item) => Number(item.mc_percent || 0) * item.product_total) / sum(salesWithMargin, (item) => item.product_total);
+  const saleOpportunityIds = new Set(data.salesOrders.map((item) => item.crm_opportunity_id || "").filter(Boolean));
 
   if (report === "closing") {
-    const qualified = [...won, ...lost];
-    return <ReportLayout title="FECHAMENTO DO MES" description="GANHOS E PERDAS SAO CLASSIFICADOS PELA DATA REAL DE FECHAMENTO. REGISTROS ANTIGOS SEM DATA USAM A ULTIMA ATUALIZACAO.">
-      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("GANHO", totalWon, "#16a34a"), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO", qualified.length ? `${Math.round((won.length / qualified.length) * 100)}%` : "-", "#0284c7", true), metric("TICKET MEDIO GANHO", won.length ? totalWon / won.length : 0, "#e68019")]}/>
-      <StageTable opportunities={inRangeOpps} />
+    const crmOpportunities = inRangeOpps.filter((item) => !saleOpportunityIds.has(item.id));
+    const crmWon = crmOpportunities.filter((item) => item.stage === "WON");
+    const crmLost = crmOpportunities.filter((item) => item.stage === "LOST");
+    const qualified = [...crmWon, ...crmLost];
+    return <ReportLayout title="FECHAMENTO DO MES" description="FATURAMENTO E MC VEM DOS PEDIDOS CONFIRMADOS. GANHOS E PERDAS CONTINUAM MOSTRANDO O DESEMPENHO DO CRM.">
+      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("FATURAMENTO CONFIRMADO", sum(salesInRange, (item) => item.grand_total), "#16a34a"), metric("MC MEDIA DAS VENDAS", salesWithMargin.length ? `${weightedSalesMc.toFixed(2)}%` : "SEM DADOS", "#0284c7", true), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO CRM", qualified.length ? `${Math.round((crmWon.length / qualified.length) * 100)}%` : "-", "#e68019", true)]}/>
+      <StageTable opportunities={crmOpportunities} />
     </ReportLayout>;
   }
   if (report === "pipeline") return <ReportLayout title="FUNIL COMERCIAL" description="MOSTRA VALOR, quantidade e tempo medio em cada etapa aberta."><StageTable opportunities={open} showAge /></ReportLayout>;

@@ -187,8 +187,10 @@ export type CrmOpportunityInput = {
 export type CrmOrderInput = {
   clientId: string;
   representativeProfileId: string;
-  title: string;
-  totalValue: number;
   orderDate: string;
   notes: string;
+  items: Array<{
+    productFichaId: string;
+    quantity: number;
+  }>;
 };

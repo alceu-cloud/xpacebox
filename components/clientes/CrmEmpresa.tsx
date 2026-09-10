@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
-import { ContactRound, PackageCheck, PhoneCall, Target } from "lucide-react";
+import { ContactRound, PackageCheck, PhoneCall, Plus, Target, Trash2 } from "lucide-react";
 
 import { closeClientSample } from "@/lib/amostras";
 import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, registerCrmOrder, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
@@ -113,10 +113,9 @@ const emptyOpportunity: CrmOpportunityInput = {
 const emptyOrder: CrmOrderInput = {
   clientId: "",
   representativeProfileId: "",
-  title: "PEDIDO MANUAL",
-  totalValue: 0,
   orderDate: localDateKey(),
   notes: "",
+  items: [{ productFichaId: "", quantity: 0 }],
 };
 
 export default function CrmEmpresa({
@@ -522,8 +521,8 @@ export default function CrmEmpresa({
   }
 
   async function handleRegisterOrder() {
-    if (!selectedClient || !orderDraft.title.trim() || !orderDraft.orderDate) {
-      setError("INFORME O PEDIDO E A DATA DE REGISTRO.");
+    if (!selectedClient || !orderDraft.orderDate || !orderDraft.items.length) {
+      setError("INFORME A DATA E PELO MENOS UM ITEM DO PEDIDO.");
       return;
     }
     setSaving(true);
@@ -1096,6 +1095,16 @@ function ClientDetail({
   const availableProducts = productFichas.filter((item) => item.clientId === client.id && item.status !== "INATIVO" && Number(item.price) > 0);
   const selectedProduct = availableProducts.find((item) => item.id === opportunityDraft.productFichaId);
   const activeOpportunities = opportunities.filter((item) => item.stage !== "WON" && item.stage !== "LOST");
+  const orderPreviewItems = orderDraft.items.map((item) => {
+    const product = availableProducts.find((candidate) => candidate.id === item.productFichaId);
+    const snapshot = product ? productPriceSnapshot(product) : undefined;
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(snapshot?.price || product?.price || 0);
+    const ipiPercent = Number(snapshot?.ipiPercent || 0);
+    const baseQuantity = Number(snapshot?.quantity || 0);
+    return { product, quantity, unitPrice, ipiPercent, baseQuantity, total: quantity * unitPrice * (1 + ipiPercent / 100) };
+  });
+  const orderPreviewTotal = orderPreviewItems.reduce((total, item) => total + item.total, 0);
 
   function useExistingOpportunity(opportunity: CrmOpportunity) {
     const agenda = activities.find((activity) => activity.opportunityId === opportunity.id && activity.nextActionAt);
@@ -1277,13 +1286,32 @@ function ClientDetail({
       {detailTab === "pedido" && !mustResolveOverdueAgenda ? (
         <div className="crm-entry-form">
           <div className="crm-profile-grid">
-            <CrmInput label="PEDIDO" value={orderDraft.title} onChange={(title) => setOrderDraft({ ...orderDraft, title: upper(title) })} />
             <CrmInput label="DATA DO PEDIDO" type="date" value={orderDraft.orderDate} onChange={(orderDate) => setOrderDraft({ ...orderDraft, orderDate })} />
-            <CrmInput label="VALOR DO PEDIDO" value={orderDraft.totalValue || ""} onChange={(value) => setOrderDraft({ ...orderDraft, totalValue: Number(value || 0) })} currency />
             <CrmSelect label="REPRESENTANTE" value={orderDraft.representativeProfileId} onChange={(representativeProfileId) => setOrderDraft({ ...orderDraft, representativeProfileId })} options={representatives.map((item) => ({ value: item.id, label: item.name }))} />
-            <label className="crm-textarea crm-span-2"><span>OBSERVACOES</span><textarea value={orderDraft.notes} onChange={(event) => setOrderDraft({ ...orderDraft, notes: upper(event.target.value) })} /></label>
           </div>
-          <div className="crm-form-actions"><button type="button" onClick={onRegisterOrder} disabled={saving || !orderDraft.title.trim() || !orderDraft.orderDate}>REGISTRAR PEDIDO</button></div>
+          <section className="crm-order-items">
+            <header>
+              <div><span>ITENS DA VENDA</span><strong>USE A FICHA COM A FORMACAO DE PRECO APROVADA.</strong></div>
+              <button type="button" className="crm-secondary-action" onClick={() => setOrderDraft({ ...orderDraft, items: [...orderDraft.items, { productFichaId: "", quantity: 0 }] })} disabled={saving}><Plus size={15} /> ADICIONAR ITEM</button>
+            </header>
+            {orderDraft.items.map((item, index) => {
+              const preview = orderPreviewItems[index];
+              const invalidLot = preview.product && preview.quantity > 0 && preview.baseQuantity > 0 && preview.quantity < preview.baseQuantity;
+              return <article className="crm-order-item" key={`${item.productFichaId}-${index}`}>
+                <CrmSelect label={`ITEM ${index + 1} · FICHA TECNICA`} value={item.productFichaId} onChange={(productFichaId) => setOrderDraft({ ...orderDraft, items: orderDraft.items.map((current, itemIndex) => itemIndex === index ? { ...current, productFichaId, quantity: productFichaId ? orderQuantity(availableProducts.find((product) => product.id === productFichaId)) : 0 } : current) })} options={availableProducts.map((product) => ({ value: product.id, label: `${productLabel(product)} · ${money(productPriceSnapshot(product)?.price || product.price)}` }))} />
+                <CrmInput label="QUANTIDADE" type="number" value={item.quantity || ""} onChange={(value) => setOrderDraft({ ...orderDraft, items: orderDraft.items.map((current, itemIndex) => itemIndex === index ? { ...current, quantity: Number(value || 0) } : current) })} />
+                <div className={`crm-order-item-summary${invalidLot ? " is-invalid" : ""}`}>
+                  <span>{preview.product ? `LOTE DA FORMACAO: ${preview.baseQuantity || "NAO INFORMADO"}` : "SELECIONE UMA FICHA"}</span>
+                  <strong>{preview.product ? `${money(preview.unitPrice)} / UN · ${money(preview.total)}` : "-"}</strong>
+                  {invalidLot ? <small>QUANTIDADE ABAIXO DO LOTE. FACA UMA NOVA FORMACAO.</small> : null}
+                </div>
+                {orderDraft.items.length > 1 ? <button type="button" className="crm-order-remove" onClick={() => setOrderDraft({ ...orderDraft, items: orderDraft.items.filter((_, itemIndex) => itemIndex !== index) })} title="REMOVER ITEM" aria-label="REMOVER ITEM"><Trash2 size={16} /></button> : null}
+              </article>;
+            })}
+          </section>
+          <div className="crm-order-total"><span>TOTAL DO PEDIDO</span><strong>{money(orderPreviewTotal)}</strong></div>
+          <div className="crm-profile-grid"><label className="crm-textarea crm-span-2"><span>OBSERVACOES</span><textarea value={orderDraft.notes} onChange={(event) => setOrderDraft({ ...orderDraft, notes: upper(event.target.value) })} /></label></div>
+          <div className="crm-form-actions"><button type="button" onClick={onRegisterOrder} disabled={saving || !orderDraft.orderDate || orderPreviewItems.some((item) => !item.product || item.quantity <= 0 || (item.baseQuantity > 0 && item.quantity < item.baseQuantity))}>REGISTRAR PEDIDO DEFINITIVO</button></div>
         </div>
       ) : null}
 
@@ -1655,6 +1683,16 @@ function opportunityQuantity(product: ProductFicha) {
     .map((item) => Number(item.quantity || 0))
     .find((item) => Number.isFinite(item) && item > 0);
   return last || 1;
+}
+
+function productPriceSnapshot(product: ProductFicha) {
+  if (product.pricingData && Number(product.pricingData.price || 0) > 0) return product.pricingData;
+  return [...(product.priceHistory ?? [])].reverse().find((snapshot) => Number(snapshot.price || 0) > 0);
+}
+
+function orderQuantity(product?: ProductFicha) {
+  if (!product) return 0;
+  return Number(productPriceSnapshot(product)?.quantity || 0) || opportunityQuantity(product);
 }
 
 function hasPurchaseInformation(profile?: Pick<CrmProfileInput, "purchaseFrequencyDays" | "averagePurchaseValue" | "lastPurchaseAt">) {
