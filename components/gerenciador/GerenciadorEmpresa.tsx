@@ -26,7 +26,7 @@ import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { loadClients } from "@/lib/clientes";
 import { calculateProductArea, calculateProductFichaTotalArea, formulaUsesTopOverlap, getAccessoryQuantity, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
-import { isMaterialAvailableForUse, isSpecialMaterialActive } from "@/lib/gerenciador/materials";
+import { isMaterialAvailableForUse, isSpecialMaterialActive, sortMaterialsByWaveAndCode } from "@/lib/gerenciador/materials";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductChangeLog, ProductComponent, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteCompanyKey, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
@@ -1261,7 +1261,7 @@ export function ProductCatalogPanel({
     const materialSupplier = materials.find((material) => material.id === item.materialId)?.supplier ?? "";
     const selectedSupplier = supplierSelection[item.id] ?? materialSupplier;
     const filteredMaterials = selectedSupplier
-      ? materials.filter((material) => material.supplier === selectedSupplier && isMaterialAvailableForUse(material))
+      ? sortMaterialsByWaveAndCode(materials.filter((material) => material.supplier === selectedSupplier && isMaterialAvailableForUse(material)))
       : [];
     const selectedMaterial = materials.find((material) => material.id === item.materialId);
     const selectedWave = selectedMaterial ? getMaterialWave(selectedMaterial.paperType) : "";
