@@ -926,6 +926,11 @@ function productClientName(client?: ClientRecord) {
   return (client?.tradeName || client?.legalName || "").toLocaleUpperCase("pt-BR");
 }
 
+function productClientOptionLabel(client: ClientRecord) {
+  const name = productClientName(client) || "CLIENTE SEM NOME";
+  return client.clientCode ? `${client.clientCode} - ${name}` : name;
+}
+
 function hasSameProductSpecification(first: ProductFicha, second: ProductFicha) {
   const requiredValues = [second.materialId, second.engineeringId, second.length, second.width, second.height];
   if (!requiredValues[0] || !requiredValues[1] || requiredValues.slice(2).some((value) => Number(value) <= 0)) return false;
@@ -967,7 +972,7 @@ export function ProductCatalogPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProductFicha | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
-  const [clientSearch, setClientSearch] = useState("");
+  const [clientFilterId, setClientFilterId] = useState("");
   const [fichaSearch, setFichaSearch] = useState("");
   const [supplierSelection, setSupplierSelection] = useState<Record<string, string>>({});
   const [productMenuOpen, setProductMenuOpen] = useState(false);
@@ -981,16 +986,17 @@ export function ProductCatalogPanel({
   }, [companySlug]);
 
   const clientsById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
+  const sortedClients = useMemo(
+    () => [...clients].sort((first, second) => productClientOptionLabel(first).localeCompare(productClientOptionLabel(second), "pt-BR")),
+    [clients]
+  );
   const filteredFichas = useMemo(() => {
-    const clientTerm = normalizeProductSearch(clientSearch);
     const fichaTerm = normalizeProductSearch(fichaSearch);
     return fichas.filter((ficha) => {
-      const client = clientsById.get(ficha.clientId);
-      const clientText = normalizeProductSearch(`${client?.tradeName ?? ""} ${client?.legalName ?? ""} ${client?.cnpj ?? ""} ${client?.clientCode ?? ""}`);
       const fichaText = normalizeProductSearch(`${ficha.ftNumber} ${ficha.reference}`);
-      return (!clientTerm || clientText.includes(clientTerm)) && (!fichaTerm || fichaText.includes(fichaTerm));
+      return (!clientFilterId || ficha.clientId === clientFilterId) && (!fichaTerm || fichaText.includes(fichaTerm));
     });
-  }, [clientSearch, clientsById, fichaSearch, fichas]);
+  }, [clientFilterId, fichaSearch, fichas]);
 
   function startCreate() {
     setEditingId(null);
@@ -1182,6 +1188,7 @@ export function ProductCatalogPanel({
     setProductPanel(null);
     setSelectedHistoryId(null);
     setDuplicatedFrom(null);
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
   function selectProductPanel(panel: "dados" | "arte" | "historico" | "alteracoes") {
@@ -1271,7 +1278,7 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
         <label style={productLabelStyle}>PRECO (R$)<CurrencyInput value={item.price || ""} onValueChange={(price) => update("price", price || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>REVISAO<input value={item.revision || "1"} readOnly style={{ ...productInputStyle, background: "#f2f4f7", color: "#667085", cursor: "default" }} /></label>
-        <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => updateClient(update, event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{clients.map((client) => <option key={client.id} value={client.id}>{productClientName(client)}</option>)}</select></label>
+        <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => updateClient(update, event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{sortedClients.map((client) => <option key={client.id} value={client.id}>{productClientOptionLabel(client)}</option>)}</select></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} disabled style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
         <label style={productLabelStyle}>FORNECEDOR<select value={selectedSupplier} onChange={(event) => { const value = event.target.value; setSupplierSelection((current) => ({ ...current, [item.id]: value })); update("materialId", ""); update("engineeringId", ""); }} style={productInputStyle}><option value="">SELECIONE O FORNECEDOR</option>{supplierNames.map((supplier) => <option key={`${prefix}-supplier-${supplier}`} value={supplier}>{supplier}</option>)}</select></label>
         <label style={productLabelStyle}>MATERIAL<select value={item.materialId ?? ""} onChange={(event) => { const value = event.target.value; const material = materials.find((candidate) => candidate.id === value); if (material?.supplier) setSupplierSelection((current) => ({ ...current, [item.id]: material.supplier })); update("materialId", value); update("engineeringId", ""); }} style={productInputStyle} disabled={!selectedSupplier}><option value="">{selectedSupplier ? "SELECIONE O MATERIAL" : "SELECIONE O FORNECEDOR PRIMEIRO"}</option>{filteredMaterials.map((material) => <option key={material.id} value={material.id}>{material.code} - {material.name || material.supplier}</option>)}</select></label>
@@ -1333,9 +1340,9 @@ export function ProductCatalogPanel({
       ) : (
         <Panel title="FICHAS TECNICAS DE PRODUTOS" description="CADASTRE A CAIXA PRINCIPAL E OS ACESSORIOS VINCULADOS A CADA FT." actionLabel="+ NOVA FICHA TECNICA" onAction={startCreate}>
           <div style={productSearchBarStyle}>
-            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<input type="search" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="NOME, FANTASIA, CODIGO OU CNPJ" style={productInputStyle} /></label>
+            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<select value={clientFilterId} onChange={(event) => setClientFilterId(event.target.value)} style={productInputStyle}><option value="">TODOS OS CLIENTES</option>{sortedClients.map((client) => <option key={client.id} value={client.id}>{productClientOptionLabel(client)}</option>)}</select></label>
             <label style={productSearchFieldStyle}>BUSCAR POR FICHA<input type="search" value={fichaSearch} onChange={(event) => setFichaSearch(event.target.value)} placeholder="NUMERO DA FT OU REFERENCIA" style={productInputStyle} /></label>
-            <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientSearch || fichaSearch) && <button type="button" onClick={() => { setClientSearch(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
+            <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientFilterId || fichaSearch) && <button type="button" onClick={() => { setClientFilterId(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
           </div>
           {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => { const client = clientsById.get(ficha.clientId); const clientName = productClientName(client) || "CLIENTE NAO INFORMADO"; return <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaClientStyle}>{clientName}</small><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S)</small></div><div style={fichaActionsStyle}><button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button><button type="button" onClick={() => duplicateEngineering(ficha)} style={duplicateButtonStyle}>DUPLICAR ENGENHARIA</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>; })}
         </Panel>
