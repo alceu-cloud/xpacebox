@@ -1105,10 +1105,10 @@ export function ProductCatalogPanel({
       window.alert(`INFORME O TRANSPASSE SUPERIOR (S) PARA ${componentMissingTopOverlap === draft ? "A CAIXA PRINCIPAL" : "O ACESSORIO"}.`);
       return;
     }
-    const matchingFicha = fichas.find((item) => item.id !== draft.id && hasSameProductSpecification(item, draft));
+    const matchingFicha = fichas.find((item) => item.id !== draft.id && item.clientId === draft.clientId && hasSameProductSpecification(item, draft));
     if (matchingFicha) {
       const clientName = productClientName(clientsById.get(matchingFicha.clientId)) || "CLIENTE NAO INFORMADO";
-      const shouldContinue = window.confirm(`JA EXISTE UMA FICHA COM O MESMO MATERIAL, TIPO DE CAIXA E MEDIDAS.\n\n${matchingFicha.ftNumber} - ${matchingFicha.reference}\nCLIENTE: ${clientName}\n\nDESEJA SALVAR MESMO ASSIM?`);
+      const shouldContinue = window.confirm(`JA EXISTE UMA FICHA SEMELHANTE PARA ESTE CLIENTE.\n\n${matchingFicha.ftNumber} - ${matchingFicha.reference}\nCLIENTE: ${clientName}\n\nMESMO MATERIAL, TIPO DE CAIXA E MEDIDAS.\n\nDESEJA SALVAR MESMO ASSIM?`);
       if (!shouldContinue) return;
     }
     const calculatedDraft = recalculateProductFichaAreas([{

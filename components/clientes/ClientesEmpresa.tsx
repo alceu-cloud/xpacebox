@@ -150,8 +150,18 @@ export default function ClientesEmpresa({
   }, [taxRegimes]);
 
   async function handleLookup() {
-    if (digits(form.cnpj).length !== 14) {
+    const cnpj = digits(form.cnpj);
+    if (cnpj.length !== 14) {
       setError("INFORME UM CNPJ COMPLETO PARA BUSCAR OS DADOS PUBLICOS.");
+      return;
+    }
+
+    const existingClient = clients.find((client) => digits(client.cnpj) === cnpj && client.id !== form.id);
+    if (existingClient) {
+      setLookingUp(false);
+      setMessage("");
+      setClientNameSearch(existingClient.tradeName || existingClient.legalName);
+      setError(`CLIENTE JA CADASTRADO: ${existingClient.clientCode} - ${existingClient.tradeName || existingClient.legalName}. USE A BUSCA AO LADO PARA ABRIR O CADASTRO.`);
       return;
     }
 
