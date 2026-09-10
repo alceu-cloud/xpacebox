@@ -47,3 +47,11 @@ export async function updateQuote(slug: string, id: string, quote: QuoteDraft) {
 export async function deleteQuote(slug: string, id: string) {
   await authorizedFetch(`/api/orcamentos?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+export async function sendQuoteByEmail(slug: string, id: string, email: string) {
+  const payload = await authorizedFetch(`/api/orcamentos/${encodeURIComponent(id)}/email`, {
+    method: "POST",
+    body: JSON.stringify({ slug, email }),
+  });
+  return payload as { recipientEmail: string };
+}

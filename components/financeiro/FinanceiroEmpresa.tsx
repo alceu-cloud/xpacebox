@@ -2,9 +2,9 @@
 
 import { ui } from "@/lib/ui/styles";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, PackageCheck, Wrench } from "lucide-react";
+import { FileText, Mail, MessageCircle, PackageCheck, Wrench } from "lucide-react";
 
-import { createQuote, deleteQuote, loadLinkableCrmOpportunities, loadQuotes, updateQuote } from "@/lib/orcamentos";
+import { createQuote, deleteQuote, loadLinkableCrmOpportunities, loadQuotes, sendQuoteByEmail, updateQuote } from "@/lib/orcamentos";
 import { loadSalesOrders } from "@/lib/pedidos";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import SectionNavigation from "@/components/ui/SectionNavigation";
@@ -48,6 +48,28 @@ function formatPhone(value: string) {
   return `(${area}) ${number.slice(0, 5)}-${number.slice(5)}`;
 }
 
+function formatWhatsappInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  const nationalNumber = digits.startsWith("55") && [12, 13].includes(digits.length) ? digits.slice(2) : digits;
+  return formatPhone(nationalNumber);
+}
+
+function quoteWhatsAppLink(phone: string, name: string, quote: QuoteRecord) {
+  const digits = phone.replace(/\D/g, "");
+  const normalizedPhone = digits.startsWith("55") && [12, 13].includes(digits.length) ? digits : `55${digits}`;
+  if (!/^55\d{10,11}$/.test(normalizedPhone)) return "";
+  const greetingName = portugueseFirstName(name);
+  const validity = quote.validUntil ? `\nValidade: ${formatDate(quote.validUntil)}.` : "";
+  const greeting = greetingName ? `Olá, ${greetingName}, tudo bem?` : "Olá, tudo bem?";
+  const text = `${greeting}\n\nSeu orçamento ${quote.quoteNumber} está pronto.\nValor total: ${formatCurrency(quote.grandTotal)}.${validity}\n\nFico à disposição para qualquer dúvida.`;
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(text)}`;
+}
+
+function portugueseFirstName(value: string) {
+  const firstName = value.trim().split(/\s+/)[0] || "";
+  return firstName ? `${firstName.charAt(0).toLocaleUpperCase("pt-BR")}${firstName.slice(1).toLocaleLowerCase("pt-BR")}` : "";
+}
+
 function resolveCompanyKey(companyName: string): QuoteCompanyKey {
   const normalized = companyName.toLowerCase();
   if (normalized.includes("carcat")) return "carcat";
@@ -89,6 +111,8 @@ type QuoteFormState = {
   validUntil: string;
   observations: string;
 };
+
+type QuoteDelivery = { quoteId: string; channel: "EMAIL" | "WHATSAPP"; recipient: string };
 
 function emptyQuoteForm(validityDays = 3): QuoteFormState {
   return { clientName: "", buyerName: "", phone: "", email: "", cnpj: "", address: "", company: "DAWOS", representative: "", paymentTerms: "", freight: "CIF", deliveryDate: "", validUntil: dateAfterDays(validityDays), observations: "" };
@@ -181,6 +205,8 @@ export default function FinanceiroEmpresa({
   const [form, setForm] = useState<QuoteFormState>(() => emptyQuoteForm(resolveValidityDays("DAWOS", quoteParameters)));
   const [pendingQuoteDraft, setPendingQuoteDraft] = useState<QuoteDraft | null>(null);
   const [linkableOpportunities, setLinkableOpportunities] = useState<CrmOpportunityLinkCandidate[]>([]);
+  const [delivery, setDelivery] = useState<QuoteDelivery | null>(null);
+  const [delivering, setDelivering] = useState(false);
 
   useEffect(() => {
     Promise.all([loadClients(companySlug), loadClientOptions(companySlug)])
@@ -434,6 +460,38 @@ export default function FinanceiroEmpresa({
     }
   }
 
+  function openDelivery(quote: QuoteRecord, channel: QuoteDelivery["channel"]) {
+    setDelivery({ quoteId: quote.id, channel, recipient: channel === "EMAIL" ? quote.email : formatWhatsappInput(quote.phone) });
+  }
+
+  async function confirmQuoteDelivery(quote: QuoteRecord) {
+    if (!delivery || delivery.quoteId !== quote.id) return;
+    const recipient = delivery.recipient.trim();
+    if (delivery.channel === "WHATSAPP") {
+      const url = quoteWhatsAppLink(recipient, quote.buyerName || quote.clientName, quote);
+      if (!url) {
+        setMessage("INFORME UM NUMERO DE WHATSAPP VALIDO COM DDD.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+      setDelivery(null);
+      setMessage(`WHATSAPP ABERTO PARA O ORCAMENTO ${quote.quoteNumber}.`);
+      return;
+    }
+
+    setDelivering(true);
+    try {
+      const result = await sendQuoteByEmail(companySlug, quote.id, recipient);
+      setQuotes((current) => current.map((item) => item.id === quote.id ? { ...item, email: result.recipientEmail } : item));
+      setDelivery(null);
+      setMessage(`ORCAMENTO ${quote.quoteNumber} ENVIADO PARA ${result.recipientEmail}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL ENVIAR O ORCAMENTO POR E-MAIL.");
+    } finally {
+      setDelivering(false);
+    }
+  }
+
   return (
     <section style={shellStyle}>
       <SectionNavigation
@@ -480,7 +538,7 @@ export default function FinanceiroEmpresa({
           <h2 style={sectionTitleStyle}>{quoteListTab === "PENDING" ? "ORCAMENTOS PENDENTES" : quoteListTab === "WON" ? "ORCAMENTOS GANHOS" : "ORCAMENTOS SALVOS"}</h2>
           <span style={countStyle}>{visibleQuotes.length} REGISTRO(S)</span>
         </div>
-        {visibleQuotes.length === 0 ? <div style={emptyStyle}>{quoteListTab === "PENDING" ? "NENHUM ORCAMENTO PENDENTE." : quoteListTab === "WON" ? "NENHUM ORCAMENTO GANHO." : "NENHUM ORCAMENTO ENCONTRADO."}</div> : <div style={quoteListStyle}>{visibleQuotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div></article>)}</div>}
+        {visibleQuotes.length === 0 ? <div style={emptyStyle}>{quoteListTab === "PENDING" ? "NENHUM ORCAMENTO PENDENTE." : quoteListTab === "WON" ? "NENHUM ORCAMENTO GANHO." : "NENHUM ORCAMENTO ENCONTRADO."}</div> : <div style={quoteListStyle}>{visibleQuotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => openDelivery(quote, "EMAIL")} style={emailButtonStyle}><Mail size={15} /> E-MAIL</button><button type="button" onClick={() => openDelivery(quote, "WHATSAPP")} style={whatsappButtonStyle}><MessageCircle size={15} /> WHATSAPP</button><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div>{delivery?.quoteId === quote.id ? <div style={quoteDeliveryStyle}><label style={quoteDeliveryLabelStyle}>{delivery.channel === "EMAIL" ? "E-MAIL DO CLIENTE" : "NUMERO DO WHATSAPP"}<input type={delivery.channel === "EMAIL" ? "email" : "tel"} value={delivery.recipient} onChange={(event) => setDelivery((current) => current ? { ...current, recipient: delivery.channel === "EMAIL" ? event.target.value.toLowerCase() : formatWhatsappInput(event.target.value) } : current)} placeholder={delivery.channel === "EMAIL" ? "compras@cliente.com.br" : "47 99999-9999"} style={inputStyle} /></label><div style={quoteDeliveryActionsStyle}><button type="button" onClick={() => setDelivery(null)} style={secondaryButtonStyle}>CANCELAR</button><button type="button" onClick={() => void confirmQuoteDelivery(quote)} disabled={delivering} style={delivery.channel === "EMAIL" ? emailButtonStyle : whatsappButtonStyle}>{delivering ? "ENVIANDO..." : delivery.channel === "EMAIL" ? "ENVIAR E-MAIL" : "ABRIR WHATSAPP"}</button></div></div> : null}</article>)}</div>}
       </section>
 
       <section style={panelStyle}>
@@ -760,6 +818,11 @@ const quoteMetaStyle = { display: "block", marginTop: 5, color: "#667085", fontS
 const pdfButtonStyle = { ...primaryButtonStyle, background: "linear-gradient(135deg,#ff8a00,#ff3b25)" , ...ui.button };
 const deleteButtonStyle = { ...secondaryButtonStyle, color: "#ff3b25", borderColor: "rgba(255,59,37,.30)" };
 const quoteActionsStyle = { display: "flex", gap: 10, alignItems: "center" , flexWrap: "wrap" as const };
+const emailButtonStyle = { border: "1px solid rgba(111,50,210,.28)", color: "#fff", background: "#6f32d2", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, ...ui.button };
+const whatsappButtonStyle = { border: "1px solid rgba(0,156,75,.28)", color: "#fff", background: "#009c4b", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, ...ui.button };
+const quoteDeliveryStyle = { flexBasis: "100%", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, marginTop: 4, paddingTop: 14, borderTop: "1px solid rgba(52,64,84,.12)", flexWrap: "wrap" as const };
+const quoteDeliveryLabelStyle = { display: "grid", gap: 6, flex: "1 1 280px", color: "#667085", fontSize: 11, fontWeight: 900, letterSpacing: 0 };
+const quoteDeliveryActionsStyle = { display: "flex", gap: 10, flexWrap: "wrap" as const };
 const lookupGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-2), minmax(0, 1fr))", gap: 14, marginBottom: 18 , minWidth: 0 };
 const formGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 14 , minWidth: 0 };
 const itemGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))", gap: 12 , minWidth: 0 };

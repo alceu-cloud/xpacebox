@@ -44,6 +44,26 @@ type SampleRequestEmail = {
   consultantEmail?: string;
 };
 
+type QuoteEmailInput = {
+  companyId: string;
+  quoteNumber: string;
+  recipientEmail: string;
+  sellerName: string;
+  sellerLogoUrl?: string;
+  clientName: string;
+  buyerName: string;
+  issueDate: string;
+  deliveryDate: string;
+  validUntil: string;
+  paymentTerms: string;
+  freight: string;
+  observations: string;
+  productTotal: number;
+  ipiTotal: number;
+  grandTotal: number;
+  items: Array<{ ftNumber: string; description: string; quantity: number; unitPrice: number; ipiPercent: number; total: number }>;
+};
+
 const timeZone = "America/Sao_Paulo";
 
 export function emailIntegrationStatus(connection: EmailConnection) {
@@ -135,6 +155,32 @@ export async function sendSampleRequestEmail(sample: SampleRequestEmail) {
       subject,
       html,
       text,
+      reply_to: integration.replyTo || undefined,
+    }),
+  });
+  const payload = await response.json().catch(() => ({})) as { id?: string; message?: string };
+  if (!response.ok) throw new Error(payload.message || "O PROVEDOR DE E-MAIL RECUSOU O ENVIO.");
+  return payload.id || "";
+}
+
+export async function sendQuoteEmail(quote: QuoteEmailInput) {
+  const connection = await emailConnectionForCompany(createSupabaseAdmin(), quote.companyId);
+  const integration = emailIntegrationStatus(connection);
+  if (!integration.configured) throw new Error("CONFIGURE A CHAVE E O REMETENTE DO RESEND EM INTEGRACOES.");
+  const apiKey = decryptIntegrationCredential({
+    ciphertext: connection.api_key_ciphertext || "",
+    iv: connection.api_key_iv || "",
+    authTag: connection.api_key_auth_tag || "",
+  });
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: integration.sender,
+      to: [quote.recipientEmail],
+      subject: `ORCAMENTO ${quote.quoteNumber} - ${quote.sellerName}`,
+      html: renderQuoteEmailHtml(quote),
+      text: renderQuoteEmailText(quote),
       reply_to: integration.replyTo || undefined,
     }),
   });
@@ -404,6 +450,20 @@ function renderSampleRequestText(input: SampleRequestEmail & { appUrl: string })
   return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nNOVA AMOSTRA SOLICITADA\n\n${input.sampleCode} - ${input.productDescription}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nENTREGA PREVISTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
 }
 
+function renderQuoteEmailHtml(input: QuoteEmailInput) {
+  const logo = input.sellerLogoUrl
+    ? `<img src="${escapeHtml(input.sellerLogoUrl)}" alt="${escapeHtml(input.sellerName)}" style="display:block;max-width:180px;max-height:64px;object-fit:contain">`
+    : `<strong style="color:#17131d;font:700 18px Arial,sans-serif">${escapeHtml(input.sellerName)}</strong>`;
+  const items = input.items.map((item) => `<tr><td style="padding:9px 8px;border-bottom:1px solid #e8e3eb">${escapeHtml(item.ftNumber || "-")}</td><td style="padding:9px 8px;border-bottom:1px solid #e8e3eb">${escapeHtml(item.description)}</td><td style="padding:9px 8px;border-bottom:1px solid #e8e3eb;text-align:center">${Number(item.quantity || 0).toLocaleString("pt-BR")}</td><td style="padding:9px 8px;border-bottom:1px solid #e8e3eb;text-align:right">${formatCurrency(item.unitPrice)}</td><td style="padding:9px 8px;border-bottom:1px solid #e8e3eb;text-align:right;font-weight:700">${formatCurrency(item.total)}</td></tr>`).join("");
+  const observations = input.observations ? escapeHtml(input.observations).replace(/\n/g, "<br>") : "SEM OBSERVACOES.";
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:760px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><header style="display:flex;justify-content:space-between;align-items:center;gap:20px;padding-bottom:18px;border-bottom:2px solid #7435d9">${logo}<div style="text-align:right"><div style="color:#7435d9;font:700 11px Arial,sans-serif;letter-spacing:1px">ORCAMENTO COMERCIAL</div><strong style="display:block;margin-top:5px;font:700 20px Arial,sans-serif">${escapeHtml(input.quoteNumber)}</strong><span style="display:block;margin-top:4px;color:#667085;font:12px Arial,sans-serif">EMISSAO: ${formatDate(input.issueDate)}</span></div></header><h1 style="margin:24px 0 6px;color:#17131d;font:700 25px Arial,sans-serif">OLÁ, ${escapeHtml(input.buyerName || input.clientName)}.</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">SEGUE SEU ORCAMENTO PARA AVALIACAO.</p><section style="padding:16px;border:1px solid #e8e3eb;border-radius:8px;background:#fbfcfe"><strong style="display:block;color:#17131d;font:700 14px Arial,sans-serif">CLIENTE: ${escapeHtml(input.clientName)}</strong><span style="display:block;margin-top:7px;color:#445066;font:13px Arial,sans-serif">VALIDADE: ${escapeHtml(input.validUntil ? formatDate(input.validUntil) : "CONFORME CONDICOES COMERCIAIS")} · ENTREGA: ${escapeHtml(input.deliveryDate ? formatDate(input.deliveryDate) : "A COMBINAR")}</span></section><table style="width:100%;margin-top:18px;border-collapse:collapse;color:#312b3a;font:13px Arial,sans-serif"><thead><tr style="background:#17131d;color:#fff"><th style="padding:10px 8px;text-align:left">F.T.</th><th style="padding:10px 8px;text-align:left">ITEM</th><th style="padding:10px 8px;text-align:center">QTDE.</th><th style="padding:10px 8px;text-align:right">UNITARIO</th><th style="padding:10px 8px;text-align:right">TOTAL</th></tr></thead><tbody>${items}</tbody></table><section style="display:flex;justify-content:flex-end;margin-top:18px"><div style="min-width:270px;padding:15px 18px;border:1px solid #d7eadf;border-radius:8px;background:#f3fbf6;color:#24342b;font:13px/1.7 Arial,sans-serif"><div style="display:flex;justify-content:space-between;gap:18px"><span>TOTAL PRODUTOS</span><strong>${formatCurrency(input.productTotal)}</strong></div><div style="display:flex;justify-content:space-between;gap:18px"><span>TOTAL IPI</span><strong>${formatCurrency(input.ipiTotal)}</strong></div><div style="display:flex;justify-content:space-between;gap:18px;margin-top:8px;padding-top:8px;border-top:1px solid #cfe4d6;color:#008844;font-size:16px;font-weight:700"><span>TOTAL</span><strong>${formatCurrency(input.grandTotal)}</strong></div></div></section><section style="margin-top:18px;padding:16px;border:1px solid #e8e3eb;border-radius:8px"><strong style="display:block;margin-bottom:7px;color:#17131d;font:700 12px Arial,sans-serif">CONDICOES</strong><p style="margin:0;color:#445066;font:13px/1.55 Arial,sans-serif">PAGAMENTO: ${escapeHtml(input.paymentTerms || "A COMBINAR")}<br>FRETE: ${escapeHtml(input.freight || "A COMBINAR")}</p></section><section style="margin-top:12px;padding:16px;border:1px solid #e8e3eb;border-radius:8px"><strong style="display:block;margin-bottom:7px;color:#17131d;font:700 12px Arial,sans-serif">OBSERVACOES</strong><p style="margin:0;color:#445066;font:13px/1.55 Arial,sans-serif">${observations}</p></section></main></body></html>`;
+}
+
+function renderQuoteEmailText(input: QuoteEmailInput) {
+  const items = input.items.map((item) => `- ${item.ftNumber || "-"} ${item.description} | QTDE. ${item.quantity} | ${formatCurrency(item.total)}`).join("\n");
+  return `${input.sellerName}\nORCAMENTO ${input.quoteNumber}\n\nOLA, ${input.buyerName || input.clientName}.\n\nCLIENTE: ${input.clientName}\nVALIDADE: ${input.validUntil ? formatDate(input.validUntil) : "CONFORME CONDICOES COMERCIAIS"}\nENTREGA: ${input.deliveryDate ? formatDate(input.deliveryDate) : "A COMBINAR"}\n\nITENS:\n${items}\n\nTOTAL PRODUTOS: ${formatCurrency(input.productTotal)}\nTOTAL IPI: ${formatCurrency(input.ipiTotal)}\nTOTAL DO ORCAMENTO: ${formatCurrency(input.grandTotal)}\n\nPAGAMENTO: ${input.paymentTerms || "A COMBINAR"}\nFRETE: ${input.freight || "A COMBINAR"}\n\nOBSERVACOES:\n${input.observations || "SEM OBSERVACOES."}`;
+}
+
 function saoPauloRange() {
   const day = saoPauloDay(new Date());
   const start = new Date(`${day}T00:00:00-03:00`);
@@ -424,6 +484,10 @@ function formatDate(value: string) {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { timeZone, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatCurrency(value: number) {
+  return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function escapeHtml(value: string) {
