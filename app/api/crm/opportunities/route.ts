@@ -154,9 +154,9 @@ async function save(request: Request, editing: boolean) {
         nextActionAt: input.nextActionAt,
       });
     }
-    if (editing && input.clientId && closesNow) {
+    if (editing && closesNow) {
       await clearOpportunityAgenda(admin, company.id, data.id);
-      if (input.stage === "WON" || ownsCycleAgenda) {
+      if (input.clientId && (input.stage === "WON" || ownsCycleAgenda)) {
         const cycle = await scheduleCommercialCycle({
           admin,
           companyId: company.id,
@@ -457,7 +457,7 @@ async function scheduleOpportunityAgenda({
   } else {
     const { data: currentAgenda, error: currentAgendaError } = await admin
       .from("crm_activities")
-      .select("id")
+      .select("id,client_id,next_action_at")
       .eq("tenant_company_id", companyId)
       .eq("opportunity_id", opportunityId)
       .not("next_action_at", "is", null)
@@ -467,9 +467,14 @@ async function scheduleOpportunityAgenda({
     if (currentAgendaError) throw currentAgendaError;
 
     if (currentAgenda) {
+      const shouldKeepDirectAgendaDate = !currentAgenda.client_id && Boolean(currentAgenda.next_action_at);
       const { error: updateAgendaError } = await admin
         .from("crm_activities")
-        .update({ next_action_type: nextActionType, next_action_at: scheduledAt })
+        .update({
+          client_id: clientId,
+          next_action_type: nextActionType,
+          next_action_at: shouldKeepDirectAgendaDate ? currentAgenda.next_action_at : scheduledAt,
+        })
         .eq("id", currentAgenda.id)
         .eq("tenant_company_id", companyId);
       if (updateAgendaError) throw updateAgendaError;

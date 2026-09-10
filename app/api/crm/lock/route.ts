@@ -24,19 +24,20 @@ export async function GET(request: Request) {
     if (!agenda) return NextResponse.json({ success: true, lock: null });
 
     const postponementSubject = `${postponementPrefix}${agenda.id}`;
-    const [{ count: postponementCount, error: postponementError }, { data: client, error: clientError }, { data: opportunity, error: opportunityError }] = await Promise.all([
+    const [{ count: postponementCount, error: postponementError }, clientResult, opportunityResult] = await Promise.all([
       admin
         .from("crm_activities")
         .select("id", { count: "exact", head: true })
         .eq("tenant_company_id", company.id)
-        .eq("client_id", agenda.client_id)
         .eq("subject", postponementSubject),
-      admin
-        .from("clients")
-        .select("legal_name,trade_name")
-        .eq("tenant_company_id", company.id)
-        .eq("id", agenda.client_id)
-        .maybeSingle(),
+      agenda.client_id
+        ? admin
+            .from("clients")
+            .select("legal_name,trade_name")
+            .eq("tenant_company_id", company.id)
+            .eq("id", agenda.client_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
       agenda.opportunity_id
         ? admin
             .from("crm_opportunities")
@@ -47,16 +48,18 @@ export async function GET(request: Request) {
         : Promise.resolve({ data: null, error: null }),
     ]);
     if (postponementError) throw postponementError;
-    if (clientError) throw clientError;
-    if (opportunityError) throw opportunityError;
+    if (clientResult.error) throw clientResult.error;
+    if (opportunityResult.error) throw opportunityResult.error;
+    const client = clientResult.data;
+    const opportunity = opportunityResult.data;
 
     const count = Number(postponementCount || 0);
     return NextResponse.json({
       success: true,
       lock: {
         activityId: agenda.id,
-        clientId: agenda.client_id,
-        clientName: client?.trade_name || client?.legal_name || "CLIENTE",
+        clientId: agenda.client_id || "",
+        clientName: client?.trade_name || client?.legal_name || "ORCAMENTO DIRETO",
         representativeProfileId: profile.id,
         opportunityId: agenda.opportunity_id || "",
         opportunityTitle: opportunity?.title || "",

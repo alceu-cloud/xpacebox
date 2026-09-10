@@ -10,26 +10,27 @@ export async function POST(request: Request) {
     const slug = body.slug?.trim() ?? "";
     const clientId = body.clientId?.trim() ?? "";
     const activityId = body.activityId?.trim() ?? "";
-    if (!slug || !clientId) return failure("CLIENTE NAO INFORMADO.", 400);
+    if (!slug || (!clientId && !activityId)) return failure("AGENDA NAO INFORMADA.", 400);
 
     const { admin, company, profile: currentProfile, user } = await requireCompanyAccess(request, slug);
-    const { data: profile, error: profileError } = await admin
-      .from("crm_customer_profiles")
-      .select("next_contact_at,owner_profile_id")
-      .eq("tenant_company_id", company.id)
-      .eq("client_id", clientId)
-      .maybeSingle();
-    if (profileError) throw profileError;
+    const profile = clientId
+      ? await admin
+          .from("crm_customer_profiles")
+          .select("next_contact_at,owner_profile_id")
+          .eq("tenant_company_id", company.id)
+          .eq("client_id", clientId)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (profile.error) throw profile.error;
 
     const agendaQuery = admin
       .from("crm_activities")
-      .select("id,opportunity_id,representative_profile_id,next_action_type,next_action_at,agenda_kind")
+      .select("id,client_id,opportunity_id,representative_profile_id,next_action_type,next_action_at,agenda_kind")
       .eq("tenant_company_id", company.id)
-      .eq("client_id", clientId)
       .not("next_action_at", "is", null);
     const { data: agenda, error: agendaError } = activityId
       ? await agendaQuery.eq("id", activityId).maybeSingle()
-      : await agendaQuery.eq("next_action_at", profile?.next_contact_at || "").order("occurred_at", { ascending: false }).limit(1).maybeSingle();
+      : await agendaQuery.eq("client_id", clientId).eq("next_action_at", profile.data?.next_contact_at || "").order("occurred_at", { ascending: false }).limit(1).maybeSingle();
     if (agendaError) throw agendaError;
     if (!agenda) return failure("A AGENDA DESTE CLIENTE NAO FOI ENCONTRADA.", 404);
     if (agenda.representative_profile_id && agenda.representative_profile_id !== currentProfile.id) {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     const currentActionAt = agenda.next_action_at || "";
     if (!currentActionAt) return failure("NAO HA UMA AGENDA EM ABERTO PARA ADIAR.", 400);
     if (currentActionAt.slice(0, 10) >= saoPauloDate()) return failure("ESTA AGENDA NAO ESTA ATRASADA.", 400);
-    if (activityId && agenda.agenda_kind === "CYCLE" && !sameInstant(profile?.next_contact_at || "", currentActionAt)) {
+    if (activityId && agenda.agenda_kind === "CYCLE" && !sameInstant(profile.data?.next_contact_at || "", currentActionAt)) {
       return failure("ESTA AGENDA JA FOI SUBSTITUIDA POR UMA ACAO MAIS RECENTE.", 409);
     }
 
@@ -47,7 +48,6 @@ export async function POST(request: Request) {
       .from("crm_activities")
       .select("id", { count: "exact", head: true })
       .eq("tenant_company_id", company.id)
-      .eq("client_id", clientId)
       .eq("subject", postponementSubject);
     if (countError) throw countError;
     if (Number(count || 0) >= 3) {
@@ -63,20 +63,20 @@ export async function POST(request: Request) {
       .eq("tenant_company_id", company.id);
     if (updateAgendaError) throw updateAgendaError;
 
-    if (agenda.agenda_kind === "CYCLE" && sameInstant(profile?.next_contact_at || "", currentActionAt)) {
+    if (agenda.agenda_kind === "CYCLE" && agenda.client_id && sameInstant(profile.data?.next_contact_at || "", currentActionAt)) {
       const { error: updateProfileError } = await admin
         .from("crm_customer_profiles")
         .update({ next_contact_at: nextActionAt, updated_at: now })
         .eq("tenant_company_id", company.id)
-        .eq("client_id", clientId);
+        .eq("client_id", agenda.client_id);
       if (updateProfileError) throw updateProfileError;
     }
 
     const { error: historyError } = await admin.from("crm_activities").insert({
       tenant_company_id: company.id,
-      client_id: clientId,
+      client_id: agenda.client_id || null,
       opportunity_id: agenda.opportunity_id || null,
-      representative_profile_id: agenda.representative_profile_id || profile?.owner_profile_id || user.id,
+      representative_profile_id: agenda.representative_profile_id || profile.data?.owner_profile_id || user.id,
       activity_type: "NOTE",
       outcome: "FOLLOW_UP",
       subject: postponementSubject,

@@ -117,6 +117,9 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
       .eq("id", existing.id)
       .eq("tenant_company_id", input.tenantCompanyId);
     if (error) throw error;
+    if (!input.clientId && !closed) {
+      await ensureDirectQuoteAgenda(admin, { ...input, opportunityId: existing.id, nextActionAt });
+    }
   } else {
     const { data: opportunity, error } = await admin.from("crm_opportunities").insert({
       tenant_company_id: input.tenantCompanyId,
@@ -146,6 +149,8 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
         created_by: input.createdBy,
       });
       if (activityError) throw activityError;
+    } else {
+      await ensureDirectQuoteAgenda(admin, { ...input, opportunityId: opportunity.id, nextActionAt });
     }
   }
 
@@ -178,7 +183,7 @@ export async function syncExistingDirectQuotesWithCrm(
   const existingQuoteIds = new Set((existing ?? []).map((row) => String(row.quote_id || "")));
   let created = 0;
   for (const quote of quotes ?? []) {
-    if (!quote.id || existingQuoteIds.has(String(quote.id))) continue;
+    if (!quote.id) continue;
     await syncQuoteWithCrm(admin, {
       tenantCompanyId,
       quoteId: String(quote.id),
@@ -190,9 +195,41 @@ export async function syncExistingDirectQuotesWithCrm(
       validUntil: String(quote.valid_until || ""),
       createdBy,
     });
-    created += 1;
+    if (!existingQuoteIds.has(String(quote.id))) created += 1;
   }
   return created;
+}
+
+async function ensureDirectQuoteAgenda(
+  admin: SupabaseClient,
+  input: QuoteCrmInput & { opportunityId: string; nextActionAt: string }
+) {
+  const { data: currentAgenda, error: currentAgendaError } = await admin
+    .from("crm_activities")
+    .select("id")
+    .eq("tenant_company_id", input.tenantCompanyId)
+    .eq("opportunity_id", input.opportunityId)
+    .not("next_action_at", "is", null)
+    .maybeSingle();
+  if (currentAgendaError) throw currentAgendaError;
+  if (currentAgenda) return;
+
+  const { error } = await admin.from("crm_activities").insert({
+    tenant_company_id: input.tenantCompanyId,
+    client_id: null,
+    opportunity_id: input.opportunityId,
+    representative_profile_id: input.representativeProfileId,
+    activity_type: "QUOTE",
+    outcome: "FOLLOW_UP",
+    subject: `ORCAMENTO DIRETO ${input.quoteNumber} ENVIADO`,
+    notes: `ORCAMENTO DIRETO ENVIADO PARA ${input.clientName}.${input.validUntil ? ` VALIDADE: ${displayDate(input.validUntil)}.` : ""}`,
+    occurred_at: new Date().toISOString(),
+    next_action_type: "FOLLOW_UP",
+    next_action_at: input.nextActionAt,
+    agenda_kind: "OPPORTUNITY",
+    created_by: input.createdBy,
+  });
+  if (error) throw error;
 }
 
 function nextBusinessMorning() {

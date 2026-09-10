@@ -295,14 +295,14 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
   const range = saoPauloRange();
   const recipients = new Map<string, RecipientAgenda>();
   for (const company of selectedCompanies) {
-    const [agendaResult, opportunityAgendaResult, clientsResult] = await Promise.all([
+    const [agendaResult, opportunityAgendaResult, clientsResult, directOpportunitiesResult] = await Promise.all([
       admin.from("crm_customer_profiles")
         .select("client_id,owner_profile_id,next_contact_at")
         .eq("tenant_company_id", company.id)
         .not("next_contact_at", "is", null)
         .lt("next_contact_at", range.end.toISOString()),
       admin.from("crm_activities")
-        .select("client_id,representative_profile_id,next_action_at,next_action_type,agenda_kind,subject")
+        .select("client_id,opportunity_id,representative_profile_id,next_action_at,next_action_type,agenda_kind,subject")
         .eq("tenant_company_id", company.id)
         .in("agenda_kind", ["OPPORTUNITY", "FOLLOW_UP"])
         .not("next_action_at", "is", null)
@@ -311,12 +311,19 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
         .select("id,legal_name,trade_name,representative_profile_id")
         .eq("tenant_company_id", company.id)
         .eq("active", true),
+      admin.from("crm_opportunities")
+        .select("id,title,quote_id")
+        .eq("tenant_company_id", company.id)
+        .is("client_id", null)
+        .not("quote_id", "is", null),
     ]);
     if (agendaResult.error) throw agendaResult.error;
     if (opportunityAgendaResult.error) throw opportunityAgendaResult.error;
     if (clientsResult.error) throw clientsResult.error;
+    if (directOpportunitiesResult.error) throw directOpportunitiesResult.error;
 
     const clientsById = new Map((clientsResult.data ?? []).map((client) => [client.id, client]));
+    const directOpportunityById = new Map((directOpportunitiesResult.data ?? []).map((opportunity) => [opportunity.id, opportunity]));
     const companyMemberIds = memberIdsByCompany.get(company.id) ?? new Set<string>();
     for (const profile of profiles.values()) {
       const canReceiveCompanyAgenda = companyMemberIds.has(profile.id) || profile.platform_role === "platform_owner";
@@ -367,8 +374,9 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
       const when = new Date(scheduled.next_action_at || "");
       if (Number.isNaN(when.getTime()) || when >= range.end) continue;
       const client = clientsById.get(scheduled.client_id);
-      if (!client) continue;
-      const profileId = scheduled.representative_profile_id || client.representative_profile_id || "";
+      const directOpportunity = scheduled.opportunity_id ? directOpportunityById.get(scheduled.opportunity_id) : undefined;
+      if (!client && !directOpportunity) continue;
+      const profileId = scheduled.representative_profile_id || client?.representative_profile_id || "";
       const profile = profiles.get(profileId);
       const canReceiveCompanyAgenda = companyMemberIds.has(profileId) || profile?.platform_role === "platform_owner";
       if (!profile || !profile.email || !canReceiveCompanyAgenda) continue;
@@ -386,7 +394,7 @@ async function collectRecipientAgendas(filters?: { companyIds?: Set<string>; pro
         today: [],
       };
       const task = {
-        clientName: client.trade_name || client.legal_name || "CLIENTE SEM NOME",
+        clientName: client?.trade_name || client?.legal_name || `ORCAMENTO DIRETO · ${directOpportunity?.title || "SEM REFERENCIA"}`,
         scheduledAt: scheduled.next_action_at || "",
         actionType: `${scheduled.agenda_kind === "OPPORTUNITY" ? "OPORTUNIDADE" : "ACOMPANHAMENTO"} · ${scheduled.next_action_type || "ACOMPANHAR"}`,
       };

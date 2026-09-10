@@ -284,23 +284,38 @@ export default function CrmEmpresa({
       const client = clientById.get(profile.clientId);
       if (!client) continue;
       const activity = overview.activities.find((item) => item.clientId === client.id && item.agendaKind === "CYCLE" && item.nextActionAt === profile.nextContactAt);
-      rows.push({ id: `cycle:${client.id}`, client, ownerId: profile.ownerProfileId || client.representativeUserId, ownerName: profile.ownerName || client.representativeName, activityId: activity?.id || "", kind: "CYCLE", actionType: "ACOMPANHAR", opportunityTitle: "", scheduledAt: profile.nextContactAt, daysToAction: daysUntil(profile.nextContactAt) });
+      rows.push({ id: `cycle:${client.id}`, client, displayName: client.tradeName || client.legalName, ownerId: profile.ownerProfileId || client.representativeUserId, ownerName: profile.ownerName || client.representativeName, activityId: activity?.id || "", kind: "CYCLE", actionType: "ACOMPANHAR", opportunityId: "", opportunityTitle: "", directQuote: false, scheduledAt: profile.nextContactAt, daysToAction: daysUntil(profile.nextContactAt) });
     }
     for (const activity of overview.activities) {
       if (!activity.nextActionAt || activity.agendaKind === "CYCLE") continue;
       const client = clientById.get(activity.clientId);
-      if (!client) continue;
       const opportunity = activity.opportunityId ? overview.opportunities.find((item) => item.id === activity.opportunityId) : undefined;
       if (activity.agendaKind === "OPPORTUNITY" && (!opportunity || opportunity.stage === "WON" || opportunity.stage === "LOST")) continue;
-      const profile = profileById.get(client.id);
-      rows.push({ id: activity.id, client, ownerId: activity.representativeProfileId || profile?.ownerProfileId || client.representativeUserId, ownerName: activity.representativeName || profile?.ownerName || client.representativeName, activityId: activity.id, kind: activity.agendaKind, actionType: activity.nextActionType || "FOLLOW_UP", opportunityTitle: opportunity?.title || "", scheduledAt: activity.nextActionAt, daysToAction: daysUntil(activity.nextActionAt) });
+      const profile = client ? profileById.get(client.id) : undefined;
+      const directQuote = !client && Boolean(opportunity?.quoteId);
+      if (!client && !directQuote) continue;
+      rows.push({
+        id: activity.id,
+        client,
+        displayName: directQuote ? "ORCAMENTO DIRETO" : client?.tradeName || client?.legalName || "CLIENTE",
+        ownerId: activity.representativeProfileId || profile?.ownerProfileId || client?.representativeUserId || "",
+        ownerName: activity.representativeName || profile?.ownerName || client?.representativeName || "SEM RESPONSAVEL",
+        activityId: activity.id,
+        kind: activity.agendaKind,
+        actionType: activity.nextActionType || "FOLLOW_UP",
+        opportunityId: activity.opportunityId,
+        opportunityTitle: opportunity?.title || "",
+        directQuote,
+        scheduledAt: activity.nextActionAt,
+        daysToAction: daysUntil(activity.nextActionAt),
+      });
     }
     const term = upper(agendaSearch);
     return rows.filter((item) => {
-      const matchesTerm = !term || upper(`${item.client.clientCode} ${item.client.legalName} ${item.client.tradeName} ${item.opportunityTitle}`).includes(term);
+      const matchesTerm = !term || upper(`${item.client?.clientCode || ""} ${item.displayName} ${item.opportunityTitle}`).includes(term);
       const matchesOwner = agendaOwnerFilter === "ALL" || item.ownerId === agendaOwnerFilter;
       return matchesTerm && matchesOwner && item.daysToAction <= 7;
-    }).sort((first, second) => first.scheduledAt.localeCompare(second.scheduledAt) || first.client.legalName.localeCompare(second.client.legalName, "pt-BR"));
+    }).sort((first, second) => first.scheduledAt.localeCompare(second.scheduledAt) || first.displayName.localeCompare(second.displayName, "pt-BR"));
   }, [agendaOwnerFilter, agendaSearch, clients, overview.activities, overview.opportunities, overview.profiles]);
   const agendaOverdueCount = agendaItems.filter((item) => item.daysToAction < 0).length;
   const agendaTodayCount = agendaItems.filter((item) => item.daysToAction === 0).length;
@@ -712,6 +727,7 @@ export default function CrmEmpresa({
               selectClient(clientId, "contato");
               onViewChange("carteira");
             }}
+            onOpenDirectOpportunity={() => onViewChange("pipeline")}
           />
           <SampleAgendaBoard items={sampleAgendaItems} closingSampleId={closingSampleId} onClose={handleCloseSample} />
         </>
@@ -946,13 +962,16 @@ function PurchaseAverageAlertModal({ alert, onClose, onReview }: { alert: Purcha
 
 type AgendaItem = {
   id: string;
-  client: ClientRecord;
+  client?: ClientRecord;
+  displayName: string;
   ownerId: string;
   ownerName: string;
   activityId: string;
   kind: CrmAgendaKind;
   actionType: string;
+  opportunityId: string;
   opportunityTitle: string;
+  directQuote: boolean;
   scheduledAt: string;
   daysToAction: number;
 };
@@ -968,6 +987,7 @@ function AgendaBoard({
   onPostpone,
   postponingAgendaId,
   onOpenClient,
+  onOpenDirectOpportunity,
 }: {
   items: AgendaItem[];
   search: string;
@@ -979,6 +999,7 @@ function AgendaBoard({
   onPostpone: (clientId: string, activityId: string) => void;
   postponingAgendaId: string;
   onOpenClient: (clientId: string) => void;
+  onOpenDirectOpportunity: () => void;
 }) {
   const [postponeMenuAgendaId, setPostponeMenuAgendaId] = useState("");
   const groups = [
@@ -1017,7 +1038,7 @@ function AgendaBoard({
                   <article className={`crm-agenda-item crm-agenda-item-${item.kind.toLowerCase()}`} key={item.id}>
                     <i className={`crm-dot crm-dot-${group.tone}`} />
                     <div className="crm-agenda-client">
-                      <strong>{item.client.tradeName || item.client.legalName}</strong>
+                      <strong>{item.displayName}</strong>
                       <span>{item.ownerName || "SEM RESPONSAVEL"}</span>
                     </div>
                     <div className="crm-agenda-action">
@@ -1028,10 +1049,10 @@ function AgendaBoard({
                       <span className={`crm-agenda-kind crm-agenda-kind-${item.kind.toLowerCase()}`}>{agendaKindLabel(item)}</span>
                     </div>
                     <div className="crm-agenda-buttons">
-                      <button type="button" onClick={() => onOpenClient(item.client.id)}>ATENDER</button>
+                      <button type="button" onClick={() => item.client ? onOpenClient(item.client.id) : onOpenDirectOpportunity()}>ATENDER</button>
                       {group.key === "overdue" && item.activityId ? <div className="crm-agenda-postpone-menu">
-                        <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuAgendaId((current) => current === item.id ? "" : item.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.client.tradeName || item.client.legalName}`} aria-expanded={postponeMenuAgendaId === item.id}>...</button>
-                        {postponeMenuAgendaId === item.id ? <div className="crm-agenda-postpone-options"><button type="button" onClick={() => { setPostponeMenuAgendaId(""); onPostpone(item.client.id, item.activityId); }} disabled={postponingAgendaId === item.activityId}>ADIAR PARA PROXIMO DIA UTIL</button></div> : null}
+                        <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuAgendaId((current) => current === item.id ? "" : item.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.displayName}`} aria-expanded={postponeMenuAgendaId === item.id}>...</button>
+                        {postponeMenuAgendaId === item.id ? <div className="crm-agenda-postpone-options"><button type="button" onClick={() => { setPostponeMenuAgendaId(""); onPostpone(item.client?.id || "", item.activityId); }} disabled={postponingAgendaId === item.activityId}>ADIAR PARA PROXIMO DIA UTIL</button></div> : null}
                       </div> : null}
                     </div>
                   </article>
@@ -1843,6 +1864,7 @@ function agendaTaskDueLabel(item: AgendaItem) {
 
 function agendaKindLabel(item: AgendaItem) {
   if (item.kind === "CYCLE") return "CICLO DE COMPRA";
+  if (item.directQuote) return item.opportunityTitle || "ORCAMENTO DIRETO";
   if (item.kind === "OPPORTUNITY") return item.opportunityTitle ? `OPORTUNIDADE · ${item.opportunityTitle}` : "OPORTUNIDADE";
   return "ACOMPANHAMENTO";
 }
