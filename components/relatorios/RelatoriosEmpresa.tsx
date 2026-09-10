@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BarChart3, BriefcaseBusiness, Factory, FileBarChart2, PackageSearch, ShoppingCart } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 
 type ReportKey = "closing" | "pipeline" | "forecast" | "losses" | "clients" | "materials" | "team" | "followup" | "cycle" | "risk" | "goals" | "executive" | "no-agenda";
@@ -191,7 +192,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
     {activeArea === "COMMERCIAL" && navigationLevel === "report" ? <section style={filterStyle}>
       <label style={filterLabelStyle}>PERIODO<select value={preset} onChange={(event) => setPreset(event.target.value as PeriodPreset)} style={selectStyle}><option value="CURRENT">MES ATUAL</option><option value="PREVIOUS">MES ANTERIOR</option><option value="CUSTOM">PERSONALIZADO</option></select></label>
       {preset === "CUSTOM" ? <><label style={filterLabelStyle}>DE<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} style={inputStyle} /></label><label style={filterLabelStyle}>ATE<input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} style={inputStyle} /></label></> : null}
-      {data?.isManager ? <label style={filterLabelStyle}>REPRESENTANTE<select value={representativeId} onChange={(event) => setRepresentativeId(event.target.value)} style={selectStyle}><option value="ALL">TODA A EQUIPE</option>{data.representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : <div style={ownDataStyle}>EXIBINDO SOMENTE SEUS DADOS</div>}
+      {data?.isManager ? <label style={filterLabelStyle}>REPRESENTANTE<SearchableSelect value={representativeId === "ALL" ? "" : representativeId} onChange={(value) => setRepresentativeId(value || "ALL")} options={data.representatives.map((item) => ({ value: item.id, label: item.name }))} placeholder="TODA A EQUIPE" inputStyle={selectStyle} ariaLabel="REPRESENTANTE" /></label> : <div style={ownDataStyle}>EXIBINDO SOMENTE SEUS DADOS</div>}
     </section> : null}
     {loading ? <div style={emptyStyle}>CARREGANDO RELATORIOS...</div> : null}
     {error ? <div style={errorStyle}>{error}</div> : null}

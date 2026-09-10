@@ -114,6 +114,8 @@ export const initialEngineeringFormulas: EngineeringFormula[] = [
   ["CV-GERAL", "CORTE E VINCO GERAL", "CORTE-VINCO", "B / BC", "L + 30", "C + 30"],
   ["SEDEX-B", "CAIXA SEDEX - B", "CORTE-VINCO", "B", "((((A+1)+8+(A+3))*2)+12)+(C+23) + 30", "(A+3)+(L+3)+(A+4)+(L+5)+(A+3) + 30"],
   ["SEDEX-BC", "CAIXA SEDEX - BC", "CORTE-VINCO", "BC", "((((A+3)+18+(A+6))*2)+20)+(C+48) + 30", "(A+6)+(L+6)+(A+8)+(L+13)+(A+11) + 30"],
+  ["CTOIM-B", "MEIA CAIXA TUBO ONDA INVERTIDA - B", "CAIXA TUBO", "B", "L+3 + C+3 + 30", "(L+3)/2 + A+6 + (L+3)/2"],
+  ["CXBS", "CAIXA TUBO ONDA INVERTIDA - B", "CAIXA TUBO", "B", "L+3 + C+3 + L+3 + C+3 + 30", "L+3 + A+6 + L+3"],
   ["TAB-B", "TABULEIRO - B", "ACESSORIO", "B", "L", "C"],
   ["TAB-BC", "TABULEIRO - BC", "ACESSORIO", "BC", "L", "C"],
 ].map(([style, description, category, wave, widthFormula, lengthFormula]) => ({

@@ -2120,7 +2120,10 @@ button {
 .crm-field input,
 .crm-field select,
 .crm-textarea textarea,
-.crm-opportunity-card select {
+.crm-opportunity-card select,
+.crm-opportunity-card input,
+.crm-pipeline-filter-group input,
+.crm-lost-reason-modal input {
   width: 100%;
   border: 1px solid #d7dbe5;
   border-radius: 6px;
@@ -2819,7 +2822,7 @@ button {
 .crm-opportunity-card span { color: #078c50; font-size: 16px; font-weight: 900; }
 .crm-opportunity-card small { color: #707a90; font-size: 11px; font-weight: 800; }
 .crm-opportunity-card .crm-expired-label { color: #d92238; font-weight: 900; }
-.crm-opportunity-card select { min-height: 36px; padding: 0 7px; font-size: 12px; }
+.crm-opportunity-card select, .crm-opportunity-card input { min-height: 36px; padding: 0 7px; font-size: 12px; }
 .crm-linked-agenda { display: flex; align-items: flex-end; min-height: 42px; color: #078c50; font-size: 12px; font-weight: 900; }
 .crm-current-agenda { display: grid; align-content: center; min-height: 42px; gap: 4px; padding: 8px 12px; border: 1px solid #a8dfbe; border-radius: 6px; background: #f0fdf4; }
 .crm-current-agenda span { color: #287846; font-size: 10px; font-weight: 900; letter-spacing: .6px; }
@@ -2841,7 +2844,7 @@ button {
 .crm-lost-reason-modal { width: min(100%, 420px); display: grid; gap: 16px; padding: 24px; border: 1px solid rgba(244,63,94,.32); border-radius: 8px; background: #fff; box-shadow: 0 26px 70px rgba(20,24,39,.28); }
 .crm-lost-reason-modal > span { color: #e11d48; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; }
 .crm-lost-reason-modal h3 { margin: -8px 0 0; color: #141827; font-size: 20px; letter-spacing: 0; }
-.crm-lost-reason-modal select { min-height: 44px; padding: 0 11px; border: 1px solid #cfd6e4; border-radius: 6px; background: #fff; color: #141827; font-weight: 800; }
+.crm-lost-reason-modal select, .crm-lost-reason-modal input { min-height: 44px; padding: 0 11px; border: 1px solid #cfd6e4; border-radius: 6px; background: #fff; color: #141827; font-weight: 800; }
 .crm-lost-reason-modal > div { display: flex; justify-content: flex-end; gap: 10px; }
 .crm-lost-reason-modal button { min-height: 38px; padding: 0 13px; border: 1px solid #cfd6e4; border-radius: 6px; background: #fff; color: #475467; font-size: 11px; font-weight: 900; cursor: pointer; }
 .crm-lost-reason-modal button:last-child { border-color: #e11d48; background: #e11d48; color: #fff; }
@@ -2994,7 +2997,10 @@ button {
 .xb-workspace .crm-field input,
 .xb-workspace .crm-field select,
 .xb-workspace .crm-textarea textarea,
-.xb-workspace .crm-opportunity-card select {
+.xb-workspace .crm-opportunity-card select,
+.xb-workspace .crm-opportunity-card input,
+.xb-workspace .crm-pipeline-filter-group input,
+.xb-workspace .crm-lost-reason-modal input {
   border-color: #ded8e2;
   border-radius: 14px;
   box-shadow: none;

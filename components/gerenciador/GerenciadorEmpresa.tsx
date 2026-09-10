@@ -6,6 +6,7 @@ import type { CSSProperties } from "react";
 import { ArrowLeft, Boxes, Building2, ClipboardList, DollarSign, FileText, Layers3, Package, Palette, Plug, Settings2, SlidersHorizontal, Target, Timer, Truck, Wrench, type LucideIcon } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import ManagerWelcome from "@/components/ui/ManagerWelcome";
+import { SearchableFilter, SearchableSelect } from "@/components/ui/SearchableSelect";
 import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
 import EmailAgendaIntegrationPanel from "@/components/integracoes/EmailAgendaIntegrationPanel";
 
@@ -551,10 +552,7 @@ export default function GerenciadorEmpresa({
             <>
               <div style={materialFilterToolbarStyle}>
                 <label style={materialFilterLabelStyle}>FORNECEDOR
-                  <select value={materialSupplierFilter} onChange={(event) => setMaterialSupplierFilter(event.target.value)} style={materialFilterSelectStyle}>
-                    <option value="ALL">TODOS OS FORNECEDORES</option>
-                    {materialSuppliers.map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
-                  </select>
+                  <SearchableSelect value={materialSupplierFilter === "ALL" ? "" : materialSupplierFilter} onChange={(value) => setMaterialSupplierFilter(value || "ALL")} options={materialSuppliers.map((supplier) => ({ value: supplier, label: supplier }))} placeholder="TODOS OS FORNECEDORES" inputStyle={materialFilterSelectStyle} ariaLabel="FORNECEDOR" />
                 </label>
                 <span style={materialFilterResultStyle}>{filteredMaterials.length} MATERIAL(IS)</span>
               </div>
@@ -1281,15 +1279,15 @@ export function ProductCatalogPanel({
         <label style={productLabelStyle}>REFERENCIA<input value={item.reference} onChange={(event) => update("reference", event.target.value)} style={productInputStyle} placeholder="DESCRICAO DA EMBALAGEM" /></label>
         <label style={productLabelStyle}>PRECO (R$)<CurrencyInput value={item.price || ""} onValueChange={(price) => update("price", price || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>REVISAO<input value={item.revision || "1"} readOnly style={{ ...productInputStyle, background: "#f2f4f7", color: "#667085", cursor: "default" }} /></label>
-        <label style={productLabelStyle}>CLIENTE<select value={item.clientId} onChange={(event) => updateClient(update, event.target.value)} style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{sortedClients.map((client) => <option key={client.id} value={client.id}>{productClientOptionLabel(client)}</option>)}</select></label>
+        <label style={productLabelStyle}>CLIENTE<SearchableSelect value={item.clientId} onChange={(value) => updateClient(update, value)} options={sortedClients.map((client) => ({ value: client.id, label: productClientOptionLabel(client) }))} placeholder="SELECIONE O CLIENTE" inputStyle={productInputStyle} ariaLabel="CLIENTE" /></label>
         <label style={productLabelStyle}>EMPRESA<select value={item.company} disabled style={productInputStyle}><option value="">SELECIONE O CLIENTE</option>{productCompanies.map((company) => <option key={company}>{company}</option>)}</select></label>
-        <label style={productLabelStyle}>FORNECEDOR<select value={selectedSupplier} onChange={(event) => { const value = event.target.value; setSupplierSelection((current) => ({ ...current, [item.id]: value })); update("materialId", ""); update("engineeringId", ""); }} style={productInputStyle}><option value="">SELECIONE O FORNECEDOR</option>{supplierNames.map((supplier) => <option key={`${prefix}-supplier-${supplier}`} value={supplier}>{supplier}</option>)}</select></label>
-        <label style={productLabelStyle}>MATERIAL<select value={item.materialId ?? ""} onChange={(event) => { const value = event.target.value; const material = materials.find((candidate) => candidate.id === value); if (material?.supplier) setSupplierSelection((current) => ({ ...current, [item.id]: material.supplier })); update("materialId", value); update("engineeringId", ""); }} style={productInputStyle} disabled={!selectedSupplier}><option value="">{selectedSupplier ? "SELECIONE O MATERIAL" : "SELECIONE O FORNECEDOR PRIMEIRO"}</option>{filteredMaterials.map((material) => <option key={material.id} value={material.id}>{material.code} - {material.name || material.supplier}</option>)}</select></label>
+        <label style={productLabelStyle}>FORNECEDOR<SearchableSelect value={selectedSupplier} onChange={(value) => { setSupplierSelection((current) => ({ ...current, [item.id]: value })); update("materialId", ""); update("engineeringId", ""); }} options={supplierNames.map((supplier) => ({ value: supplier, label: supplier }))} placeholder="SELECIONE O FORNECEDOR" inputStyle={productInputStyle} ariaLabel="FORNECEDOR" /></label>
+        <label style={productLabelStyle}>MATERIAL<SearchableSelect value={item.materialId ?? ""} onChange={(value) => { const material = materials.find((candidate) => candidate.id === value); if (material?.supplier) setSupplierSelection((current) => ({ ...current, [item.id]: material.supplier })); update("materialId", value); update("engineeringId", ""); }} options={filteredMaterials.map((material) => ({ value: material.id, label: `${material.code} - ${material.name || material.supplier}` }))} placeholder={selectedSupplier ? "SELECIONE O MATERIAL" : "SELECIONE O FORNECEDOR PRIMEIRO"} inputStyle={productInputStyle} ariaLabel="MATERIAL" disabled={!selectedSupplier} /></label>
         <label style={productLabelStyle}>COMPRIMENTO (MM)<input type="number" value={item.length || ""} onChange={(event) => update("length", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>LARGURA (MM)<input type="number" value={item.width || ""} onChange={(event) => update("width", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         <label style={productLabelStyle}>ALTURA (MM)<input type="number" value={item.height || ""} onChange={(event) => update("height", Number(event.target.value) || 0)} style={productInputStyle} /></label>
         {options.accessory ? <label style={productLabelStyle}>QUANTIDADE POR CAIXA<input type="number" min="1" step="1" value={quantityPerBox} onChange={(event) => update("quantityPerBox", Math.max(1, Math.trunc(Number(event.target.value) || 1)))} style={productInputStyle} /></label> : null}
-        <label style={productLabelStyle}>ENGENHARIA<select value={item.engineeringId} onChange={(event) => update("engineeringId", event.target.value)} style={productInputStyle} disabled={!selectedMaterial}><option value="">{selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"}</option>{filteredEngineeringFormulas.map((formula) => <option key={formula.id} value={formula.id}>{formula.style} - {formula.description}</option>)}</select></label>
+        <label style={productLabelStyle}>ENGENHARIA<SearchableSelect value={item.engineeringId} onChange={(value) => update("engineeringId", value)} options={filteredEngineeringFormulas.map((formula) => ({ value: formula.id, label: `${formula.style} - ${formula.description}` }))} placeholder={selectedMaterial ? `SELECIONE A ENGENHARIA PARA ONDA ${selectedWave}` : "SELECIONE O MATERIAL PRIMEIRO"} inputStyle={productInputStyle} ariaLabel="ENGENHARIA" disabled={!selectedMaterial} /></label>
         {requiresTopOverlap ? <label style={productLabelStyle}>TRANSPASSE SUPERIOR (S) (MM)<input type="number" min="0" value={item.topOverlap || ""} onChange={(event) => update("topOverlap", Number(event.target.value) || 0)} style={productInputStyle} /></label> : null}
         <label style={{ ...productLabelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={item.observations} onChange={(event) => update("observations", event.target.value)} style={{ ...productInputStyle, minHeight: 82, paddingTop: 14, resize: "vertical" }} /></label>
         <label style={productLabelStyle}>{options.accessory ? "AREA CALCULADA 1 PECA (M2)" : "AREA CALCULADA DA CAIXA (M2)"}<input value={calculatedArea ? calculatedArea.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : ""} readOnly style={productInputStyle} /></label>
@@ -1343,7 +1341,7 @@ export function ProductCatalogPanel({
       ) : (
         <Panel title="FICHAS TECNICAS DE PRODUTOS" description="CADASTRE A CAIXA PRINCIPAL E OS ACESSORIOS VINCULADOS A CADA FT." actionLabel="+ NOVA FICHA TECNICA" onAction={startCreate}>
           <div style={productSearchBarStyle}>
-            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<input type="search" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="NOME, CODIGO OU CNPJ" list="product-client-search-options" style={productInputStyle} /><datalist id="product-client-search-options">{sortedClients.map((client) => <option key={client.id} value={productClientOptionLabel(client)} />)}</datalist></label>
+            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<SearchableFilter value={clientSearch} onChange={setClientSearch} options={sortedClients.map((client) => ({ value: client.id, label: `${productClientOptionLabel(client)} ${client.cnpj}` }))} placeholder="NOME, CODIGO OU CNPJ" inputStyle={productInputStyle} ariaLabel="BUSCAR POR CLIENTE" /></label>
             <label style={productSearchFieldStyle}>BUSCAR POR FICHA<input type="search" value={fichaSearch} onChange={(event) => setFichaSearch(event.target.value)} placeholder="NUMERO DA FT OU REFERENCIA" style={productInputStyle} /></label>
             <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientSearch || fichaSearch) && <button type="button" onClick={() => { setClientSearch(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
           </div>
@@ -2013,10 +2011,7 @@ function SelectField({ label, value, placeholder, options, onChange }: { label: 
   return (
     <label style={wideLabelStyle}>
       {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle}>
-        <option value="">{placeholder}</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
+      <SearchableSelect value={value} onChange={onChange} options={options.map((option) => ({ value: option, label: option }))} placeholder={placeholder} inputStyle={inputStyle} ariaLabel={label} />
     </label>
   );
 }

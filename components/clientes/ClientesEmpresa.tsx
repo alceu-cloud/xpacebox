@@ -13,6 +13,7 @@ import {
 import AmostrasEmpresa from "@/components/clientes/AmostrasEmpresa";
 import CrmEmpresa from "@/components/clientes/CrmEmpresa";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import type {
   ClientFormData,
@@ -551,10 +552,7 @@ function SelectField({ label, value, onChange, options, placeholder = "SELECIONE
   return (
     <label className="clients-field">
       <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{placeholder}</option>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      <SearchableSelect value={value} onChange={onChange} options={options} placeholder={placeholder} ariaLabel={label} />
     </label>
   );
 }

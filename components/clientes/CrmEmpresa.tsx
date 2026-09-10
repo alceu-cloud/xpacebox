@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import TelephonyCallHistory from "@/components/clientes/TelephonyCallHistory";
 import CurrencyInput from "@/components/ui/CurrencyInput";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import type { ClientRecord, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type {
@@ -746,10 +747,7 @@ export default function CrmEmpresa({
               <div className="crm-list-filters">
                 <input value={portfolioSearch} onChange={(event) => setPortfolioSearch(event.target.value)} placeholder="BUSCAR CLIENTE" />
                 {overview.isManager ? (
-                  <select value={portfolioOwnerFilter} onChange={(event) => setPortfolioOwnerFilter(event.target.value)}>
-                    <option value="ALL">TODA A EQUIPE</option>
-                    {representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  </select>
+                  <SearchableSelect value={portfolioOwnerFilter === "ALL" ? "" : portfolioOwnerFilter} onChange={(value) => setPortfolioOwnerFilter(value || "ALL")} options={representatives.map((item) => ({ value: item.id, label: item.name }))} placeholder="TODA A EQUIPE" ariaLabel="FILTRO DE CONSULTOR" />
                 ) : null}
               </div>
               <div className="crm-client-list">
@@ -874,10 +872,7 @@ function LostReasonModal({ reasons, value, onChange, onCancel, onConfirm }: { re
     <section className="crm-lost-reason-modal" role="dialog" aria-modal="true" aria-label="MOTIVO DA PERDA">
       <span>OPORTUNIDADE PERDIDA</span>
       <h3>QUAL FOI O MOTIVO?</h3>
-      <select value={value} onChange={(event) => onChange(event.target.value)} autoFocus>
-        <option value="">SELECIONE...</option>
-        {reasons.map((reason) => <option key={reason.id} value={reason.name}>{reason.name}</option>)}
-      </select>
+      <SearchableSelect value={value} onChange={onChange} options={reasons.map((reason) => ({ value: reason.name, label: reason.name }))} placeholder="SELECIONE..." ariaLabel="MOTIVO DA PERDA" autoFocus />
       <div><button type="button" onClick={onCancel}>CANCELAR</button><button type="button" disabled={!value} onClick={onConfirm}>CONFIRMAR PERDA</button></div>
     </section>
   </div>;
@@ -1020,10 +1015,7 @@ function AgendaBoard({
         <div className="crm-list-filters crm-agenda-filters">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR NA AGENDA" />
           {isManager ? (
-            <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
-              <option value="ALL">TODA A EQUIPE</option>
-              {representatives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <SearchableSelect value={ownerFilter === "ALL" ? "" : ownerFilter} onChange={(value) => setOwnerFilter(value || "ALL")} options={representatives.map((item) => ({ value: item.id, label: item.name }))} placeholder="TODA A EQUIPE" ariaLabel="FILTRO DE CONSULTOR" />
           ) : null}
         </div>
       </header>
@@ -1527,10 +1519,13 @@ function PipelineBoard({
             <span className="clients-eyebrow">FILTRO DE ABERTAS</span>
             <strong>CLIENTE</strong>
           </div>
-          <select value={openClientFilter} onChange={(event) => setOpenClientFilter(event.target.value)}>
-            <option value="ALL">TODOS OS CLIENTES</option>
-            {openClients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}
-          </select>
+          <SearchableSelect
+            value={openClientFilter === "ALL" ? "" : openClientFilter}
+            onChange={(value) => setOpenClientFilter(value || "ALL")}
+            options={openClients.map((client) => ({ value: client.id, label: client.tradeName || client.legalName }))}
+            placeholder="TODOS OS CLIENTES"
+            ariaLabel="FILTRO DE CLIENTE"
+          />
         </div>
         <div className="crm-pipeline-filter-group">
           <div>
@@ -1596,19 +1591,14 @@ function PipelineBoard({
                         : "SEM PREVISAO"}
                   </small>
                   {!item.clientId ? (
-                    <select
-                      aria-label="VINCULAR CLIENTE"
+                    <SearchableSelect
+                      ariaLabel="VINCULAR CLIENTE"
                       disabled={saving}
                       value=""
-                      onChange={(event) => onLinkClient(item, event.target.value)}
-                    >
-                      <option value="">VINCULAR CLIENTE</option>
-                      {clients.map((client) => (
-                        <option key={client.id} value={client.id}>
-                          {client.tradeName || client.legalName}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => onLinkClient(item, value)}
+                      placeholder="VINCULAR CLIENTE"
+                      options={clients.map((client) => ({ value: client.id, label: client.tradeName || client.legalName }))}
+                    />
                   ) : null}
                 </article>
               ))}
@@ -1718,7 +1708,7 @@ function CrmInput({ label, value, onChange, type = "text", currency = false, rea
 }
 
 function CrmSelect({ label, value, onChange, options, disabled = false }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; disabled?: boolean }) {
-  return <label className="crm-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}><option value="">SELECIONE</option>{options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>;
+  return <label className="crm-field"><span>{label}</span><SearchableSelect value={value} onChange={onChange} options={options} disabled={disabled} ariaLabel={label} /></label>;
 }
 
 type RankedClient = {

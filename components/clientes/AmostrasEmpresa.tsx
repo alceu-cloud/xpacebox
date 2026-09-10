@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { deleteClientSample, loadClientSamples, saveClientSample } from "@/lib/amostras";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
 import type { ProductFicha } from "@/types/gerenciador";
@@ -263,7 +264,7 @@ function SampleInput({ label, value, onChange, type = "text", wide = false }: { 
 }
 
 function SampleSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  return <label className="samples-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">SELECIONE</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="samples-field"><span>{label}</span><SearchableSelect value={value} onChange={onChange} options={options} ariaLabel={label} /></label>;
 }
 
 function Summary({ label, value }: { label: string; value: number }) {

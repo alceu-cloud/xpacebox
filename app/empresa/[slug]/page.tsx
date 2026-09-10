@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 
 import ModuleNavigation from "@/components/ui/ModuleNavigation";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import WorkspaceWelcome from "@/components/ui/WorkspaceWelcome";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
@@ -61,9 +62,9 @@ const etapasPreco = ["MATERIAIS", "TIPO DE CAIXA", "CONFIGURAR DIMENSOES", "LOTE
 type PricingStep = (typeof etapasPreco)[number];
 type PricingMode = "direct" | "engineering";
 type EngineeringPricingStep = "CLIENTE / PRODUTO" | "LOTE & LOGISTICA" | "VER PRECO";
-type BoxCategory = "maleta" | "corte-vinco" | "envoltoria" | "tabuleiro";
+type BoxCategory = "maleta" | "corte-vinco" | "envoltoria" | "tabuleiro" | "tubo";
 type BoxModelKey = string;
-type BoxIllustrationType = "maleta" | "sedex" | "tabuleiro" | "transpasse";
+type BoxIllustrationType = "maleta" | "sedex" | "tabuleiro" | "transpasse" | "tubo";
 type BoxDimensionMode = "full" | "hide-height" | "disabled-height";
 type BoxModelOption = {
   key: BoxModelKey;
@@ -104,7 +105,7 @@ const categoryOptions: Array<{
   { key: "corte-vinco", title: "Corte & vinco", subtitle: "Modelos especiais", image: "sedex" },
   { key: "envoltoria", title: "Caixa envoltória", subtitle: "Abas e transpasses", image: "transpasse" },
   { key: "tabuleiro", title: "Tabuleiro", subtitle: "Chapas planas (C x L)", image: "tabuleiro" },
-  { title: "Em desenvolvimento", subtitle: "Nova categoria", image: "maleta", disabled: true },
+  { key: "tubo", title: "Caixa tubo", subtitle: "Modelos de tubo", image: "tubo" },
   { title: "Em desenvolvimento", subtitle: "Nova categoria", image: "sedex", disabled: true },
 ];
 
@@ -121,6 +122,10 @@ const defaultModelOptions: Record<BoxCategory, BoxModelOption[]> = {
     { key: "tabuleiro", title: "Tabuleiro", subtitle: "Chapa plana sem altura", formulaId: "tab-b", image: "tabuleiro", dimensionMode: "disabled-height" },
   ],
   envoltoria: [],
+  tubo: [
+    { key: "caixa-tubo-onda-invertida", title: "Caixa tubo onda invertida", subtitle: "Fórmula B", formulaId: "cxbs", image: "tubo", dimensionMode: "full" },
+    { key: "meia-caixa-tubo-onda-invertida", title: "Meia caixa tubo onda invertida", subtitle: "Fórmula B", formulaId: "ctoim-b", image: "tubo", dimensionMode: "full" },
+  ],
 };
 
 function normalizeFormulaText(value: string) {
@@ -129,6 +134,7 @@ function normalizeFormulaText(value: string) {
 
 function formulaCategory(formula: EngineeringFormula): BoxCategory | null {
   const text = normalizeFormulaText(`${formula.category} ${formula.style} ${formula.description}`);
+  if (text.includes("TUBO")) return "tubo";
   if (text.includes("ENVOLTOR")) return "envoltoria";
   if (text.includes("TABULEIRO")) return "tabuleiro";
   if (text.includes("MALETA")) return "maleta";
@@ -153,6 +159,7 @@ function formulaTitle(value: string) {
 
 function formulaImage(category: BoxCategory, formula: EngineeringFormula): BoxIllustrationType {
   const text = normalizeFormulaText(`${formula.style} ${formula.description}`);
+  if (category === "tubo") return "tubo";
   if (category === "tabuleiro") return "tabuleiro";
   if (category === "envoltoria" || text.includes("TRANSPASSE")) return "transpasse";
   if (text.includes("SEDEX")) return "sedex";
@@ -1064,17 +1071,11 @@ function EngineeringProductStep({
         </label>
         <label style={engineeringSelectionLabelStyle}>
           CLIENTE
-          <select value={selectedClientId} onChange={(event) => onClientChange(event.target.value)} style={engineeringSelectionInputStyle}>
-            <option value="">SELECIONE O CLIENTE</option>
-            {clients.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName}</option>)}
-          </select>
+          <SearchableSelect value={selectedClientId} onChange={onClientChange} options={clients.map((client) => ({ value: client.id, label: client.tradeName || client.legalName }))} placeholder="SELECIONE O CLIENTE" inputStyle={engineeringSelectionInputStyle} ariaLabel="CLIENTE" />
         </label>
         <label style={{ ...engineeringSelectionLabelStyle, gridColumn: "1 / -1" }}>
           PRODUTO / FICHA TECNICA
-          <select value={selectedFichaId} onChange={(event) => onFichaChange(event.target.value)} style={engineeringSelectionInputStyle} disabled={!selectedClientId}>
-            <option value="">{selectedClientId ? "SELECIONE O PRODUTO" : "SELECIONE PRIMEIRO O CLIENTE"}</option>
-            {fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.ftNumber} - {ficha.reference}</option>)}
-          </select>
+          <SearchableSelect value={selectedFichaId} onChange={onFichaChange} options={fichas.map((ficha) => ({ value: ficha.id, label: `${ficha.ftNumber} - ${ficha.reference}` }))} placeholder={selectedClientId ? "SELECIONE O PRODUTO" : "SELECIONE PRIMEIRO O CLIENTE"} inputStyle={engineeringSelectionInputStyle} ariaLabel="PRODUTO OU FICHA TECNICA" disabled={!selectedClientId} />
         </label>
       </div>
 
@@ -1183,13 +1184,7 @@ function SelectField({
   return (
     <label style={selectFieldStyle}>
       <span style={selectLabelStyle}>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={selectStyle}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <SearchableSelect value={value} onChange={onChange} options={options} inputStyle={selectStyle} ariaLabel={label} />
     </label>
   );
 }
@@ -2166,7 +2161,7 @@ function DimensionDrawing({
   image,
   mode,
 }: {
-  image: "maleta" | "sedex" | "tabuleiro" | "transpasse";
+  image: "maleta" | "sedex" | "tabuleiro" | "transpasse" | "tubo";
   mode: "full" | "hide-height" | "disabled-height";
 }) {
   const showHeight = mode !== "hide-height";
@@ -2194,6 +2189,16 @@ function DimensionDrawing({
             <polyline points="44,122 80,184 242,122" fill="none" stroke="#684a23" strokeWidth="2" opacity=".55" />
             <DimensionArrow x1={78} y1={202} x2={236} y2={142} label="C" />
             <DimensionArrow x1={28} y1={118} x2={66} y2={180} label="L" />
+          </>
+        ) : image === "tubo" ? (
+          <>
+            <polygon points="38,108 188,54 242,82 92,138" fill={`url(#kraft-top-${image})`} stroke="#65451f" strokeWidth="2.5" />
+            <polygon points="38,108 92,138 92,184 38,154" fill={`url(#kraft-side-${image})`} stroke="#65451f" strokeWidth="2.5" />
+            <polygon points="92,138 242,82 242,128 92,184" fill={`url(#kraft-front-${image})`} stroke="#65451f" strokeWidth="2.5" />
+            <path d="M68 98 L210 46 M78 126 L230 72" fill="none" stroke="#7a5527" strokeWidth="2" opacity=".48" />
+            <DimensionArrow x1={92} y1={204} x2={238} y2={148} label="C" />
+            <DimensionArrow x1={30} y1={114} x2={82} y2={180} label="L" />
+            <DimensionArrow x1={256} y1={84} x2={256} y2={128} label="A" />
           </>
         ) : image === "sedex" ? (
           <>
@@ -2308,7 +2313,15 @@ function formatCurrency(value: number) {
 
 function BoxIllustration({ type, compact }: { type: BoxIllustrationType; compact?: boolean }) {
   const lines =
-    type === "sedex"
+    type === "tubo"
+      ? [
+          "M18 58 L98 24 L142 44 L62 78 Z",
+          "M18 58 L18 88 L62 108 L62 78 Z",
+          "M142 44 L142 74 L62 108 L62 78 Z",
+          "M42 50 L122 18",
+          "M42 74 L122 42",
+        ]
+      : type === "sedex"
       ? [
           "M38 34 L88 14 L84 42 L34 62 Z",
           "M34 62 L84 42 L84 82 L34 102 Z",
@@ -2471,7 +2484,7 @@ const pricingTitleStyle = { margin: 0, color: "#141827", fontWeight: 900 , ...ui
 const pricingSubtitleStyle = { margin: "12px 0 0", color: "#344054", fontSize: 16, fontWeight: 800 };
 const sectionLabelStyle = { margin: "18px 0 12px", color: "#141827", textTransform: "uppercase" as const, ...ui.label };
 const categoryGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-6), minmax(0, 1fr))", gap: 10, minWidth: 0 };
-const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-3), minmax(0, 1fr))", gap: 12, maxWidth: 920, minWidth: 0 };
+const modelGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))", gap: 12, minWidth: 0 };
 const optionCardStyle = { minHeight: 150, display: "grid", placeItems: "center", alignContent: "center", gap: 6, color: "#141827", cursor: "pointer", ...ui.frame, padding: 18 };
 const compactOptionCardStyle = { minHeight: 116, gap: 4, padding: 12 };
 const disabledOptionCardStyle = { cursor: "not-allowed", opacity: .45, background: "#f7f7fa" };
