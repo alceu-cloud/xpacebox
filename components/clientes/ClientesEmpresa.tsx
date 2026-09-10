@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarDays, ClipboardList, ContactRound, PackageCheck, Tre
 
 import {
   deactivateClient,
+  loadClientChangeHistory,
   loadClientOptions,
   loadClients,
   lookupCnpj,
@@ -66,6 +67,7 @@ export default function ClientesEmpresa({
   productFichas = [],
   forceCrm = false,
   forcedClientId = "",
+  onProductFichasSync,
 }: {
   slug: string;
   paymentConditions?: PaymentCondition[];
@@ -77,6 +79,7 @@ export default function ClientesEmpresa({
   productFichas?: ProductFicha[];
   forceCrm?: boolean;
   forcedClientId?: string;
+  onProductFichasSync?: (fichas: ProductFicha[]) => void;
 }) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [sellerCompanies, setSellerCompanies] = useState<SellerCompanyOption[]>([]);
@@ -89,6 +92,7 @@ export default function ClientesEmpresa({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
+  const [historyLoadingId, setHistoryLoadingId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -149,6 +153,7 @@ export default function ClientesEmpresa({
     const names = [...taxRegimes.map((item) => item.name), ...automaticOptions];
     return [...new Set(names)].map((name) => ({ value: name, label: name }));
   }, [taxRegimes]);
+  const editingClient = form.id ? clients.find((client) => client.id === form.id) : undefined;
 
   async function handleLookup() {
     const cnpj = digits(form.cnpj);
@@ -203,7 +208,8 @@ export default function ClientesEmpresa({
     setError("");
     setMessage("");
     try {
-      const saved = await persistClient(slug, form);
+      const { client: saved, syncedProductFichas } = await persistClient(slug, form);
+      if (syncedProductFichas.length) onProductFichasSync?.(syncedProductFichas);
       setClients((current) => {
         const exists = current.some((client) => client.id === saved.id);
         const next = exists ? current.map((client) => (client.id === saved.id ? saved : client)) : [...current, saved];
@@ -218,7 +224,7 @@ export default function ClientesEmpresa({
     }
   }
 
-  function handleEdit(client: ClientRecord) {
+  async function handleEdit(client: ClientRecord) {
     setForm({
       id: client.id,
       legalName: client.legalName,
@@ -251,6 +257,15 @@ export default function ClientesEmpresa({
     setMessage(`EDITANDO ${client.clientCode}.`);
     setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+    setHistoryLoadingId(client.id);
+    try {
+      const changeHistory = await loadClientChangeHistory(slug, client.id);
+      setClients((current) => current.map((item) => item.id === client.id ? { ...item, changeHistory } : item));
+    } catch (historyError) {
+      setError(messageFrom(historyError));
+    } finally {
+      setHistoryLoadingId((current) => current === client.id ? "" : current);
+    }
   }
 
   async function handleDeactivate(client: ClientRecord) {
@@ -360,7 +375,7 @@ export default function ClientesEmpresa({
               value=""
               onChange={(event) => {
                 const client = clients.find((item) => item.id === event.target.value);
-                if (client) handleEdit(client);
+                if (client) void handleEdit(client);
               }}
               aria-label="SELECIONE O CLIENTE ENCONTRADO"
             >
@@ -453,6 +468,35 @@ export default function ClientesEmpresa({
           </div>
         </FormSection>
 
+        {editingClient && (
+          <FormSection title="HISTORICO DE ALTERACOES">
+            {historyLoadingId === editingClient.id ? (
+              <div className="clients-history-empty">CARREGANDO HISTORICO...</div>
+            ) : editingClient.changeHistory.length === 0 ? (
+              <div className="clients-history-empty">NENHUMA ALTERACAO REGISTRADA AINDA.</div>
+            ) : (
+              <div className="clients-history-list">
+                {editingClient.changeHistory.map((entry) => (
+                  <details key={entry.id} className="clients-history-entry">
+                    <summary>
+                      <strong>{formatDateTime(entry.changedAt)}</strong>
+                      <span>{entry.changedByName} · {entry.changes.length} CAMPO(S)</span>
+                    </summary>
+                    <div className="clients-history-changes">
+                      {entry.changes.map((change, index) => (
+                        <div key={`${entry.id}-${change.field}-${index}`}>
+                          <strong>{change.label}</strong>
+                          <span>{change.previousValue} → {change.nextValue}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </FormSection>
+        )}
+
         <div className="clients-actions">
           {form.id && (
             <button type="button" className="clients-button-secondary" onClick={() => setForm({ ...emptyForm, sellerCompanyId: sellerCompanies[0]?.id || "" })}>
@@ -502,7 +546,7 @@ export default function ClientesEmpresa({
                     <td>{client.representativeName || "NAO DEFINIDO"}</td>
                     <td>
                       <div className="clients-row-actions">
-                        <button type="button" onClick={() => handleEdit(client)}>EDITAR</button>
+                        <button type="button" onClick={() => void handleEdit(client)}>EDITAR</button>
                         <button type="button" className="danger" onClick={() => handleDeactivate(client)}>DESATIVAR</button>
                       </div>
                     </td>
@@ -581,6 +625,12 @@ function formatPhone(value: string) {
   const number = digitsValue.slice(2);
   if (number.length <= 8) return `(${ddd}) ${number.slice(0, 4)}${number.length > 4 ? `-${number.slice(4)}` : ""}`;
   return `(${ddd}) ${number.slice(0, 5)}-${number.slice(5)}`;
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(date);
 }
 
 function messageFrom(error: unknown) {

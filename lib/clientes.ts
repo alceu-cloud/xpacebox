@@ -1,4 +1,5 @@
-import type { ClientFormData, ClientRecord, CnpjLookupResult, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
+import type { ClientChangeLog, ClientFormData, ClientRecord, CnpjLookupResult, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
+import type { ProductFicha } from "@/types/gerenciador";
 
 type ClientOptions = {
   sellerCompanies: SellerCompanyOption[];
@@ -39,12 +40,17 @@ export async function loadClients(slug: string): Promise<ClientRecord[]> {
   return payload.clients;
 }
 
-export async function saveClient(slug: string, client: ClientFormData): Promise<ClientRecord> {
+export async function loadClientChangeHistory(slug: string, clientId: string): Promise<ClientChangeLog[]> {
+  const payload = await authorizedFetch(`/api/clientes?slug=${encodeURIComponent(slug)}&historyClientId=${encodeURIComponent(clientId)}`);
+  return payload.history;
+}
+
+export async function saveClient(slug: string, client: ClientFormData): Promise<{ client: ClientRecord; syncedProductFichas: ProductFicha[] }> {
   const payload = await authorizedFetch("/api/clientes", {
     method: client.id ? "PATCH" : "POST",
     body: JSON.stringify({ slug, client }),
   });
-  return payload.client;
+  return { client: payload.client, syncedProductFichas: payload.syncedProductFichas ?? [] };
 }
 
 export async function deactivateClient(slug: string, id: string) {

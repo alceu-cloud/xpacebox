@@ -379,7 +379,7 @@ export default function EmpresaPage() {
             onProductColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloEmExibicao === "clientes" ? (
-          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} lostReasons={lostReasons} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} />
+          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} lostReasons={lostReasons} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} onProductFichasSync={(syncedFichas) => setProductFichas((current) => { const syncedById = new Map(syncedFichas.map((ficha) => [ficha.id, ficha])); return current.map((ficha) => syncedById.get(ficha.id) ?? ficha); })} />
         ) : moduloEmExibicao === "produtos" ? (
           <ProductCatalogPanel
             companySlug={slug}

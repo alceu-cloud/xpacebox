@@ -10,6 +10,20 @@ export type RepresentativeOption = {
   email: string;
 };
 
+export type ClientChange = {
+  field: string;
+  label: string;
+  previousValue: string;
+  nextValue: string;
+};
+
+export type ClientChangeLog = {
+  id: string;
+  changedAt: string;
+  changedByName: string;
+  changes: ClientChange[];
+};
+
 export type ClientRecord = {
   id: string;
   clientNumber: number;
@@ -44,6 +58,7 @@ export type ClientRecord = {
   icms: string;
   active: boolean;
   updatedAt: string;
+  changeHistory: ClientChangeLog[];
 };
 
 export type ClientFormData = {
