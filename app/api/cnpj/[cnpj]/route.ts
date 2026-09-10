@@ -7,6 +7,8 @@ export const preferredRegion = "gru1";
 
 let tokenCache: { value: string; expiresAt: number } | null = null;
 const emptyTaxLookup = { stateRegistration: "", taxRegime: "" };
+const primaryLookupTimeoutMs = 4_000;
+const optionalLookupTimeoutMs = 2_500;
 
 export async function GET(request: Request, context: { params: Promise<{ cnpj: string }> }) {
   try {
@@ -15,28 +17,23 @@ export async function GET(request: Request, context: { params: Promise<{ cnpj: s
     const cnpj = rawCnpj.replace(/\D/g, "");
     if (cnpj.length !== 14) return failure("CNPJ INVALIDO.", 400);
 
-    const source = hasSerproCredentials()
-      ? await lookupSerpro(cnpj)
-      : await lookupBrasilApi(cnpj);
+    const source = await lookupCompanySource(cnpj);
     const company = mapCompany(source, cnpj);
-    const sintegra = company.stateRegistration && company.taxRegime
-      ? emptyTaxLookup
-      : await lookupSintegraTaxData(cnpj);
-    const stateRegistration = company.stateRegistration || sintegra.stateRegistration;
-    const taxRegime = company.taxRegime || sintegra.taxRegime;
-    const simpleNational = taxRegime
-      ? emptyTaxLookup
-      : await lookupSimpleNationalTaxData(cnpj);
-    const resolvedTaxRegime = taxRegime || simpleNational.taxRegime;
-    const cnpjWs = stateRegistration && resolvedTaxRegime
-      ? emptyTaxLookup
-      : await lookupCnpjWsTaxData(cnpj);
+    const needsStateRegistration = !company.stateRegistration;
+    const needsTaxRegime = !company.taxRegime;
+    const [sintegra, simpleNational, cnpjWs] = await Promise.all([
+      needsStateRegistration || needsTaxRegime ? lookupSintegraTaxData(cnpj) : emptyTaxLookup,
+      needsTaxRegime ? lookupSimpleNationalTaxData(cnpj) : emptyTaxLookup,
+      needsStateRegistration || needsTaxRegime ? lookupCnpjWsTaxData(cnpj) : emptyTaxLookup,
+    ]);
+    const stateRegistration = company.stateRegistration || sintegra.stateRegistration || cnpjWs.stateRegistration;
+    const resolvedTaxRegime = company.taxRegime || sintegra.taxRegime || simpleNational.taxRegime || cnpjWs.taxRegime;
     return NextResponse.json({
       success: true,
       company: {
         ...company,
-        stateRegistration: stateRegistration || cnpjWs.stateRegistration,
-        taxRegime: resolvedTaxRegime || cnpjWs.taxRegime,
+        stateRegistration,
+        taxRegime: resolvedTaxRegime,
       },
     });
   } catch (error) {
@@ -55,6 +52,7 @@ async function lookupSintegraTaxData(cnpj: string) {
     const response = await fetch(`https://www.sintegraws.com.br/api/v1/execute-api.php?${params}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
+      signal: AbortSignal.timeout(optionalLookupTimeoutMs),
     });
     const body = await response.text();
     if (!response.ok) {
@@ -80,6 +78,7 @@ async function lookupCnpjWsTaxData(cnpj: string) {
     const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
+      signal: AbortSignal.timeout(optionalLookupTimeoutMs),
     });
     if (!response.ok) {
       console.error("CNPJ WS IE HTTP ERROR", response.status);
@@ -106,6 +105,7 @@ async function lookupSimpleNationalTaxData(cnpj: string) {
     const response = await fetch(`https://www.sintegraws.com.br/api/v1/execute-api.php?${params}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
+      signal: AbortSignal.timeout(optionalLookupTimeoutMs),
     });
     const body = await response.text();
     if (!response.ok) {
@@ -132,12 +132,23 @@ function hasSerproCredentials() {
   );
 }
 
+async function lookupCompanySource(cnpj: string) {
+  if (!hasSerproCredentials()) return lookupBrasilApi(cnpj);
+  try {
+    return await lookupSerpro(cnpj);
+  } catch (error) {
+    console.error("SERPRO CNPJ FALLBACK", error);
+    return lookupBrasilApi(cnpj);
+  }
+}
+
 async function lookupSerpro(cnpj: string) {
   const token = await getSerproToken();
   const baseUrl = process.env.SERPRO_CNPJ_BASE_URL!.replace(/\/$/, "");
   const response = await fetch(`${baseUrl}/${cnpj}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     cache: "no-store",
+    signal: AbortSignal.timeout(primaryLookupTimeoutMs),
   });
 
   if (response.status === 404) throw new AccessError("CNPJ NAO ENCONTRADO NA RECEITA FEDERAL.", 404);
@@ -155,6 +166,7 @@ async function lookupBrasilApi(cnpj: string) {
       "User-Agent": "Xpacebox/1.0 (consulta cadastral autorizada pelo usuario)",
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(primaryLookupTimeoutMs),
   });
 
   if (response.status === 404) throw new AccessError("CNPJ NAO ENCONTRADO NA BASE PUBLICA.", 404);
@@ -188,6 +200,7 @@ async function getSerproToken() {
     },
     body: "grant_type=client_credentials",
     cache: "no-store",
+    signal: AbortSignal.timeout(primaryLookupTimeoutMs),
   });
 
   if (!response.ok) throw new Error(`SERPRO TOKEN ${response.status}`);
