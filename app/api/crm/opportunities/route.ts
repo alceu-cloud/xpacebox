@@ -156,7 +156,7 @@ async function save(request: Request, editing: boolean) {
     }
     if (editing && closesNow) {
       await clearOpportunityAgenda(admin, company.id, data.id);
-      if (input.clientId && (input.stage === "WON" || ownsCycleAgenda)) {
+      if (input.clientId) {
         const cycle = await scheduleCommercialCycle({
           admin,
           companyId: company.id,

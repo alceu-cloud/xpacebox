@@ -19,7 +19,7 @@ import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@
 import { calculateProductArea, evaluateEngineeringFormula, formulaUsesDimension, formulaUsesTopOverlap, getAccessoryQuantity, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
-import { isMaterialAvailableForUse } from "@/lib/gerenciador/materials";
+import { isMaterialAvailableForUse, sortMaterialsByWaveAndCode } from "@/lib/gerenciador/materials";
 import { supabase } from "@/lib/supabase";
 import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoals, PricingGoalsByCompany, PricingOperationalParams, PricingParams, PricingParamsByCompany, ProductFicha, ProductPriceSnapshot, ProductionTime, QuoteParametersByCompany, SalesGoals, SalesRepresentative, SpecificMaterial, Supplier } from "@/types/gerenciador";
 import type { ClientRecord } from "@/types/clientes";
@@ -379,7 +379,7 @@ export default function EmpresaPage() {
             onProductColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloEmExibicao === "clientes" ? (
-          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} lostReasons={lostReasons} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} />
+          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} lostReasons={lostReasons} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} onProductFichasSync={(syncedFichas) => setProductFichas((current) => { const syncedById = new Map(syncedFichas.map((ficha) => [ficha.id, ficha])); return current.map((ficha) => syncedById.get(ficha.id) ?? ficha); })} />
         ) : moduloEmExibicao === "produtos" ? (
           <ProductCatalogPanel
             companySlug={slug}
@@ -1147,7 +1147,7 @@ function MaterialStep({
         label="MATERIAL CADASTRADO (ESPECIFICACAO TECNICA)"
         value={materialId}
         onChange={onMaterialChange}
-        options={materials.map((material) => ({ value: material.id, label: `${material.code} - (${formatCurrency(material.costIpi)}/M2)` }))}
+        options={sortMaterialsByWaveAndCode(materials).map((material) => ({ value: material.id, label: `${material.code} - (${formatCurrency(material.costIpi)}/M2)` }))}
       />
 
       <p style={materialHelpStyle}>OS MATERIAIS SAO LISTADOS CONFORME OS CADASTROS GERAIS DO FORNECEDOR E TIPO DE PAPELAO ESCOLHIDOS.</p>
