@@ -972,7 +972,7 @@ export function ProductCatalogPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProductFicha | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
-  const [clientFilterId, setClientFilterId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
   const [fichaSearch, setFichaSearch] = useState("");
   const [supplierSelection, setSupplierSelection] = useState<Record<string, string>>({});
   const [productMenuOpen, setProductMenuOpen] = useState(false);
@@ -991,12 +991,15 @@ export function ProductCatalogPanel({
     [clients]
   );
   const filteredFichas = useMemo(() => {
+    const clientTerm = normalizeProductSearch(clientSearch);
     const fichaTerm = normalizeProductSearch(fichaSearch);
     return fichas.filter((ficha) => {
+      const client = clientsById.get(ficha.clientId);
+      const clientText = client ? normalizeProductSearch(`${productClientOptionLabel(client)} ${client.cnpj}`) : "";
       const fichaText = normalizeProductSearch(`${ficha.ftNumber} ${ficha.reference}`);
-      return (!clientFilterId || ficha.clientId === clientFilterId) && (!fichaTerm || fichaText.includes(fichaTerm));
+      return (!clientTerm || clientText.includes(clientTerm)) && (!fichaTerm || fichaText.includes(fichaTerm));
     });
-  }, [clientFilterId, fichaSearch, fichas]);
+  }, [clientSearch, clientsById, fichaSearch, fichas]);
 
   function startCreate() {
     setEditingId(null);
@@ -1340,9 +1343,9 @@ export function ProductCatalogPanel({
       ) : (
         <Panel title="FICHAS TECNICAS DE PRODUTOS" description="CADASTRE A CAIXA PRINCIPAL E OS ACESSORIOS VINCULADOS A CADA FT." actionLabel="+ NOVA FICHA TECNICA" onAction={startCreate}>
           <div style={productSearchBarStyle}>
-            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<select value={clientFilterId} onChange={(event) => setClientFilterId(event.target.value)} style={productInputStyle}><option value="">TODOS OS CLIENTES</option>{sortedClients.map((client) => <option key={client.id} value={client.id}>{productClientOptionLabel(client)}</option>)}</select></label>
+            <label style={productSearchFieldStyle}>BUSCAR POR CLIENTE<input type="search" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="NOME, CODIGO OU CNPJ" list="product-client-search-options" style={productInputStyle} /><datalist id="product-client-search-options">{sortedClients.map((client) => <option key={client.id} value={productClientOptionLabel(client)} />)}</datalist></label>
             <label style={productSearchFieldStyle}>BUSCAR POR FICHA<input type="search" value={fichaSearch} onChange={(event) => setFichaSearch(event.target.value)} placeholder="NUMERO DA FT OU REFERENCIA" style={productInputStyle} /></label>
-            <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientFilterId || fichaSearch) && <button type="button" onClick={() => { setClientFilterId(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
+            <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientSearch || fichaSearch) && <button type="button" onClick={() => { setClientSearch(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
           </div>
           {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => { const client = clientsById.get(ficha.clientId); const clientName = productClientName(client) || "CLIENTE NAO INFORMADO"; return <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaClientStyle}>{clientName}</small><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S)</small></div><div style={fichaActionsStyle}><button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button><button type="button" onClick={() => duplicateEngineering(ficha)} style={duplicateButtonStyle}>DUPLICAR ENGENHARIA</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>; })}
         </Panel>
