@@ -16,14 +16,25 @@ export async function PUT(request: Request) {
     if (input.ownerProfileId) await requireCompanyProfile(admin, company.id, input.ownerProfileId);
     const { data: currentProfile, error: currentProfileError } = await admin
       .from("crm_customer_profiles")
-      .select("next_contact_at")
+      .select("next_contact_at,last_purchase_at,purchase_frequency_days,average_purchase_value")
       .eq("tenant_company_id", company.id)
       .eq("client_id", input.clientId)
       .maybeSingle();
     if (currentProfileError) throw currentProfileError;
     const purchaseFrequencyDays = input.purchaseFrequencyDays && input.purchaseFrequencyDays > 0 ? Math.trunc(input.purchaseFrequencyDays) : null;
     const nextPurchaseAt = input.nextPurchaseAt || calculateNextPurchaseDate(input.lastPurchaseAt, purchaseFrequencyDays);
-    const nextContactAt = input.nextContactAt || null;
+    const hadPurchaseHistory = Boolean(
+      currentProfile?.last_purchase_at ||
+      currentProfile?.purchase_frequency_days ||
+      Number(currentProfile?.average_purchase_value || 0) > 0
+    );
+    const isInitialPurchaseSetup = !hadPurchaseHistory && Boolean(
+      input.lastPurchaseAt || purchaseFrequencyDays || Number(input.averagePurchaseValue || 0) > 0
+    );
+
+    // Initial portfolio data is a baseline, not a new sale to be pursued.
+    // Real cycle agendas are created by a registered order or a won opportunity.
+    const nextContactAt = isInitialPurchaseSetup ? null : input.nextContactAt || null;
 
     const payload = {
       tenant_company_id: company.id,
