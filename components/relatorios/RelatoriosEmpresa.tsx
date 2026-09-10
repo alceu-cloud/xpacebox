@@ -17,10 +17,10 @@ type Client = { id: string; name: string; sellerCompanyId: string; sellerCompany
 type Profile = { client_id: string; owner_profile_id: string | null; purchase_frequency_days: number | null; average_purchase_value: number; last_purchase_at: string | null; next_purchase_at: string | null; next_contact_at: string | null; relationship_status: string };
 type Opportunity = { id: string; client_id: string | null; representative_profile_id: string | null; quote_id: string | null; title: string; product_ficha_id: string | null; product_reference: string | null; stage: string; estimated_value: number; expected_close_date: string | null; lost_reason: string | null; closed_at: string | null; created_at: string; updated_at: string };
 type Activity = { id: string; client_id: string; opportunity_id: string | null; representative_profile_id: string | null; activity_type: string; outcome: string; subject: string | null; occurred_at: string; next_action_at: string | null };
-type QuoteItem = { item_number: number; ft_number: string | null; description: string; total: number; snapshot?: Record<string, unknown> };
+type QuoteItem = { item_number: number; ft_number: string | null; description: string; quantity: number; unit_price: number; total: number; snapshot?: Record<string, unknown> };
 type Quote = { id: string; client_id: string | null; representative_profile_id: string | null; seller_company_name: string; seller_company_slug: string; quote_number: string; grand_total: number; issue_date: string; valid_until: string | null; created_at: string; quote_items: QuoteItem[] };
 type SalesOrder = { id: string; client_id: string; representative_profile_id: string | null; crm_opportunity_id: string | null; sale_number: string; product_total: number; ipi_total: number; grand_total: number; contribution_total: number | null; mc_percent: number | null; ordered_at: string; created_at: string };
-type MaterialSnapshot = { materialId?: string; materialCode?: string; paperType?: string; createdAt?: string };
+type MaterialSnapshot = { materialId?: string; materialCode?: string; paperType?: string; createdAt?: string; price?: number; mcPercent?: number; netPrice?: number; marginValue?: number };
 type ProductFicha = { id?: string; ftNumber?: string; clientId?: string; reference?: string; materialId?: string; company?: string; pricingData?: MaterialSnapshot; priceHistory?: MaterialSnapshot[] };
 type Material = { id?: string; code?: string; paperType?: string; supplier?: string; pressure?: string; costIpi?: number };
 type ReportData = { isManager: boolean; currentProfileId: string; representatives: Array<{ id: string; name: string }>; clients: Client[]; profiles: Profile[]; activities: Activity[]; opportunities: Opportunity[]; quotes: Quote[]; salesOrders: SalesOrder[]; productFichas: ProductFicha[]; materials: Material[]; salesGoals: { byRepresentative?: Record<string, number> } | null };
@@ -211,9 +211,7 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
   const open = data.opportunities.filter((item) => !["WON", "LOST"].includes(item.stage));
   const totalWon = sum(won, (item) => item.estimated_value);
   const totalLost = sum(lost, (item) => item.estimated_value);
-  const salesInRange = data.salesOrders.filter((item) => inRange(item.ordered_at, range));
-  const salesWithMargin = salesInRange.filter((item) => item.mc_percent != null && item.product_total > 0);
-  const weightedSalesMc = sum(salesWithMargin, (item) => Number(item.mc_percent || 0) * item.product_total) / sum(salesWithMargin, (item) => item.product_total);
+  const predictedMargin = predictedMarginSummary(won, data.quotes, data.salesOrders, data.productFichas, totalWon);
   const saleOpportunityIds = new Set(data.salesOrders.map((item) => item.crm_opportunity_id || "").filter(Boolean));
 
   if (report === "closing") {
@@ -221,8 +219,12 @@ function ReportContent({ report, data, rawData, range }: { report: ReportKey; da
     const crmWon = crmOpportunities.filter((item) => item.stage === "WON");
     const crmLost = crmOpportunities.filter((item) => item.stage === "LOST");
     const qualified = [...crmWon, ...crmLost];
-    return <ReportLayout title="FECHAMENTO DO MES" description="O VALOR PREVISTO SOMA TODAS AS OPORTUNIDADES GANHAS NO PERIODO. A MC CONTINUA VINDO SOMENTE DOS PEDIDOS REGISTRADOS.">
-      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("VALOR PREVISTO", totalWon, "#16a34a"), metric("MC MEDIA DAS VENDAS", salesWithMargin.length ? `${weightedSalesMc.toFixed(2)}%` : "SEM DADOS", "#0284c7", true), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO CRM", qualified.length ? `${Math.round((crmWon.length / qualified.length) * 100)}%` : "-", "#e68019", true)]}/>
+    const marginLabel = predictedMargin.coveragePercent >= 80 ? "MC PREVISTA" : "MC PREVISTA PARCIAL";
+    const marginNote = predictedMargin.coveredValue > 0
+      ? `${predictedMargin.coveragePercent < 80 ? "DADOS INSUFICIENTES · " : ""}COBERTURA ${formatPercent(predictedMargin.coveragePercent)} · ${money(predictedMargin.coveredValue)} DE ${money(totalWon)}`
+      : "NENHUM NEGOCIO GANHO POSSUI MARGEM SALVA";
+    return <ReportLayout title="FECHAMENTO DO MES" description="O VALOR PREVISTO SOMA TODAS AS OPORTUNIDADES GANHAS NO PERIODO. A MC E CALCULADA SOMENTE SOBRE OS NEGOCIOS COM MARGEM SALVA E EXIBE A COBERTURA DA BASE.">
+      <MetricGrid items={[metric("ORCADO NO PERIODO", sum(data.quotes.filter((item) => inRange(item.created_at, range)), (item) => item.grand_total), "#7c3aed"), metric("VALOR PREVISTO", totalWon, "#16a34a"), metric(marginLabel, predictedMargin.percent == null ? "SEM DADOS" : `${predictedMargin.percent.toFixed(2)}%`, "#0284c7", true, marginNote), metric("PERDIDO", totalLost, "#f43f5e"), metric("CONVERSAO CRM", qualified.length ? `${Math.round((crmWon.length / qualified.length) * 100)}%` : "-", "#e68019", true)]}/>
       <StageTable opportunities={inRangeOpps} />
     </ReportLayout>;
   }
@@ -338,7 +340,7 @@ function ProductionComingSoon() {
 }
 
 function ReportLayout({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section style={contentStyle}><div style={contentHeaderStyle}><h3 style={contentTitleStyle}>{title}</h3><p style={contentDescriptionStyle}>{description}</p></div>{children}</section>; }
-function MetricGrid({ items }: { items: Array<{ label: string; value: string; color: string }> }) { return <div style={metricGridStyle}>{items.map((item) => <article key={item.label} style={{ ...metricCardStyle, borderTopColor: item.color }}><span>{item.label}</span><strong style={{ color: item.color }}>{item.value}</strong></article>)}</div>; }
+function MetricGrid({ items }: { items: Array<{ label: string; value: string; color: string; note?: string }> }) { return <div style={metricGridStyle}>{items.map((item) => <article key={item.label} style={{ ...metricCardStyle, borderTopColor: item.color }}><span>{item.label}</span><strong style={{ color: item.color }}>{item.value}</strong>{item.note ? <small style={metricNoteStyle}>{item.note}</small> : null}</article>)}</div>; }
 function ReportTable({ children }: { children: React.ReactNode }) { return <div className="reports-table-wrap"><table className="reports-table" style={tableStyle}>{children}</table></div>; }
 function StageTable({ opportunities, showAge = false }: { opportunities: Opportunity[]; showAge?: boolean }) { const rows = groupRows(opportunities, (item) => stageLabels[item.stage] || item.stage, (item) => item.estimated_value); return <ReportTable><thead><tr><th>ETAPA</th><th>QUANTIDADE</th><th>VALOR</th>{showAge ? <th>TEMPO MEDIO</th> : null}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td>{showAge ? <td>{Math.round(average(opportunities.filter((item) => (stageLabels[item.stage] || item.stage) === row.label).map((item) => daysSince(item.created_at))))} DIAS</td> : null}</tr>)}</tbody></ReportTable>; }
 function RankTable({ rows, labels }: { rows: Array<{ label: string; count: number; value: number }>; labels: string[] }) { return <ReportTable><thead><tr>{labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{money(row.value)}</td></tr>)}{!rows.length ? <tr><td colSpan={labels.length} style={emptyCellStyle}>SEM DADOS NO PERIODO.</td></tr> : null}</tbody></ReportTable>; }
@@ -366,7 +368,71 @@ function RiskTable({ rows }: { rows: Array<{ client: Client; profile?: Profile }
 function NoAgendaTable({ rows }: { rows: Array<{ client: Client; activity?: Activity }> }) { return <ReportTable><thead><tr><th>CLIENTE</th><th>ULTIMA ACAO REGISTRADA</th><th>REPRESENTANTE</th></tr></thead><tbody>{rows.map(({ client, activity }) => <tr key={client.id}><td>{client.name}</td><td>{activity ? displayDate(activity.occurred_at) : "NENHUMA ACAO REGISTRADA"}</td><td>{client.representativeName || "SEM REPRESENTANTE"}</td></tr>)}{!rows.length ? <tr><td colSpan={3} style={emptyCellStyle}>TODOS OS CLIENTES POSSUEM UMA PROXIMA ACAO REGISTRADA.</td></tr> : null}</tbody></ReportTable>; }
 function GoalTable({ rows }: { rows: Array<{ name: string; actual: number; goal: number }> }) { return <ReportTable><thead><tr><th>VENDEDOR</th><th>META</th><th>REALIZADO</th><th>ATINGIMENTO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{money(row.goal)}</td><td>{money(row.actual)}</td><td>{row.goal ? `${Math.round((row.actual / row.goal) * 100)}%` : "META NAO CONFIGURADA"}</td></tr>)}</tbody></ReportTable>; }
 
-function metric(label: string, value: number | string, color: string, plain = false) { return { label, value: plain || typeof value === "string" ? String(value) : money(value), color }; }
+function metric(label: string, value: number | string, color: string, plain = false, note?: string) { return { label, value: plain || typeof value === "string" ? String(value) : money(value), color, note }; }
+function predictedMarginSummary(won: Opportunity[], quotes: Quote[], salesOrders: SalesOrder[], fichas: ProductFicha[], totalWon: number) {
+  const quoteById = new Map(quotes.map((quote) => [quote.id, quote]));
+  const orderByOpportunity = new Map(salesOrders.filter((order) => order.crm_opportunity_id).map((order) => [order.crm_opportunity_id as string, order]));
+  let weightedMargin = 0;
+  let marginBase = 0;
+  let coveredValue = 0;
+
+  won.forEach((opportunity) => {
+    const order = orderByOpportunity.get(opportunity.id);
+    const orderMc = Number(order?.mc_percent);
+    if (order && order.mc_percent != null && Number.isFinite(orderMc) && order.product_total > 0) {
+      weightedMargin += orderMc * order.product_total;
+      marginBase += order.product_total;
+      coveredValue += Math.max(0, opportunity.estimated_value);
+      return;
+    }
+
+    const quote = quoteById.get(opportunity.quote_id || "");
+    if (!quote) return;
+    let opportunityCoveredValue = 0;
+    quote.quote_items.forEach((item) => {
+      const snapshot = resolveMarginSnapshot(item, quote, fichas);
+      if (!snapshot) return;
+      const quantity = Math.max(0, Number(item.quantity || 0));
+      const netUnitPrice = Number(snapshot.netPrice);
+      const mcPercent = snapshotMcPercent(snapshot);
+      if (!quantity || !Number.isFinite(netUnitPrice) || netUnitPrice <= 0 || mcPercent == null) return;
+      const itemMarginBase = netUnitPrice * quantity;
+      weightedMargin += mcPercent * itemMarginBase;
+      marginBase += itemMarginBase;
+      opportunityCoveredValue += Math.max(0, Number(item.total || 0));
+    });
+    coveredValue += Math.min(Math.max(0, opportunity.estimated_value), opportunityCoveredValue);
+  });
+
+  const safeCoveredValue = Math.min(Math.max(0, totalWon), coveredValue);
+  return {
+    percent: marginBase > 0 ? weightedMargin / marginBase : null,
+    coveredValue: safeCoveredValue,
+    coveragePercent: totalWon > 0 ? safeCoveredValue / totalWon * 100 : 0,
+  };
+}
+function resolveMarginSnapshot(item: QuoteItem, quote: Quote, fichas: ProductFicha[]) {
+  const savedSnapshot = item.snapshot as MaterialSnapshot | undefined;
+  if (snapshotHasMargin(savedSnapshot)) return savedSnapshot;
+  const fichaId = typeof item.snapshot?.fichaId === "string" ? item.snapshot.fichaId : "";
+  const ficha = fichas.find((candidate) => candidate.id === fichaId);
+  if (!ficha) return undefined;
+  const quoteCutoff = new Date(quote.created_at).getTime() + 86_400_000;
+  return [ficha.pricingData, ...(ficha.priceHistory || [])]
+    .filter((snapshot): snapshot is MaterialSnapshot => Boolean(snapshot && snapshotHasMargin(snapshot)))
+    .filter((snapshot) => Math.abs(Number(snapshot.price || 0) - Number(item.unit_price || 0)) < 0.005)
+    .filter((snapshot) => !snapshot.createdAt || new Date(snapshot.createdAt).getTime() <= quoteCutoff)
+    .sort((first, second) => String(second.createdAt || "").localeCompare(String(first.createdAt || "")))[0];
+}
+function snapshotHasMargin(snapshot?: MaterialSnapshot) { return Boolean(snapshot && snapshotMcPercent(snapshot) != null && Number(snapshot.netPrice) > 0); }
+function snapshotMcPercent(snapshot: MaterialSnapshot) {
+  const savedPercent = Number(snapshot.mcPercent);
+  if (Number.isFinite(savedPercent)) return savedPercent;
+  const netPrice = Number(snapshot.netPrice);
+  const marginValue = Number(snapshot.marginValue);
+  return Number.isFinite(netPrice) && netPrice > 0 && Number.isFinite(marginValue) ? marginValue / netPrice * 100 : null;
+}
+function formatPercent(value: number) { return `${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`; }
 function opportunityRepresentativeId(opportunity: Opportunity, clients: Map<string, Client>) { return opportunity.representative_profile_id || clients.get(opportunity.client_id || "")?.representativeProfileId || ""; }
 function groupRows<T>(items: T[], getLabel: (item: T) => string, getValue: (item: T) => number) { const groups = new Map<string, { label: string; count: number; value: number }>(); items.forEach((item) => { const label = getLabel(item); const current = groups.get(label) || { label, count: 0, value: 0 }; current.count += 1; current.value += Number(getValue(item) || 0); groups.set(label, current); }); return [...groups.values()].sort((a, b) => b.value - a.value || b.count - a.count); }
 function uniqueFichasByNumber(fichas: ProductFicha[]) { const index = new Map<string, ProductFicha | null>(); fichas.forEach((ficha) => { const key = fichaNumberKey(ficha.clientId, ficha.ftNumber); if (!key) return; index.set(key, index.has(key) ? null : ficha); }); return index; }
@@ -432,6 +498,7 @@ const contentTitleStyle = { margin: 0, color: "#141827", fontWeight: 900, ...ui.
 const contentDescriptionStyle = { margin: 0, color: "#667085", fontSize: 12, fontWeight: 700, lineHeight: 1.45 };
 const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))", gap: 10 , minWidth: 0 };
 const metricCardStyle = { minHeight: 78, display: "grid", alignContent: "center", gap: 8, padding: "11px 13px", border: "1px solid #e2e6ef", borderTop: "4px solid", borderRadius: 7, background: "#fff" };
+const metricNoteStyle = { color: "#667085", fontSize: 9, fontWeight: 800, lineHeight: 1.35 };
 const tableStyle = { width: "100%", borderCollapse: "collapse" as const, tableLayout: "fixed" as const };
 const lossDetailsStyle = { display: "grid", gap: 9, marginTop: 8 };
 const lossDetailsTitleStyle = { margin: 0, color: "#475467", fontWeight: 900, ...ui.title };

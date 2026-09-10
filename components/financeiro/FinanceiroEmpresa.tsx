@@ -167,6 +167,11 @@ function resolveFichaQuantity(ficha: ProductFicha) {
   return historicalQuantity ? Math.trunc(historicalQuantity) : 1;
 }
 
+function currentFichaPriceSnapshot(ficha: ProductFicha) {
+  if (ficha.pricingData && Number(ficha.pricingData.price || 0) > 0) return ficha.pricingData;
+  return [...(ficha.priceHistory ?? [])].reverse().find((snapshot) => Number(snapshot.price || 0) > 0);
+}
+
 export default function FinanceiroEmpresa({
   companySlug,
   productFichas,
@@ -337,7 +342,8 @@ export default function FinanceiroEmpresa({
     }
     const material = materials.find((item) => item.id === ficha.materialId);
     const formula = engineeringFormulas.find((item) => item.id === ficha.engineeringId);
-    const nextItem = { ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", quantity: resolveFichaQuantity(ficha), unitPrice: ficha.price, snapshot: { fichaId: ficha.id, revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || "" } };
+    const pricingSnapshot = currentFichaPriceSnapshot(ficha);
+    const nextItem = { ...emptyItem(), ftNumber: ficha.ftNumber, description: ficha.reference, length: ficha.length, width: ficha.width, height: ficha.height, area: resolveFichaArea(ficha), quality: material?.paperType || ficha.supplierQuality, boxType: formula?.description || "", material: material?.code || "", quantity: resolveFichaQuantity(ficha), unitPrice: ficha.price, snapshot: { ...(pricingSnapshot || {}), fichaId: ficha.id, revision: ficha.revision, company: ficha.company, engineeringId: ficha.engineeringId, paperType: material?.paperType || pricingSnapshot?.paperType || "" } };
     setItems((current) => {
       const hasFilledItem = current.some((item) => item.description.trim() || item.ftNumber.trim());
       const next = hasFilledItem ? [...current, nextItem] : [nextItem];
