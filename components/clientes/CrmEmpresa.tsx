@@ -394,6 +394,39 @@ export default function CrmEmpresa({
     }
   }
 
+  async function handleUpdatePurchaseAverage(clientId: string, averagePurchaseValue: number) {
+    const profile = profileByClient.get(clientId);
+    if (!profile || averagePurchaseValue <= 0) {
+      setError("INFORME UM NOVO VALOR VALIDO PARA A COMPRA MEDIA.");
+      return;
+    }
+    setSaving(true);
+    clearFeedback();
+    try {
+      await saveCrmProfile(slug, {
+        clientId,
+        ownerProfileId: profile.ownerProfileId,
+        purchaseFrequencyDays: profile.purchaseFrequencyDays,
+        averagePurchaseValue,
+        lastPurchaseAt: profile.lastPurchaseAt,
+        nextPurchaseAt: profile.nextPurchaseAt,
+        nextContactAt: profile.nextContactAt,
+        relationshipStatus: profile.relationshipStatus,
+        whatsappOptIn: profile.whatsappOptIn,
+        whatsappOptInSource: profile.whatsappOptInSource,
+        notes: profile.notes,
+      });
+      await refresh(true);
+      await refreshOperationalLock();
+      setPurchaseAverageAlert(null);
+      setMessage(`COMPRA MEDIA ATUALIZADA PARA ${money(averagePurchaseValue)}.`);
+    } catch (saveError) {
+      setError(messageFrom(saveError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSaveActivity() {
     if (!selectedClient) return;
     if (!activityDraft.nextActionType || !activityDraft.nextActionAt) {
@@ -865,12 +898,9 @@ export default function CrmEmpresa({
 
       {purchaseAverageAlert ? <PurchaseAverageAlertModal
         alert={purchaseAverageAlert}
+        saving={saving}
         onClose={() => setPurchaseAverageAlert(null)}
-        onReview={() => {
-          selectClient(purchaseAverageAlert.clientId, "resumo");
-          onViewChange("carteira");
-          setPurchaseAverageAlert(null);
-        }}
+        onConfirm={(value) => void handleUpdatePurchaseAverage(purchaseAverageAlert.clientId, value)}
       /> : null}
 
     </section>
@@ -952,15 +982,17 @@ function AutomaticCycleWinModal({
   </div>;
 }
 
-function PurchaseAverageAlertModal({ alert, onClose, onReview }: { alert: PurchaseAverageAlert; onClose: () => void; onReview: () => void }) {
+function PurchaseAverageAlertModal({ alert, saving, onClose, onConfirm }: { alert: PurchaseAverageAlert; saving: boolean; onClose: () => void; onConfirm: (value: number) => void }) {
+  const [newAverageValue, setNewAverageValue] = useState(alert.opportunityValue);
   const direction = alert.opportunityValue > alert.averageValue ? "MAIOR" : "MENOR";
   return <div className="crm-lost-reason-overlay" role="presentation">
     <section className="crm-lost-reason-modal crm-purchase-average-modal" role="dialog" aria-modal="true" aria-label="REVISAR COMPRA MEDIA">
       <span>REVISAO CADASTRAL</span>
       <h3>OPORTUNIDADE GANHA FORA DO PADRAO</h3>
       <p><strong>{alert.clientName}</strong> fechou em {money(alert.opportunityValue)}, valor {Math.round(alert.differencePercent * 100)}% {direction} que a compra media cadastrada de {money(alert.averageValue)}.</p>
-      <p>CONFIRA SE A COMPRA MEDIA DO CLIENTE AINDA REPRESENTA O TICKET REAL.</p>
-      <div><button type="button" onClick={onClose}>DEPOIS</button><button type="button" onClick={onReview}>REVISAR CADASTRO</button></div>
+      <p>INFORME O NOVO VALOR MEDIO. O CADASTRO COMPLETO CONTINUA PROTEGIDO.</p>
+      <label className="crm-cycle-custom-value"><span>NOVA COMPRA MEDIA</span><CurrencyInput value={newAverageValue || ""} onValueChange={(value) => setNewAverageValue(Number(value || 0))} /></label>
+      <div><button type="button" disabled={saving} onClick={onClose}>DEPOIS</button><button type="button" disabled={saving || newAverageValue <= 0} onClick={() => onConfirm(newAverageValue)}>{saving ? "ATUALIZANDO..." : `ATUALIZAR PARA ${money(newAverageValue)}`}</button></div>
     </section>
   </div>;
 }
