@@ -86,7 +86,7 @@ export default function ClientesEmpresa({
   const [representatives, setRepresentatives] = useState<RepresentativeOption[]>([]);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [search, setSearch] = useState("");
-  const [clientNameSearch, setClientNameSearch] = useState("");
+  const [showClientForm, setShowClientForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras" | null>(null);
   const [crmView, setCrmView] = useState<"agenda" | "carteira" | "pipeline">("agenda");
   const [loading, setLoading] = useState(true);
@@ -139,15 +139,6 @@ export default function ClientesEmpresa({
     );
   }, [clients, search]);
 
-  const nameSearchMatches = useMemo(() => {
-    const term = clientNameSearch.trim().toLocaleUpperCase("pt-BR");
-    if (!term) return [];
-    return clients.filter((client) =>
-      `${client.clientCode} ${client.legalName} ${client.tradeName} ${client.cnpj}`
-        .toLocaleUpperCase("pt-BR")
-        .includes(term)
-    ).slice(0, 8);
-  }, [clients, clientNameSearch]);
   const taxRegimeOptions = useMemo(() => {
     const automaticOptions = ["SIMPLES NACIONAL", "MEI", "NORMAL", "NAO OPTANTE DO SIMPLES"];
     const names = [...taxRegimes.map((item) => item.name), ...automaticOptions];
@@ -165,12 +156,14 @@ export default function ClientesEmpresa({
     const existingClient = clients.find((client) => digits(client.cnpj) === cnpj && client.id !== form.id);
     if (existingClient) {
       setLookingUp(false);
-      setMessage("");
-      setClientNameSearch(existingClient.tradeName || existingClient.legalName);
-      setError(`CLIENTE JA CADASTRADO: ${existingClient.clientCode} - ${existingClient.tradeName || existingClient.legalName}. USE A BUSCA AO LADO PARA ABRIR O CADASTRO.`);
+      setShowClientForm(false);
+      setSearch(existingClient.tradeName || existingClient.legalName);
+      setError("");
+      setMessage(`CLIENTE JA CADASTRADO: ${existingClient.clientCode}. ELE FOI EXIBIDO NA LISTA ABAIXO.`);
       return;
     }
 
+    setShowClientForm(true);
     setLookingUp(true);
     setError("");
     setMessage("");
@@ -217,6 +210,7 @@ export default function ClientesEmpresa({
       });
       setMessage(`${saved.clientCode} SALVO COM SUCESSO.`);
       setForm({ ...emptyForm, sellerCompanyId: sellerCompanies[0]?.id || "" });
+      setShowClientForm(false);
     } catch (saveError) {
       setError(messageFrom(saveError));
     } finally {
@@ -225,6 +219,7 @@ export default function ClientesEmpresa({
   }
 
   async function handleEdit(client: ClientRecord) {
+    setShowClientForm(true);
     setForm({
       id: client.id,
       legalName: client.legalName,
@@ -256,7 +251,7 @@ export default function ClientesEmpresa({
     });
     setMessage(`EDITANDO ${client.clientCode}.`);
     setError("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
     setHistoryLoadingId(client.id);
     try {
       const changeHistory = await loadClientChangeHistory(slug, client.id);
@@ -306,7 +301,13 @@ export default function ClientesEmpresa({
         <SectionNavigation
           label="ETAPAS DO MODULO CLIENTES"
           value={activeTab}
-          onChange={setActiveTab}
+          onChange={(tab) => {
+            if (tab === "cadastro" && activeTab !== "cadastro") {
+              setForm({ ...emptyForm, sellerCompanyId: sellerCompanies[0]?.id || "" });
+              setShowClientForm(false);
+            }
+            setActiveTab(tab);
+          }}
           accent="#8f63f4"
           items={[
             { key: "crm", label: "CRM", icon: ContactRound },
@@ -342,8 +343,8 @@ export default function ClientesEmpresa({
       <div className="clients-cnpj-band">
         <div>
           <span className="clients-eyebrow">IDENTIFICACAO FISCAL</span>
-          <h2>CONSULTAR E CADASTRAR CLIENTE</h2>
-          <p>INFORME O CNPJ PARA PREENCHER AUTOMATICAMENTE OS DADOS PUBLICOS DISPONIVEIS.</p>
+          <h2>CONSULTAR CNPJ</h2>
+          <p>INFORME O CNPJ PARA ABRIR O CADASTRO COM OS DADOS PUBLICOS DISPONIVEIS.</p>
         </div>
         <label className="clients-cnpj-field">
           <span>CNPJ</span>
@@ -359,31 +360,6 @@ export default function ClientesEmpresa({
             </button>
             </div>
         </label>
-        <label className="clients-existing-search">
-          <span>BUSCAR CLIENTE JA CADASTRADO</span>
-          <input
-            value={clientNameSearch}
-            onChange={(event) => setClientNameSearch(event.target.value)}
-            placeholder="NOME, FANTASIA, CODIGO OU CNPJ"
-            list="client-name-search-options"
-          />
-          <datalist id="client-name-search-options">
-            {nameSearchMatches.map((client) => <option key={client.id} value={client.tradeName || client.legalName}>{client.cnpj}</option>)}
-          </datalist>
-          {nameSearchMatches.length > 0 && (
-            <select
-              value=""
-              onChange={(event) => {
-                const client = clients.find((item) => item.id === event.target.value);
-                if (client) void handleEdit(client);
-              }}
-              aria-label="SELECIONE O CLIENTE ENCONTRADO"
-            >
-              <option value="">SELECIONE O CLIENTE ENCONTRADO</option>
-              {nameSearchMatches.map((client) => <option key={client.id} value={client.id}>{client.tradeName || client.legalName} · {formatCnpj(client.cnpj)}</option>)}
-            </select>
-          )}
-        </label>
       </div>
       </div>
 
@@ -393,7 +369,7 @@ export default function ClientesEmpresa({
       </div>
 
       <div style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
-      <div className="clients-form">
+      {showClientForm ? <div className="clients-form">
         <FormSection title="IDENTIFICACAO DO CLIENTE">
           <div className="clients-grid clients-grid-3">
             <ReadOnlyField label="CODIGO UNICO" value={form.id ? clients.find((item) => item.id === form.id)?.clientCode || "" : "GERADO AO SALVAR"} />
@@ -498,16 +474,17 @@ export default function ClientesEmpresa({
         )}
 
         <div className="clients-actions">
-          {form.id && (
-            <button type="button" className="clients-button-secondary" onClick={() => setForm({ ...emptyForm, sellerCompanyId: sellerCompanies[0]?.id || "" })}>
-              CANCELAR EDICAO
-            </button>
-          )}
+          <button type="button" className="clients-button-secondary" onClick={() => {
+            setForm({ ...emptyForm, sellerCompanyId: sellerCompanies[0]?.id || "" });
+            setShowClientForm(false);
+          }}>
+            {form.id ? "CANCELAR EDICAO" : "CANCELAR CADASTRO"}
+          </button>
           <button type="button" className="clients-button-primary" onClick={handleSave} disabled={saving || loading}>
             {saving ? "SALVANDO..." : form.id ? "SALVAR ALTERACOES" : "CADASTRAR CLIENTE"}
           </button>
         </div>
-      </div>
+      </div> : null}
       </div>
 
       <section className="clients-list-section" style={{ display: activeTab === "cadastro" ? undefined : "none" }}>
