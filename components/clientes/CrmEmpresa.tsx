@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
-import { ContactRound, PackageCheck, PhoneCall, Plus, Target, Trash2 } from "lucide-react";
+import { ContactRound, Eye, EyeOff, PackageCheck, PhoneCall, Plus, Target, Trash2 } from "lucide-react";
 
 import { closeClientSample } from "@/lib/amostras";
 import { isPendingCrmAgenda } from "@/lib/crm-agenda";
@@ -1478,8 +1478,11 @@ function PipelineBoard({
   onLinkClient: (opportunity: CrmOpportunity, clientId: string) => void;
   saving: boolean;
 }) {
+  const [showClosed, setShowClosed] = useState(false);
   const [draggedOpportunityId, setDraggedOpportunityId] = useState("");
   const [dropStage, setDropStage] = useState<CrmOpportunityStage | "">("");
+  const visibleStages = stageOptions.filter((stage) => showClosed || (stage.value !== "WON" && stage.value !== "LOST"));
+  const closedCount = visibleOpportunities.filter((item) => item.stage === "WON" || item.stage === "LOST").length;
   const clientNames = new Map(clients.map((client) => [client.id, client.tradeName || client.legalName]));
   const openClients = useMemo(() => {
     const activeClientIds = new Set(opportunities
@@ -1519,7 +1522,7 @@ function PipelineBoard({
             <span className="clients-eyebrow">FILTRO DE ABERTAS</span>
             <strong>EMPRESA</strong>
           </div>
-          <select value={openCompanyFilter} onChange={(event) => setOpenCompanyFilter(event.target.value)}>
+          <select aria-label="FILTRO DE EMPRESA" value={openCompanyFilter} onChange={(event) => setOpenCompanyFilter(event.target.value)}>
             <option value="ALL">TODAS AS EMPRESAS</option>
             {sellerCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
           </select>
@@ -1540,10 +1543,10 @@ function PipelineBoard({
         <div className="crm-pipeline-filter-group">
           <div>
             <span className="clients-eyebrow">FILTRO DE FECHADOS</span>
-            <strong>GANHOS E PERDIDOS</strong>
+            <strong>FECHADOS EM</strong>
           </div>
           <div className="crm-pipeline-filter-controls">
-            <select value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as CrmClosedPeriod)}>
+            <select aria-label="FECHADOS EM" value={closedPeriod} onChange={(event) => setClosedPeriod(event.target.value as CrmClosedPeriod)}>
               <option value="ALL">TODOS</option>
               <option value="MONTH">MES ATUAL</option>
               <option value="QUARTER">TRIMESTRE ATUAL</option>
@@ -1552,15 +1555,29 @@ function PipelineBoard({
             </select>
             {closedPeriod === "CUSTOM" ? (
               <>
-                <input type="date" value={closedStart} onChange={(event) => setClosedStart(event.target.value)} />
-                <input type="date" value={closedEnd} onChange={(event) => setClosedEnd(event.target.value)} />
+                <input aria-label="FECHADOS A PARTIR DE" type="date" value={closedStart} onChange={(event) => setClosedStart(event.target.value)} />
+                <input aria-label="FECHADOS ATE" type="date" value={closedEnd} onChange={(event) => setClosedEnd(event.target.value)} />
               </>
             ) : null}
           </div>
         </div>
+        <button
+          type="button"
+          className="crm-pipeline-closed-toggle"
+          aria-expanded={showClosed}
+          aria-controls="crm-pipeline-board"
+          onClick={() => setShowClosed((current) => !current)}
+        >
+          {showClosed ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+          {showClosed ? "OCULTAR GANHOS E PERDIDOS" : `EXIBIR GANHOS E PERDIDOS (${closedCount})`}
+        </button>
       </div>
-      <section className="crm-pipeline">
-      {stageOptions.map((stage) => {
+      <p className="crm-pipeline-filter-hint">
+        ABERTAS DE TODOS OS PERIODOS. O FILTRO DE DATA AFETA SOMENTE GANHOS E PERDIDOS.
+        {!showClosed ? " PARA MOVER PARA GANHO OU PERDIDO, EXIBA AS COLUNAS." : ""}
+      </p>
+      <section id="crm-pipeline-board" className={`crm-pipeline${showClosed ? "" : " crm-pipeline-open-only"}`}>
+      {visibleStages.map((stage) => {
         const items = visibleOpportunities.filter((item) => item.stage === stage.value);
         const stageTotal = items.reduce((total, item) => total + Number(item.estimatedValue || 0), 0);
         return (

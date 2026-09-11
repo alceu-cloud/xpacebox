@@ -2644,6 +2644,30 @@ button {
   gap: 8px;
 }
 
+.crm-pipeline-filter-controls { flex-wrap: wrap; }
+
+.crm-pipeline-closed-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #7a31e8;
+  border-radius: 9px;
+  background: #f7f2ff;
+  color: #6f2ee4;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.crm-pipeline-closed-toggle svg { flex-shrink: 0; }
+.crm-pipeline-closed-toggle:hover { background: #eee3ff; }
+.crm-pipeline-closed-toggle:focus-visible { outline: 2px solid #7a31e8; outline-offset: 3px; }
+.crm-pipeline-filter-hint { margin: 0; color: #68728a; font-size: 12px; font-weight: 700; }
+
 .crm-call-history {
   display: grid;
   gap: 10px;
@@ -2793,6 +2817,8 @@ button {
   overflow-x: auto;
   padding-bottom: 8px;
 }
+
+.crm-pipeline-open-only { grid-template-columns: repeat(5, minmax(215px, 1fr)); }
 
 .crm-pipeline-column {
   min-height: 420px;
