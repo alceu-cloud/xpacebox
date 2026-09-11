@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
+import { findNewDuplicateProductPriceSnapshot } from "@/lib/gerenciador/product-price-duplicate";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import type { EngineeringFormula, ProductFicha } from "@/types/gerenciador";
 
@@ -93,6 +94,15 @@ export async function PATCH(request: Request) {
     if (currentError) throw currentError;
 
     const nextData: Record<string, unknown> = { ...(current?.data ?? {}), [body.key]: body.value };
+    if (body.key === "productFichas" && Array.isArray(body.value)) {
+      const currentFichas = Array.isArray((current?.data as { productFichas?: unknown } | null)?.productFichas)
+        ? (current?.data as { productFichas: ProductFicha[] }).productFichas
+        : [];
+      const duplicate = findNewDuplicateProductPriceSnapshot(currentFichas, body.value as ProductFicha[]);
+      if (duplicate) {
+        return failure(`ESTA FORMACAO DE PRECO JA ESTA REGISTRADA NA FICHA ${duplicate.ficha.ftNumber}.`, 409);
+      }
+    }
     if (body.key === "engineeringFormulas" && Array.isArray(body.value) && Array.isArray(nextData.productFichas)) {
       nextData.productFichas = recalculateProductFichaAreas(
         nextData.productFichas as ProductFicha[],

@@ -17,6 +17,7 @@ import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOpe
 import { defaultProductionTimes } from "@/lib/gerenciador/impressora-data";
 import { loadManagerSettings, saveManagerSetting, type ManagerSettings } from "@/lib/gerenciador/api";
 import { calculateProductArea, evaluateEngineeringFormula, formulaUsesDimension, formulaUsesTopOverlap, getAccessoryQuantity, recalculateProductFichaAreas } from "@/lib/gerenciador/product-area";
+import { findMatchingProductPriceSnapshot, productFichaPriceSnapshots } from "@/lib/gerenciador/product-price-duplicate";
 import { initialCfops, initialFiscalBenefits, initialFiscalProfiles, initialLostReasons, initialPaymentConditions, initialTaxRegimes } from "@/lib/gerenciador/general-data";
 import { calculatePriceAnalysis, calculatePriceForHourlyTarget, calculatePriceForMarginTarget, calculatePriceResult, calculateRequiredLotForHourlyTarget } from "@/lib/pricing/calculations";
 import { isMaterialAvailableForUse, sortMaterialsByWaveAndCode } from "@/lib/gerenciador/materials";
@@ -402,16 +403,16 @@ export default function EmpresaPage() {
             pricingGoalsByCompany={pricingGoalsByCompany}
             productionTimes={productionTimes}
             productFichas={productFichas}
-            onSendToQuote={(prefill) => {
+            onSendToQuote={async (prefill) => {
               if (prefill.kind === "DIRECT") {
                 setQuotePrefill((current) => current?.kind === "DIRECT"
                   ? { ...prefill, items: [...current.items, ...prefill.items].map((item, index) => ({ ...item, itemNumber: index + 1 })) }
                   : prefill);
                 setQuoteContinuationOpen(true);
-                return;
+                return true;
               }
 
-              if (!prefill.fichaId) return;
+              if (!prefill.fichaId) return false;
               const nextFichas = productFichas.map((ficha) => {
                 if (ficha.id !== prefill.fichaId) return ficha;
                 const item = prefill.items[0];
@@ -445,6 +446,11 @@ export default function EmpresaPage() {
                   hourlyExpensesPercent: typeof snapshot.hourlyExpensesPercent === "number" ? snapshot.hourlyExpensesPercent : undefined,
                   contributionSource: "SNAPSHOT",
                 };
+                const matchingSnapshot = findMatchingProductPriceSnapshot(productFichaPriceSnapshots(ficha), priceSnapshot);
+                if (matchingSnapshot) {
+                  window.alert(`ESTA FORMACAO DE PRECO JA ESTA REGISTRADA NA FICHA ${ficha.ftNumber}.\n\nPRECO: R$ ${matchingSnapshot.price.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nREGISTRO: ${new Date(matchingSnapshot.createdAt).toLocaleString("pt-BR")}\n\nNENHUM NOVO REGISTRO FOI CRIADO.`);
+                  return ficha;
+                }
                 return {
                   ...ficha,
                   price: item.unitPrice,
@@ -459,8 +465,20 @@ export default function EmpresaPage() {
                   priceHistory: [...(ficha.priceHistory ?? []), priceSnapshot],
                 };
               });
-              persistManagerChange("productFichas", nextFichas, setProductFichas);
-              window.alert("PRECO E DADOS DA FORMACAO ENVIADOS PARA A FICHA TECNICA.");
+              const savedFicha = nextFichas.find((ficha) => ficha.id === prefill.fichaId);
+              const originalFicha = productFichas.find((ficha) => ficha.id === prefill.fichaId);
+              if (!savedFicha || !originalFicha || savedFicha === originalFicha) return false;
+              setProductFichas(nextFichas);
+              try {
+                await saveManagerSetting(slug, "productFichas", nextFichas);
+                window.alert("PRECO E DADOS DA FORMACAO ENVIADOS PARA A FICHA TECNICA.");
+                return true;
+              } catch (error) {
+                console.error("PRICE FORMATION SAVE ERROR", error);
+                setProductFichas(productFichas);
+                window.alert("NAO FOI POSSIVEL ENVIAR A FORMACAO DE PRECO. NENHUM NOVO REGISTRO FOI MANTIDO.");
+                return false;
+              }
             }}
           />
         ) : moduloEmExibicao === "financeiro" ? (
@@ -584,7 +602,7 @@ function PricingPreview({
   pricingGoalsByCompany: PricingGoalsByCompany;
   productionTimes: ProductionTime[];
   productFichas: ProductFicha[];
-  onSendToQuote: (prefill: PricingQuotePrefill) => void;
+  onSendToQuote: (prefill: PricingQuotePrefill) => boolean | Promise<boolean>;
 }) {
   const [pricingMode, setPricingMode] = useState<PricingMode | null>(null);
   const [activeStep, setActiveStep] = useState<PricingStep | EngineeringPricingStep>("MATERIAIS");
@@ -1546,7 +1564,7 @@ function PriceSummaryStep({
   pricingMode: PricingMode;
   engineeringFicha?: ProductFicha;
   engineeringClient?: ClientRecord;
-  onSendToQuote: (prefill: PricingQuotePrefill) => void;
+  onSendToQuote: (prefill: PricingQuotePrefill) => boolean | Promise<boolean>;
 }) {
   const [simulatorPrice, setSimulatorPrice] = useState(1.72);
   const [targetMcPercent, setTargetMcPercent] = useState(pricingParams.mcDefault);
@@ -1596,7 +1614,7 @@ function PriceSummaryStep({
 
   const sendTargetLabel = pricingMode === "engineering" ? "ENVIAR PARA ENGENHARIA" : "ENVIAR PARA ORCAMENTO";
 
-  function sendPriceToTarget(price: number, source: string) {
+  async function sendPriceToTarget(price: number, source: string) {
     if (pricingMode === "engineering" && !engineeringFicha) {
       setSendMessage("SELECIONE UMA FICHA TECNICA ANTES DE ENVIAR PARA A ENGENHARIA.");
       return;
@@ -1666,7 +1684,7 @@ function PriceSummaryStep({
       },
     };
 
-    onSendToQuote({
+    const sent = await onSendToQuote({
       kind: pricingMode === "engineering" ? "ENGINEERING" : "DIRECT",
       sellerCompanyName: sellerCompany.name,
       sellerCompanySlug: sellerCompany.key,
@@ -1682,7 +1700,7 @@ function PriceSummaryStep({
       items: [item],
     });
 
-    if (pricingMode === "engineering") {
+    if (pricingMode === "engineering" && sent) {
       setSendMessage("PRECO ENVIADO PARA A FICHA TECNICA. A ENGENHARIA FOI ATUALIZADA.");
     }
   }
@@ -1859,7 +1877,7 @@ function PriceSummaryStep({
             <strong style={priceStandardTitleStyle}>PRECO PADRAO - MC% CONFIGURADA: {formatNumber(analysis.mcDefault, 0)}%</strong>
             <span style={priceExpensesBadgeStyle}>{formatExpenseBases(analysis.expensesPercent, analysis.hourlyExpensesPercent)}</span>
           </div>
-          <button type="button" onClick={() => sendPriceToTarget(analysis.standardPrice, "PADRAO")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+          <button type="button" onClick={() => void sendPriceToTarget(analysis.standardPrice, "PADRAO")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
         </div>
 
         <div style={priceAnalysisGridStyle}>
@@ -1890,7 +1908,7 @@ function PriceSummaryStep({
           </div>
           <div style={simulatorHeaderActionsStyle}>
             <span style={simulatorExpensesStyle}>{formatExpenseBases(simulatorA.expensesPercent, simulatorA.hourlyExpensesPercent)}</span>
-            <button type="button" onClick={() => sendPriceToTarget(simulatorPrice, "SIMULADOR A")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+            <button type="button" onClick={() => void sendPriceToTarget(simulatorPrice, "SIMULADOR A")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
           </div>
         </div>
 
@@ -1952,7 +1970,7 @@ function PriceSummaryStep({
           </div>
           <div style={simulatorHeaderActionsStyle}>
             <span style={simulatorExpensesStyle}>{formatExpenseBases(simulatorB.expensesPercent, simulatorB.hourlyExpensesPercent)}</span>
-            <button type="button" onClick={() => sendPriceToTarget(simulatorBPrice, "SIMULADOR B")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+            <button type="button" onClick={() => void sendPriceToTarget(simulatorBPrice, "SIMULADOR B")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
           </div>
         </div>
 
@@ -1990,7 +2008,7 @@ function PriceSummaryStep({
           </div>
           <div style={simulatorHeaderActionsStyle}>
             <span style={simulatorExpensesStyle}>{formatExpenseBases(simulatorC.expensesPercent, simulatorC.hourlyExpensesPercent)}</span>
-            <button type="button" onClick={() => sendPriceToTarget(simulatorCPrice, "SIMULADOR C")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
+            <button type="button" onClick={() => void sendPriceToTarget(simulatorCPrice, "SIMULADOR C")} style={pricingActionButtonStyle}>{sendTargetLabel}</button>
           </div>
         </div>
 
