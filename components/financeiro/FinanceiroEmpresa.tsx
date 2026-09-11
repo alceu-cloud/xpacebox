@@ -1,13 +1,13 @@
 "use client";
 
 import { ui } from "@/lib/ui/styles";
-import { useEffect, useMemo, useState } from "react";
-import { FileText, Mail, MessageCircle, PackageCheck, Wrench } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FileText, Mail, MessageCircle, PackageCheck, Trash2, Wrench } from "lucide-react";
 
 import { createQuote, deleteQuote, loadLinkableCrmOpportunities, loadQuotes, sendQuoteByEmail, updateQuote } from "@/lib/orcamentos";
 import { loadSalesOrders } from "@/lib/pedidos";
 import CurrencyInput from "@/components/ui/CurrencyInput";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { SearchableFilter, SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import { loadClientOptions, loadClients } from "@/lib/clientes";
 import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
@@ -200,6 +200,9 @@ export default function FinanceiroEmpresa({
   const [quoteDateFrom, setQuoteDateFrom] = useState("");
   const [quoteDateUntil, setQuoteDateUntil] = useState("");
   const [search, setSearch] = useState("");
+  const [searchClientId, setSearchClientId] = useState("");
+  const [searchingQuotes, setSearchingQuotes] = useState(false);
+  const quoteSearchRequest = useRef(0);
   const [message, setMessage] = useState("");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [representatives, setRepresentatives] = useState<RepresentativeOption[]>([]);
@@ -224,9 +227,17 @@ export default function FinanceiroEmpresa({
         setClients([]);
         setRepresentatives([]);
       });
-    refreshQuotes("DIRECT");
     void refreshSalesOrders();
   }, [companySlug]);
+
+  useEffect(() => {
+    setSearchingQuotes(true);
+    const timer = window.setTimeout(() => void refreshQuotes(), 250);
+    return () => {
+      window.clearTimeout(timer);
+      quoteSearchRequest.current += 1;
+    };
+  }, [companySlug, kind, search, searchClientId]);
 
   useEffect(() => {
     const validityDays = resolveValidityDays(form.company, quoteParameters);
@@ -254,7 +265,8 @@ export default function FinanceiroEmpresa({
       representative: prefill.representativeName ?? current.representative,
     }));
     setMessage("ITEM RECEBIDO DA FORMACAO DE PRECO. ADICIONE OUTROS ITENS OU GERE O ORCAMENTO.");
-    void refreshQuotes(prefill.kind, "");
+    setSearch("");
+    setSearchClientId("");
   }, [prefill, companySlug]);
 
   const selectedClient = clients.find((client) => client.id === selectedClientId);
@@ -268,12 +280,17 @@ export default function FinanceiroEmpresa({
     [selectedQuoteList, quoteDateFrom, quoteDateUntil],
   );
 
-  async function refreshQuotes(nextKind = kind, nextSearch = search) {
+  async function refreshQuotes() {
+    const requestId = ++quoteSearchRequest.current;
+    setSearchingQuotes(true);
     try {
-      setMessage("");
-      setQuotes(await loadQuotes(companySlug, nextKind, nextSearch));
+      const records = await loadQuotes(companySlug, kind, searchClientId ? "" : search, searchClientId);
+      if (requestId === quoteSearchRequest.current) setQuotes(records);
     } catch (error) {
+      if (requestId !== quoteSearchRequest.current) return;
       setMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL CARREGAR OS ORCAMENTOS.");
+    } finally {
+      if (requestId === quoteSearchRequest.current) setSearchingQuotes(false);
     }
   }
 
@@ -290,12 +307,12 @@ export default function FinanceiroEmpresa({
   function changeKind(nextKind: "DIRECT" | "ENGINEERING") {
     setKind(nextKind);
     setSearch("");
+    setSearchClientId("");
     setShowForm(false);
     setEditingQuoteId("");
     setPendingQuoteDraft(null);
     setLinkableOpportunities([]);
     setMessage("");
-    void refreshQuotes(nextKind, "");
   }
 
   function startCreate() {
@@ -517,7 +534,7 @@ export default function FinanceiroEmpresa({
           <div><span style={eyebrowStyle}>{kind === "DIRECT" ? "CONSULTA POR NUMERO" : "CONSULTA POR CLIENTE"}</span><h2 style={titleStyle}>{kind === "DIRECT" ? "ORCAMENTOS DIRETOS" : "ORCAMENTOS DE ENGENHARIA"}</h2><p style={descriptionStyle}>{kind === "DIRECT" ? "BUSQUE ORCAMENTOS GERADOS A PARTIR DA FORMACAO DE PRECO." : "BUSQUE ORCAMENTOS VINCULADOS A CLIENTES E FICHAS TECNICAS."}</p></div>
           {kind === "DIRECT" ? <button type="button" onClick={onStartDirectPricing} style={primaryButtonStyle}>NOVA FORMACAO DE PRECO</button> : <button type="button" onClick={startCreate} style={primaryButtonStyle}>+ NOVO ORCAMENTO</button>}
         </div>
-        <div style={searchRowStyle}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={kind === "DIRECT" ? "OD-000001" : "NOME OU CNPJ DO CLIENTE"} style={inputStyle} /><button type="button" onClick={() => refreshQuotes()} style={secondaryButtonStyle}>PESQUISAR</button></div>
+        <div style={searchRowStyle}>{kind === "ENGINEERING" ? <SearchableFilter value={search} onChange={(value) => { setSearch(value); setSearchClientId(""); }} onSelect={(option) => { setSearch(option.label); setSearchClientId(option.value); }} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${client.cnpj}` }))} placeholder="NOME OU CNPJ DO CLIENTE" inputStyle={inputStyle} ariaLabel="BUSCAR CLIENTE NOS ORCAMENTOS" /> : <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="OD-000001" style={inputStyle} aria-label="BUSCAR ORCAMENTO" />}</div>
         {message && <div style={messageStyle}>{message}</div>}
       </section>
 
@@ -543,7 +560,7 @@ export default function FinanceiroEmpresa({
         </div>
         <div style={listHeadingStyle}>
           <h2 style={sectionTitleStyle}>{quoteListTab === "PENDING" ? "ORCAMENTOS PENDENTES" : quoteListTab === "WON" ? "ORCAMENTOS GANHOS" : "ORCAMENTOS SALVOS"}</h2>
-          <span style={countStyle}>{visibleQuotes.length} REGISTRO(S)</span>
+          <span style={countStyle} role="status">{searchingQuotes ? "BUSCANDO..." : `${visibleQuotes.length} REGISTRO(S)`}</span>
         </div>
         {visibleQuotes.length === 0 ? <div style={emptyStyle}>{quoteListTab === "PENDING" ? "NENHUM ORCAMENTO PENDENTE." : quoteListTab === "WON" ? "NENHUM ORCAMENTO GANHO." : "NENHUM ORCAMENTO ENCONTRADO."}</div> : <div style={quoteListStyle}>{visibleQuotes.map((quote) => <article key={quote.id} style={quoteRowStyle}><div><strong style={quoteNumberStyle}>{quote.quoteNumber}</strong><span style={quoteClientStyle}>{quote.clientName}</span><small style={quoteMetaStyle}>{quote.issueDate} · {quote.items.length} ITEM(NS) · {formatCurrency(quote.grandTotal)}</small></div><div style={quoteActionsStyle}><button type="button" onClick={() => openDelivery(quote, "EMAIL")} style={emailButtonStyle}><Mail size={15} /> E-MAIL</button><button type="button" onClick={() => openDelivery(quote, "WHATSAPP")} style={whatsappButtonStyle}><MessageCircle size={15} /> WHATSAPP</button><button type="button" onClick={() => editQuote(quote)} style={secondaryButtonStyle}>EDITAR</button><button type="button" onClick={() => printQuote(quote, quoteParameters)} style={pdfButtonStyle}>GERAR PDF</button><button type="button" onClick={() => removeQuote(quote)} style={deleteButtonStyle}>EXCLUIR</button></div>{delivery?.quoteId === quote.id ? <div style={quoteDeliveryStyle}><label style={quoteDeliveryLabelStyle}>{delivery.channel === "EMAIL" ? "E-MAIL DO CLIENTE" : "NUMERO DO WHATSAPP"}<input type={delivery.channel === "EMAIL" ? "email" : "tel"} value={delivery.recipient} onChange={(event) => setDelivery((current) => current ? { ...current, recipient: delivery.channel === "EMAIL" ? event.target.value.toLowerCase() : formatWhatsappInput(event.target.value) } : current)} placeholder={delivery.channel === "EMAIL" ? "compras@cliente.com.br" : "47 99999-9999"} style={inputStyle} /></label><div style={quoteDeliveryActionsStyle}><button type="button" onClick={() => setDelivery(null)} style={secondaryButtonStyle}>CANCELAR</button><button type="button" onClick={() => void confirmQuoteDelivery(quote)} disabled={delivering} style={delivery.channel === "EMAIL" ? emailButtonStyle : whatsappButtonStyle}>{delivering ? "ENVIANDO..." : delivery.channel === "EMAIL" ? "ENVIAR E-MAIL" : "ABRIR WHATSAPP"}</button></div></div> : null}</article>)}</div>}
       </section>
@@ -573,7 +590,7 @@ function QuoteForm({ kind, editing, form, items, clients, representatives, payme
   return <section style={formPanelStyle}><div style={formHeaderStyle}><div><span style={eyebrowStyle}>{kind === "DIRECT" ? "ORCAMENTO DIRETO" : "ORCAMENTO DE ENGENHARIA"}</span><h2 style={titleStyle}>MONTAR ORCAMENTO</h2></div><button type="button" onClick={onCancel} style={closeButtonStyle}>FECHAR</button></div>
     {kind === "ENGINEERING" ? <div style={lookupGridStyle}><label style={labelStyle}>CLIENTE<SearchableSelect value={selectedClientId} onChange={selectClient} options={clients.map((client: ClientRecord) => ({ value: client.id, label: `${client.tradeName || client.legalName} · ${client.cnpj}` }))} placeholder="SELECIONE O CLIENTE" inputStyle={inputStyle} ariaLabel="CLIENTE" /></label><label style={labelStyle}>FICHA TECNICA<SearchableSelect value={selectedFichaId} onChange={selectFicha} options={clientFichas.map((ficha: ProductFicha) => ({ value: ficha.id, label: `${ficha.ftNumber} · ${ficha.reference}` }))} placeholder="SELECIONE O PRODUTO" inputStyle={inputStyle} ariaLabel="FICHA TECNICA" disabled={!selectedClientId} /></label></div> : <div style={noticeStyle}>NO ORCAMENTO DIRETO, OS DADOS DO CLIENTE E DO ITEM SAO PREENCHIDOS MANUALMENTE.</div>}
     <div style={formGridStyle}><Field label="NOME DO CLIENTE" value={form.clientName} onChange={(value: string) => updateForm("clientName", value)} /><Field label="COMPRADOR" value={form.buyerName} onChange={(value: string) => updateForm("buyerName", value)} /><Field label="TELEFONE" value={form.phone} onChange={(value: string) => updateForm("phone", formatPhone(value))} /><Field label="E-MAIL" value={form.email} onChange={(value: string) => updateForm("email", value.toLowerCase())} lower /><Field label="CNPJ" value={form.cnpj} onChange={(value: string) => updateForm("cnpj", formatCnpj(value))} /><Field label="EMPRESA VENDEDORA" value={form.company} onChange={(value: string) => updateForm("company", value)} /><Field label="REPRESENTANTE" value={form.representative} onChange={(value: string) => updateForm("representative", value)} options={representatives.map((item: RepresentativeOption) => ({ value: item.name, label: item.name }))} placeholder="SELECIONE O REPRESENTANTE" /><Field label="CONDICAO DE PAGAMENTO" value={form.paymentTerms} onChange={(value: string) => updateForm("paymentTerms", value)} options={paymentConditions.map((item: PaymentCondition) => ({ value: item.name, label: item.name }))} placeholder="SELECIONE A CONDICAO" /><Field label="FRETE" value={form.freight} onChange={(value: string) => updateForm("freight", value)} options={[{ value: "CIF", label: "CIF - REMETENTE" }, { value: "FOB", label: "FOB - RETIRADA / DESTINATARIO" }, { value: "SEM_FRETE", label: "SEM FRETE" }]} /><Field label="DATA DE ENTREGA" value={form.deliveryDate} onChange={(value: string) => updateForm("deliveryDate", value)} type="date" /><Field label="VALIDADE DO ORCAMENTO (AUTOMATICA)" value={form.validUntil} onChange={() => undefined} type="date" readOnly /><label style={{ ...labelStyle, gridColumn: "1 / -1" }}>ENDERECO<input value={form.address} onChange={(event) => updateForm("address", event.target.value)} style={inputStyle} /></label><label style={{ ...labelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={form.observations} onChange={(event) => updateForm("observations", event.target.value)} style={{ ...inputStyle, minHeight: 84, resize: "vertical" }} /></label></div>
-    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3><div style={itemActionsStyle}>{kind === "ENGINEERING" ? <SearchableSelect ariaLabel="PUXAR PRODUTO CADASTRADO" value={additionalFichaId} onChange={(fichaId) => { setAdditionalFichaId(""); if (fichaId) selectFicha(fichaId); }} disabled={!selectedClientId || !clientFichas.length} inputStyle={additionalItemSelectStyle} placeholder="+ PUXAR PRODUTO CADASTRADO" options={clientFichas.map((ficha: ProductFicha) => ({ value: ficha.id, label: `${ficha.ftNumber} · ${ficha.reference}` }))} /> : null}<button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ITEM MANUAL</button></div></div>{items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}><div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong>{items.length > 1 && <button type="button" onClick={() => removeItem(index)} style={removeButtonStyle}>REMOVER</button>}</div><div style={itemGridStyle}><Field label="FICHA TECNICA" value={item.ftNumber} onChange={(value: string) => updateItem(index, "ftNumber", value)} /><Field label="DESCRICAO" value={item.description} onChange={(value: string) => updateItem(index, "description", value)} /><Field label="TIPO DE CAIXA" value={item.boxType} onChange={(value: string) => updateItem(index, "boxType", value)} /><Field label="MATERIAL" value={item.material} onChange={(value: string) => updateItem(index, "material", value)} /><Field label="COMPRIMENTO (MM)" value={String(item.length || "")} onChange={(value: string) => updateItem(index, "length", value)} type="number" /><Field label="LARGURA (MM)" value={String(item.width || "")} onChange={(value: string) => updateItem(index, "width", value)} type="number" /><Field label="ALTURA (MM)" value={String(item.height || "")} onChange={(value: string) => updateItem(index, "height", value)} type="number" /><Field label="AREA (M2)" value={String(item.area || "")} onChange={(value: string) => updateItem(index, "area", value)} type="number" /><Field label="QUALIDADE" value={item.quality} onChange={(value: string) => updateItem(index, "quality", value)} /><Field label="QUANTIDADE" value={String(item.quantity || "")} onChange={(value: string) => updateItem(index, "quantity", value)} type="number" /><Field label="VALOR UNITARIO" value={String(item.unitPrice || "")} onChange={(value: string) => updateItem(index, "unitPrice", value)} currency /><Field label="IPI (%)" value={String(appliesIpi ? item.ipiPercent || "" : 0)} onChange={(value: string) => updateItem(index, "ipiPercent", value)} type="number" readOnly={!appliesIpi} /></div></div>)}
+<div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3><div style={itemActionsStyle}>{kind === "ENGINEERING" ? <SearchableSelect ariaLabel="PUXAR PRODUTO CADASTRADO" value={additionalFichaId} onChange={(fichaId) => { setAdditionalFichaId(""); if (fichaId) selectFicha(fichaId); }} disabled={!selectedClientId || !clientFichas.length} inputStyle={additionalItemSelectStyle} placeholder="+ PUXAR PRODUTO CADASTRADO" options={clientFichas.map((ficha: ProductFicha) => ({ value: ficha.id, label: `${ficha.ftNumber} · ${ficha.reference}` }))} /> : null}<button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ITEM MANUAL</button></div></div>{items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}><div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong><button type="button" onClick={() => removeItem(index)} style={removeButtonStyle} title={`EXCLUIR ITEM ${index + 1}`} aria-label={`EXCLUIR ITEM ${index + 1}`}><Trash2 size={16} aria-hidden="true" /></button></div><div style={itemGridStyle}><Field label="FICHA TECNICA" value={item.ftNumber} onChange={(value: string) => updateItem(index, "ftNumber", value)} /><Field label="DESCRICAO" value={item.description} onChange={(value: string) => updateItem(index, "description", value)} /><Field label="TIPO DE CAIXA" value={item.boxType} onChange={(value: string) => updateItem(index, "boxType", value)} /><Field label="MATERIAL" value={item.material} onChange={(value: string) => updateItem(index, "material", value)} /><Field label="COMPRIMENTO (MM)" value={String(item.length || "")} onChange={(value: string) => updateItem(index, "length", value)} type="number" /><Field label="LARGURA (MM)" value={String(item.width || "")} onChange={(value: string) => updateItem(index, "width", value)} type="number" /><Field label="ALTURA (MM)" value={String(item.height || "")} onChange={(value: string) => updateItem(index, "height", value)} type="number" /><Field label="AREA (M2)" value={String(item.area || "")} onChange={(value: string) => updateItem(index, "area", value)} type="number" /><Field label="QUALIDADE" value={item.quality} onChange={(value: string) => updateItem(index, "quality", value)} /><Field label="QUANTIDADE" value={String(item.quantity || "")} onChange={(value: string) => updateItem(index, "quantity", value)} type="number" /><Field label="VALOR UNITARIO" value={String(item.unitPrice || "")} onChange={(value: string) => updateItem(index, "unitPrice", value)} currency /><Field label="IPI (%)" value={String(appliesIpi ? item.ipiPercent || "" : 0)} onChange={(value: string) => updateItem(index, "ipiPercent", value)} type="number" readOnly={!appliesIpi} /></div></div>)}
     <div style={formActionsStyle}><button type="button" onClick={onCancel} style={cancelButtonStyle}>CANCELAR</button><button type="button" onClick={onSave} style={primaryButtonStyle}>{editing ? "SALVAR ALTERACOES E PDF" : "GERAR ORCAMENTO E PDF"}</button></div>
   </section>;
 }
@@ -803,7 +820,7 @@ const descriptionStyle = { margin: "8px 0 0", color: "#667085", fontSize: 14, fo
 const primaryButtonStyle = { border: "none", color: "#fff", background: "linear-gradient(135deg,#8b36e8,#e63dae,#ff3b25)", cursor: "pointer", ...ui.button };
 const secondaryButtonStyle = { border: "1px solid rgba(111,50,210,.28)", color: "#6f32d2", background: "#fff", cursor: "pointer" , ...ui.button };
 const closeButtonStyle = { ...secondaryButtonStyle, color: "#d60078" , ...ui.button };
-const searchRowStyle = { display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginTop: 22 , minWidth: 0 };
+const searchRowStyle = { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, marginTop: 22 , minWidth: 0 };
 const inputStyle = { width: "100%", border: "1px solid rgba(52,64,84,.20)", background: "#fff", color: "#141827", outline: "none" , ...ui.field };
 const messageStyle = { marginTop: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(255,189,0,.10)", color: "#9a5b00", fontSize: 13, fontWeight: 900 };
 const listHeadingStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 , flexWrap: "wrap" as const };

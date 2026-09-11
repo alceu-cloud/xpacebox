@@ -15,9 +15,10 @@ async function authorizedFetch(path: string, init?: RequestInit) {
   return payload;
 }
 
-export async function loadQuotes(slug: string, kind: "DIRECT" | "ENGINEERING", search = "") {
+export async function loadQuotes(slug: string, kind: "DIRECT" | "ENGINEERING", search = "", clientId = "") {
   const params = new URLSearchParams({ slug, kind });
   if (search.trim()) params.set("search", search.trim());
+  if (clientId) params.set("clientId", clientId);
   const payload = await authorizedFetch(`/api/orcamentos?${params.toString()}`);
   return payload.quotes as QuoteRecord[];
 }

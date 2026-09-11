@@ -10,11 +10,16 @@ export async function GET(request: Request) {
     const slug = url.searchParams.get("slug")?.trim() ?? "";
     const kind = url.searchParams.get("kind")?.trim() ?? "";
     const search = url.searchParams.get("search")?.trim() ?? "";
+    const clientId = url.searchParams.get("clientId")?.trim() ?? "";
     if (!slug || !["DIRECT", "ENGINEERING"].includes(kind)) return failure("CONSULTA DE ORCAMENTO INVALIDA.", 400);
 
     const { admin, company } = await requireCompanyAccess(request, slug);
     let query = admin.from("quotes").select("*, quote_items(*)").eq("tenant_company_id", company.id).eq("kind", kind).order("created_at", { ascending: false }).limit(50);
-    if (search) query = query.or(`quote_number.ilike.%${search}%,client_name.ilike.%${search}%,client_cnpj.ilike.%${search}%`);
+    if (clientId) query = query.eq("client_id", clientId);
+    else if (search) {
+      const pattern = JSON.stringify(`%${search}%`);
+      query = query.or(`quote_number.ilike.${pattern},client_name.ilike.${pattern},client_cnpj.ilike.${pattern}`);
+    }
     const { data, error } = await query;
     if (error) throw error;
 

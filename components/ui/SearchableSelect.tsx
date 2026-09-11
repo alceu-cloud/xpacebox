@@ -25,6 +25,7 @@ type SearchableSelectProps = SharedProps & {
 type SearchableFilterProps = SharedProps & {
   value: string;
   onChange: (value: string) => void;
+  onSelect?: (option: SearchableOption) => void;
 };
 
 const visibleRows = 5;
@@ -87,6 +88,7 @@ export function SearchableSelect({
 export function SearchableFilter({
   value,
   onChange,
+  onSelect,
   options,
   placeholder = "BUSCAR",
   disabled = false,
@@ -104,7 +106,7 @@ export function SearchableFilter({
       autoFocus={autoFocus}
       inputStyle={inputStyle}
       ariaLabel={ariaLabel}
-      onOptionSelect={(option) => onChange(option.label)}
+      onOptionSelect={(option) => onSelect ? onSelect(option) : onChange(option.label)}
       onClose={() => undefined}
       onFocus={() => undefined}
       onClear={() => onChange("")}
