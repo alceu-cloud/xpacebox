@@ -24,7 +24,7 @@ export default function DanceWorkspace() {
   return <main className="xd-shell">
     <header className="xd-topbar">
       <div className="xd-brand" aria-label="XPACE Escola de Dança">
-        <span className="xd-wordmark"><svg viewBox="0 0 60 38" aria-hidden="true"><path d="M4 5 56 33" /><path d="M4 33 56 5" /></svg><strong>PACE</strong></span>
+        <img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" />
         <span className="xd-school-name">ESCOLA DE DANÇA</span>
       </div>
       <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>
