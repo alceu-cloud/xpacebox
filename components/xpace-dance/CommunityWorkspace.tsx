@@ -89,7 +89,7 @@ export default function CommunityWorkspace({ onBack }: { onBack: () => void }) {
   </section>;
 
   return <section className="xd-community">
-    <header className="xd-community-header"><button type="button" className="xd-return" onClick={onBack}><ArrowLeft size={17} /> PAINEL XPACE</button><span>COMUNIDADE</span></header>
+    <header className="xd-community-header"><button type="button" className="xd-return" onClick={onBack}><ArrowLeft size={17} /> PAINEL XPACE</button></header>
     <div className="xd-community-title"><div><span>CADASTRO E RELACIONAMENTO</span><h1>PESSOAS DA XPACE.</h1><p>Alunos e responsáveis em uma única base, sem cadastros duplicados.</p></div><button type="button" className="xd-primary" onClick={startForm}><UserPlus size={17} /> CADASTRAR ALUNO</button></div>
     <div className="xd-community-actions"><label><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR POR NOME, CPF OU CELULAR" /></label><label className="xd-filter"><Filter size={16} /><select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="ALL">TODOS</option><option value="STUDENTS">ALUNOS</option><option value="GUARDIANS">RESPONSÁVEIS</option></select></label><button type="button" className="xd-secondary" onClick={() => setNotice("OS CONVITES SERÃO ENVIADOS QUANDO O CANAL OFICIAL DE WHATSAPP FOR CONECTADO.")}><Send size={16} /> CONVIDAR</button></div>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
