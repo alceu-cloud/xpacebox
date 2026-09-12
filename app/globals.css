@@ -218,12 +218,16 @@ body {
 .xb-central-message { margin: 18px 0 0; padding: 13px 16px; border: 1px solid rgba(0,156,75,.28); border-radius: 14px; background: rgba(0,156,75,.08); color: #087a3d; font-size: 12px; font-weight: 800; }
 
 .xd-shell { min-height: 100dvh; padding: 0 clamp(18px, 5vw, 76px) 70px; overflow: hidden; background: radial-gradient(circle at 88% 8%, rgba(232,76,183,.14), transparent 20%), radial-gradient(circle at 12% 34%, rgba(118,71,226,.12), transparent 25%), #f9f7fb; color: #191324; }
-.xd-topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 74px; }
+.xd-topbar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 74px; }
+.xd-topbar::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 999px; background: linear-gradient(90deg, #5c28b5 0%, #ca3db0 38%, #72c9f8 72%, #8d4fe1 100%); box-shadow: 0 1px 8px rgba(130,67,210,.24); content: ""; }
 .xd-brand { display: inline-flex; align-items: center; gap: 16px; color: #17111f; }
 .xd-brand-logo { display: block; width: 210px; height: auto; }
 .xd-school-name { padding-left: 16px; border-left: 1px solid #d9cfdf; color: #673bc0; font-size: 9px; font-weight: 900; letter-spacing: .18em; }
 .xd-back { min-height: 38px; padding: 0 15px; border: 1px solid #ddd3e4; border-radius: 999px; background: #fff; color: #55336e; font: inherit; font-size: 10px; font-weight: 900; letter-spacing: .05em; cursor: pointer; }
 .xd-back:hover { border-color: #b58ce2; background: #f8f1ff; }
+.xd-active-module { display: grid; min-width: 168px; justify-items: end; gap: 2px; padding: 8px 0 9px; color: #4f207e; }
+.xd-active-module span { color: #9a56c6; font-size: 8px; font-weight: 900; letter-spacing: .19em; }
+.xd-active-module strong { color: #4e1e7a; font-family: "Chillax", sans-serif; font-size: 25px; font-weight: 750; letter-spacing: .03em; line-height: .9; text-shadow: 0 3px 16px rgba(140,55,206,.16); }
 .xd-hero { position: relative; display: grid; grid-template-columns: minmax(0, .95fr) minmax(380px, .8fr); min-height: 268px; margin: 25px 0 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.42); border-radius: 28px; background: linear-gradient(118deg, #160d2d 0%, #321264 52%, #7e1d8b 100%); box-shadow: 0 28px 68px rgba(67,24,113,.18); color: #fff; }
 .xd-hero::before { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(9,6,18,.16), transparent 70%), repeating-linear-gradient(120deg, transparent 0 36px, rgba(255,255,255,.035) 37px 38px); content: ""; pointer-events: none; }
 .xd-hero-copy { position: relative; z-index: 2; display: grid; align-content: center; gap: 12px; padding: clamp(28px, 4vw, 54px); }

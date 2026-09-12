@@ -27,7 +27,7 @@ export default function DanceWorkspace() {
 
   const topbar = <header className="xd-topbar">
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
-    <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>
+    {screen === "COMMUNITY" ? <div className="xd-active-module" aria-label="Módulo atual: Comunidade"><span>MÓDULO ATIVO</span><strong>COMUNIDADE</strong></div> : screen === "FINANCE" ? <div className="xd-active-module" aria-label="Módulo atual: Fluxo"><span>MÓDULO ATIVO</span><strong>FLUXO</strong></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
   </header>;
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onBack={() => setScreen("HOME")} /></main>;
