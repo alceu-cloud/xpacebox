@@ -219,38 +219,45 @@ body {
 
 .xd-shell { min-height: 100dvh; padding: 0 clamp(18px, 5vw, 76px) 70px; overflow: hidden; background: radial-gradient(circle at 88% 8%, rgba(232,76,183,.14), transparent 20%), radial-gradient(circle at 12% 34%, rgba(118,71,226,.12), transparent 25%), #f9f7fb; color: #191324; }
 .xd-topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 74px; border-bottom: 1px solid #e8e1ed; background: rgba(255,255,255,.76); backdrop-filter: blur(18px); }
-.xd-brand { display: inline-flex; align-items: center; gap: 15px; padding: 0; border: 0; background: transparent; color: #17111f; font: inherit; cursor: pointer; }
-.xd-logo-crop { position: relative; display: block; width: 200px; height: 29px; overflow: hidden; }
-.xd-logo-crop img { position: absolute; width: 280px; max-width: none; height: auto; transform: translate(-43px, -61px); }
-.xd-school-name { padding-left: 15px; border-left: 1px solid #d9cfdf; color: #673bc0; font-size: 10px; font-weight: 900; letter-spacing: .16em; }
+.xd-brand { display: inline-flex; align-items: center; gap: 16px; color: #17111f; }
+.xd-wordmark { display: inline-flex; align-items: center; gap: 3px; color: #251137; }
+.xd-wordmark svg { width: 48px; height: 30px; overflow: visible; }
+.xd-wordmark path { fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 7; }
+.xd-wordmark strong { font-family: "Chillax", sans-serif; font-size: 31px; font-weight: 700; line-height: 1; letter-spacing: -.08em; }
+.xd-school-name { padding-left: 16px; border-left: 1px solid #d9cfdf; color: #673bc0; font-size: 9px; font-weight: 900; letter-spacing: .18em; }
 .xd-back { min-height: 38px; padding: 0 15px; border: 1px solid #ddd3e4; border-radius: 999px; background: #fff; color: #55336e; font: inherit; font-size: 10px; font-weight: 900; letter-spacing: .05em; cursor: pointer; }
 .xd-back:hover { border-color: #b58ce2; background: #f8f1ff; }
-.xd-hero { position: relative; display: grid; grid-template-columns: minmax(0, .95fr) minmax(380px, .8fr); min-height: 330px; margin: 32px 0 26px; overflow: hidden; border: 1px solid rgba(255,255,255,.42); border-radius: 30px; background: linear-gradient(118deg, #160d2d 0%, #321264 52%, #7e1d8b 100%); box-shadow: 0 28px 68px rgba(67,24,113,.18); color: #fff; }
+.xd-hero { position: relative; display: grid; grid-template-columns: minmax(0, .95fr) minmax(380px, .8fr); min-height: 268px; margin: 25px 0 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.42); border-radius: 28px; background: linear-gradient(118deg, #160d2d 0%, #321264 52%, #7e1d8b 100%); box-shadow: 0 28px 68px rgba(67,24,113,.18); color: #fff; }
 .xd-hero::before { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(9,6,18,.16), transparent 70%), repeating-linear-gradient(120deg, transparent 0 36px, rgba(255,255,255,.035) 37px 38px); content: ""; pointer-events: none; }
-.xd-hero-copy { position: relative; z-index: 2; display: grid; align-content: center; gap: 15px; padding: clamp(34px, 5vw, 68px); }
+.xd-hero-copy { position: relative; z-index: 2; display: grid; align-content: center; gap: 12px; padding: clamp(28px, 4vw, 54px); }
 .xd-hero-copy > span { display: inline-flex; align-items: center; gap: 7px; color: #f9bcdd; font-size: 10px; font-weight: 900; letter-spacing: .15em; }
-.xd-hero-copy h1 { margin: 0; font-family: "Chillax", sans-serif; font-size: clamp(42px, 5vw, 70px); line-height: .91; letter-spacing: 0; }
+.xd-hero-copy h1 { margin: 0; font-family: "Chillax", sans-serif; font-size: clamp(39px, 4.4vw, 62px); line-height: .91; letter-spacing: 0; }
 .xd-hero-copy p { max-width: 430px; margin: 0; color: #e8ddec; font-size: 14px; font-weight: 600; line-height: 1.65; text-transform: none; }
-.xd-hero-motion { position: relative; min-height: 330px; overflow: hidden; }
+.xd-hero-motion { position: relative; min-height: 268px; overflow: hidden; }
 .xd-orbit { position: absolute; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; }
-.xd-orbit-one { width: 400px; height: 400px; top: -42px; left: 30px; animation: xd-spin 16s linear infinite; }
-.xd-orbit-two { width: 280px; height: 280px; top: 24px; left: 90px; border-style: dashed; animation: xd-spin-reverse 11s linear infinite; }
-.xd-motion-core { position: absolute; top: 103px; left: 184px; display: grid; width: 112px; height: 112px; place-items: center; border: 1px solid rgba(255,255,255,.45); border-radius: 34px; background: linear-gradient(145deg, #f04eae, #a532d4); box-shadow: 0 0 0 18px rgba(245,101,198,.08), 0 22px 50px rgba(16,5,37,.35); transform: rotate(-14deg); animation: xd-core-float 4.5s ease-in-out infinite; }
-.xd-motion-core span { color: #fff; font-family: "Chillax", sans-serif; font-size: 73px; font-weight: 700; line-height: 1; }
-.xd-motion-tag { position: absolute; padding: 8px 11px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; background: rgba(255,255,255,.12); box-shadow: inset 0 1px rgba(255,255,255,.16); color: #fff; font-size: 9px; font-weight: 900; letter-spacing: .13em; backdrop-filter: blur(9px); }
-.xd-tag-hiphop { top: 34px; left: 78px; animation: xd-tag-float 4s ease-in-out infinite; }
-.xd-tag-ballet { top: 62px; right: 33px; animation: xd-tag-float 4.6s ease-in-out infinite reverse; }
-.xd-tag-jazz { bottom: 51px; left: 56px; animation: xd-tag-float 3.8s ease-in-out infinite .4s; }
-.xd-tag-salao { right: 48px; bottom: 27px; animation: xd-tag-float 5s ease-in-out infinite .9s reverse; }
-.xd-motion-trail { position: absolute; width: 300px; height: 70px; top: 138px; left: 58px; border-top: 2px solid rgba(130,199,255,.65); border-radius: 50%; transform: rotate(26deg); filter: drop-shadow(0 0 8px rgba(131,197,255,.8)); animation: xd-trail 5.5s ease-in-out infinite; }
+.xd-orbit-one { width: 340px; height: 340px; top: -40px; left: 46px; animation: xd-spin 16s linear infinite; }
+.xd-orbit-two { width: 240px; height: 240px; top: 13px; left: 98px; border-style: dashed; animation: xd-spin-reverse 11s linear infinite; }
+.xd-motion-core { position: absolute; top: 83px; left: 187px; display: grid; width: 92px; height: 92px; place-items: center; border: 1px solid rgba(255,255,255,.45); border-radius: 28px; background: linear-gradient(145deg, #f04eae, #a532d4); box-shadow: 0 0 0 14px rgba(245,101,198,.08), 0 22px 50px rgba(16,5,37,.35); transform: rotate(-14deg); animation: xd-core-float 4.5s ease-in-out infinite; }
+.xd-motion-core span { color: #fff; font-family: "Chillax", sans-serif; font-size: 61px; font-weight: 700; line-height: 1; }
+.xd-motion-tag { position: absolute; padding: 6px 8px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; background: rgba(255,255,255,.12); box-shadow: inset 0 1px rgba(255,255,255,.16); color: #fff; font-size: 7px; font-weight: 900; letter-spacing: .11em; backdrop-filter: blur(9px); white-space: nowrap; }
+.xd-tag-hiphop { top: 18px; left: 25px; animation: xd-tag-float 4s ease-in-out infinite; }
+.xd-tag-ballet { top: 19px; right: 34px; animation: xd-tag-float 4.6s ease-in-out infinite reverse; }
+.xd-tag-jazz { bottom: 37px; left: 17px; animation: xd-tag-float 3.8s ease-in-out infinite .4s; }
+.xd-tag-salao { top: 146px; left: 34px; animation: xd-tag-float 5s ease-in-out infinite .9s reverse; }
+.xd-tag-contemporaneo { top: 63px; right: 12px; animation: xd-tag-float 4.2s ease-in-out infinite .2s; }
+.xd-tag-heels { top: 132px; right: 5px; animation: xd-tag-float 3.9s ease-in-out infinite .7s reverse; }
+.xd-tag-jazzfunk { right: 50px; bottom: 20px; animation: xd-tag-float 5.2s ease-in-out infinite .5s; }
+.xd-tag-acrobacias { bottom: 6px; left: 128px; animation: xd-tag-float 4.7s ease-in-out infinite .8s reverse; }
+.xd-motion-trail { position: absolute; width: 265px; height: 60px; top: 112px; left: 70px; border-top: 2px solid rgba(130,199,255,.65); border-radius: 50%; transform: rotate(26deg); filter: drop-shadow(0 0 8px rgba(131,197,255,.8)); animation: xd-trail 5.5s ease-in-out infinite; }
 .xd-modules { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
 .xd-module { position: relative; display: grid; grid-template-columns: 39px minmax(0, 1fr) auto; align-items: center; min-height: 94px; gap: 12px; padding: 16px; overflow: hidden; border: 1px solid #e6ddea; border-radius: 20px; background: rgba(255,255,255,.86); box-shadow: 0 10px 28px rgba(64,39,88,.05); color: #24182f; font: inherit; text-align: left; cursor: pointer; transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease; }
 .xd-module::before { position: absolute; top: 0; right: 0; width: 76px; height: 76px; border-radius: 0 0 0 76px; background: var(--xd-glow); content: ""; opacity: .16; }
 .xd-module:hover { border-color: var(--xd-border); box-shadow: 0 18px 32px rgba(64,39,88,.12); transform: translateY(-3px); }
 .xd-module-icon { position: relative; z-index: 1; display: grid; width: 39px; height: 39px; place-items: center; border-radius: 13px; background: var(--xd-tint); color: var(--xd-color); }
 .xd-module-copy { position: relative; z-index: 1; display: grid; gap: 4px; min-width: 0; }
-.xd-module-copy strong { font-family: "Chillax", sans-serif; font-size: 19px; font-weight: 700; line-height: 1; letter-spacing: 0; }
-.xd-module-copy small { color: #766c80; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.xd-module-copy strong { font-family: "Chillax", sans-serif; font-size: 18px; font-weight: 700; line-height: 1; letter-spacing: .01em; }
+.xd-module-copy small { color: #766c80; font-size: 8px; font-weight: 800; letter-spacing: .035em; line-height: 1.35; text-transform: uppercase; }
+.xd-module-copy small em { color: var(--xd-color); font-style: normal; }
 .xd-module-arrow { position: relative; z-index: 1; color: var(--xd-color); }
 .xd-module--lilac { --xd-color: #6f36c7; --xd-tint: #f1e7ff; --xd-glow: #bd8aff; --xd-border: #cbb0eb; }
 .xd-module--pink { --xd-color: #be2d91; --xd-tint: #ffe6f5; --xd-glow: #f291cb; --xd-border: #efafd2; }
@@ -377,7 +384,7 @@ body {
   .xd-hero { grid-template-columns: 1fr; }
   .xd-hero-motion { display: none; }
   .xd-modules { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .xd-school-name { display: none; }
+  .xd-school-name { padding-left: 11px; font-size: 8px; letter-spacing: .13em; }
   .xb-company-topbar { min-height: 64px; padding: 10px 16px; }
   .xb-company-context { display: none; }
   .xb-company-actions { margin-left: auto; }
