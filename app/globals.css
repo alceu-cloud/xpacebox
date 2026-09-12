@@ -268,6 +268,66 @@ body {
 @media (prefers-reduced-motion: reduce) { .xd-orbit-one, .xd-orbit-two, .xd-motion-core, .xd-motion-tag, .xd-motion-trail { animation: none; } .xd-module { transition: none; } }
 .xd-loading { min-height: 100dvh; display: grid; place-items: center; background: #100d19; color: #fff; font: 800 12px "Poppins", sans-serif; letter-spacing: .12em; }
 
+.xd-community { display: grid; gap: 20px; padding: 22px 0 42px; }
+.xd-community-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.xd-community-header > span { color: #7a3cc5; font-size: 10px; font-weight: 900; letter-spacing: .16em; }
+.xd-return { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 13px; border: 1px solid #ded4e5; border-radius: 999px; background: rgba(255,255,255,.7); color: #56336f; font: inherit; font-size: 10px; font-weight: 900; cursor: pointer; }
+.xd-return:hover { border-color: #a979da; background: #fff; }
+.xd-community-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 17px 0 7px; }
+.xd-community-title > div { display: grid; gap: 8px; }
+.xd-community-title span, .xd-finance header > span { color: #823bc1; font-size: 10px; font-weight: 900; letter-spacing: .15em; }
+.xd-community-title h1, .xd-finance h1 { margin: 0; color: #251534; font-family: "Chillax", sans-serif; font-size: clamp(34px, 4vw, 54px); line-height: .95; letter-spacing: 0; }
+.xd-community-title p, .xd-finance p { max-width: 580px; margin: 0; color: #766c80; font-size: 13px; font-weight: 600; line-height: 1.6; text-transform: none; }
+.xd-primary, .xd-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 17px; border: 1px solid transparent; border-radius: 999px; font: inherit; font-size: 10px; font-weight: 900; cursor: pointer; }
+.xd-primary { background: linear-gradient(100deg, #6d35c7, #d83cac); color: #fff; box-shadow: 0 11px 24px rgba(109,53,199,.20); }
+.xd-primary:hover { box-shadow: 0 15px 30px rgba(109,53,199,.29); transform: translateY(-1px); }
+.xd-primary:disabled { cursor: wait; opacity: .62; transform: none; }
+.xd-secondary { border-color: #ddd4e4; background: #fff; color: #694478; }
+.xd-secondary:hover { border-color: #b88add; background: #fbf6ff; }
+.xd-community-actions { display: grid; grid-template-columns: minmax(0, 1fr) 180px auto; gap: 10px; padding: 12px; border: 1px solid #e6ddea; border-radius: 20px; background: rgba(255,255,255,.74); }
+.xd-community-actions > label { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 12px; border: 1px solid #e3dbe8; border-radius: 13px; background: #fff; color: #7c5898; }
+.xd-community-actions input, .xd-community-actions select { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #2a1a37; font: inherit; font-size: 10px; font-weight: 800; }
+.xd-filter select { cursor: pointer; }
+.xd-feedback { margin: 0; padding: 12px 14px; border: 1px solid #d8b9ef; border-radius: 14px; background: #f9efff; color: #6f329d; font-size: 10px; font-weight: 900; }
+.xd-people-list { display: grid; gap: 8px; }
+.xd-people-list > p { margin: 0; padding: 24px; color: #776c80; font-size: 11px; font-weight: 800; text-align: center; }
+.xd-person-row { display: grid; grid-template-columns: 43px minmax(0, 1.1fr) minmax(190px, .7fr) auto; align-items: center; gap: 13px; min-height: 78px; padding: 13px 16px; border: 1px solid #e4dce9; border-radius: 18px; background: rgba(255,255,255,.88); box-shadow: 0 8px 22px rgba(71,43,95,.04); }
+.xd-person-icon { display: grid; width: 43px; height: 43px; place-items: center; border-radius: 14px; background: #efe5ff; color: #763bc7; }
+.xd-person-row > div { display: grid; gap: 5px; min-width: 0; }
+.xd-person-row strong { overflow: hidden; color: #2a1a37; font-family: "Chillax", sans-serif; font-size: 18px; line-height: 1; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
+.xd-person-row small, .xd-person-row span { color: #7e7189; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.xd-person-meta { justify-self: end; text-align: right; }
+.xd-person-row > i { color: #b7a5c6; font-size: 11px; font-style: normal; font-weight: 900; }
+.xd-empty-community { border: 1px dashed #d8cce2; border-radius: 18px; background: rgba(255,255,255,.62); }
+.xd-person-form { display: grid; gap: 14px; }
+.xd-form-block { display: grid; grid-template-columns: minmax(220px, .32fr) minmax(0, 1fr); gap: 25px; padding: 23px; border: 1px solid #e4dce9; border-radius: 22px; background: rgba(255,255,255,.82); }
+.xd-form-block > div:first-child { display: grid; align-content: start; gap: 8px; }
+.xd-form-block > div:first-child > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 10px; background: #f0e6ff; color: #7136bd; font-size: 10px; font-weight: 900; }
+.xd-form-block h2 { margin: 3px 0 0; color: #2a1a37; font-family: "Chillax", sans-serif; font-size: 25px; line-height: 1; letter-spacing: 0; }
+.xd-form-block p { margin: 0; color: #7c7185; font-size: 11px; font-weight: 600; line-height: 1.55; text-transform: none; }
+.xd-fields { display: grid; gap: 10px; }
+.xd-fields--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.xd-fields--address { grid-template-columns: 120px minmax(0, 1.5fr) 100px; }
+.xd-fields--address > :nth-child(4), .xd-fields--address > :nth-child(5), .xd-fields--address > :nth-child(6) { grid-column: span 1; }
+.xd-fields label, .xd-guardian-tools label { display: grid; gap: 6px; color: #655b6c; font-size: 9px; font-weight: 900; letter-spacing: .06em; }
+.xd-fields input, .xd-fields select, .xd-guardian-tools select { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #e0d8e6; border-radius: 12px; outline: 0; background: #fff; color: #2b1b37; font: inherit; font-size: 11px; font-weight: 700; }
+.xd-fields input:focus, .xd-fields select:focus, .xd-guardian-tools select:focus { border-color: #a36ada; box-shadow: 0 0 0 3px rgba(133,72,205,.10); }
+.xd-guardian-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.xd-add-guardian { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 0 12px; border: 1px dashed #ae7bd5; border-radius: 12px; background: #fcf7ff; color: #7136bd; font: inherit; font-size: 9px; font-weight: 900; cursor: pointer; }
+.xd-guardian-fields { grid-column: 2; margin-top: 12px; }
+.xd-notification > button { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 62px; border: 1px solid #dcd1e5; border-radius: 16px; background: #fbf9fc; color: #807589; font: inherit; font-size: 10px; font-weight: 900; cursor: pointer; }
+.xd-notification > button.is-active { border-color: #77cda2; background: #ecfcf3; color: #177548; }
+.xd-person-form footer { display: flex; justify-content: flex-end; gap: 10px; }
+.xd-finance { display: grid; gap: 26px; padding: 38px 0; }
+.xd-finance header { display: grid; gap: 12px; max-width: 670px; }
+.xd-finance header .xd-return { justify-self: start; }
+.xd-finance > div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 13px; }
+.xd-finance > div button { display: grid; align-content: end; justify-items: start; gap: 7px; min-height: 170px; padding: 18px; border: 1px solid #e2d8e8; border-radius: 20px; background: linear-gradient(145deg, #fff, #f8efff); color: #321d48; font: inherit; text-align: left; cursor: pointer; }
+.xd-finance > div button:hover { border-color: #b787dc; transform: translateY(-3px); }
+.xd-finance i { margin-bottom: auto; color: #9a72c4; font-size: 12px; font-style: normal; font-weight: 900; }
+.xd-finance strong { font-family: "Chillax", sans-serif; font-size: 21px; line-height: 1; letter-spacing: 0; }
+.xd-finance small { color: #896e9b; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+
 .xb-company-topbar { padding: 14px clamp(18px, 3vw, 48px); background: rgba(252,251,253,.94); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 30; }
 .xb-company-brand { display: inline-flex; align-items: center; min-width: 150px; padding: 0; border: 0; background: transparent; color: var(--xb-ink); cursor: pointer; }
 .xb-company-brand > strong { font-family: "Chillax", sans-serif; font-size: 24px; }

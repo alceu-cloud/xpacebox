@@ -2,6 +2,9 @@
 
 import { ArrowUpRight, BarChart3, CalendarDays, ClipboardList, DoorOpen, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import CommunityWorkspace from "@/components/xpace-dance/CommunityWorkspace";
 
 const modules = [
   { icon: UsersRound, title: "COMUNIDADE", description: "Alunos e responsáveis", legacy: "Clientes", accent: "lilac" },
@@ -20,15 +23,18 @@ const modules = [
 
 export default function DanceWorkspace() {
   const router = useRouter();
+  const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "FINANCE">("HOME");
+
+  const topbar = <header className="xd-topbar">
+    <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
+    <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>
+  </header>;
+
+  if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onBack={() => setScreen("HOME")} /></main>;
+  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<section className="xd-finance"><header><button type="button" className="xd-return" onClick={() => setScreen("HOME")}>VOLTAR AO PAINEL</button><span>FLUXO FINANCEIRO</span><h1>CONTROLE FINANCEIRO.</h1><p>Escolha uma área para começar a estruturar a operação da escola.</p></header><div>{["CAIXA", "CONTAS A PAGAR", "CONTAS A RECEBER", "CONTAS FINANCEIRAS", "XPACEPAY"].map((item, index) => <button key={item} type="button"><i>{String(index + 1).padStart(2, "0")}</i><strong>{item}</strong><small>EM PREPARAÇÃO</small></button>)}</div></section></main>;
 
   return <main className="xd-shell">
-    <header className="xd-topbar">
-      <div className="xd-brand" aria-label="XPACE Escola de Dança">
-        <img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" />
-        <span className="xd-school-name">ESCOLA DE DANÇA</span>
-      </div>
-      <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>
-    </header>
+    {topbar}
 
     <section className="xd-hero" aria-label="XPACE Escola de Dança">
       <div className="xd-hero-copy">
@@ -53,7 +59,7 @@ export default function DanceWorkspace() {
     </section>
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
-      {modules.map(({ icon: Icon, title, description, legacy, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: em preparação`}>
+      {modules.map(({ icon: Icon, title, description, legacy, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: em preparação`} onClick={() => title === "COMUNIDADE" ? setScreen("COMMUNITY") : title === "FLUXO" ? setScreen("FINANCE") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
         <span className="xd-module-copy"><strong>{title}</strong><small>{description} <em>({legacy})</em></small></span>
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />
