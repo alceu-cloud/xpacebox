@@ -58,7 +58,7 @@ export default function HomePage() {
       if (!response.ok || !payload.success || !payload.company) throw new Error(payload.message || "NAO FOI POSSIVEL CRIAR A XPACE.");
       const company = payload.company as Company;
       setCompanies((current) => [...current.filter((item) => item.id !== company.id), company].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
-      setXpaceMessage("XPACE DANCA CRIADA. ABRA O NOVO AMBIENTE.");
+      setXpaceMessage("XPACE CRIADA. ABRA O NOVO AMBIENTE.");
     } catch (error) {
       setXpaceMessage(error instanceof Error ? error.message : "NAO FOI POSSIVEL CRIAR A XPACE.");
     } finally {
@@ -74,8 +74,8 @@ export default function HomePage() {
       <section className="xb-central-intro"><span>{role === "platform_owner" ? "Administração" : "Empresas"}</span><h1>Escolha onde trabalhar.</h1><p>Seus painéis, empresas e acessos em um único lugar.</p></section>
       <section className="xb-company-grid" aria-label="Painéis disponíveis">
         {role === "platform_owner" ? <button type="button" className="xb-company-card xb-company-card--admin" onClick={() => router.push("/usuarios")}><small>Administração</small><strong>Usuários</strong><span>Gerenciar acessos</span><i aria-hidden="true">01</i></button> : null}
-        {companies.map((company, index) => <button key={company.id} type="button" className={`xb-company-card${company.slug === xpaceCompanySlug ? " xb-company-card--xpace" : company.slug === "dawos" ? " xb-company-card--dawos" : " xb-company-card--tenant"}`} onClick={() => openCompany(company)}><small>Empresa</small><strong>{company.name}</strong><span>Abrir painel</span><i aria-hidden="true">{String(index + (role === "platform_owner" ? 2 : 1)).padStart(2, "0")}</i></button>)}
-        {role === "platform_owner" && !companies.some((company) => company.slug === xpaceCompanySlug) ? <button type="button" className="xb-company-card xb-company-card--xpace" onClick={() => void provisionXpace()} disabled={provisioningXpace}><small>Nova empresa</small><strong>XPACE Dança</strong><span>{provisioningXpace ? "Criando ambiente..." : "Ativar ambiente"}</span><i aria-hidden="true">03</i></button> : null}
+        {companies.map((company, index) => <button key={company.id} type="button" className={`xb-company-card${company.slug === xpaceCompanySlug ? " xb-company-card--xpace" : company.slug === "dawos" ? " xb-company-card--dawos" : " xb-company-card--tenant"}`} onClick={() => openCompany(company)}><small>Empresa</small><strong>{company.slug === xpaceCompanySlug ? "XPACE" : company.name}</strong><span>Abrir painel</span><i aria-hidden="true">{String(index + (role === "platform_owner" ? 2 : 1)).padStart(2, "0")}</i></button>)}
+        {role === "platform_owner" && !companies.some((company) => company.slug === xpaceCompanySlug) ? <button type="button" className="xb-company-card xb-company-card--xpace" onClick={() => void provisionXpace()} disabled={provisioningXpace}><small>Nova empresa</small><strong>XPACE</strong><span>{provisioningXpace ? "Criando ambiente..." : "Ativar ambiente"}</span><i aria-hidden="true">03</i></button> : null}
         {role === "platform_owner" ? <div className="xb-company-card xb-company-card--waiting" aria-label="Próxima empresa"><small>Nova empresa</small><strong>Próxima vaga</strong><span>Aguardando cadastro</span><i aria-hidden="true">+</i></div> : null}
       </section>
       {xpaceMessage ? <p className="xb-central-message" role="status">{xpaceMessage}</p> : null}
