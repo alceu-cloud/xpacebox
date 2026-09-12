@@ -225,9 +225,10 @@ body {
 .xd-school-name { padding-left: 16px; border-left: 1px solid #d9cfdf; color: #673bc0; font-size: 9px; font-weight: 900; letter-spacing: .18em; }
 .xd-back { min-height: 38px; padding: 0 15px; border: 1px solid #ddd3e4; border-radius: 999px; background: #fff; color: #55336e; font: inherit; font-size: 10px; font-weight: 900; letter-spacing: .05em; cursor: pointer; }
 .xd-back:hover { border-color: #b58ce2; background: #f8f1ff; }
-.xd-active-module { display: grid; min-width: 168px; justify-items: end; gap: 2px; padding: 8px 0 9px; color: #4f207e; }
+.xd-topbar-context { display: flex; align-items: center; justify-content: flex-end; gap: clamp(12px, 2vw, 28px); min-width: 0; }
+.xd-active-module { display: grid; min-width: 0; justify-items: end; gap: 2px; padding: 8px 0 9px; color: #4f207e; text-align: right; }
 .xd-active-module span { color: #9a56c6; font-size: 8px; font-weight: 900; letter-spacing: .19em; }
-.xd-active-module strong { color: #4e1e7a; font-family: "Chillax", sans-serif; font-size: 25px; font-weight: 750; letter-spacing: .03em; line-height: .9; text-shadow: 0 3px 16px rgba(140,55,206,.16); }
+.xd-active-module strong { max-width: min(42vw, 420px); overflow-wrap: anywhere; color: #4e1e7a; font-family: "Chillax", sans-serif; font-size: clamp(20px, 2vw, 25px); font-weight: 750; letter-spacing: .03em; line-height: .9; text-shadow: 0 3px 16px rgba(140,55,206,.16); }
 .xd-hero { position: relative; display: grid; grid-template-columns: minmax(0, .95fr) minmax(380px, .8fr); min-height: 268px; margin: 25px 0 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.42); border-radius: 28px; background: linear-gradient(118deg, #160d2d 0%, #321264 52%, #7e1d8b 100%); box-shadow: 0 28px 68px rgba(67,24,113,.18); color: #fff; }
 .xd-hero::before { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(9,6,18,.16), transparent 70%), repeating-linear-gradient(120deg, transparent 0 36px, rgba(255,255,255,.035) 37px 38px); content: ""; pointer-events: none; }
 .xd-hero-copy { position: relative; z-index: 2; display: grid; align-content: center; gap: 12px; padding: clamp(28px, 4vw, 54px); }
@@ -272,7 +273,7 @@ body {
 @media (prefers-reduced-motion: reduce) { .xd-orbit-one, .xd-orbit-two, .xd-motion-core, .xd-motion-tag, .xd-motion-trail { animation: none; } .xd-module { transition: none; } }
 .xd-loading { min-height: 100dvh; display: grid; place-items: center; background: #100d19; color: #fff; font: 800 12px "Poppins", sans-serif; letter-spacing: .12em; }
 
-.xd-community { display: grid; gap: 20px; padding: 22px 0 42px; }
+.xd-community { display: grid; gap: 20px; padding: 14px 0 42px; }
 .xd-community-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .xd-community-header > span { color: #7a3cc5; font-size: 10px; font-weight: 900; letter-spacing: .16em; }
 .xd-return { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 13px; border: 1px solid #ded4e5; border-radius: 999px; background: rgba(255,255,255,.7); color: #56336f; font: inherit; font-size: 10px; font-weight: 900; cursor: pointer; }
@@ -447,6 +448,9 @@ body {
   .xd-modules { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .xd-brand-logo { width: 172px; }
   .xd-school-name { padding-left: 11px; font-size: 8px; letter-spacing: .13em; }
+  .xd-topbar-context { gap: 12px; }
+  .xd-topbar-context .xd-return { min-height: 34px; padding: 0 10px; font-size: 8px; }
+  .xd-active-module strong { max-width: 36vw; }
   .xb-company-topbar { min-height: 64px; padding: 10px 16px; }
   .xb-company-context { display: none; }
   .xb-company-actions { margin-left: auto; }

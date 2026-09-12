@@ -24,13 +24,14 @@ const modules = [
 export default function DanceWorkspace() {
   const router = useRouter();
   const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "FINANCE">("HOME");
+  const activeModule = screen === "COMMUNITY" ? "COMUNIDADE" : screen === "FINANCE" ? "FLUXO" : null;
 
   const topbar = <header className="xd-topbar">
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
-    {screen === "COMMUNITY" ? <div className="xd-active-module" aria-label="Módulo atual: Comunidade"><span>MÓDULO ATIVO</span><strong>COMUNIDADE</strong></div> : screen === "FINANCE" ? <div className="xd-active-module" aria-label="Módulo atual: Fluxo"><span>MÓDULO ATIVO</span><strong>FLUXO</strong></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
+    {activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-return" onClick={() => setScreen("HOME")}>VOLTAR AO PAINEL</button><div className="xd-active-module" aria-label={`Módulo atual: ${activeModule}`}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></div></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
   </header>;
 
-  if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onBack={() => setScreen("HOME")} /></main>;
+  if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace /></main>;
   if (screen === "FINANCE") return <main className="xd-shell">{topbar}<section className="xd-finance"><header><button type="button" className="xd-return" onClick={() => setScreen("HOME")}>VOLTAR AO PAINEL</button><span>FLUXO FINANCEIRO</span><h1>CONTROLE FINANCEIRO.</h1><p>Escolha uma área para começar a estruturar a operação da escola.</p></header><div>{["CAIXA", "CONTAS A PAGAR", "CONTAS A RECEBER", "CONTAS FINANCEIRAS", "XPACEPAY"].map((item, index) => <button key={item} type="button"><i>{String(index + 1).padStart(2, "0")}</i><strong>{item}</strong><small>EM PREPARAÇÃO</small></button>)}</div></section></main>;
 
   return <main className="xd-shell">
