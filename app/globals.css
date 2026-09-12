@@ -240,14 +240,14 @@ body {
 .xd-motion-core { position: absolute; top: 83px; left: 187px; display: grid; width: 92px; height: 92px; place-items: center; border: 1px solid rgba(255,255,255,.45); border-radius: 28px; background: linear-gradient(145deg, #f04eae, #a532d4); box-shadow: 0 0 0 14px rgba(245,101,198,.08), 0 22px 50px rgba(16,5,37,.35); transform: rotate(-14deg); animation: xd-core-float 4.5s ease-in-out infinite; }
 .xd-motion-core span { color: #fff; font-family: "Chillax", sans-serif; font-size: 61px; font-weight: 700; line-height: 1; }
 .xd-motion-tag { position: absolute; padding: 6px 8px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; background: rgba(255,255,255,.12); box-shadow: inset 0 1px rgba(255,255,255,.16); color: #fff; font-size: 7px; font-weight: 900; letter-spacing: .11em; backdrop-filter: blur(9px); white-space: nowrap; }
-.xd-tag-hiphop { top: 18px; left: 25px; animation: xd-tag-float 4s ease-in-out infinite; }
-.xd-tag-ballet { top: 19px; right: 34px; animation: xd-tag-float 4.6s ease-in-out infinite reverse; }
-.xd-tag-jazz { bottom: 37px; left: 17px; animation: xd-tag-float 3.8s ease-in-out infinite .4s; }
-.xd-tag-salao { top: 146px; left: 34px; animation: xd-tag-float 5s ease-in-out infinite .9s reverse; }
-.xd-tag-contemporaneo { top: 63px; right: 12px; animation: xd-tag-float 4.2s ease-in-out infinite .2s; }
-.xd-tag-heels { top: 132px; right: 5px; animation: xd-tag-float 3.9s ease-in-out infinite .7s reverse; }
-.xd-tag-jazzfunk { right: 50px; bottom: 20px; animation: xd-tag-float 5.2s ease-in-out infinite .5s; }
-.xd-tag-acrobacias { bottom: 6px; left: 128px; animation: xd-tag-float 4.7s ease-in-out infinite .8s reverse; }
+.xd-tag-hiphop { top: 32px; left: 104px; animation: xd-tag-float 4s ease-in-out infinite; }
+.xd-tag-ballet { top: 31px; left: 287px; animation: xd-tag-float 4.6s ease-in-out infinite reverse; }
+.xd-tag-jazz { top: 182px; left: 84px; animation: xd-tag-float 3.8s ease-in-out infinite .4s; }
+.xd-tag-salao { top: 137px; left: 65px; animation: xd-tag-float 5s ease-in-out infinite .9s reverse; }
+.xd-tag-contemporaneo { top: 72px; left: 272px; animation: xd-tag-float 4.2s ease-in-out infinite .2s; }
+.xd-tag-heels { top: 128px; left: 302px; animation: xd-tag-float 3.9s ease-in-out infinite .7s reverse; }
+.xd-tag-jazzfunk { top: 181px; left: 265px; animation: xd-tag-float 5.2s ease-in-out infinite .5s; }
+.xd-tag-acrobacias { top: 221px; left: 177px; animation: xd-tag-float 4.7s ease-in-out infinite .8s reverse; }
 .xd-motion-trail { position: absolute; width: 265px; height: 60px; top: 112px; left: 70px; border-top: 2px solid rgba(130,199,255,.65); border-radius: 50%; transform: rotate(26deg); filter: drop-shadow(0 0 8px rgba(131,197,255,.8)); animation: xd-trail 5.5s ease-in-out infinite; }
 .xd-modules { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
 .xd-module { position: relative; display: grid; grid-template-columns: 39px minmax(0, 1fr) auto; align-items: center; min-height: 94px; gap: 12px; padding: 16px; overflow: hidden; border: 1px solid #e6ddea; border-radius: 20px; background: rgba(255,255,255,.86); box-shadow: 0 10px 28px rgba(64,39,88,.05); color: #24182f; font: inherit; text-align: left; cursor: pointer; transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease; }
