@@ -97,6 +97,12 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
       created_by: input.createdBy,
     });
     if (activityError) throw activityError;
+
+    await rescheduleLinkedOpportunityAgenda(admin, {
+      ...input,
+      opportunityId: existingOpportunity.id,
+      nextActionAt,
+    });
     return;
   }
 
@@ -223,6 +229,53 @@ async function ensureDirectQuoteAgenda(
     outcome: "FOLLOW_UP",
     subject: `ORCAMENTO DIRETO ${input.quoteNumber} ENVIADO`,
     notes: `ORCAMENTO DIRETO ENVIADO PARA ${input.clientName}.${input.validUntil ? ` VALIDADE: ${displayDate(input.validUntil)}.` : ""}`,
+    occurred_at: new Date().toISOString(),
+    next_action_type: "FOLLOW_UP",
+    next_action_at: input.nextActionAt,
+    agenda_kind: "OPPORTUNITY",
+    created_by: input.createdBy,
+  });
+  if (error) throw error;
+}
+
+async function rescheduleLinkedOpportunityAgenda(
+  admin: SupabaseClient,
+  input: QuoteCrmInput & { opportunityId: string; nextActionAt: string }
+) {
+  const { data: currentAgenda, error: currentAgendaError } = await admin
+    .from("crm_activities")
+    .select("id")
+    .eq("tenant_company_id", input.tenantCompanyId)
+    .eq("opportunity_id", input.opportunityId)
+    .not("next_action_at", "is", null)
+    .order("occurred_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (currentAgendaError) throw currentAgendaError;
+
+  if (currentAgenda) {
+    const { error } = await admin
+      .from("crm_activities")
+      .update({
+        agenda_kind: "OPPORTUNITY",
+        next_action_type: "FOLLOW_UP",
+        next_action_at: input.nextActionAt,
+      })
+      .eq("id", currentAgenda.id)
+      .eq("tenant_company_id", input.tenantCompanyId);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await admin.from("crm_activities").insert({
+    tenant_company_id: input.tenantCompanyId,
+    client_id: input.clientId,
+    opportunity_id: input.opportunityId,
+    representative_profile_id: input.representativeProfileId,
+    activity_type: "QUOTE",
+    outcome: "FOLLOW_UP",
+    subject: `ACOMPANHAMENTO DO ORCAMENTO ${input.quoteNumber}`,
+    notes: `AGENDA REPROGRAMADA APOS VINCULO DO ORCAMENTO. VALOR: ${money(input.grandTotal)}.`,
     occurred_at: new Date().toISOString(),
     next_action_type: "FOLLOW_UP",
     next_action_at: input.nextActionAt,
