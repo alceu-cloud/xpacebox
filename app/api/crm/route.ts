@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
-import { syncExistingDirectQuotesWithCrm } from "@/lib/server/quote-crm";
 
 export async function GET(request: Request) {
   try {
@@ -9,9 +8,6 @@ export async function GET(request: Request) {
     if (!slug) return failure("EMPRESA NAO INFORMADA.", 400);
 
     const { admin, company, profile, user } = await requireCompanyAccess(request, slug);
-    await syncExistingDirectQuotesWithCrm(admin, company.id, user.id).catch((error) => {
-      console.error("DIRECT QUOTES CRM BACKFILL ERROR", error);
-    });
     await activateDueCommercialCycles({ admin, companyId: company.id, userId: user.id });
     const isManager = ["platform_owner", "company_manager"].includes(profile.platform_role);
     let telephonyCallsQuery = admin
