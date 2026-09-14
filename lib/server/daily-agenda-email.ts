@@ -44,6 +44,10 @@ type SampleRequestEmail = {
   consultantEmail?: string;
 };
 
+type SampleOverdueEmail = SampleRequestEmail & {
+  overdueDays: number;
+};
+
 type QuoteEmailInput = {
   companyId: string;
   quoteNumber: string;
@@ -155,6 +159,133 @@ export async function sendSampleRequestEmail(sample: SampleRequestEmail) {
       subject,
       html,
       text,
+      reply_to: integration.replyTo || undefined,
+    }),
+  });
+  const payload = await response.json().catch(() => ({})) as { id?: string; message?: string };
+  if (!response.ok) throw new Error(payload.message || "O PROVEDOR DE E-MAIL RECUSOU O ENVIO.");
+  return payload.id || "";
+}
+
+export async function sendScheduledSampleOverdueEmails() {
+  const admin = createSupabaseAdmin();
+  const scheduledFor = saoPauloDay(new Date());
+  const { data: dawos, error: companyError } = await admin
+    .from("companies")
+    .select("id,slug")
+    .eq("slug", "dawos")
+    .eq("active", true)
+    .maybeSingle();
+  if (companyError) throw companyError;
+  if (!dawos) return { sent: 0, skipped: 0, failed: 0, overdue: 0 };
+
+  const { data: rows, error: samplesError } = await admin
+    .from("client_samples")
+    .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,product_description,quantity,notes,status,closed_at")
+    .eq("tenant_company_id", dawos.id)
+    .is("closed_at", null)
+    .not("delivery_date", "is", null)
+    .lt("delivery_date", scheduledFor);
+  if (samplesError) throw samplesError;
+
+  const openSamples = (rows ?? []).filter((sample) => !["APPROVED", "REJECTED", "CANCELLED"].includes(String(sample.status)));
+  if (!openSamples.length) return { sent: 0, skipped: 0, failed: 0, overdue: 0 };
+
+  const clientIds = [...new Set(openSamples.map((sample) => String(sample.client_id || "")).filter(Boolean))];
+  const responsibleIds = [...new Set(openSamples.map((sample) => String(sample.responsible_profile_id || "")).filter(Boolean))];
+  const [clientsResult, profilesResult] = await Promise.all([
+    clientIds.length ? admin.from("clients").select("id,legal_name,trade_name").in("id", clientIds) : Promise.resolve({ data: [], error: null }),
+    responsibleIds.length ? admin.from("profiles").select("id,email").in("id", responsibleIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (clientsResult.error) throw clientsResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+  const clientNames = new Map((clientsResult.data ?? []).map((client) => [client.id, client.trade_name || client.legal_name || "CLIENTE"]));
+  const consultantEmails = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile.email || ""]));
+
+  const connection = await emailConnectionForCompany(admin, dawos.id);
+  if (!emailIntegrationStatus(connection).configured) return { sent: 0, skipped: openSamples.length, failed: 0, overdue: openSamples.length };
+
+  const results = { sent: 0, skipped: 0, failed: 0, overdue: openSamples.length };
+  for (const sample of openSamples) {
+    const overdueDays = calendarDaysBetween(String(sample.delivery_date), scheduledFor);
+    const consultantEmail = consultantEmails.get(String(sample.responsible_profile_id || "")) || "";
+    const recipientEmail = ["ppcp@dawos.com.br", "suporte@dawos.com.br", consultantEmail].filter(Boolean).join(", ");
+    const { data: delivery, error: insertError } = await admin
+      .from("sample_overdue_email_deliveries")
+      .upsert({
+        tenant_company_id: dawos.id,
+        sample_id: sample.id,
+        scheduled_for: scheduledFor,
+        recipient_email: recipientEmail,
+        overdue_days: overdueDays,
+        status: "PENDING",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "sample_id,scheduled_for", ignoreDuplicates: true })
+      .select("id")
+      .maybeSingle();
+    if (insertError) throw insertError;
+    if (!delivery) {
+      results.skipped += 1;
+      continue;
+    }
+
+    try {
+      const providerMessageId = await sendSampleOverdueEmail({
+        companyId: dawos.id,
+        companySlug: dawos.slug,
+        sampleCode: `AM-${String(sample.sample_number).padStart(6, "0")}`,
+        clientName: clientNames.get(String(sample.client_id || "")) || "CLIENTE",
+        productDescription: String(sample.product_description || "ITEM SEM DESCRICAO"),
+        quantity: Number(sample.quantity || 0),
+        requestedAt: String(sample.requested_at || ""),
+        deliveryDate: String(sample.delivery_date || ""),
+        notes: String(sample.notes || ""),
+        consultantEmail,
+        overdueDays,
+      });
+      const { error } = await admin
+        .from("sample_overdue_email_deliveries")
+        .update({ status: "SENT", provider_message_id: providerMessageId, sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", delivery.id);
+      if (error) throw error;
+      results.sent += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ERRO DESCONHECIDO NO ENVIO.";
+      await admin
+        .from("sample_overdue_email_deliveries")
+        .update({ status: "FAILED", error_message: message.slice(0, 1000), updated_at: new Date().toISOString() })
+        .eq("id", delivery.id);
+      console.error("SAMPLE OVERDUE EMAIL ERROR", { sampleId: sample.id, error });
+      results.failed += 1;
+    }
+  }
+
+  return results;
+}
+
+async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
+  const connection = await emailConnectionForCompany(createSupabaseAdmin(), sample.companyId);
+  const integration = emailIntegrationStatus(connection);
+  if (!integration.configured) throw new Error("CONFIGURE A CHAVE E O REMETENTE DO RESEND EM INTEGRACOES.");
+  const apiKey = decryptIntegrationCredential({
+    ciphertext: connection.api_key_ciphertext || "",
+    iv: connection.api_key_iv || "",
+    authTag: connection.api_key_auth_tag || "",
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://xpacebox.com.br";
+  const consultantEmail = sample.consultantEmail?.trim().toLowerCase() || "";
+  const primaryRecipients = new Set(["ppcp@dawos.com.br", "suporte@dawos.com.br"]);
+  const consultantCc = consultantEmail && !primaryRecipients.has(consultantEmail) ? [consultantEmail] : undefined;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: integration.sender,
+      to: ["ppcp@dawos.com.br", "suporte@dawos.com.br"],
+      cc: consultantCc,
+      subject: `AMOSTRA ATRASADA ${sample.sampleCode} - ${sample.clientName}`,
+      html: renderSampleOverdueHtml({ ...sample, appUrl }),
+      text: renderSampleOverdueText({ ...sample, appUrl }),
       reply_to: integration.replyTo || undefined,
     }),
   });
@@ -458,6 +589,17 @@ function renderSampleRequestText(input: SampleRequestEmail & { appUrl: string })
   return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nNOVA AMOSTRA SOLICITADA\n\n${input.sampleCode} - ${input.productDescription}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nENTREGA PREVISTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
 }
 
+function renderSampleOverdueHtml(input: SampleOverdueEmail & { appUrl: string }) {
+  const notes = input.notes ? escapeHtml(input.notes).replace(/\n/g, "<br>") : "SEM OBSERVACOES.";
+  const daysLabel = input.overdueDays === 1 ? "1 DIA DE ATRASO" : `${input.overdueDays} DIAS DE ATRASO`;
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#d24156;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">AMOSTRA EM ATRASO</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">ESTA AMOSTRA AINDA ESTA EM ABERTO E PASSOU DA DATA PREVISTA DE ENTREGA.</p><section style="padding:18px;border:1px solid #f1c7ce;border-left:4px solid #d24156;border-radius:8px;background:#fff8f8"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0 0 12px;color:#b22743;font:700 14px Arial,sans-serif">${daysLabel}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>SOLICITADA EM:</strong> ${formatDate(input.requestedAt)}<br><strong>ENTREGA PREVISTA:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#d24156;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
+}
+
+function renderSampleOverdueText(input: SampleOverdueEmail & { appUrl: string }) {
+  const daysLabel = input.overdueDays === 1 ? "1 DIA DE ATRASO" : `${input.overdueDays} DIAS DE ATRASO`;
+  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nAMOSTRA EM ATRASO\n\n${input.sampleCode} - ${input.productDescription}\n${daysLabel}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nENTREGA PREVISTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
+}
+
 function renderQuoteEmailHtml(input: QuoteEmailInput) {
   const logo = input.sellerLogoUrl
     ? `<img src="${escapeHtml(input.sellerLogoUrl)}" alt="${escapeHtml(input.sellerName)}" style="display:block;max-width:180px;max-height:64px;object-fit:contain">`
@@ -483,6 +625,12 @@ function saoPauloRange() {
 function saoPauloDay(now: Date) {
   const values = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now).map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+function calendarDaysBetween(start: string, end: string) {
+  const startUtc = Date.parse(`${start.slice(0, 10)}T00:00:00Z`);
+  const endUtc = Date.parse(`${end.slice(0, 10)}T00:00:00Z`);
+  return Math.max(1, Math.round((endUtc - startUtc) / 86_400_000));
 }
 
 function formatDate(value: string) {
