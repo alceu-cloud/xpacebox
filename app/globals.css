@@ -3406,6 +3406,19 @@ button {
 
 .xd-modalities-picker { width: min(100%, 540px); }
 .xd-modalities-picker > p { margin: 0; color: #7a6e83; font-size: 11px; font-weight: 600; line-height: 1.5; text-transform: none; }
+.xd-modalities-picker-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.xd-modalities-picker-fields label { display: grid; gap: 6px; color: #675c70; font-size: 9px; font-weight: 900; letter-spacing: .07em; }
+.xd-modalities-picker-fields label:first-child { grid-column: 1 / -1; }
+.xd-modalities-picker-fields input, .xd-modalities-picker-fields select { width: 100%; min-height: 42px; padding: 0 10px; border: 1px solid #e0d8e6; border-radius: 11px; outline: 0; background: #fff; color: #2b1b37; font: inherit; font-size: 12px; font-weight: 700; }
+.xd-modalities-picker-fields input:focus, .xd-modalities-picker-fields select:focus { border-color: #a36ada; box-shadow: 0 0 0 3px rgba(133,72,205,.10); }
+.xd-modality-rule-settings, .xd-modality-rule-advanced { display: grid; gap: 11px; padding: 14px; border: 1px solid #eee6f2; border-radius: 13px; background: #fcfaff; }
+.xd-modality-rule-settings h3 { margin: 0; color: #63566c; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
+.xd-modality-rule-advanced > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: transparent; color: #4a3658; font: inherit; font-size: 11px; font-weight: 900; text-align: left; cursor: pointer; }
+.xd-modality-rule-advanced > button small { color: #897e91; font-size: 9px; }
+.xd-modality-rule-advanced > div { display: grid; gap: 11px; padding-top: 3px; }
+.xd-plan-modality-rules { display: grid; gap: 8px; }
+.xd-plan-modality-rules article { display: flex; align-items: center; justify-content: space-between; gap: 11px; padding: 10px 11px; border: 1px solid #e4d8ec; border-radius: 12px; background: #faf6fd; }
+.xd-plan-modality-rules strong, .xd-plan-modality-rules small { display: block; }.xd-plan-modality-rules strong { color: #422752; font-size: 12px; }.xd-plan-modality-rules small { margin-top: 3px; color: #7e6f89; font-size: 9px; font-weight: 800; }
 .xd-modalities-picker-list { display: grid; gap: 8px; max-height: 320px; overflow: auto; }
 .xd-modalities-picker-list > button { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 48px; padding: 0 13px; border: 1px solid #e3d9eb; border-radius: 12px; background: #fff; color: #382648; font: inherit; font-size: 12px; font-weight: 900; text-align: left; cursor: pointer; }
 .xd-modalities-picker-list > button:hover { border-color: #b77fe0; background: #fbf7ff; }

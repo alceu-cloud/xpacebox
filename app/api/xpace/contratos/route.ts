@@ -9,9 +9,11 @@ const statuses = ["AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as c
 
 type BillingInterval = (typeof intervals)[number];
 type ContractStatus = (typeof statuses)[number];
+type AccessPeriod = "SEM_LIMITE" | "DIA" | "SEMANA" | "MES";
+type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; accessPeriod?: string; accessLimit?: number | null; allowEarlyAccess?: boolean; allowReschedule?: boolean; requiresEnrollment?: boolean; limitPromotionalTimes?: boolean };
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
-  plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; catalogSettings?: Record<string, unknown> };
+  plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
   contract?: { id?: string; studentId?: string; planId?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
 };
 
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const [plansResult, studentsResult, contractsResult, modalitiesResult] = await Promise.all([
-      admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,catalog_settings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
+      admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,modality_rules,catalog_settings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
       admin.from("xpace_people").select("id,person_number,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,created_at,cancel_effective_on").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(300),
       admin.from("xpace_modalities").select("id,name,active").eq("tenant_company_id", company.id).eq("active", true).order("name"),
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,
-      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], catalogSettings: plan.catalog_settings ?? {}, active: plan.active, createdAt: plan.created_at })),
+      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], modalityRules: plan.modality_rules ?? [], catalogSettings: plan.catalog_settings ?? {}, active: plan.active, createdAt: plan.created_at })),
       modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, active: modality.active })),
       students: (studentsResult.data ?? []).map((student) => ({ id: student.id, personNumber: student.person_number, name: student.full_name, mobile: student.mobile ?? "" })),
       contracts: (contractsResult.data ?? []).map((contract) => {
@@ -86,8 +88,8 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   const plan = normalizePlan(input);
   if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURACAO E VALOR DO PLANO.", 400);
   validateCatalogSettings(plan.catalogSettings);
-  const modalities = await resolveModalities(access, plan.modalities);
-  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities, catalog_settings: plan.catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
+  const modalityRules = await resolveModalityRules(access, plan.modalityRules);
+  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: modalityRules.map((rule) => rule.modalityName), modality_rules: modalityRules.map(({ modalityName: _modalityName, ...rule }) => rule), catalog_settings: plan.catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
   if (error) throw error;
   return NextResponse.json({ success: true, plan: { id: data.id, name: data.name } }, { status: 201 });
 }
@@ -97,7 +99,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (!contract.studentId || !contract.planId || !isDate(contract.startsOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO E A DATA DE INICIO.", 400);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
     access.admin.from("xpace_people").select("id,birth_date").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
-    access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,modality_rules,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
     access.admin.from("xpace_person_benefits").select("benefit_profile_id").eq("tenant_company_id", access.company.id).eq("person_id", contract.studentId).eq("status", "ATIVO").maybeSingle(),
   ]);
   if (studentError) throw studentError;
@@ -126,7 +128,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
     : manuallyDiscounted
       ? { benefit_profile_id: null, benefit_name_snapshot: "CONDIÇÃO COMERCIAL", discount_type_snapshot: "FIXO", discount_value_snapshot: Math.max(0, plan.amount_cents - amountCents) }
       : { benefit_profile_id: null, benefit_name_snapshot: null, discount_type_snapshot: null, discount_value_snapshot: null };
-  const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, renews_automatically: renewsAutomatically, starts_on: startsOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,status,cancel_effective_on").single();
+  const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], renews_automatically: renewsAutomatically, starts_on: startsOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
   const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: saved.id, event_type: "CRIADO", next_status: status, created_by: access.user.id });
   if (eventError) throw eventError;
@@ -172,7 +174,7 @@ function normalizePlan(value?: RequestBody["plan"]) {
     durationMonths: Number(value?.durationMonths),
     amountCents: Number(value?.amountCents),
     renewsAutomatically: Boolean(value?.renewsAutomatically),
-    modalities: [...new Set((value?.modalities ?? []).map((item) => item.trim().replace(/\s+/g, " ")).filter(Boolean))].slice(0, 12),
+    modalityRules: normalizeModalityRules(value?.modalityRules),
     catalogSettings: {
       allowManualRenewal: Boolean(settings.allowManualRenewal),
       allowInstallments: Boolean(settings.allowInstallments),
@@ -194,12 +196,28 @@ function normalizePlan(value?: RequestBody["plan"]) {
     },
   };
 }
-async function resolveModalities(access: Awaited<ReturnType<typeof requireCompanyAccess>>, ids: string[]) {
-  if (!ids.length) return [];
+function normalizeModalityRules(value?: PlanModalityInput[]) {
+  const seen = new Set<string>();
+  return (Array.isArray(value) ? value : []).flatMap((rule) => {
+    const modalityId = rule?.modalityId?.trim() ?? "";
+    if (!modalityId || seen.has(modalityId)) return [];
+    seen.add(modalityId);
+    const accessPeriod = rule?.accessPeriod === "DIA" || rule?.accessPeriod === "SEMANA" || rule?.accessPeriod === "MES" ? rule.accessPeriod : "SEM_LIMITE";
+    return [{ modalityId, sessionsPerWeek: Number(rule?.sessionsPerWeek), accessPeriod: accessPeriod as AccessPeriod, accessLimit: accessPeriod === "SEM_LIMITE" ? null : Number(rule?.accessLimit), allowEarlyAccess: Boolean(rule?.allowEarlyAccess), allowReschedule: Boolean(rule?.allowReschedule), requiresEnrollment: Boolean(rule?.requiresEnrollment), limitPromotionalTimes: Boolean(rule?.limitPromotionalTimes) }];
+  }).slice(0, 12);
+}
+async function resolveModalityRules(access: Awaited<ReturnType<typeof requireCompanyAccess>>, rules: ReturnType<typeof normalizeModalityRules>) {
+  if (!rules.length) throw new RequestError("ADICIONE AO MENOS UMA MODALIDADE AO CONTRATO.", 400);
+  const ids = rules.map((rule) => rule.modalityId);
   const { data, error } = await access.admin.from("xpace_modalities").select("id,name").eq("tenant_company_id", access.company.id).eq("active", true).in("id", ids);
   if (error) throw error;
   if ((data ?? []).length !== ids.length) throw new RequestError("SELECIONE APENAS MODALIDADES ATIVAS CADASTRADAS.", 400);
-  return ids.map((id) => (data ?? []).find((modality) => modality.id === id)?.name).filter((name): name is string => Boolean(name));
+  return rules.map((rule) => {
+    const modalityName = (data ?? []).find((modality) => modality.id === rule.modalityId)?.name;
+    if (!modalityName || !Number.isInteger(rule.sessionsPerWeek) || rule.sessionsPerWeek < 1 || rule.sessionsPerWeek > 14) throw new RequestError("INFORME ENTRE 1 E 14 SESSÕES POR SEMANA PARA CADA MODALIDADE.", 400);
+    if (rule.accessPeriod !== "SEM_LIMITE" && (!Number.isInteger(rule.accessLimit) || !rule.accessLimit || rule.accessLimit < 1 || rule.accessLimit > 100)) throw new RequestError("INFORME UMA QUANTIDADE DE ACESSOS VÁLIDA PARA O PERÍODO ESCOLHIDO.", 400);
+    return { ...rule, modalityName };
+  });
 }
 function validateSaleRestrictions(value: unknown, birthDate: string | null) {
   if (!value || typeof value !== "object") return;
