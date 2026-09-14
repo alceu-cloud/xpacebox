@@ -1732,11 +1732,11 @@ function Timeline({ activities, telephonyCalls, opportunities }: { activities: C
     ...telephonyCalls.map((call) => ({ id: call.id, date: call.startedAt, title: `LIGACAO · ${call.status}`, detail: `${call.representativeName || "RAMAL NAO IDENTIFICADO"} · RAMAL ${call.extension || "-"} · ${formatTimelinePhone(call.remotePhone)}`, type: "LIGACAO", source: "CALL" as const })),
     ...opportunities.map((item) => ({ id: item.id, date: item.updatedAt, title: item.title, detail: `${item.productReference ? `${item.productReference} · ` : ""}${stageOptions.find((stage) => stage.value === item.stage)?.label || item.stage} · ${money(item.estimatedValue)}`, type: "NEGOCIO", source: "MANUAL" as const })),
   ].sort((a, b) => b.date.localeCompare(a.date));
-  const visibleRows = rows.filter((row) => !filter || row.source === filter).slice(0, 12);
+  const visibleRows = rows.filter((row) => !filter || row.source === filter);
   return (
     <section className="crm-timeline">
       <header><h4>LINHA DO TEMPO</h4><div className="crm-timeline-filters"><button type="button" className={filter === "MANUAL" ? "active" : ""} onClick={() => setFilter((current) => current === "MANUAL" ? "" : "MANUAL")}>MANUAIS</button><button type="button" className={filter === "WHATSAPP" ? "active" : ""} onClick={() => setFilter((current) => current === "WHATSAPP" ? "" : "WHATSAPP")}>WHATSAPP</button><button type="button" className={filter === "CALL" ? "active" : ""} onClick={() => setFilter((current) => current === "CALL" ? "" : "CALL")}>LIGACOES</button><button type="button" className={filter === "SYSTEM" ? "active" : ""} onClick={() => setFilter((current) => current === "SYSTEM" ? "" : "SYSTEM")}>SISTEMA</button></div></header>
-      {visibleRows.map((row) => <article key={`${row.type}-${row.id}`}><i /><div><span>{row.type} · {displayDateTime(row.date)}</span><strong>{row.title}</strong><p>{row.detail}</p></div></article>)}
+      {visibleRows.length ? <div className="crm-timeline-list">{visibleRows.map((row) => <article key={`${row.type}-${row.id}`}><i /><div><span>{row.type} · {displayDateTime(row.date)}</span><strong>{row.title}</strong><p>{row.detail}</p></div></article>)}</div> : null}
       {!visibleRows.length ? <div className="clients-empty">NENHUM REGISTRO NESTE FILTRO.</div> : null}
     </section>
   );

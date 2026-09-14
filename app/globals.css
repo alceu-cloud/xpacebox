@@ -2961,6 +2961,19 @@ button {
 .crm-timeline-filters button:hover { border-color: #7a31e8; color: #6831cc; }
 .crm-timeline-filters button.active { border-color: #7a31e8; background: #7a31e8; color: #fff; }
 
+.crm-timeline-list {
+  max-height: 286px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+  scrollbar-color: #a6adbb transparent;
+  scrollbar-width: thin;
+}
+
+.crm-timeline-list::-webkit-scrollbar { width: 8px; }
+.crm-timeline-list::-webkit-scrollbar-track { background: transparent; }
+.crm-timeline-list::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: #a6adbb; background-clip: padding-box; }
+
 .crm-timeline article {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr);
