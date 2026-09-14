@@ -10,6 +10,8 @@ import AgendaWorkspace from "@/components/xpace-dance/AgendaWorkspace";
 import AdministrativeWorkspace from "@/components/xpace-dance/AdministrativeWorkspace";
 import ModalitiesWorkspace from "@/components/xpace-dance/ModalitiesWorkspace";
 import InstructorsWorkspace from "@/components/xpace-dance/InstructorsWorkspace";
+import RoomsWorkspace from "@/components/xpace-dance/RoomsWorkspace";
+import SettingsWorkspace from "@/components/xpace-dance/SettingsWorkspace";
 import StudentProfileWorkspace from "@/components/xpace-dance/StudentProfileWorkspace";
 
 const modules = [
@@ -27,13 +29,13 @@ const modules = [
 
 export default function DanceWorkspace() {
   const router = useRouter();
-  const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "PROFILE" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "MODALITIES" | "INSTRUCTORS">("HOME");
+  const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "PROFILE" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS">("HOME");
   const [profileId, setProfileId] = useState("");
-  const activeModule = screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "MODALITIES" || screen === "INSTRUCTORS" ? "ADMINISTRATIVO" : null;
+  const activeModule = screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "MODALITIES" || screen === "INSTRUCTORS" ? "ADMINISTRATIVO" : screen === "SETTINGS" || screen === "ROOMS" ? "CONFIGURAÇÕES" : null;
 
   const topbar = <header className="xd-topbar">
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
-    {activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "MODALITIES" || screen === "INSTRUCTORS" ? "ADMINISTRATIVE" : "HOME")} title={screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "MODALITIES" || screen === "INSTRUCTORS" ? "Voltar ao Administrativo" : "Voltar ao Painel"}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
+    {activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "MODALITIES" || screen === "INSTRUCTORS" ? "ADMINISTRATIVE" : screen === "ROOMS" ? "SETTINGS" : "HOME")} title={screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "MODALITIES" || screen === "INSTRUCTORS" ? "Voltar ao Administrativo" : screen === "ROOMS" ? "Voltar às Configurações" : "Voltar ao Painel"}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
   </header>;
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
@@ -44,6 +46,8 @@ export default function DanceWorkspace() {
   if (screen === "CONTRACTS") return <main className="xd-shell">{topbar}<ContractsWorkspace /></main>;
   if (screen === "MODALITIES") return <main className="xd-shell">{topbar}<ModalitiesWorkspace /></main>;
   if (screen === "INSTRUCTORS") return <main className="xd-shell">{topbar}<InstructorsWorkspace /></main>;
+  if (screen === "SETTINGS") return <main className="xd-shell">{topbar}<SettingsWorkspace onOpenRooms={() => setScreen("ROOMS")} /></main>;
+  if (screen === "ROOMS") return <main className="xd-shell">{topbar}<RoomsWorkspace /></main>;
 
   return <main className="xd-shell">
     {topbar}
@@ -71,7 +75,7 @@ export default function DanceWorkspace() {
     </section>
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
-      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "AGENDA", "FINANCEIRO", "ADMINISTRATIVO"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : undefined}>
+      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "AGENDA", "FINANCEIRO", "ADMINISTRATIVO", "CONFIGURAÇÕES"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
         <span className="xd-module-copy"><strong>{title}</strong><small>{description}</small></span>
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />

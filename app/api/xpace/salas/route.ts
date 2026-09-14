@@ -1,0 +1,44 @@
+import { NextResponse } from "next/server";
+
+import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+
+const companySlug = "xpace";
+type RequestBody = { action?: "CREATE_ROOM" | "SET_ROOM_ACTIVE"; room?: { id?: string; name?: string; coverageType?: string; active?: boolean } };
+
+export async function GET(request: Request) {
+  try {
+    const { admin, company } = await requireCompanyAccess(request, companySlug);
+    const { data, error } = await admin.from("xpace_rooms").select("id,name,coverage_type,active").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name");
+    if (error) throw error;
+    return NextResponse.json({ success: true, rooms: (data ?? []).map((room) => ({ id: room.id, name: room.name, coverageType: room.coverage_type, active: room.active })) });
+  } catch (error) { return handleError(error); }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as RequestBody;
+    const access = await requireCompanyAccess(request, companySlug); requireManager(access.profile.platform_role);
+    if (body.action !== "CREATE_ROOM") throw new RequestError("AÇÃO DE SALA INVÁLIDA.", 400);
+    const room = normalize(body.room);
+    if (!room.name) throw new RequestError("INFORME A DESCRIÇÃO DA SALA.", 400);
+    const { data, error } = await access.admin.from("xpace_rooms").insert({ tenant_company_id: access.company.id, name: room.name, coverage_type: room.coverageType, created_by: access.user.id, updated_by: access.user.id }).select("id,name,coverage_type,active").single();
+    if (error) throw error;
+    return NextResponse.json({ success: true, room: { id: data.id, name: data.name, coverageType: data.coverage_type, active: data.active } }, { status: 201 });
+  } catch (error) { return handleError(error); }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = (await request.json()) as RequestBody;
+    const access = await requireCompanyAccess(request, companySlug); requireManager(access.profile.platform_role);
+    if (body.action !== "SET_ROOM_ACTIVE" || !body.room?.id || typeof body.room.active !== "boolean") throw new RequestError("ATUALIZAÇÃO DE SALA INVÁLIDA.", 400);
+    const { error } = await access.admin.from("xpace_rooms").update({ active: body.room.active, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.room.id).eq("tenant_company_id", access.company.id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) { return handleError(error); }
+}
+
+function normalize(value?: RequestBody["room"]) { return { name: value?.name?.trim().replace(/\s+/g, " ").slice(0, 80) ?? "", coverageType: ["COBERTO", "ABERTO", "OUTRO"].includes(value?.coverageType ?? "") ? value?.coverageType : "COBERTO" }; }
+function requireManager(role: string) { if (!["platform_owner", "company_manager"].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR AS SALAS.", 403); }
+class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }
+function handleError(error: unknown) { if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "JÁ EXISTE UMA SALA COM ESTA DESCRIÇÃO.", }, { status: 409 }); console.error("XPACE ROOMS ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR AS SALAS." }, { status: 500 }); }
