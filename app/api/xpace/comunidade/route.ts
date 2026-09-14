@@ -11,9 +11,16 @@ export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const query = new URL(request.url).searchParams.get("q")?.trim().toLocaleLowerCase("pt-BR") ?? "";
-    const { data: rows, error } = await admin.from("xpace_people").select("id,person_number,cpf,full_name,mobile,birth_date,email,gender,is_student,whatsapp_opt_in,city,state").eq("tenant_company_id", company.id).eq("active", true).order("full_name").limit(250);
+    const { data: rows, error } = await admin.from("xpace_people").select("id,person_number,cpf,full_name,mobile,birth_date,email,gender,is_student,whatsapp_opt_in,city,state,photo_path").eq("tenant_company_id", company.id).eq("active", true).order("full_name").limit(250);
     if (error) throw error;
     const people = (rows ?? []).filter((person) => matchesSearch(person, query));
+    const photoPaths = people.flatMap((person) => person.photo_path ? [person.photo_path] : []);
+    const photoUrls = new Map<string, string>();
+    if (photoPaths.length) {
+      const { data: signedPhotos, error: signedPhotosError } = await admin.storage.from("xpace-people").createSignedUrls(photoPaths, 60 * 30);
+      if (signedPhotosError) throw signedPhotosError;
+      for (const photo of signedPhotos ?? []) if (photo.path && photo.signedUrl) photoUrls.set(photo.path, photo.signedUrl);
+    }
     const studentIds = people.filter((person) => person.is_student).map((person) => person.id);
     const { data: links, error: linksError } = studentIds.length ? await admin.from("xpace_guardianships").select("student_id,guardian_id").eq("tenant_company_id", company.id).in("student_id", studentIds) : { data: [], error: null };
     if (linksError) throw linksError;
@@ -29,7 +36,7 @@ export async function GET(request: Request) {
       current.push({ id: guardian.id, name: guardian.full_name, cpfMasked: maskCpf(guardian.cpf), mobile: guardian.mobile ?? "" });
       guardiansByStudent.set(link.student_id, current);
     }
-    return NextResponse.json({ success: true, people: people.map((person) => ({ id: person.id, personNumber: person.person_number, name: person.full_name, cpfMasked: maskCpf(person.cpf), mobile: person.mobile ?? "", birthDate: person.birth_date ?? "", email: person.email ?? "", gender: person.gender, isStudent: person.is_student, whatsappOptIn: person.whatsapp_opt_in, city: person.city ?? "", state: person.state ?? "", guardians: guardiansByStudent.get(person.id) ?? [] })) });
+    return NextResponse.json({ success: true, people: people.map((person) => ({ id: person.id, personNumber: person.person_number, name: person.full_name, photoUrl: person.photo_path ? photoUrls.get(person.photo_path) ?? "" : "", cpfMasked: maskCpf(person.cpf), mobile: person.mobile ?? "", birthDate: person.birth_date ?? "", email: person.email ?? "", gender: person.gender, isStudent: person.is_student, whatsappOptIn: person.whatsapp_opt_in, city: person.city ?? "", state: person.state ?? "", guardians: guardiansByStudent.get(person.id) ?? [] })) });
   } catch (error) { return handleError(error); }
 }
 
