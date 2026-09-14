@@ -41,6 +41,8 @@ export default function ContractsWorkspace() {
   const [view, setView] = useState<"CATALOG" | "NEW">("CATALOG");
   const [draft, setDraft] = useState<PlanDraft>(emptyDraft);
   const [dialog, setDialog] = useState<"PERMISSIONS" | "FINANCE" | null>(null);
+  const [modalitiesDialogOpen, setModalitiesDialogOpen] = useState(false);
+  const [pendingModalities, setPendingModalities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -73,6 +75,9 @@ export default function ContractsWorkspace() {
   }, [plans, search]);
 
   function startNew() { setDraft(emptyDraft()); setTemplateFile(null); setNotice(""); setView("NEW"); }
+  function openModalitiesDialog() { setPendingModalities(draft.modalities); setModalitiesDialogOpen(true); }
+  function togglePendingModality(id: string) { setPendingModalities((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
+  function confirmModalities() { setDraft({ ...draft, modalities: pendingModalities }); setModalitiesDialogOpen(false); }
 
   async function createPlan(event: FormEvent) {
     event.preventDefault();
@@ -132,7 +137,7 @@ export default function ContractsWorkspace() {
         <Field label="DURAÇÃO" type="number" min="1" max="60" value={draft.duration} onChange={(duration) => setDraft({ ...draft, duration })} required />
         <label>TIPO DE DURAÇÃO<select value={draft.settings.durationUnit} onChange={(event) => setDraft({ ...draft, settings: { ...draft.settings, durationUnit: event.target.value as CatalogSettings["durationUnit"] } })}>{durationUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></label>
       </div></fieldset>
-      <fieldset className="xd-contract-builder-section"><legend><BadgeDollarSign size={18} /> MODALIDADES</legend><label className="xd-contract-modalities">MODALIDADES VINCULADAS<select multiple value={draft.modalities} onChange={(event) => setDraft({ ...draft, modalities: Array.from(event.target.selectedOptions, (option) => option.value) })}>{modalities.map((modality) => <option key={modality.id} value={modality.id}>{modality.name}</option>)}</select><small>SELECIONE UMA OU MAIS MODALIDADES CADASTRADAS.</small></label></fieldset>
+      <fieldset className="xd-contract-builder-section"><legend><BadgeDollarSign size={18} /> MODALIDADES</legend><label className="xd-contract-modalities">MODALIDADES VINCULADAS<button type="button" className="xd-secondary" onClick={openModalitiesDialog}>SELECIONAR MODALIDADES</button><small>{draft.modalities.length ? `${draft.modalities.length} MODALIDADE(S) SELECIONADA(S).` : "NENHUMA MODALIDADE SELECIONADA. ABRA A JANELA PARA ESCOLHER NO CADASTRO DE MODALIDADES."}</small></label></fieldset>
       <fieldset className="xd-contract-builder-section"><legend><Settings2 size={18} /> CONFIGURAÇÕES</legend><div className="xd-contract-settings">
         <Toggle label="PERMITE RENOVAR" checked={draft.settings.allowManualRenewal} onChange={(allowManualRenewal) => setDraft({ ...draft, settings: { ...draft.settings, allowManualRenewal } })} />
         <Toggle label="RENOVAR AUTOMATICAMENTE" checked={draft.renewsAutomatically} disabled={!draft.settings.allowManualRenewal} onChange={(renewsAutomatically) => setDraft({ ...draft, renewsAutomatically })} />
@@ -145,6 +150,7 @@ export default function ContractsWorkspace() {
     </form>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
     {dialog ? <SettingsDialog kind={dialog} settings={draft.settings} onChange={(settings) => setDraft({ ...draft, settings })} onClose={() => setDialog(null)} /> : null}
+    {modalitiesDialogOpen ? <ModalitiesDialog modalities={modalities} selected={pendingModalities} onToggle={togglePendingModality} onClose={() => setModalitiesDialogOpen(false)} onConfirm={confirmModalities} /> : null}
   </section>;
 
   return <section className="xd-contracts">
@@ -158,6 +164,10 @@ export default function ContractsWorkspace() {
 function SettingsDialog({ kind, settings, onChange, onClose }: { kind: "PERMISSIONS" | "FINANCE"; settings: CatalogSettings; onChange: (settings: CatalogSettings) => void; onClose: () => void }) {
   const isPermissions = kind === "PERMISSIONS";
   return <div className="xd-contract-overlay" role="presentation"><section className="xd-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="xd-settings-title"><header><span>{isPermissions ? <ShieldCheck size={21} /> : <Landmark size={21} />}</span><h2 id="xd-settings-title">{isPermissions ? "PERMISSÕES E RESTRIÇÕES" : "FINANCEIRO"}</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>{isPermissions ? <div className="xd-settings-dialog-content"><Toggle label="LIMITA O PERÍODO DE VENDA" checked={settings.limitSalePeriod} onChange={(limitSalePeriod) => onChange({ ...settings, limitSalePeriod })} />{settings.limitSalePeriod ? <div className="xd-restriction-fields"><Field label="INÍCIO DAS VENDAS" type="date" value={settings.saleStartsOn} onChange={(saleStartsOn) => onChange({ ...settings, saleStartsOn })} /><Field label="FIM DAS VENDAS" type="date" value={settings.saleEndsOn} onChange={(saleEndsOn) => onChange({ ...settings, saleEndsOn })} /></div> : null}<Field label="QUANTIDADE MÁXIMA DE SUSPENSÃO" type="number" min="0" value={String(settings.maxSuspensions)} onChange={(value) => onChange({ ...settings, maxSuspensions: Number(value) })} /><Field label="QUANTIDADE MÁXIMA DE DIAS DA SUSPENSÃO" type="number" min="0" value={String(settings.maxSuspensionDays)} onChange={(value) => onChange({ ...settings, maxSuspensionDays: Number(value) })} /><Toggle label="PERMITE PRÉ-VENDA" checked={settings.allowPreSale} onChange={(allowPreSale) => onChange({ ...settings, allowPreSale })} /><Toggle label="LIMITA A FAIXA ETÁRIA DE VENDA" checked={settings.limitAgeRange} onChange={(limitAgeRange) => onChange({ ...settings, limitAgeRange })} />{settings.limitAgeRange ? <div className="xd-restriction-fields"><Field label="IDADE MÍNIMA" type="number" min="0" max="120" value={String(settings.minAge)} onChange={(minAge) => onChange({ ...settings, minAge: Number(minAge) })} /><Field label="IDADE MÁXIMA" type="number" min="0" max="120" value={String(settings.maxAge)} onChange={(maxAge) => onChange({ ...settings, maxAge: Number(maxAge) })} /></div> : null}</div> : <div className="xd-settings-dialog-content"><Toggle label="POSSUI VALOR DE ADESÃO OU MATRÍCULA" checked={settings.enrollmentFeeEnabled} onChange={(enrollmentFeeEnabled) => onChange({ ...settings, enrollmentFeeEnabled })} /><Toggle label="COMISSIONAR CONSULTOR DE VENDAS" checked={settings.salesCommissionEnabled} onChange={(salesCommissionEnabled) => onChange({ ...settings, salesCommissionEnabled })} /><Field label="CATEGORIA DE RECEITA" value={settings.revenueCategory} onChange={(revenueCategory) => onChange({ ...settings, revenueCategory })} /></div>}<footer><button type="button" className="xd-secondary" onClick={onClose}>CANCELAR</button><button type="button" className="xd-primary" onClick={onClose}>SALVAR</button></footer></section></div>;
+}
+
+function ModalitiesDialog({ modalities, selected, onToggle, onClose, onConfirm }: { modalities: Modality[]; selected: string[]; onToggle: (id: string) => void; onClose: () => void; onConfirm: () => void }) {
+  return <div className="xd-contract-overlay" role="presentation"><section className="xd-settings-dialog xd-modalities-picker" role="dialog" aria-modal="true" aria-labelledby="xd-modalities-picker-title"><header><span><BadgeDollarSign size={21} /></span><h2 id="xd-modalities-picker-title">SELECIONAR MODALIDADES</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><p>Escolha as modalidades cadastradas que este contrato poderá atender.</p><div className="xd-modalities-picker-list">{modalities.length ? modalities.map((modality) => <button type="button" key={modality.id} className={selected.includes(modality.id) ? "is-selected" : ""} aria-pressed={selected.includes(modality.id)} onClick={() => onToggle(modality.id)}><span>{modality.name}</span><b>{selected.includes(modality.id) ? "SELECIONADA" : "SELECIONAR"}</b></button>) : <p>NENHUMA MODALIDADE ATIVA CADASTRADA.</p>}</div><footer><button type="button" className="xd-secondary" onClick={onClose}>CANCELAR</button><button type="button" className="xd-primary" onClick={onConfirm}>CONFIRMAR SELEÇÃO</button></footer></section></div>;
 }
 
 function ModuleHeader({ title, copy }: { title: string; copy: string }) { return <header className="xd-module-heading"><span>ADMINISTRATIVO · CATÁLOGO</span><h1>{title}</h1><p>{copy}</p></header>; }
