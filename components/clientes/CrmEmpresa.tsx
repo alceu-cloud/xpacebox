@@ -1363,7 +1363,7 @@ function ClientDetail({
             {scheduledAgendaAt ? <div className="crm-current-agenda"><span>PROXIMA AGENDA JA MARCADA</span><strong>{displayDateTime(scheduledAgendaAt)}</strong></div> : null}
             <label className="crm-textarea crm-span-2"><span>RESUMO DO CONTATO</span><textarea value={activityDraft.notes} onChange={(event) => setActivityDraft({ ...activityDraft, notes: upper(event.target.value) })} /></label>
           </div>
-          <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} disabled={saving || !activityDraft.nextActionType || !activityDraft.nextActionAt || (mustResolveOverdueAgenda && !activityDraft.notes.trim())}>REGISTRAR CONTATO</button></div>
+          <div className="crm-form-actions"><button type="button" onClick={onSaveActivity} aria-busy={saving} disabled={saving || !activityDraft.nextActionType || !activityDraft.nextActionAt || (mustResolveOverdueAgenda && !activityDraft.notes.trim())}>{saving ? "REGISTRANDO..." : "REGISTRAR CONTATO"}</button></div>
           <Timeline activities={activities} telephonyCalls={telephonyCalls} opportunities={opportunities} />
         </div>
       ) : null}

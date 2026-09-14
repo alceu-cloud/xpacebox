@@ -2755,7 +2755,8 @@ button {
 .crm-customer-actions .crm-dial-button:hover { background: #066a9a; }
 .crm-customer-actions .crm-dial-button:disabled { cursor: wait; opacity: 0.62; }
 
-.crm-form-actions button:disabled { cursor: wait; opacity: 0.58; }
+.crm-form-actions button:disabled { cursor: not-allowed; opacity: 0.58; }
+.crm-form-actions button[aria-busy="true"] { cursor: wait; }
 
 .crm-health {
   padding: 9px 11px;
