@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, BarChart3, CalendarDays, ClipboardList, DoorOpen, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
+import { ArrowUpRight, BarChart3, CalendarDays, ClipboardList, DoorOpen, FileText, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -10,25 +10,26 @@ import AgendaWorkspace from "@/components/xpace-dance/AgendaWorkspace";
 import StudentProfileWorkspace from "@/components/xpace-dance/StudentProfileWorkspace";
 
 const modules = [
-  { icon: UsersRound, title: "COMUNIDADE", description: "Alunos e responsáveis", legacy: "Clientes", accent: "lilac" },
-  { icon: MessagesSquare, title: "CONEXÕES", description: "Relacionamento", legacy: "CRM", accent: "pink" },
-  { icon: CalendarDays, title: "RITMO", description: "Turmas e horários", legacy: "Agenda", accent: "blue" },
-  { icon: WalletCards, title: "FLUXO", description: "Cobranças e pagamentos", legacy: "Financeiro", accent: "violet" },
-  { icon: Package, title: "ACERVO", description: "Materiais e uniformes", legacy: "Estoque", accent: "lilac" },
-  { icon: ReceiptText, title: "BALCÃO", description: "Vendas e consumos", legacy: "Comanda", accent: "pink" },
-  { icon: BarChart3, title: "PULSO", description: "Indicadores", legacy: "Relatórios", accent: "blue" },
-  { icon: ClipboardList, title: "BASTIDORES", description: "Operação interna", legacy: "Administrativo", accent: "violet" },
-  { icon: SlidersHorizontal, title: "AJUSTES", description: "Preferências", legacy: "Configurações", accent: "lilac" },
-  { icon: DoorOpen, title: "ESTÚDIO", description: "Salas e recursos", legacy: "Recursos", accent: "pink" },
-  { icon: ShoppingBag, title: "VITRINE", description: "Produtos e inscrições", legacy: "Loja", accent: "blue" },
-  { icon: LayoutDashboard, title: "PANORAMA", description: "Visão geral", legacy: "Dashboard", accent: "violet" },
+  { icon: UsersRound, title: "CLIENTES", description: "Alunos e responsáveis", accent: "lilac" },
+  { icon: FileText, title: "CONTRATOS", description: "Planos e matrículas", accent: "violet" },
+  { icon: MessagesSquare, title: "CRM", description: "Relacionamento", accent: "pink" },
+  { icon: CalendarDays, title: "AGENDA", description: "Turmas e horários", accent: "blue" },
+  { icon: WalletCards, title: "FINANCEIRO", description: "Cobranças e pagamentos", accent: "violet" },
+  { icon: Package, title: "ESTOQUE", description: "Materiais e uniformes", accent: "lilac" },
+  { icon: ReceiptText, title: "VENDAS", description: "Vendas e consumos", accent: "pink" },
+  { icon: BarChart3, title: "RELATÓRIOS", description: "Indicadores", accent: "blue" },
+  { icon: ClipboardList, title: "ADMINISTRATIVO", description: "Operação interna", accent: "violet" },
+  { icon: SlidersHorizontal, title: "CONFIGURAÇÕES", description: "Preferências", accent: "lilac" },
+  { icon: DoorOpen, title: "RECURSOS", description: "Salas e recursos", accent: "pink" },
+  { icon: ShoppingBag, title: "LOJA", description: "Produtos e inscrições", accent: "blue" },
+  { icon: LayoutDashboard, title: "DASHBOARD", description: "Visão geral", accent: "violet" },
 ];
 
 export default function DanceWorkspace() {
   const router = useRouter();
   const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "PROFILE" | "AGENDA" | "FINANCE" | "CONTRACTS">("HOME");
   const [profileId, setProfileId] = useState("");
-  const activeModule = screen === "COMMUNITY" || screen === "PROFILE" ? "COMUNIDADE" : screen === "AGENDA" ? "RITMO" : screen === "FINANCE" ? "FLUXO" : screen === "CONTRACTS" ? "VITRINE" : null;
+  const activeModule = screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "CONTRACTS" ? "CONTRATOS" : null;
 
   const topbar = <header className="xd-topbar">
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
@@ -38,7 +39,7 @@ export default function DanceWorkspace() {
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
   if (screen === "PROFILE" && profileId) return <main className="xd-shell">{topbar}<StudentProfileWorkspace studentId={profileId} /></main>;
   if (screen === "AGENDA") return <main className="xd-shell">{topbar}<AgendaWorkspace /></main>;
-  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<section className="xd-finance"><header><span>FLUXO FINANCEIRO</span><h1>CONTROLE FINANCEIRO.</h1><p>Escolha uma área para começar a estruturar a operação da escola.</p></header><div>{["CAIXA", "CONTAS A PAGAR", "CONTAS A RECEBER", "CONTAS FINANCEIRAS", "XPACEPAY"].map((item, index) => <button key={item} type="button"><i>{String(index + 1).padStart(2, "0")}</i><strong>{item}</strong><small>EM PREPARAÇÃO</small></button>)}</div></section></main>;
+  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<section className="xd-finance"><header><span>FINANCEIRO</span><h1>CONTROLE FINANCEIRO.</h1><p>Escolha uma área para começar a estruturar a operação da escola.</p></header><div>{["CAIXA", "CONTAS A PAGAR", "CONTAS A RECEBER", "CONTAS FINANCEIRAS", "XPACEPAY"].map((item, index) => <button key={item} type="button"><i>{String(index + 1).padStart(2, "0")}</i><strong>{item}</strong><small>EM PREPARAÇÃO</small></button>)}</div></section></main>;
   if (screen === "CONTRACTS") return <main className="xd-shell">{topbar}<ContractsWorkspace /></main>;
 
   return <main className="xd-shell">
@@ -67,9 +68,9 @@ export default function DanceWorkspace() {
     </section>
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
-      {modules.map(({ icon: Icon, title, description, legacy, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["COMUNIDADE", "RITMO", "FLUXO", "VITRINE"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "COMUNIDADE" ? setScreen("COMMUNITY") : title === "RITMO" ? setScreen("AGENDA") : title === "FLUXO" ? setScreen("FINANCE") : title === "VITRINE" ? setScreen("CONTRACTS") : undefined}>
+      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "CONTRATOS", "AGENDA", "FINANCEIRO"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "CONTRATOS" ? setScreen("CONTRACTS") : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
-        <span className="xd-module-copy"><strong>{title}</strong><small>{description} <em>({legacy})</em></small></span>
+        <span className="xd-module-copy"><strong>{title}</strong><small>{description}</small></span>
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />
       </button>)}
     </section>
