@@ -227,6 +227,9 @@ body {
 .xd-back:hover { border-color: #b58ce2; background: #f8f1ff; }
 .xd-topbar-context { display: flex; align-items: center; justify-content: flex-end; gap: clamp(12px, 2vw, 28px); min-width: 0; }
 .xd-active-module { display: grid; min-width: 0; justify-items: end; gap: 2px; padding: 8px 0 9px; color: #4f207e; text-align: right; }
+.xd-active-module--return { border: 0; background: transparent; cursor: pointer; }
+.xd-active-module--return:hover strong, .xd-active-module--return:focus-visible strong { color: #7536bc; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.xd-active-module--return:focus-visible { outline: 2px solid #c28be3; outline-offset: 4px; border-radius: 6px; }
 .xd-active-module span { color: #9a56c6; font-size: 8px; font-weight: 900; letter-spacing: .19em; }
 .xd-active-module strong { max-width: min(42vw, 420px); overflow-wrap: anywhere; color: #4e1e7a; font-family: "Chillax", sans-serif; font-size: clamp(20px, 2vw, 25px); font-weight: 750; letter-spacing: .03em; line-height: .9; text-shadow: 0 3px 16px rgba(140,55,206,.16); }
 .xd-hero { position: relative; display: grid; grid-template-columns: minmax(0, .95fr) minmax(380px, .8fr); min-height: 268px; margin: 25px 0 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.42); border-radius: 28px; background: linear-gradient(118deg, #160d2d 0%, #321264 52%, #7e1d8b 100%); box-shadow: 0 28px 68px rgba(67,24,113,.18); color: #fff; }
