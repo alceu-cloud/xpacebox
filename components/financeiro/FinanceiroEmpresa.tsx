@@ -539,11 +539,13 @@ export default function FinanceiroEmpresa({
       </section>
 
       {showForm && <><QuoteForm kind={kind} editing={Boolean(editingQuoteId)} form={form} items={items} clients={clients} representatives={representatives} paymentConditions={paymentConditions} clientFichas={clientFichas} selectedClientId={selectedClientId} selectedFichaId={selectedFichaId} selectedClient={selectedClient} selectedFicha={selectedFicha} updateForm={updateForm} updateItem={updateItem} selectClient={selectClient} selectFicha={selectFicha} addItem={() => setItems((current) => [...current, { ...emptyItem(), itemNumber: current.length + 1 }])} removeItem={(index: number) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index).map((item, itemIndex) => ({ ...item, itemNumber: itemIndex + 1 })))} onCancel={() => { setShowForm(false); setEditingQuoteId(""); setPendingQuoteDraft(null); setLinkableOpportunities([]); }} onSave={saveQuote} />
-        {pendingQuoteDraft && <section style={opportunityLinkPanelStyle}>
-          <div><span style={eyebrowStyle}>OPORTUNIDADE EM ABERTO</span><h3 style={opportunityLinkTitleStyle}>VINCULAR ESTE ORCAMENTO?</h3><p style={opportunityLinkDescriptionStyle}>ESCOLHA UMA OPORTUNIDADE PARA MANTER A MESMA AGENDA OU CRIE UMA NOVA NEGOCIACAO.</p></div>
-          <div style={opportunityLinkListStyle}>{linkableOpportunities.map((opportunity) => <article key={opportunity.id} style={opportunityLinkItemStyle}><div style={opportunityLinkDetailsStyle}><strong>{opportunity.title}</strong><span>{opportunity.productReference || "PRODUTO NAO INFORMADO"}</span><small>{formatCurrency(opportunity.estimatedValue)} · {formatOpportunityStage(opportunity.stage)}</small></div><button type="button" onClick={() => linkPendingQuote(opportunity.id)} style={secondaryButtonStyle}>VINCULAR</button></article>)}</div>
-          <div style={opportunityLinkActionsStyle}><button type="button" onClick={() => { setPendingQuoteDraft(null); setLinkableOpportunities([]); }} style={cancelButtonStyle}>VOLTAR</button><button type="button" onClick={() => linkPendingQuote()} style={primaryButtonStyle}>CRIAR NOVA OPORTUNIDADE</button></div>
-        </section>}</>}
+        {pendingQuoteDraft && <div style={opportunityLinkBackdropStyle} role="presentation">
+          <section style={opportunityLinkModalStyle} role="dialog" aria-modal="true" aria-labelledby="opportunity-link-title">
+            <div><span style={eyebrowStyle}>OPORTUNIDADE EM ABERTO</span><h3 id="opportunity-link-title" style={opportunityLinkTitleStyle}>VINCULAR ESTE ORCAMENTO?</h3><p style={opportunityLinkDescriptionStyle}>ESCOLHA UMA OPORTUNIDADE PARA MANTER A MESMA AGENDA OU CRIE UMA NOVA NEGOCIACAO.</p></div>
+            <div style={opportunityLinkListStyle}>{linkableOpportunities.map((opportunity) => <article key={opportunity.id} style={opportunityLinkItemStyle}><div style={opportunityLinkDetailsStyle}><strong>{opportunity.title}</strong><span>{opportunity.productReference || "PRODUTO NAO INFORMADO"}</span><small>{formatCurrency(opportunity.estimatedValue)} · {formatOpportunityStage(opportunity.stage)}</small></div><button type="button" onClick={() => linkPendingQuote(opportunity.id)} style={secondaryButtonStyle}>VINCULAR</button></article>)}</div>
+            <div style={opportunityLinkActionsStyle}><button type="button" onClick={() => { setPendingQuoteDraft(null); setLinkableOpportunities([]); }} style={cancelButtonStyle}>VOLTAR</button><button type="button" onClick={() => linkPendingQuote()} style={primaryButtonStyle}>CRIAR NOVA OPORTUNIDADE</button></div>
+          </section>
+        </div>}</>}
 
       <section style={panelStyle}>
         <div style={quoteListToolbarStyle}>
@@ -896,7 +898,8 @@ const itemCardHeaderStyle = { display: "flex", justifyContent: "space-between", 
 const removeButtonStyle = { border: "none", background: "transparent", color: "#ff3b25", fontSize: 11, fontWeight: 900, cursor: "pointer" };
 const formActionsStyle = { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 , flexWrap: "wrap" as const };
 const cancelButtonStyle = { ...secondaryButtonStyle, color: "#667085" , ...ui.button };
-const opportunityLinkPanelStyle = { display: "grid", gap: 16, marginTop: 18, padding: 22, border: "1px solid rgba(111,50,210,.32)", borderRadius: 14, background: "#f8f5ff" };
+const opportunityLinkBackdropStyle = { position: "fixed" as const, zIndex: 100, inset: 0, display: "grid", placeItems: "center", padding: 20, background: "rgba(20, 24, 39, .48)" };
+const opportunityLinkModalStyle = { display: "grid", gap: 16, width: "min(620px, 100%)", maxHeight: "min(720px, calc(100vh - 40px))", overflowY: "auto" as const, padding: 26, border: "1px solid rgba(111,50,210,.32)", borderRadius: 14, background: "#f8f5ff", boxShadow: "0 24px 60px rgba(20, 24, 39, .28)" };
 const opportunityLinkTitleStyle = { margin: "6px 0 0", color: "#141827", fontWeight: 900 , ...ui.title };
 const opportunityLinkDescriptionStyle = { margin: "7px 0 0", color: "#667085", fontSize: 13, fontWeight: 800 };
 const opportunityLinkListStyle = { display: "grid", gap: 9 };
