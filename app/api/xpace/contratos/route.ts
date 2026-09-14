@@ -26,7 +26,6 @@ export async function GET(request: Request) {
     if (plansResult.error) throw plansResult.error;
     if (studentsResult.error) throw studentsResult.error;
     if (contractsResult.error) throw contractsResult.error;
-    await Promise.all((contractsResult.data ?? []).map((contract) => ensureContractCharges(admin, company.id, contract)));
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,

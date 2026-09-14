@@ -15,21 +15,23 @@ export async function GET(request: Request) {
     if (error) throw error;
     const people = (rows ?? []).filter((person) => matchesSearch(person, query));
     const photoPaths = people.flatMap((person) => person.photo_path ? [person.photo_path] : []);
-    const photoUrls = new Map<string, string>();
-    if (photoPaths.length) {
-      const { data: signedPhotos, error: signedPhotosError } = await admin.storage.from("xpace-people").createSignedUrls(photoPaths, 60 * 30);
-      if (signedPhotosError) throw signedPhotosError;
-      for (const photo of signedPhotos ?? []) if (photo.path && photo.signedUrl) photoUrls.set(photo.path, photo.signedUrl);
-    }
     const studentIds = people.filter((person) => person.is_student).map((person) => person.id);
-    const { data: links, error: linksError } = studentIds.length ? await admin.from("xpace_guardianships").select("student_id,guardian_id").eq("tenant_company_id", company.id).in("student_id", studentIds) : { data: [], error: null };
+    const [signedPhotosResult, linksResult] = await Promise.all([
+      photoPaths.length ? admin.storage.from("xpace-people").createSignedUrls(photoPaths, 60 * 30) : Promise.resolve({ data: [], error: null }),
+      studentIds.length ? admin.from("xpace_guardianships").select("student_id,guardian_id").eq("tenant_company_id", company.id).in("student_id", studentIds) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (signedPhotosResult.error) throw signedPhotosResult.error;
+    const photoUrls = new Map<string, string>();
+    for (const photo of signedPhotosResult.data ?? []) if (photo.path && photo.signedUrl) photoUrls.set(photo.path, photo.signedUrl);
+    const links = linksResult.data ?? [];
+    const linksError = linksResult.error;
     if (linksError) throw linksError;
-    const guardianIds = [...new Set((links ?? []).map((link) => link.guardian_id))];
+    const guardianIds = [...new Set(links.map((link) => link.guardian_id))];
     const { data: guardians, error: guardiansError } = guardianIds.length ? await admin.from("xpace_people").select("id,full_name,cpf,mobile").eq("tenant_company_id", company.id).in("id", guardianIds) : { data: [], error: null };
     if (guardiansError) throw guardiansError;
     const guardiansById = new Map((guardians ?? []).map((person) => [person.id, person]));
     const guardiansByStudent = new Map<string, Array<{ id: string; name: string; cpfMasked: string; mobile: string }>>();
-    for (const link of links ?? []) {
+    for (const link of links) {
       const guardian = guardiansById.get(link.guardian_id);
       if (!guardian) continue;
       const current = guardiansByStudent.get(link.student_id) ?? [];

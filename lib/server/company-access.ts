@@ -13,20 +13,21 @@ export async function requireCompanyAccess(request: Request, slug: string) {
 
   if (error || !data.user) throw new AccessError("SESSAO INVALIDA.", 401);
 
-  const { data: company, error: companyError } = await admin
-    .from("companies")
-    .select("id, name, slug")
-    .eq("slug", slug)
-    .eq("active", true)
-    .single();
+  const [{ data: company, error: companyError }, { data: profile }] = await Promise.all([
+    admin
+      .from("companies")
+      .select("id, name, slug")
+      .eq("slug", slug)
+      .eq("active", true)
+      .single(),
+    admin
+      .from("profiles")
+      .select("id, full_name, email, platform_role, active")
+      .eq("id", data.user.id)
+      .single(),
+  ]);
 
   if (companyError || !company) throw new AccessError("EMPRESA NAO ENCONTRADA.", 404);
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id, full_name, email, platform_role, active")
-    .eq("id", data.user.id)
-    .single();
 
   if (!profile?.active) throw new AccessError("USUARIO INATIVO.", 403);
 

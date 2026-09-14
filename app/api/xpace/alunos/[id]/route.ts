@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { calculateDiscountedAmount, ensureContractCharges, todayIso } from "@/lib/xpace/billing";
+import { todayIso } from "@/lib/xpace/billing";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
 const companySlug = "xpace";
@@ -18,15 +18,17 @@ export async function GET(request: Request, context: Context) {
 
     const { data: contracts, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,cancel_effective_on,created_at").eq("tenant_company_id", access.company.id).eq("student_id", id).order("starts_on", { ascending: false });
     if (contractError) throw contractError;
-    await Promise.all((contracts ?? []).map((contract) => ensureContractCharges(access.admin, access.company.id, contract)));
-
-    const [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult] = await Promise.all([
+    const photoRequest = person.photo_path
+      ? access.admin.storage.from("xpace-people").createSignedUrl(person.photo_path, 60 * 30)
+      : Promise.resolve({ data: null, error: null });
+    const [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult, photoResult] = await Promise.all([
       access.admin.from("xpace_contract_charges").select("id,contract_id,competence_on,due_on,base_amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,amount_cents,paid_amount_cents,status,paid_at").eq("tenant_company_id", access.company.id).eq("student_id", id).order("due_on", { ascending: false }).limit(240),
       access.admin.from("xpace_person_activities").select("id,activity_type,subject,content,occurred_at,created_by").eq("tenant_company_id", access.company.id).eq("person_id", id).order("occurred_at", { ascending: false }).limit(160),
       access.admin.from("xpace_person_benefits").select("id,benefit_profile_id,starts_on,ends_on,status,note,created_at").eq("tenant_company_id", access.company.id).eq("person_id", id).order("created_at", { ascending: false }),
       access.admin.from("xpace_benefit_profiles").select("id,name,kind,discount_type,discount_value,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_rewards_ledger").select("points_delta,reason,occurred_at").eq("tenant_company_id", access.company.id).eq("person_id", id).order("occurred_at", { ascending: false }).limit(50),
       access.admin.from("xpace_class_enrollments").select("id,class_group_id,starts_on,ends_on,status").eq("tenant_company_id", access.company.id).eq("student_id", id).eq("status", "ATIVA"),
+      photoRequest,
     ]);
     for (const result of [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult]) if (result.error) throw result.error;
 
@@ -36,7 +38,7 @@ export async function GET(request: Request, context: Context) {
     const today = todayIso();
     const openCharges = charges.filter((charge) => charge.status === "ABERTO");
     const activeContract = (contracts ?? []).find((contract) => contract.status === "ATIVO" && (!contract.cancel_effective_on || contract.cancel_effective_on > today));
-    const photoUrl = person.photo_path ? (await access.admin.storage.from("xpace-people").createSignedUrl(person.photo_path, 60 * 30)).data?.signedUrl ?? "" : "";
+    const photoUrl = photoResult.data?.signedUrl ?? "";
 
     return NextResponse.json({
       success: true,
