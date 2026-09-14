@@ -2310,7 +2310,7 @@ function formatExpenseBases(mcExpensesPercent: number, hourlyExpensesPercent: nu
     return `DESPESAS: ${formatNumber(mcExpensesPercent, 2)}%`;
   }
 
-  return `MC%: ${formatNumber(mcExpensesPercent, 2)}% · MC/H: ${formatNumber(hourlyExpensesPercent, 2)}%`;
+  return `DESPESAS: MC% ${formatNumber(mcExpensesPercent, 2)}% · MC/H ${formatNumber(hourlyExpensesPercent, 2)}%`;
 }
 
 function formatNumber(value: number, digits = 2) {
