@@ -3406,6 +3406,7 @@ button {
 
 .xd-modalities-picker { width: min(100%, 540px); }
 .xd-modalities-picker > p { margin: 0; color: #7a6e83; font-size: 11px; font-weight: 600; line-height: 1.5; text-transform: none; }
+.xd-modalities-picker > p, .xd-modalities-picker-fields, .xd-modalities-picker > .xd-modality-rule-settings, .xd-modalities-picker > .xd-modality-rule-advanced, .xd-modalities-picker > .xd-feedback { margin-inline: 28px; }
 .xd-modalities-picker-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .xd-modalities-picker-fields label { display: grid; gap: 6px; color: #675c70; font-size: 9px; font-weight: 900; letter-spacing: .07em; }
 .xd-modalities-picker-fields label:first-child { grid-column: 1 / -1; }
