@@ -103,6 +103,7 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
       opportunityId: existingOpportunity.id,
       nextActionAt,
     });
+    await clearClientCycleAgenda(admin, input.tenantCompanyId, input.clientId);
     return;
   }
 
@@ -155,6 +156,7 @@ export async function syncQuoteWithCrm(admin: SupabaseClient, input: QuoteCrmInp
         created_by: input.createdBy,
       });
       if (activityError) throw activityError;
+      await clearClientCycleAgenda(admin, input.tenantCompanyId, input.clientId);
     } else {
       await ensureDirectQuoteAgenda(admin, { ...input, opportunityId: opportunity.id, nextActionAt });
     }
@@ -283,6 +285,26 @@ async function rescheduleLinkedOpportunityAgenda(
     created_by: input.createdBy,
   });
   if (error) throw error;
+}
+
+async function clearClientCycleAgenda(admin: SupabaseClient, tenantCompanyId: string, clientId: string) {
+  const [{ error: profileError }, { error: activityError }] = await Promise.all([
+    admin
+      .from("crm_customer_profiles")
+      .update({ next_contact_at: null, updated_at: new Date().toISOString() })
+      .eq("tenant_company_id", tenantCompanyId)
+      .eq("client_id", clientId)
+      .not("next_contact_at", "is", null),
+    admin
+      .from("crm_activities")
+      .update({ next_action_type: null, next_action_at: null })
+      .eq("tenant_company_id", tenantCompanyId)
+      .eq("client_id", clientId)
+      .eq("agenda_kind", "CYCLE")
+      .not("next_action_at", "is", null),
+  ]);
+  if (profileError) throw profileError;
+  if (activityError) throw activityError;
 }
 
 function nextBusinessMorning() {
