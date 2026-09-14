@@ -11,7 +11,7 @@ type BillingInterval = (typeof intervals)[number];
 type ContractStatus = (typeof statuses)[number];
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS";
-  plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean };
+  plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; catalogSettings?: Record<string, unknown> };
   contract?: { id?: string; studentId?: string; planId?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
 };
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const [plansResult, studentsResult, contractsResult] = await Promise.all([
-      admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
+      admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,catalog_settings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
       admin.from("xpace_people").select("id,person_number,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,created_at,cancel_effective_on").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(300),
     ]);
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,
-      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, active: plan.active, createdAt: plan.created_at })),
+      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], catalogSettings: plan.catalog_settings ?? {}, active: plan.active, createdAt: plan.created_at })),
       students: (studentsResult.data ?? []).map((student) => ({ id: student.id, personNumber: student.person_number, name: student.full_name, mobile: student.mobile ?? "" })),
       contracts: (contractsResult.data ?? []).map((contract) => {
         const student = studentsById.get(contract.student_id);
@@ -63,7 +63,7 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   requireManager(access.profile.platform_role);
   const plan = normalizePlan(input);
   if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURACAO E VALOR DO PLANO.", 400);
-  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
+  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: plan.modalities, catalog_settings: plan.catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
   if (error) throw error;
   return NextResponse.json({ success: true, plan: { id: data.id, name: data.name } }, { status: 201 });
 }
@@ -73,7 +73,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (!contract.studentId || !contract.planId || !isDate(contract.startsOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO E A DATA DE INICIO.", 400);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
     access.admin.from("xpace_people").select("id").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
-    access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
     access.admin.from("xpace_person_benefits").select("benefit_profile_id").eq("tenant_company_id", access.company.id).eq("person_id", contract.studentId).eq("status", "ATIVO").maybeSingle(),
   ]);
   if (studentError) throw studentError;
@@ -81,6 +81,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (benefitError) throw benefitError;
   if (!student) throw new RequestError("ALUNO NAO ENCONTRADO NA COMUNIDADE.", 404);
   if (!plan?.active) throw new RequestError("ESCOLHA UM PLANO ATIVO.", 400);
+  if (plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit !== "MÊS") throw new RequestError("A VENDA DE CONTRATOS COM DURAÇÃO EM DIA OU SEMANA SERÁ LIBERADA QUANDO AS REGRAS FINANCEIRAS FOREM DEFINIDAS.", 400);
   const { data: benefitProfile, error: benefitProfileError } = activeBenefit ? await access.admin.from("xpace_benefit_profiles").select("id,name,discount_type,discount_value").eq("id", activeBenefit.benefit_profile_id).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle() : { data: null, error: null };
   if (benefitProfileError) throw benefitProfileError;
   const benefitDiscount = benefitProfile ? { discountType: benefitProfile.discount_type as "PERCENTUAL" | "FIXO", discountValue: benefitProfile.discount_value } : null;
@@ -138,7 +139,31 @@ async function setContractStatus(access: Awaited<ReturnType<typeof requireCompan
 }
 
 function normalizePlan(value?: RequestBody["plan"]) {
-  return { name: value?.name?.trim().replace(/\s+/g, " ") ?? "", description: value?.description?.trim() ?? "", billingInterval: value?.billingInterval as BillingInterval, durationMonths: Number(value?.durationMonths), amountCents: Number(value?.amountCents), renewsAutomatically: Boolean(value?.renewsAutomatically) };
+  const settings = value?.catalogSettings ?? {};
+  return {
+    name: value?.name?.trim().replace(/\s+/g, " ") ?? "",
+    description: value?.description?.trim() ?? "",
+    billingInterval: value?.billingInterval as BillingInterval,
+    durationMonths: Number(value?.durationMonths),
+    amountCents: Number(value?.amountCents),
+    renewsAutomatically: Boolean(value?.renewsAutomatically),
+    modalities: [...new Set((value?.modalities ?? []).map((item) => item.trim().replace(/\s+/g, " ")).filter(Boolean))].slice(0, 12),
+    catalogSettings: {
+      allowManualRenewal: Boolean(settings.allowManualRenewal),
+      allowInstallments: Boolean(settings.allowInstallments),
+      allowAppSale: Boolean(settings.allowAppSale),
+      sendForSignature: Boolean(settings.sendForSignature),
+      limitSalePeriod: Boolean(settings.limitSalePeriod),
+      maxSuspensions: boundedInteger(settings.maxSuspensions, 0, 99),
+      maxSuspensionDays: boundedInteger(settings.maxSuspensionDays, 0, 365),
+      allowPreSale: Boolean(settings.allowPreSale),
+      limitAgeRange: Boolean(settings.limitAgeRange),
+      enrollmentFeeEnabled: Boolean(settings.enrollmentFeeEnabled),
+      salesCommissionEnabled: Boolean(settings.salesCommissionEnabled),
+      revenueCategory: typeof settings.revenueCategory === "string" && settings.revenueCategory.trim() ? settings.revenueCategory.trim().slice(0, 80) : "VENDAS",
+      durationUnit: settings.durationUnit === "DIA" || settings.durationUnit === "SEMANA" || settings.durationUnit === "MÊS" ? settings.durationUnit : "MÊS",
+    },
+  };
 }
 function normalizeContract(value?: RequestBody["contract"]) {
   return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", startsOn: value?.startsOn?.trim() ?? "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
@@ -146,6 +171,7 @@ function normalizeContract(value?: RequestBody["contract"]) {
 function requireManager(role: string) { if (!["platform_owner", "company_manager"].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR O CATALOGO DE PLANOS.", 403); }
 function isPositiveInteger(value: number) { return Number.isInteger(value) && value > 0 && value <= 60; }
 function isCurrency(value: number | undefined): value is number { return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100_000_000; }
+function boundedInteger(value: unknown, min: number, max: number) { const number = Number(value); return Number.isInteger(number) ? Math.min(max, Math.max(min, number)) : min; }
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
 function endOfTerm(startsOn: string, months: number) {
   const [year, month, day] = startsOn.split("-").map(Number);

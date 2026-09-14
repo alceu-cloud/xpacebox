@@ -1,34 +1,43 @@
 "use client";
 
-import { BadgeDollarSign, CalendarClock, CheckCircle2, FilePlus2, PauseCircle, Plus, Search, SlidersHorizontal, UserRoundPlus, XCircle } from "lucide-react";
+import { BadgeDollarSign, FileText, FileUp, Filter, Landmark, Plus, Search, Settings2, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 
-type Plan = { id: string; name: string; description: string; billingInterval: string; durationMonths: number; amountCents: number; renewsAutomatically: boolean; active: boolean; createdAt: string };
-type Student = { id: string; personNumber: number; name: string; mobile: string };
-type Contract = { id: string; contractNumber: number; studentId: string; studentName: string; studentMobile: string; planId: string | null; planName: string; billingInterval: string; durationMonths: number; baseAmountCents: number; amountCents: number; benefitName: string; renewsAutomatically: boolean; startsOn: string; endsOn: string; status: Status; statusNote: string; createdAt: string };
-type Status = "AGENDADO" | "ATIVO" | "PAUSADO" | "CANCELADO" | "ENCERRADO";
-type View = "CONTRACTS" | "PLANS" | "NEW_PLAN" | "NEW_CONTRACT";
+type CatalogSettings = {
+  allowManualRenewal: boolean;
+  allowInstallments: boolean;
+  allowAppSale: boolean;
+  sendForSignature: boolean;
+  limitSalePeriod: boolean;
+  maxSuspensions: number;
+  maxSuspensionDays: number;
+  allowPreSale: boolean;
+  limitAgeRange: boolean;
+  enrollmentFeeEnabled: boolean;
+  salesCommissionEnabled: boolean;
+  revenueCategory: string;
+  durationUnit: "DIA" | "SEMANA" | "MÊS";
+};
+type Plan = { id: string; name: string; description: string; billingInterval: string; durationMonths: number; amountCents: number; renewsAutomatically: boolean; modalities: string[]; catalogSettings: Partial<CatalogSettings>; active: boolean };
+type PlanDraft = { name: string; description: string; duration: string; amount: string; modalities: string; renewsAutomatically: boolean; settings: CatalogSettings };
 
-const statuses: Array<Status | "TODOS"> = ["TODOS", "ATIVO", "AGENDADO", "PAUSADO", "ENCERRADO", "CANCELADO"];
-const intervals = ["MENSAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"];
+const durationUnits: CatalogSettings["durationUnit"][] = ["DIA", "SEMANA", "MÊS"];
+const defaultSettings = (): CatalogSettings => ({ allowManualRenewal: true, allowInstallments: false, allowAppSale: false, sendForSignature: false, limitSalePeriod: false, maxSuspensions: 0, maxSuspensionDays: 0, allowPreSale: false, limitAgeRange: false, enrollmentFeeEnabled: false, salesCommissionEnabled: false, revenueCategory: "VENDAS", durationUnit: "MÊS" });
+const emptyDraft = (): PlanDraft => ({ name: "", description: "", duration: "1", amount: "", modalities: "", renewsAutomatically: true, settings: defaultSettings() });
 
 export default function ContractsWorkspace() {
-  const [view, setView] = useState<View>("CONTRACTS");
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [contracts, setContracts] = useState<Contract[]>([]);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<Status | "TODOS">("ATIVO");
+  const [view, setView] = useState<"CATALOG" | "NEW">("CATALOG");
+  const [draft, setDraft] = useState<PlanDraft>(emptyDraft);
+  const [dialog, setDialog] = useState<"PERMISSIONS" | "FINANCE" | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
-  const [planDraft, setPlanDraft] = useState({ name: "", description: "", billingInterval: "MENSAL", durationMonths: "1", amount: "", renewsAutomatically: true });
-  const [contractDraft, setContractDraft] = useState({ studentId: "", planId: "", startsOn: todayIso(), amount: "", renewsAutomatically: true });
-  const [editingStatus, setEditingStatus] = useState<{ id: string; status: Status; note: string } | null>(null);
 
-  useEffect(() => { void loadWorkspace(); }, []);
+  useEffect(() => { void loadCatalog(); }, []);
 
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const { data } = await supabase.auth.getSession();
@@ -40,39 +49,44 @@ export default function ContractsWorkspace() {
     return payload;
   }
 
-  async function loadWorkspace() {
+  async function loadCatalog() {
     setLoading(true);
     try {
-      const payload = await request<{ plans: Plan[]; students: Student[]; contracts: Contract[] }>("/api/xpace/contratos");
-      setPlans(payload.plans); setStudents(payload.students); setContracts(payload.contracts);
+      const payload = await request<{ plans: Plan[] }>("/api/xpace/contratos");
+      setPlans(payload.plans);
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR OS CONTRATOS."); }
     finally { setLoading(false); }
   }
 
-  const visibleContracts = useMemo(() => {
+  const visiblePlans = useMemo(() => {
     const term = normalize(search);
-    return contracts.filter((contract) => (status === "TODOS" || contract.status === status) && (!term || normalize(`${contract.studentName} ${contract.planName} ${contract.contractNumber}`).includes(term)));
-  }, [contracts, search, status]);
-  const activePlans = plans.filter((plan) => plan.active);
+    return plans.filter((plan) => !term || normalize(`${plan.name} ${plan.description} ${plan.modalities.join(" ")}`).includes(term));
+  }, [plans, search]);
 
-  function startPlan() { setPlanDraft({ name: "", description: "", billingInterval: "MENSAL", durationMonths: "1", amount: "", renewsAutomatically: true }); setNotice(""); setView("NEW_PLAN"); }
-  function startContract() { setContractDraft({ studentId: students[0]?.id ?? "", planId: activePlans[0]?.id ?? "", startsOn: todayIso(), amount: activePlans[0] ? centsToInput(activePlans[0].amountCents) : "", renewsAutomatically: activePlans[0]?.renewsAutomatically ?? true }); setNotice(""); setView("NEW_CONTRACT"); }
+  function startNew() { setDraft(emptyDraft()); setNotice(""); setView("NEW"); }
 
   async function createPlan(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setNotice("");
+    event.preventDefault();
+    setSaving(true); setNotice("");
     try {
-      await request("/api/xpace/contratos", { method: "POST", body: JSON.stringify({ action: "CREATE_PLAN", plan: { ...planDraft, durationMonths: Number(planDraft.durationMonths), amountCents: inputToCents(planDraft.amount) } }) });
-      await loadWorkspace(); setView("PLANS"); setNotice("PLANO CADASTRADO. OS NOVOS CONTRATOS JÁ PODEM USÁ-LO.");
-    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CADASTRAR O PLANO."); }
-    finally { setSaving(false); }
-  }
-
-  async function createContract(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setNotice("");
-    try {
-      await request("/api/xpace/contratos", { method: "POST", body: JSON.stringify({ action: "CREATE_CONTRACT", contract: { ...contractDraft, amountCents: inputToCents(contractDraft.amount) } }) });
-      await loadWorkspace(); setView("CONTRACTS"); setStatus("ATIVO"); setNotice("CONTRATO REGISTRADO. O VALOR E AS CONDIÇÕES FICARAM PRESERVADOS NO HISTÓRICO.");
-    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL REGISTRAR O CONTRATO."); }
+      await request("/api/xpace/contratos", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "CREATE_PLAN",
+          plan: {
+            name: draft.name,
+            description: draft.description,
+            billingInterval: "MENSAL",
+            durationMonths: Number(draft.duration),
+            amountCents: inputToCents(draft.amount),
+            renewsAutomatically: draft.renewsAutomatically,
+            modalities: draft.modalities.split(","),
+            catalogSettings: draft.settings,
+          },
+        }),
+      });
+      await loadCatalog(); setView("CATALOG"); setNotice("CONTRATO CADASTRADO NO CATÁLOGO.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CADASTRAR O CONTRATO."); }
     finally { setSaving(false); }
   }
 
@@ -80,72 +94,52 @@ export default function ContractsWorkspace() {
     setSaving(true); setNotice("");
     try {
       await request("/api/xpace/contratos", { method: "PATCH", body: JSON.stringify({ action: "SET_PLAN_ACTIVE", plan: { id: plan.id, active: !plan.active } }) });
-      await loadWorkspace(); setNotice(plan.active ? "PLANO ARQUIVADO. OS CONTRATOS EXISTENTES FORAM PRESERVADOS." : "PLANO REATIVADO PARA NOVAS MATRÍCULAS.");
-    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL ATUALIZAR O PLANO."); }
+      await loadCatalog(); setNotice(plan.active ? "CONTRATO ARQUIVADO. AS VENDAS JÁ REALIZADAS FORAM PRESERVADAS." : "CONTRATO DISPONÍVEL NOVAMENTE PARA NOVAS VENDAS.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL ATUALIZAR O CONTRATO."); }
     finally { setSaving(false); }
   }
 
-  async function saveStatus(event: FormEvent) {
-    event.preventDefault();
-    if (!editingStatus) return;
-    setSaving(true); setNotice("");
-    try {
-      await request("/api/xpace/contratos", { method: "PATCH", body: JSON.stringify({ action: "SET_CONTRACT_STATUS", contract: { id: editingStatus.id, status: editingStatus.status, statusNote: editingStatus.note } }) });
-      await loadWorkspace(); setEditingStatus(null); setNotice("STATUS DO CONTRATO ATUALIZADO E REGISTRADO NO HISTÓRICO.");
-    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL ATUALIZAR O STATUS."); }
-    finally { setSaving(false); }
-  }
-
-  const selectedPlan = activePlans.find((plan) => plan.id === contractDraft.planId);
-
-  if (view === "NEW_PLAN") return <section className="xd-contracts"><ModuleHeader eyebrow="CATÁLOGO DE PLANOS" title="NOVO PLANO." copy="O plano é uma regra comercial reutilizável. Contratos já emitidos não mudam quando este cadastro mudar." back={() => setView("PLANS")} />
-    <form className="xd-contract-form" onSubmit={createPlan}>
-      <div className="xd-contract-form-grid xd-contract-form-grid--plan">
-        <Field label="NOME DO PLANO" value={planDraft.name} onChange={(value) => setPlanDraft({ ...planDraft, name: value })} required />
-        <label>CICLO<select value={planDraft.billingInterval} onChange={(event) => setPlanDraft({ ...planDraft, billingInterval: event.target.value })}>{intervals.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <Field label="DURAÇÃO (MESES)" type="number" min="1" max="60" value={planDraft.durationMonths} onChange={(value) => setPlanDraft({ ...planDraft, durationMonths: value })} required />
-        <Field label="VALOR DO CICLO (R$)" type="number" min="0" step="0.01" value={planDraft.amount} onChange={(value) => setPlanDraft({ ...planDraft, amount: value })} required />
-        <label className="xd-contract-wide">DESCRIÇÃO<input value={planDraft.description} onChange={(event) => setPlanDraft({ ...planDraft, description: event.target.value })} placeholder="EX.: 2 AULAS SEMANAIS, MODALIDADES LIVRES..." /></label>
-        <label className="xd-contract-renew"><input type="checkbox" checked={planDraft.renewsAutomatically} onChange={(event) => setPlanDraft({ ...planDraft, renewsAutomatically: event.target.checked })} /> RENOVAR AUTOMATICAMENTE ATÉ CANCELAMENTO</label>
-      </div>
-      <FormActions back={() => setView("PLANS")} saving={saving} label="SALVAR PLANO" />
-    </form>{notice ? <p className="xd-feedback">{notice}</p> : null}</section>;
-
-  if (view === "NEW_CONTRACT") return <section className="xd-contracts"><ModuleHeader eyebrow="MATRÍCULA E VIGÊNCIA" title="NOVO CONTRATO." copy="Selecione o aluno e o plano. As condições são copiadas para o contrato e ficam preservadas mesmo quando o catálogo for atualizado." back={() => setView("CONTRACTS")} />
-    {!students.length || !activePlans.length ? <EmptySetup students={students.length} plans={activePlans.length} onPlans={() => setView("PLANS")} onStudents={() => setView("CONTRACTS")} /> : <form className="xd-contract-form" onSubmit={createContract}>
-      <div className="xd-contract-form-grid xd-contract-form-grid--contract">
-        <label className="xd-contract-wide">ALUNO<select value={contractDraft.studentId} onChange={(event) => setContractDraft({ ...contractDraft, studentId: event.target.value })}>{students.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.mobile || "SEM CELULAR"}</option>)}</select></label>
-        <label>PLANO<select value={contractDraft.planId} onChange={(event) => { const plan = activePlans.find((item) => item.id === event.target.value); setContractDraft({ ...contractDraft, planId: event.target.value, amount: plan ? centsToInput(plan.amountCents) : "", renewsAutomatically: plan?.renewsAutomatically ?? false }); }}>{activePlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {formatCurrency(plan.amountCents)}</option>)}</select></label>
-        <Field label="INÍCIO DA VIGÊNCIA" type="date" value={contractDraft.startsOn} onChange={(value) => setContractDraft({ ...contractDraft, startsOn: value })} required />
-        <Field label="VALOR CONTRATADO (R$)" type="number" min="0" step="0.01" value={contractDraft.amount} onChange={(value) => setContractDraft({ ...contractDraft, amount: value })} required />
-        <label className="xd-contract-renew"><input type="checkbox" checked={contractDraft.renewsAutomatically} onChange={(event) => setContractDraft({ ...contractDraft, renewsAutomatically: event.target.checked })} /> RENOVA AUTOMATICAMENTE</label>
-      </div>
-      {selectedPlan ? <div className="xd-contract-preview"><CalendarClock size={19} /><span><small>{contractDraft.renewsAutomatically ? "RENOVAÇÃO PROGRAMADA" : "VIGÊNCIA CALCULADA"}</small><strong>{contractDraft.renewsAutomatically ? `RENOVA A CADA ${selectedPlan.billingInterval} ATÉ CANCELAMENTO` : `${selectedPlan.durationMonths} ${selectedPlan.durationMonths === 1 ? "MÊS" : "MESES"} · ${selectedPlan.billingInterval}`}</strong></span><b>{formatCurrency(inputToCents(contractDraft.amount))}</b></div> : null}
-      <FormActions back={() => setView("CONTRACTS")} saving={saving} label="REGISTRAR CONTRATO" />
-    </form>}{notice ? <p className="xd-feedback">{notice}</p> : null}</section>;
+  if (view === "NEW") return <section className="xd-contracts">
+    <ModuleHeader title="NOVO CONTRATO." copy="Defina o contrato que poderá ser vendido depois no perfil do aluno." back={() => setView("CATALOG")} />
+    <form className="xd-contract-builder" onSubmit={createPlan}>
+      <fieldset className="xd-contract-builder-section"><legend><FileText size={18} /> DADOS DO CONTRATO</legend><div className="xd-contract-form-grid xd-contract-form-grid--plan">
+        <Field label="DESCRIÇÃO" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} placeholder="EX.: BALLET MENSAL" required />
+        <Field label="VALOR TOTAL (R$)" type="number" min="0" step="0.01" value={draft.amount} onChange={(amount) => setDraft({ ...draft, amount })} required />
+        <Field label="DURAÇÃO" type="number" min="1" max="60" value={draft.duration} onChange={(duration) => setDraft({ ...draft, duration })} required />
+        <label>TIPO DE DURAÇÃO<select value={draft.settings.durationUnit} onChange={(event) => setDraft({ ...draft, settings: { ...draft.settings, durationUnit: event.target.value as CatalogSettings["durationUnit"] } })}>{durationUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></label>
+        <label className="xd-contract-wide">DETALHES<input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="EX.: 2 AULAS POR SEMANA" /></label>
+      </div></fieldset>
+      <fieldset className="xd-contract-builder-section"><legend><BadgeDollarSign size={18} /> MODALIDADES</legend><label className="xd-contract-modalities">MODALIDADES VINCULADAS<input value={draft.modalities} onChange={(event) => setDraft({ ...draft, modalities: event.target.value })} placeholder="EX.: BALLET, DANÇAS URBANAS" /></label></fieldset>
+      <fieldset className="xd-contract-builder-section"><legend><Settings2 size={18} /> CONFIGURAÇÕES</legend><div className="xd-contract-settings">
+        <Toggle label="PERMITE RENOVAR" checked={draft.settings.allowManualRenewal} onChange={(allowManualRenewal) => setDraft({ ...draft, settings: { ...draft.settings, allowManualRenewal } })} />
+        <Toggle label="RENOVAR AUTOMATICAMENTE" checked={draft.renewsAutomatically} disabled={!draft.settings.allowManualRenewal} onChange={(renewsAutomatically) => setDraft({ ...draft, renewsAutomatically })} />
+        <Toggle label="PERMITE RECEBER PARCELADO" checked={draft.settings.allowInstallments} onChange={(allowInstallments) => setDraft({ ...draft, settings: { ...draft.settings, allowInstallments } })} />
+        <Toggle label="VENDER PELO APP" checked={draft.settings.allowAppSale} onChange={(allowAppSale) => setDraft({ ...draft, settings: { ...draft.settings, allowAppSale } })} />
+        <Toggle label="ENVIAR PARA ASSINATURA ONLINE" checked={draft.settings.sendForSignature} onChange={(sendForSignature) => setDraft({ ...draft, settings: { ...draft.settings, sendForSignature } })} />
+      </div><div className="xd-contract-advanced-actions"><button type="button" className="xd-secondary" onClick={() => setDialog("PERMISSIONS")}><ShieldCheck size={16} /> PERMISSÕES E RESTRIÇÕES</button><button type="button" className="xd-secondary" onClick={() => setDialog("FINANCE")}><Landmark size={16} /> FINANCEIRO</button><button type="button" className="xd-secondary" disabled title="Disponível quando o repositório de modelos e a assinatura eletrônica forem configurados."><FileUp size={16} /> MODELO DE CONTRATO</button></div></fieldset>
+      <footer className="xd-contract-form-actions"><button type="button" className="xd-secondary" onClick={() => setView("CATALOG")}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>{saving ? "SALVANDO..." : "SALVAR CONTRATO"}</button></footer>
+    </form>
+    {notice ? <p className="xd-feedback">{notice}</p> : null}
+    {dialog ? <SettingsDialog kind={dialog} settings={draft.settings} onChange={(settings) => setDraft({ ...draft, settings })} onClose={() => setDialog(null)} /> : null}
+  </section>;
 
   return <section className="xd-contracts">
-    <div className="xd-contract-title"><div><span>VITRINE · MATRÍCULAS</span><h1>PLANOS E CONTRATOS.</h1><p>Condições comerciais, vigência e situação de cada aluno em uma mesma operação.</p></div><div className="xd-contract-title-actions"><button type="button" className="xd-secondary" onClick={() => setView(view === "PLANS" ? "CONTRACTS" : "PLANS")}><SlidersHorizontal size={16} /> {view === "PLANS" ? "CONTRATOS" : "CATÁLOGO"}</button><button type="button" className="xd-primary" onClick={startContract}><UserRoundPlus size={17} /> NOVO CONTRATO</button></div></div>
+    <div className="xd-contract-title"><div><span>ADMINISTRATIVO · CATÁLOGO</span><h1>CONTRATOS.</h1><p>Cadastre as opções que poderão ser vendidas depois para cada aluno.</p></div><button type="button" className="xd-primary" onClick={startNew}><Plus size={17} /> ADICIONAR CONTRATO</button></div>
+    <div className="xd-contract-tools"><label><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="PESQUISAR CONTRATO" /></label><button type="button" className="xd-secondary" disabled title="Filtros em preparação"><Filter size={16} /> FILTROS</button></div>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
-    {view === "PLANS" ? <PlansList plans={plans} saving={saving} onCreate={startPlan} onToggle={setPlanActive} /> : <>
-      <div className="xd-contract-tools"><label><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="BUSCAR POR ALUNO, PLANO OU Nº" /></label><label><CheckCircle2 size={16} /><select value={status} onChange={(event) => setStatus(event.target.value as Status | "TODOS")}>{statuses.map((item) => <option value={item} key={item}>{item}</option>)}</select></label></div>
-      <div className="xd-contract-stats"><Stat value={contracts.filter((contract) => contract.status === "ATIVO").length} label="EM VIGOR" /><Stat value={contracts.filter((contract) => contract.status === "AGENDADO").length} label="AGENDADOS" /><Stat value={contracts.filter((contract) => contract.status === "PAUSADO").length} label="PAUSADOS" /></div>
-      {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-contract-list">{visibleContracts.length ? visibleContracts.map((contract) => <ContractRow key={contract.id} contract={contract} onStatus={() => setEditingStatus({ id: contract.id, status: contract.status, note: contract.statusNote })} />) : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO NESTE FILTRO.</p>}</div>}
-    </>}
-    {editingStatus ? <div className="xd-contract-overlay" role="presentation"><form className="xd-status-dialog" onSubmit={saveStatus}><span>ALTERAR STATUS</span><h2>CONTRATO #{String(contracts.find((contract) => contract.id === editingStatus.id)?.contractNumber ?? "").padStart(5, "0")}</h2><label>SITUAÇÃO<select value={editingStatus.status} onChange={(event) => setEditingStatus({ ...editingStatus, status: event.target.value as Status })}>{statuses.filter((item): item is Status => item !== "TODOS").map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label>{editingStatus.status === "CANCELADO" ? "MOTIVO DO CANCELAMENTO *" : "OBSERVAÇÃO"}<input value={editingStatus.note} onChange={(event) => setEditingStatus({ ...editingStatus, note: event.target.value })} required={editingStatus.status === "CANCELADO"} placeholder={editingStatus.status === "CANCELADO" ? "INFORME O MOTIVO" : "OPCIONAL"} /></label><footer><button type="button" className="xd-secondary" onClick={() => setEditingStatus(null)}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>SALVAR STATUS</button></footer></form></div> : null}
+    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span>{plan.durationMonths} {formatDurationUnit(plan.catalogSettings.durationUnit, plan.durationMonths)}</span><b>{formatCurrency(plan.amountCents)}</b><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button></article>)}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
   </section>;
 }
 
-function PlansList({ plans, saving, onCreate, onToggle }: { plans: Plan[]; saving: boolean; onCreate: () => void; onToggle: (plan: Plan) => void }) { return <div className="xd-plans"><header><div><span>CONFIGURAÇÃO COMERCIAL</span><h2>CATÁLOGO DE PLANOS.</h2></div><button type="button" className="xd-primary" onClick={onCreate}><Plus size={17} /> NOVO PLANO</button></header>{plans.length ? <div>{plans.map((plan) => <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.description || "SEM DESCRIÇÃO"}</small></div><span>{plan.renewsAutomatically ? `RENOVÁVEL · ${plan.billingInterval}` : `${plan.durationMonths} ${plan.durationMonths === 1 ? "MÊS" : "MESES"} · ${plan.billingInterval}`}</span><b>{formatCurrency(plan.amountCents)}</b><button type="button" className="xd-secondary" disabled={saving} onClick={() => onToggle(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button></article>)}</div> : <p className="xd-empty-community">NENHUM PLANO CADASTRADO. CRIE O PRIMEIRO PARA COMEÇAR AS MATRÍCULAS.</p>}</div>; }
-function ContractRow({ contract, onStatus }: { contract: Contract; onStatus: () => void }) { return <article className="xd-contract-row"><div className="xd-contract-ident"><span>#{String(contract.contractNumber).padStart(5, "0")}</span><strong>{contract.studentName}</strong><small>{contract.studentMobile || "SEM CELULAR"}</small></div><div className="xd-contract-plan"><strong>{contract.planName}</strong><small>{contract.renewsAutomatically ? `RENOVA A CADA ${contract.billingInterval}` : `${contract.durationMonths} ${contract.durationMonths === 1 ? "MÊS" : "MESES"} · ${contract.billingInterval}`}</small></div><div className="xd-contract-period"><small>{contract.renewsAutomatically ? "INÍCIO DA RECORRÊNCIA" : "VIGÊNCIA"}</small><strong>{contract.renewsAutomatically ? formatDate(contract.startsOn) : `${formatDate(contract.startsOn)} — ${formatDate(contract.endsOn)}`}</strong></div><b>{formatCurrency(contract.amountCents)}</b><button type="button" className={`xd-contract-status xd-contract-status--${contract.status.toLowerCase()}`} onClick={onStatus}>{contract.status === "ATIVO" ? <CheckCircle2 size={15} /> : contract.status === "PAUSADO" ? <PauseCircle size={15} /> : contract.status === "CANCELADO" ? <XCircle size={15} /> : <FilePlus2 size={15} />}{contract.status}</button></article>; }
-function ModuleHeader({ eyebrow, title, copy, back }: { eyebrow: string; title: string; copy: string; back: () => void }) { return <header className="xd-module-heading"><button type="button" className="xd-return" onClick={back}>VOLTAR A PLANOS E CONTRATOS</button><span>{eyebrow}</span><h1>{title}</h1><p>{copy}</p></header>; }
-function Field({ label, value, onChange, type = "text", min, max, step, required }: { label: string; value: string; onChange: (value: string) => void; type?: string; min?: string; max?: string; step?: string; required?: boolean }) { return <label>{label}<input type={type} min={min} max={max} step={step} value={value} onChange={(event) => onChange(event.target.value)} required={required} /></label>; }
-function FormActions({ back, saving, label }: { back: () => void; saving: boolean; label: string }) { return <footer className="xd-contract-form-actions"><button type="button" className="xd-secondary" onClick={back}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>{saving ? "SALVANDO..." : label}</button></footer>; }
-function EmptySetup({ students, plans, onPlans, onStudents }: { students: number; plans: number; onPlans: () => void; onStudents: () => void }) { return <div className="xd-contract-empty-setup"><strong>AINDA NÃO É POSSÍVEL EMITIR ESTE CONTRATO.</strong><span>{!students ? "CADASTRE AO MENOS UM ALUNO NA COMUNIDADE." : "CADASTRE AO MENOS UM PLANO ATIVO NO CATÁLOGO."}</span><button type="button" className="xd-primary" onClick={!students ? onStudents : onPlans}>{!students ? "VOLTAR" : "ABRIR CATÁLOGO"}</button></div>; }
-function Stat({ value, label }: { value: number; label: string }) { return <span><b>{value}</b><small>{label}</small></span>; }
+function SettingsDialog({ kind, settings, onChange, onClose }: { kind: "PERMISSIONS" | "FINANCE"; settings: CatalogSettings; onChange: (settings: CatalogSettings) => void; onClose: () => void }) {
+  const isPermissions = kind === "PERMISSIONS";
+  return <div className="xd-contract-overlay" role="presentation"><section className="xd-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="xd-settings-title"><header><span>{isPermissions ? <ShieldCheck size={21} /> : <Landmark size={21} />}</span><h2 id="xd-settings-title">{isPermissions ? "PERMISSÕES E RESTRIÇÕES" : "FINANCEIRO"}</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>{isPermissions ? <div className="xd-settings-dialog-content"><Toggle label="LIMITA O PERÍODO DE VENDA" checked={settings.limitSalePeriod} onChange={(limitSalePeriod) => onChange({ ...settings, limitSalePeriod })} /><Field label="QUANTIDADE MÁXIMA DE SUSPENSÃO" type="number" min="0" value={String(settings.maxSuspensions)} onChange={(value) => onChange({ ...settings, maxSuspensions: Number(value) })} /><Field label="QUANTIDADE MÁXIMA DE DIAS DA SUSPENSÃO" type="number" min="0" value={String(settings.maxSuspensionDays)} onChange={(value) => onChange({ ...settings, maxSuspensionDays: Number(value) })} /><Toggle label="PERMITE PRÉ-VENDA" checked={settings.allowPreSale} onChange={(allowPreSale) => onChange({ ...settings, allowPreSale })} /><Toggle label="LIMITA A FAIXA ETÁRIA DE VENDA" checked={settings.limitAgeRange} onChange={(limitAgeRange) => onChange({ ...settings, limitAgeRange })} /></div> : <div className="xd-settings-dialog-content"><Toggle label="POSSUI VALOR DE ADESÃO OU MATRÍCULA" checked={settings.enrollmentFeeEnabled} onChange={(enrollmentFeeEnabled) => onChange({ ...settings, enrollmentFeeEnabled })} /><Toggle label="COMISSIONAR CONSULTOR DE VENDAS" checked={settings.salesCommissionEnabled} onChange={(salesCommissionEnabled) => onChange({ ...settings, salesCommissionEnabled })} /><Field label="CATEGORIA DE RECEITA" value={settings.revenueCategory} onChange={(revenueCategory) => onChange({ ...settings, revenueCategory })} /></div>}<footer><button type="button" className="xd-secondary" onClick={onClose}>CANCELAR</button><button type="button" className="xd-primary" onClick={onClose}>SALVAR</button></footer></section></div>;
+}
+
+function ModuleHeader({ title, copy, back }: { title: string; copy: string; back: () => void }) { return <header className="xd-module-heading"><button type="button" className="xd-return" onClick={back}>CONTRATOS</button><span>ADMINISTRATIVO · CATÁLOGO</span><h1>{title}</h1><p>{copy}</p></header>; }
+function Toggle({ label, checked, onChange, disabled = false }: { label: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) { return <label className="xd-setting-toggle"><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /><span aria-hidden="true" /><strong>{label}</strong></label>; }
+function Field({ label, value, onChange, type = "text", min, max, step, placeholder, required }: { label: string; value: string; onChange: (value: string) => void; type?: string; min?: string; max?: string; step?: string; placeholder?: string; required?: boolean }) { return <label>{label}<input type={type} min={min} max={max} step={step} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} /></label>; }
 function normalize(value: string) { return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"); }
 function formatCurrency(cents: number) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((Number.isFinite(cents) ? cents : 0) / 100); }
 function inputToCents(value: string) { const number = Number(value.replace(",", ".")); return Number.isFinite(number) ? Math.round(number * 100) : 0; }
-function centsToInput(cents: number) { return (cents / 100).toFixed(2); }
-function formatDate(value: string) { if (!value) return "—"; const [year, month, day] = value.split("-"); return `${day}/${month}/${year}`; }
-function todayIso() { const parts = new Intl.DateTimeFormat("en", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()); const take = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ""; return `${take("year")}-${take("month")}-${take("day")}`; }
+function formatDurationUnit(unit: unknown, value: number) { const normalized = unit === "DIA" || unit === "SEMANA" || unit === "MÊS" ? unit : "MÊS"; if (value === 1) return normalized; return normalized === "MÊS" ? "MESES" : `${normalized}S`; }
