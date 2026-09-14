@@ -32,7 +32,7 @@ export default function DanceWorkspace() {
 
   const topbar = <header className="xd-topbar">
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
-    {activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-return" onClick={() => setScreen("HOME")}>VOLTAR AO PAINEL</button><div className="xd-active-module" aria-label={`Módulo atual: ${activeModule}`}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></div></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
+    {activeModule ? <div className="xd-topbar-context"><div className="xd-active-module" aria-label={`Módulo atual: ${activeModule}`}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></div></div> : <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button>}
   </header>;
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
