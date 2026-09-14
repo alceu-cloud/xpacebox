@@ -56,15 +56,22 @@ export async function POST(request: Request) {
       .eq("agenda_kind", "FOLLOW_UP")
       .not("next_action_at", "is", null);
     if (clearDirectAgendaError) throw clearDirectAgendaError;
-    if (opportunityId && agendaKind === "OPPORTUNITY") {
+    if (opportunityId) {
       const { error: clearOpportunityAgendaError } = await admin
         .from("crm_activities")
         .update({ next_action_type: null, next_action_at: null })
         .eq("tenant_company_id", company.id)
         .eq("opportunity_id", opportunityId)
-        .eq("agenda_kind", "OPPORTUNITY")
         .not("next_action_at", "is", null);
       if (clearOpportunityAgendaError) throw clearOpportunityAgendaError;
+
+      const { error: clearProfileCycleError } = await admin
+        .from("crm_customer_profiles")
+        .update({ next_contact_at: null, updated_at: new Date().toISOString() })
+        .eq("tenant_company_id", company.id)
+        .eq("client_id", input.clientId)
+        .not("next_contact_at", "is", null);
+      if (clearProfileCycleError) throw clearProfileCycleError;
     }
     if (overdueAgenda) {
       const { error: clearOverdueAgendaError } = await admin
