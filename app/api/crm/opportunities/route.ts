@@ -498,6 +498,16 @@ async function scheduleOpportunityAgenda({
     }
   }
 
+  // A quote created before a customer is linked keeps its full activity trail on the
+  // opportunity. Once linked, expose that same trail in the customer's timeline.
+  const { error: linkDirectHistoryError } = await admin
+    .from("crm_activities")
+    .update({ client_id: clientId })
+    .eq("tenant_company_id", companyId)
+    .eq("opportunity_id", opportunityId)
+    .is("client_id", null);
+  if (linkDirectHistoryError) throw linkDirectHistoryError;
+
   return true;
 }
 
