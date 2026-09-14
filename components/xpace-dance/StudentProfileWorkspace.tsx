@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CalendarClock, Camera, CheckCircle2, ChevronLeft, CircleDollarSign, Crown, FileText, Gift, History, Mail, MessageCircle, MoreHorizontal, Pencil, Plus, Send, StickyNote, WalletCards } from "lucide-react";
+import { AlertTriangle, CalendarClock, Camera, CheckCircle2, CircleDollarSign, Crown, FileText, Gift, History, Mail, MessageCircle, MoreHorizontal, Pencil, Plus, Send, StickyNote, WalletCards } from "lucide-react";
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -17,7 +17,7 @@ type Profile = {
   rewards: Array<{ points_delta: number; reason: string; occurred_at: string }>;
 };
 
-export default function StudentProfileWorkspace({ studentId, onBack }: { studentId: string; onBack: () => void }) {
+export default function StudentProfileWorkspace({ studentId }: { studentId: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tab, setTab] = useState<Tab>("RESUMO");
   const [loading, setLoading] = useState(true);
@@ -107,13 +107,12 @@ export default function StudentProfileWorkspace({ studentId, onBack }: { student
     setBenefitOpen(true);
   }
 
-  if (loading || !profile) return <section className="xd-student-profile"><button className="xd-return" type="button" onClick={onBack}><ChevronLeft size={16} /> COMUNIDADE</button><p className="xd-profile-loading">CARREGANDO PERFIL DO ALUNO...</p>{notice ? <p className="xd-feedback">{notice}</p> : null}</section>;
+  if (loading || !profile) return <section className="xd-student-profile"><p className="xd-profile-loading">CARREGANDO PERFIL DO ALUNO...</p>{notice ? <p className="xd-feedback">{notice}</p> : null}</section>;
 
   const activeBenefit = profile.benefits.find((benefit) => benefit.status === "ATIVO");
   const whatsapp = profile.student.mobile.replace(/\D/g, "");
 
   return <section className="xd-student-profile">
-    <button className="xd-return" type="button" onClick={onBack}><ChevronLeft size={16} /> COMUNIDADE</button>
     <header className="xd-profile-identity">
       <div className="xd-profile-avatar"><div>{profile.student.photoUrl ? <img src={profile.student.photoUrl} alt={`Foto de ${profile.student.name}`} /> : <span>{initials(profile.student.name)}</span>}</div><button type="button" title="Enviar foto" disabled={saving} onClick={() => fileRef.current?.click()}><Camera size={16} /></button><input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} /></div>
       <div className="xd-profile-name"><div><h1>{profile.student.name}</h1><span className={profile.summary.activeContract ? "xd-status-pill is-active" : "xd-status-pill"}><CheckCircle2 size={14} /> {profile.summary.activeContract ? "ATIVO" : "SEM CONTRATO ATIVO"}</span>{activeBenefit ? <button type="button" className="xd-benefit-pill" onClick={openBenefitDialog}><Crown size={14} /> {activeBenefit.profile?.name ?? "BENEFÍCIO"}</button> : <button type="button" className="xd-benefit-pill is-empty" onClick={openBenefitDialog}><Gift size={14} /> BENEFÍCIO</button>}</div><p>{profile.student.age ?? "—"} ANOS · {labelGender(profile.student.gender)}</p><div className="xd-profile-actions"><button type="button" className="xd-primary" onClick={() => setEditing(true)}><Pencil size={16} /> CADASTRO</button><a className={whatsapp ? "xd-secondary" : "xd-secondary is-disabled"} href={whatsapp ? `https://wa.me/55${whatsapp}` : undefined} target="_blank" rel="noreferrer" aria-disabled={!whatsapp}><MessageCircle size={16} /> WHATSAPP</a><button type="button" className="xd-icon-copy" title="Mais ações" onClick={openBenefitDialog}><MoreHorizontal size={19} /></button></div></div>
