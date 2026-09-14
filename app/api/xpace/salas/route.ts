@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
 const companySlug = "xpace";
-type RequestBody = { action?: "CREATE_ROOM" | "SET_ROOM_ACTIVE"; room?: { id?: string; name?: string; coverageType?: string; active?: boolean } };
+type RequestBody = { action?: "CREATE_ROOM" | "UPDATE_ROOM" | "SET_ROOM_ACTIVE"; room?: { id?: string; name?: string; coverageType?: string; active?: boolean } };
 
 export async function GET(request: Request) {
   try {
@@ -31,6 +31,15 @@ export async function PATCH(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
     const access = await requireCompanyAccess(request, companySlug); requireManager(access.profile.platform_role);
+    if (body.action === "UPDATE_ROOM") {
+      const roomId = body.room?.id?.trim();
+      const room = normalize(body.room);
+      if (!roomId || !room.name) throw new RequestError("INFORME A DESCRIÇÃO DA SALA.", 400);
+      const { data, error } = await access.admin.from("xpace_rooms").update({ name: room.name, coverage_type: room.coverageType, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", roomId).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new RequestError("SALA NÃO ENCONTRADA NESTA EMPRESA.", 404);
+      return NextResponse.json({ success: true });
+    }
     if (body.action !== "SET_ROOM_ACTIVE" || !body.room?.id || typeof body.room.active !== "boolean") throw new RequestError("ATUALIZAÇÃO DE SALA INVÁLIDA.", 400);
     const { error } = await access.admin.from("xpace_rooms").update({ active: body.room.active, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.room.id).eq("tenant_company_id", access.company.id);
     if (error) throw error;

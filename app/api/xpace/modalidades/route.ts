@@ -7,7 +7,7 @@ const mappingTypes = ["AULA", "CHECK_IN", "PRESENÇA"] as const;
 type MappingType = (typeof mappingTypes)[number];
 type Mapping = { reference?: string; type?: string };
 type RequestBody = {
-  action?: "CREATE_MODALITY" | "UPDATE_MODALITY" | "SET_MODALITY_ACTIVE";
+  action?: "CREATE_MODALITY" | "UPDATE_MODALITY" | "SET_MODALITY_ACTIVE" | "DELETE_MODALITY";
   modality?: { id?: string; name?: string; usesSchedule?: boolean; requiresInstructor?: boolean; instructorId?: string; wellhubMappings?: Mapping[]; totalpassMappings?: Mapping[]; active?: boolean };
 };
 
@@ -55,6 +55,34 @@ export async function PATCH(request: Request) {
     if (!modality.name) throw new RequestError("INFORME A DESCRIÇÃO DA MODALIDADE.", 400);
     await validateInstructor(access, modality);
     const { error } = await access.admin.from("xpace_modalities").update({ name: modality.name, uses_schedule: modality.usesSchedule, requires_instructor: modality.requiresInstructor, instructor_id: modality.instructorId || null, wellhub_mappings: modality.wellhubMappings, totalpass_mappings: modality.totalpassMappings, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.modality.id).eq("tenant_company_id", access.company.id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) { return handleError(error); }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = (await request.json()) as RequestBody;
+    const access = await requireCompanyAccess(request, companySlug);
+    requireManager(access.profile.platform_role);
+    const modalityId = body.action === "DELETE_MODALITY" ? body.modality?.id?.trim() : "";
+    if (!modalityId) throw new RequestError("MODALIDADE INVÁLIDA.", 400);
+    const { data: modality, error: modalityError } = await access.admin.from("xpace_modalities").select("id,name").eq("id", modalityId).eq("tenant_company_id", access.company.id).maybeSingle();
+    if (modalityError) throw modalityError;
+    if (!modality) throw new RequestError("MODALIDADE NÃO ENCONTRADA NESTA EMPRESA.", 404);
+    const { data: plans, error: plansError } = await access.admin.from("xpace_membership_plans").select("id").eq("tenant_company_id", access.company.id).contains("modalities", [modality.name]);
+    if (plansError) throw plansError;
+    const planIds = (plans ?? []).map((plan) => plan.id);
+    if (planIds.length) {
+      const { data: contract, error: contractError } = await access.admin.from("xpace_student_contracts").select("id").eq("tenant_company_id", access.company.id).in("plan_id", planIds).limit(1).maybeSingle();
+      if (contractError) throw contractError;
+      if (contract) throw new RequestError("NÃO É POSSÍVEL EXCLUIR: HÁ ALUNO COM CONTRATO VINCULADO A ESTA MODALIDADE. ARQUIVE A MODALIDADE PARA PRESERVAR O HISTÓRICO.", 409);
+      throw new RequestError("NÃO É POSSÍVEL EXCLUIR: ESTA MODALIDADE AINDA ESTÁ VINCULADA A UM CONTRATO DO CATÁLOGO.", 409);
+    }
+    const { data: classGroup, error: classGroupError } = await access.admin.from("xpace_class_groups").select("id").eq("tenant_company_id", access.company.id).eq("modality_id", modality.id).limit(1).maybeSingle();
+    if (classGroupError) throw classGroupError;
+    if (classGroup) throw new RequestError("NÃO É POSSÍVEL EXCLUIR: ESTA MODALIDADE JÁ POSSUI GRADE DE AULA. ARQUIVE-A PARA PRESERVAR A AGENDA.", 409);
+    const { error } = await access.admin.from("xpace_modalities").delete().eq("id", modality.id).eq("tenant_company_id", access.company.id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) { return handleError(error); }

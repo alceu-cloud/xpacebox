@@ -10,7 +10,7 @@ const statuses = ["AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as c
 type BillingInterval = (typeof intervals)[number];
 type ContractStatus = (typeof statuses)[number];
 type RequestBody = {
-  action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS";
+  action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; catalogSettings?: Record<string, unknown> };
   contract?: { id?: string; studentId?: string; planId?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
 };
@@ -59,6 +59,25 @@ export async function PATCH(request: Request) {
     if (body.action === "SET_PLAN_ACTIVE") return setPlanActive(access, body.plan);
     if (body.action === "SET_CONTRACT_STATUS") return setContractStatus(access, body.contract);
     throw new RequestError("ATUALIZACAO DE CONTRATO INVALIDA.", 400);
+  } catch (error) { return handleError(error); }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = (await request.json()) as RequestBody;
+    const access = await requireCompanyAccess(request, companySlug);
+    requireManager(access.profile.platform_role);
+    const planId = body.action === "DELETE_PLAN" ? body.plan?.id?.trim() : "";
+    if (!planId) throw new RequestError("CONTRATO INVÁLIDO.", 400);
+    const { data: plan, error: planError } = await access.admin.from("xpace_membership_plans").select("id,name").eq("id", planId).eq("tenant_company_id", access.company.id).maybeSingle();
+    if (planError) throw planError;
+    if (!plan) throw new RequestError("CONTRATO NÃO ENCONTRADO NESTA EMPRESA.", 404);
+    const { data: studentContract, error: contractError } = await access.admin.from("xpace_student_contracts").select("id").eq("tenant_company_id", access.company.id).eq("plan_id", plan.id).limit(1).maybeSingle();
+    if (contractError) throw contractError;
+    if (studentContract) throw new RequestError("NÃO É POSSÍVEL EXCLUIR: ESTE CONTRATO JÁ FOI VINCULADO A UM ALUNO. ARQUIVE-O PARA PRESERVAR O HISTÓRICO.", 409);
+    const { error } = await access.admin.from("xpace_membership_plans").delete().eq("id", plan.id).eq("tenant_company_id", access.company.id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) { return handleError(error); }
 }
 

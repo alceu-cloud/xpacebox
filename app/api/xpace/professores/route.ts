@@ -4,7 +4,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
 const companySlug = "xpace";
 type RequestBody = {
-  action?: "CREATE_INSTRUCTOR" | "SET_INSTRUCTOR_ACTIVE";
+  action?: "CREATE_INSTRUCTOR" | "UPDATE_INSTRUCTOR" | "SET_INSTRUCTOR_ACTIVE";
   instructor?: { id?: string; fullName?: string; mobile?: string; email?: string; active?: boolean };
 };
 
@@ -35,6 +35,16 @@ export async function PATCH(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
     const access = await requireCompanyAccess(request, companySlug);
+    if (body.action === "UPDATE_INSTRUCTOR") {
+      requireManager(access.profile.platform_role);
+      const instructorId = body.instructor?.id?.trim();
+      const instructor = normalize(body.instructor);
+      if (!instructorId || !instructor.fullName) throw new RequestError("INFORME O NOME DO PROFESSOR.", 400);
+      const { data, error } = await access.admin.from("xpace_instructors").update({ full_name: instructor.fullName, mobile: instructor.mobile || null, email: instructor.email || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", instructorId).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new RequestError("PROFESSOR NÃO ENCONTRADO NESTA EMPRESA.", 404);
+      return NextResponse.json({ success: true });
+    }
     if (body.action !== "SET_INSTRUCTOR_ACTIVE" || !body.instructor?.id || typeof body.instructor.active !== "boolean") throw new RequestError("ATUALIZAÇÃO DE PROFESSOR INVÁLIDA.", 400);
     requireManager(access.profile.platform_role);
     const { error } = await access.admin.from("xpace_instructors").update({ active: body.instructor.active, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.instructor.id).eq("tenant_company_id", access.company.id);

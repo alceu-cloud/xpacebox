@@ -113,6 +113,15 @@ export default function ContractsWorkspace() {
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL ATUALIZAR O CONTRATO."); }
     finally { setSaving(false); }
   }
+  async function deletePlan(plan: Plan) {
+    if (!window.confirm(`Excluir o contrato ${plan.name}? Essa ação só será permitida se ele não tiver sido vinculado a aluno.`)) return;
+    setSaving(true); setNotice("");
+    try {
+      await request("/api/xpace/contratos", { method: "DELETE", body: JSON.stringify({ action: "DELETE_PLAN", plan: { id: plan.id } }) });
+      await loadCatalog(); setNotice("CONTRATO EXCLUÍDO.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL EXCLUIR O CONTRATO."); }
+    finally { setSaving(false); }
+  }
 
   if (view === "NEW") return <section className="xd-contracts">
     <ModuleHeader title="NOVO CONTRATO." copy="Defina o contrato que poderá ser vendido depois no perfil do aluno." />
@@ -142,7 +151,7 @@ export default function ContractsWorkspace() {
     <div className="xd-contract-title"><div><span>ADMINISTRATIVO · CATÁLOGO</span><h1>CONTRATOS.</h1><p>Cadastre as opções que poderão ser vendidas depois para cada aluno.</p></div><button type="button" className="xd-primary" onClick={startNew}><Plus size={17} /> ADICIONAR CONTRATO</button></div>
     <div className="xd-contract-tools"><label><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="PESQUISAR CONTRATO" /></label><button type="button" className="xd-secondary" disabled title="Filtros em preparação"><Filter size={16} /> FILTROS</button></div>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
-    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span>{plan.durationMonths} {formatDurationUnit(plan.catalogSettings.durationUnit, plan.durationMonths)}</span><b>{formatCurrency(plan.amountCents)}</b><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button></article>)}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
+    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span>{plan.durationMonths} {formatDurationUnit(plan.catalogSettings.durationUnit, plan.durationMonths)}</span><b>{formatCurrency(plan.amountCents)}</b><div className="xd-room-actions"><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button><button type="button" className="xd-quiet-action xd-danger-link" disabled={saving} onClick={() => void deletePlan(plan)}>EXCLUIR</button></div></article>)}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
   </section>;
 }
 
