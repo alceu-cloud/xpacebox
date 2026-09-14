@@ -5,7 +5,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 const companySlug = "xpace";
 type Body = {
   action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL";
-  group?: { name?: string; modality?: string; color?: string; capacity?: number; weekday?: number; startsAt?: string; endsAt?: string; roomName?: string };
+  group?: { name?: string; modalityId?: string; color?: string; capacity?: number; weekday?: number; startsAt?: string; endsAt?: string; roomName?: string };
   enrollment?: { classGroupId?: string; studentId?: string; startsOn?: string };
   rental?: { roomName?: string; renterName?: string; startsAt?: string; endsAt?: string; amountCents?: number; note?: string };
 };
@@ -13,14 +13,16 @@ type Body = {
 export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
-    const [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult] = await Promise.all([
-      admin.from("xpace_class_groups").select("id,name,modality,color,capacity,active").eq("tenant_company_id", company.id).order("name"),
+    const [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult] = await Promise.all([
+      admin.from("xpace_class_groups").select("id,name,modality,modality_id,instructor_id,color,capacity,active").eq("tenant_company_id", company.id).order("name"),
       admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,active").eq("tenant_company_id", company.id).eq("active", true).order("weekday").order("starts_at"),
       admin.from("xpace_class_enrollments").select("id,class_group_id,student_id,starts_on,ends_on,status").eq("tenant_company_id", company.id).eq("status", "ATIVA"),
       admin.from("xpace_people").select("id,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_room_rentals").select("id,room_name,renter_name,starts_at,ends_at,amount_cents,status,note").eq("tenant_company_id", company.id).neq("status", "CANCELADA").order("starts_at").limit(200),
+      admin.from("xpace_modalities").select("id,name,instructor_id,requires_instructor").eq("tenant_company_id", company.id).eq("active", true).eq("uses_schedule", true).order("name"),
+      admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", company.id).eq("active", true).order("full_name"),
     ]);
-    for (const result of [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult]) if (result.error) throw result.error;
+    for (const result of [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult]) if (result.error) throw result.error;
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     const enrollmentsByGroup = new Map<string, Array<{ id: string; studentId: string; studentName: string; mobile: string; startsOn: string }>>();
     for (const enrollment of enrollmentsResult.data ?? []) {
@@ -30,7 +32,8 @@ export async function GET(request: Request) {
       list.push({ id: enrollment.id, studentId: enrollment.student_id, studentName: student.full_name, mobile: student.mobile ?? "", startsOn: enrollment.starts_on });
       enrollmentsByGroup.set(enrollment.class_group_id, list);
     }
-    return NextResponse.json({ success: true, groups: (groupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", color: group.color, capacity: group.capacity, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "" })), students: enrollmentsByGroup.get(group.id) ?? [] })), students: (studentsResult.data ?? []).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
+    const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
+    return NextResponse.json({ success: true, groups: (groupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: group.color, capacity: group.capacity, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "" })), students: enrollmentsByGroup.get(group.id) ?? [] })), modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), students: (studentsResult.data ?? []).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -46,9 +49,12 @@ export async function POST(request: Request) {
 }
 
 async function createClass(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["group"]) {
-  const group = { name: input?.name?.trim().replace(/\s+/g, " ") ?? "", modality: input?.modality?.trim() ?? "", color: input?.color?.trim() ?? "#7435d9", capacity: input?.capacity ? Number(input.capacity) : null, weekday: Number(input?.weekday), startsAt: input?.startsAt?.trim() ?? "", endsAt: input?.endsAt?.trim() ?? "", roomName: input?.roomName?.trim() ?? "" };
-  if (!group.name || !/^#[0-9a-fA-F]{6}$/.test(group.color) || !Number.isInteger(group.weekday) || group.weekday < 0 || group.weekday > 6 || !isTime(group.startsAt) || !isTime(group.endsAt) || group.endsAt <= group.startsAt || (group.capacity !== null && (!Number.isInteger(group.capacity) || group.capacity < 1))) throw new RequestError("PREENCHA NOME, DIA, HORÁRIOS E UMA COR VÁLIDA PARA A GRADE.", 400);
-  const { data: saved, error } = await access.admin.from("xpace_class_groups").insert({ tenant_company_id: access.company.id, name: group.name, modality: group.modality || null, color: group.color, capacity: group.capacity, created_by: access.user.id, updated_by: access.user.id }).select("id").single();
+  const group = { name: input?.name?.trim().replace(/\s+/g, " ") ?? "", modalityId: input?.modalityId?.trim() ?? "", color: input?.color?.trim() ?? "#7435d9", capacity: input?.capacity ? Number(input.capacity) : null, weekday: Number(input?.weekday), startsAt: input?.startsAt?.trim() ?? "", endsAt: input?.endsAt?.trim() ?? "", roomName: input?.roomName?.trim() ?? "" };
+  if (!group.name || !group.modalityId || !/^#[0-9a-fA-F]{6}$/.test(group.color) || !Number.isInteger(group.weekday) || group.weekday < 0 || group.weekday > 6 || !isTime(group.startsAt) || !isTime(group.endsAt) || group.endsAt <= group.startsAt || (group.capacity !== null && (!Number.isInteger(group.capacity) || group.capacity < 1))) throw new RequestError("PREENCHA NOME, MODALIDADE, DIA, HORÁRIOS E UMA COR VÁLIDA PARA A GRADE.", 400);
+  const { data: modality, error: modalityError } = await access.admin.from("xpace_modalities").select("id,name,instructor_id,requires_instructor").eq("id", group.modalityId).eq("tenant_company_id", access.company.id).eq("active", true).eq("uses_schedule", true).maybeSingle();
+  if (modalityError) throw modalityError;
+  if (!modality || (modality.requires_instructor && !modality.instructor_id)) throw new RequestError("SELECIONE UMA MODALIDADE ATIVA CONFIGURADA PARA A AGENDA.", 400);
+  const { data: saved, error } = await access.admin.from("xpace_class_groups").insert({ tenant_company_id: access.company.id, name: group.name, modality: modality.name, modality_id: modality.id, instructor_id: modality.instructor_id ?? null, color: group.color, capacity: group.capacity, created_by: access.user.id, updated_by: access.user.id }).select("id").single();
   if (error) throw error;
   const { error: scheduleError } = await access.admin.from("xpace_class_schedules").insert({ tenant_company_id: access.company.id, class_group_id: saved.id, weekday: group.weekday, starts_at: group.startsAt, ends_at: group.endsAt, room_name: group.roomName || null, created_by: access.user.id });
   if (scheduleError) throw scheduleError;

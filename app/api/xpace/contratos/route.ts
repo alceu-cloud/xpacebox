@@ -18,18 +18,21 @@ type RequestBody = {
 export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
-    const [plansResult, studentsResult, contractsResult] = await Promise.all([
+    const [plansResult, studentsResult, contractsResult, modalitiesResult] = await Promise.all([
       admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,catalog_settings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
       admin.from("xpace_people").select("id,person_number,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,created_at,cancel_effective_on").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(300),
+      admin.from("xpace_modalities").select("id,name,active").eq("tenant_company_id", company.id).eq("active", true).order("name"),
     ]);
     if (plansResult.error) throw plansResult.error;
     if (studentsResult.error) throw studentsResult.error;
     if (contractsResult.error) throw contractsResult.error;
+    if (modalitiesResult.error) throw modalitiesResult.error;
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,
       plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], catalogSettings: plan.catalog_settings ?? {}, active: plan.active, createdAt: plan.created_at })),
+      modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, active: modality.active })),
       students: (studentsResult.data ?? []).map((student) => ({ id: student.id, personNumber: student.person_number, name: student.full_name, mobile: student.mobile ?? "" })),
       contracts: (contractsResult.data ?? []).map((contract) => {
         const student = studentsById.get(contract.student_id);
@@ -63,7 +66,9 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   requireManager(access.profile.platform_role);
   const plan = normalizePlan(input);
   if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURACAO E VALOR DO PLANO.", 400);
-  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: plan.modalities, catalog_settings: plan.catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
+  validateCatalogSettings(plan.catalogSettings);
+  const modalities = await resolveModalities(access, plan.modalities);
+  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities, catalog_settings: plan.catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
   if (error) throw error;
   return NextResponse.json({ success: true, plan: { id: data.id, name: data.name } }, { status: 201 });
 }
@@ -72,7 +77,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const contract = normalizeContract(input);
   if (!contract.studentId || !contract.planId || !isDate(contract.startsOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO E A DATA DE INICIO.", 400);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
-    access.admin.from("xpace_people").select("id").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
+    access.admin.from("xpace_people").select("id,birth_date").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
     access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
     access.admin.from("xpace_person_benefits").select("benefit_profile_id").eq("tenant_company_id", access.company.id).eq("person_id", contract.studentId).eq("status", "ATIVO").maybeSingle(),
   ]);
@@ -81,6 +86,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (benefitError) throw benefitError;
   if (!student) throw new RequestError("ALUNO NAO ENCONTRADO NA COMUNIDADE.", 404);
   if (!plan?.active) throw new RequestError("ESCOLHA UM PLANO ATIVO.", 400);
+  validateSaleRestrictions(plan.catalog_settings, student.birth_date);
   if (plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit !== "MÊS") throw new RequestError("A VENDA DE CONTRATOS COM DURAÇÃO EM DIA OU SEMANA SERÁ LIBERADA QUANDO AS REGRAS FINANCEIRAS FOREM DEFINIDAS.", 400);
   const { data: benefitProfile, error: benefitProfileError } = activeBenefit ? await access.admin.from("xpace_benefit_profiles").select("id,name,discount_type,discount_value").eq("id", activeBenefit.benefit_profile_id).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle() : { data: null, error: null };
   if (benefitProfileError) throw benefitProfileError;
@@ -154,16 +160,49 @@ function normalizePlan(value?: RequestBody["plan"]) {
       allowAppSale: Boolean(settings.allowAppSale),
       sendForSignature: Boolean(settings.sendForSignature),
       limitSalePeriod: Boolean(settings.limitSalePeriod),
+      saleStartsOn: isDate(typeof settings.saleStartsOn === "string" ? settings.saleStartsOn : "") ? settings.saleStartsOn : "",
+      saleEndsOn: isDate(typeof settings.saleEndsOn === "string" ? settings.saleEndsOn : "") ? settings.saleEndsOn : "",
       maxSuspensions: boundedInteger(settings.maxSuspensions, 0, 99),
       maxSuspensionDays: boundedInteger(settings.maxSuspensionDays, 0, 365),
       allowPreSale: Boolean(settings.allowPreSale),
       limitAgeRange: Boolean(settings.limitAgeRange),
+      minAge: boundedInteger(settings.minAge, 0, 120),
+      maxAge: boundedInteger(settings.maxAge, 0, 120),
       enrollmentFeeEnabled: Boolean(settings.enrollmentFeeEnabled),
       salesCommissionEnabled: Boolean(settings.salesCommissionEnabled),
       revenueCategory: typeof settings.revenueCategory === "string" && settings.revenueCategory.trim() ? settings.revenueCategory.trim().slice(0, 80) : "VENDAS",
       durationUnit: settings.durationUnit === "DIA" || settings.durationUnit === "SEMANA" || settings.durationUnit === "MÊS" ? settings.durationUnit : "MÊS",
     },
   };
+}
+async function resolveModalities(access: Awaited<ReturnType<typeof requireCompanyAccess>>, ids: string[]) {
+  if (!ids.length) return [];
+  const { data, error } = await access.admin.from("xpace_modalities").select("id,name").eq("tenant_company_id", access.company.id).eq("active", true).in("id", ids);
+  if (error) throw error;
+  if ((data ?? []).length !== ids.length) throw new RequestError("SELECIONE APENAS MODALIDADES ATIVAS CADASTRADAS.", 400);
+  return ids.map((id) => (data ?? []).find((modality) => modality.id === id)?.name).filter((name): name is string => Boolean(name));
+}
+function validateSaleRestrictions(value: unknown, birthDate: string | null) {
+  if (!value || typeof value !== "object") return;
+  const settings = value as Record<string, unknown>;
+  if (settings.limitSalePeriod) {
+    const startsOn = typeof settings.saleStartsOn === "string" ? settings.saleStartsOn : "";
+    const endsOn = typeof settings.saleEndsOn === "string" ? settings.saleEndsOn : "";
+    if (!isDate(startsOn) || !isDate(endsOn) || startsOn > endsOn) throw new RequestError("ESTE CONTRATO POSSUI UM PERÍODO DE VENDA INVÁLIDO.", 409);
+    const current = today();
+    if (current < startsOn || current > endsOn) throw new RequestError("ESTE CONTRATO NÃO ESTÁ DISPONÍVEL PARA VENDA NESTA DATA.", 409);
+  }
+  if (settings.limitAgeRange) {
+    const minAge = boundedInteger(settings.minAge, 0, 120); const maxAge = boundedInteger(settings.maxAge, 0, 120);
+    if (minAge > maxAge) throw new RequestError("A FAIXA ETÁRIA DO CONTRATO É INVÁLIDA.", 409);
+    if (!birthDate) throw new RequestError("INFORME A DATA DE NASCIMENTO DO ALUNO PARA VENDER ESTE CONTRATO.", 409);
+    const studentAge = ageOnToday(birthDate);
+    if (studentAge < minAge || studentAge > maxAge) throw new RequestError(`ESTE CONTRATO É PERMITIDO SOMENTE PARA ALUNOS ENTRE ${minAge} E ${maxAge} ANOS.`, 409);
+  }
+}
+function validateCatalogSettings(settings: ReturnType<typeof normalizePlan>["catalogSettings"]) {
+  if (settings.limitSalePeriod && (!settings.saleStartsOn || !settings.saleEndsOn || settings.saleStartsOn > settings.saleEndsOn)) throw new RequestError("INFORME O INÍCIO E O FIM VÁLIDOS DO PERÍODO DE VENDA.", 400);
+  if (settings.limitAgeRange && settings.minAge > settings.maxAge) throw new RequestError("A IDADE MÍNIMA NÃO PODE SER MAIOR QUE A IDADE MÁXIMA.", 400);
 }
 function normalizeContract(value?: RequestBody["contract"]) {
   return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", startsOn: value?.startsOn?.trim() ?? "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
@@ -183,6 +222,7 @@ function endOfTerm(startsOn: string, months: number) {
   return new Date(boundary - 86_400_000).toISOString().slice(0, 10);
 }
 function today() { return todayIso(); }
+function ageOnToday(value: string) { const birth = new Date(`${value}T12:00:00`); const current = new Date(`${today()}T12:00:00`); let age = current.getFullYear() - birth.getFullYear(); if (current.getMonth() < birth.getMonth() || (current.getMonth() === birth.getMonth() && current.getDate() < birth.getDate())) age -= 1; return age; }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }
 function handleError(error: unknown) {
   if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status });

@@ -7,16 +7,21 @@ const mappingTypes = ["AULA", "CHECK_IN", "PRESENÇA"] as const;
 type MappingType = (typeof mappingTypes)[number];
 type Mapping = { reference?: string; type?: string };
 type RequestBody = {
-  action?: "CREATE_MODALITY" | "SET_MODALITY_ACTIVE";
-  modality?: { id?: string; name?: string; usesSchedule?: boolean; requiresInstructor?: boolean; wellhubMappings?: Mapping[]; totalpassMappings?: Mapping[]; active?: boolean };
+  action?: "CREATE_MODALITY" | "UPDATE_MODALITY" | "SET_MODALITY_ACTIVE";
+  modality?: { id?: string; name?: string; usesSchedule?: boolean; requiresInstructor?: boolean; instructorId?: string; wellhubMappings?: Mapping[]; totalpassMappings?: Mapping[]; active?: boolean };
 };
 
 export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
-    const { data, error } = await admin.from("xpace_modalities").select("id,name,uses_schedule,requires_instructor,wellhub_mappings,totalpass_mappings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name");
-    if (error) throw error;
-    return NextResponse.json({ success: true, modalities: (data ?? []).map((modality) => ({ id: modality.id, name: modality.name, usesSchedule: modality.uses_schedule, requiresInstructor: modality.requires_instructor, wellhubMappings: modality.wellhub_mappings ?? [], totalpassMappings: modality.totalpass_mappings ?? [], active: modality.active, createdAt: modality.created_at })) });
+    const [modalitiesResult, instructorsResult] = await Promise.all([
+      admin.from("xpace_modalities").select("id,name,uses_schedule,requires_instructor,instructor_id,wellhub_mappings,totalpass_mappings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
+      admin.from("xpace_instructors").select("id,full_name,active").eq("tenant_company_id", company.id).eq("active", true).order("full_name"),
+    ]);
+    if (modalitiesResult.error) throw modalitiesResult.error;
+    if (instructorsResult.error) throw instructorsResult.error;
+    const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
+    return NextResponse.json({ success: true, modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, usesSchedule: modality.uses_schedule, requiresInstructor: modality.requires_instructor, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", wellhubMappings: modality.wellhub_mappings ?? [], totalpassMappings: modality.totalpass_mappings ?? [], active: modality.active, createdAt: modality.created_at })), instructors: (instructorsResult.data ?? []).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -28,7 +33,8 @@ export async function POST(request: Request) {
     requireManager(access.profile.platform_role);
     const modality = normalizeModality(body.modality);
     if (!modality.name) throw new RequestError("INFORME A DESCRIÇÃO DA MODALIDADE.", 400);
-    const { data, error } = await access.admin.from("xpace_modalities").insert({ tenant_company_id: access.company.id, name: modality.name, uses_schedule: modality.usesSchedule, requires_instructor: modality.requiresInstructor, wellhub_mappings: modality.wellhubMappings, totalpass_mappings: modality.totalpassMappings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
+    await validateInstructor(access, modality);
+    const { data, error } = await access.admin.from("xpace_modalities").insert({ tenant_company_id: access.company.id, name: modality.name, uses_schedule: modality.usesSchedule, requires_instructor: modality.requiresInstructor, instructor_id: modality.instructorId || null, wellhub_mappings: modality.wellhubMappings, totalpass_mappings: modality.totalpassMappings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
     if (error) throw error;
     return NextResponse.json({ success: true, modality: { id: data.id, name: data.name } }, { status: 201 });
   } catch (error) { return handleError(error); }
@@ -38,9 +44,17 @@ export async function PATCH(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
     const access = await requireCompanyAccess(request, companySlug);
-    if (body.action !== "SET_MODALITY_ACTIVE" || !body.modality?.id || typeof body.modality.active !== "boolean") throw new RequestError("ATUALIZAÇÃO DE MODALIDADE INVÁLIDA.", 400);
     requireManager(access.profile.platform_role);
-    const { error } = await access.admin.from("xpace_modalities").update({ active: body.modality.active, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.modality.id).eq("tenant_company_id", access.company.id);
+    if (body.action === "SET_MODALITY_ACTIVE" && body.modality?.id && typeof body.modality.active === "boolean") {
+      const { error } = await access.admin.from("xpace_modalities").update({ active: body.modality.active, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.modality.id).eq("tenant_company_id", access.company.id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+    if (body.action !== "UPDATE_MODALITY" || !body.modality?.id) throw new RequestError("ATUALIZAÇÃO DE MODALIDADE INVÁLIDA.", 400);
+    const modality = normalizeModality(body.modality);
+    if (!modality.name) throw new RequestError("INFORME A DESCRIÇÃO DA MODALIDADE.", 400);
+    await validateInstructor(access, modality);
+    const { error } = await access.admin.from("xpace_modalities").update({ name: modality.name, uses_schedule: modality.usesSchedule, requires_instructor: modality.requiresInstructor, instructor_id: modality.instructorId || null, wellhub_mappings: modality.wellhubMappings, totalpass_mappings: modality.totalpassMappings, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.modality.id).eq("tenant_company_id", access.company.id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) { return handleError(error); }
@@ -51,9 +65,18 @@ function normalizeModality(value?: RequestBody["modality"]) {
     name: value?.name?.trim().replace(/\s+/g, " ").slice(0, 120) ?? "",
     usesSchedule: Boolean(value?.usesSchedule),
     requiresInstructor: Boolean(value?.requiresInstructor),
+    instructorId: value?.instructorId?.trim() ?? "",
     wellhubMappings: normalizeMappings(value?.wellhubMappings),
     totalpassMappings: normalizeMappings(value?.totalpassMappings),
   };
+}
+
+async function validateInstructor(access: Awaited<ReturnType<typeof requireCompanyAccess>>, modality: ReturnType<typeof normalizeModality>) {
+  if (!modality.requiresInstructor) return;
+  if (!modality.instructorId) throw new RequestError("SELECIONE O PROFESSOR RESPONSÁVEL PELA MODALIDADE.", 400);
+  const { data, error } = await access.admin.from("xpace_instructors").select("id").eq("id", modality.instructorId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("O PROFESSOR SELECIONADO NÃO ESTÁ DISPONÍVEL.", 400);
 }
 
 function normalizeMappings(items?: Mapping[]) {
