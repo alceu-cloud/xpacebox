@@ -38,7 +38,11 @@ export async function POST(request: Request) {
     }
     const currentActionAt = agenda.next_action_at || "";
     if (!currentActionAt) return failure("NAO HA UMA AGENDA EM ABERTO PARA ADIAR.", 400);
-    if (currentActionAt.slice(0, 10) >= saoPauloDate()) return failure("ESTA AGENDA NAO ESTA ATRASADA.", 400);
+    const directQuoteAgenda = !agenda.client_id && Boolean(agenda.opportunity_id);
+    const currentDate = currentActionAt.slice(0, 10);
+    if (directQuoteAgenda ? currentDate > saoPauloDate() : currentDate >= saoPauloDate()) {
+      return failure(directQuoteAgenda ? "ESTE ORCAMENTO DIRETO AINDA NAO ESTA PARA ATENDIMENTO." : "ESTA AGENDA NAO ESTA ATRASADA.", 400);
+    }
     if (activityId && agenda.agenda_kind === "CYCLE" && !sameInstant(profile.data?.next_contact_at || "", currentActionAt)) {
       return failure("ESTA AGENDA JA FOI SUBSTITUIDA POR UMA ACAO MAIS RECENTE.", 409);
     }
@@ -51,7 +55,9 @@ export async function POST(request: Request) {
       .eq("subject", postponementSubject);
     if (countError) throw countError;
     if (Number(count || 0) >= 3) {
-      return failure("ESTE CLIENTE JA FOI ADIADO 3 VEZES NESTA AGENDA. ATENDA O CONTATO ANTES DE ADIAR NOVAMENTE.", 409);
+      return failure(directQuoteAgenda
+        ? "ESTE ORCAMENTO DIRETO JA FOI ADIADO 3 VEZES. VINCULE UM CLIENTE OU ENCERRE A OPORTUNIDADE ANTES DE ADIAR NOVAMENTE."
+        : "ESTE CLIENTE JA FOI ADIADO 3 VEZES NESTA AGENDA. ATENDA O CONTATO ANTES DE ADIAR NOVAMENTE.", 409);
     }
 
     const nextActionAt = nextBusinessMorning();

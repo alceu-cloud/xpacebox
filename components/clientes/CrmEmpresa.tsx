@@ -1084,7 +1084,8 @@ function AgendaBoard({
                     </div>
                     <div className="crm-agenda-buttons">
                       <button type="button" onClick={() => item.client ? onOpenClient(item.client.id) : onOpenDirectOpportunity()}>ATENDER</button>
-                      {group.key === "overdue" && item.activityId ? <div className="crm-agenda-postpone-menu">
+                      {item.directQuote && item.activityId && (group.key === "overdue" || group.key === "today") ? <button type="button" onClick={() => onPostpone("", item.activityId)} disabled={postponingAgendaId === item.activityId}>{postponingAgendaId === item.activityId ? "ADIANDO..." : "ADIAR"}</button> : null}
+                      {!item.directQuote && group.key === "overdue" && item.activityId ? <div className="crm-agenda-postpone-menu">
                         <button type="button" className="crm-agenda-more-button" onClick={() => setPostponeMenuAgendaId((current) => current === item.id ? "" : item.id)} title="MAIS OPCOES" aria-label={`MAIS OPCOES PARA ${item.displayName}`} aria-expanded={postponeMenuAgendaId === item.id}>...</button>
                         {postponeMenuAgendaId === item.id ? <div className="crm-agenda-postpone-options"><button type="button" onClick={() => { setPostponeMenuAgendaId(""); onPostpone(item.client?.id || "", item.activityId); }} disabled={postponingAgendaId === item.activityId}>ADIAR PARA PROXIMO DIA UTIL</button></div> : null}
                       </div> : null}
