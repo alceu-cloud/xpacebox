@@ -16,7 +16,7 @@ const mappingTypes: MappingType[] = ["AULA", "CHECK_IN", "PRESENÇA"];
 const emptyDraft = (): Draft => ({ name: "", usesSchedule: false, requiresInstructor: false, instructorId: "", wellhubMappings: [], totalpassMappings: [] });
 
 export default function ModalitiesWorkspace() {
-  const [view, setView] = useState<"NEW" | "LIST">("NEW");
+  const [view, setView] = useState<"NEW" | "LIST">("LIST");
   const [modalities, setModalities] = useState<Modality[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [editingId, setEditingId] = useState("");
