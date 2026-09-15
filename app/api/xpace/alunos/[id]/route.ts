@@ -16,27 +16,29 @@ export async function GET(request: Request, context: Context) {
     if (personError) throw personError;
     if (!person) throw new RequestError("ALUNO NÃO ENCONTRADO NA COMUNIDADE.", 404);
 
-    const { data: contracts, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,cancel_effective_on,created_at").eq("tenant_company_id", access.company.id).eq("student_id", id).order("starts_on", { ascending: false });
+    const { data: contracts, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,cancel_effective_on,created_at").eq("tenant_company_id", access.company.id).eq("student_id", id).order("starts_on", { ascending: false });
     if (contractError) throw contractError;
     const photoRequest = person.photo_path
       ? access.admin.storage.from("xpace-people").createSignedUrl(person.photo_path, 60 * 30)
       : Promise.resolve({ data: null, error: null });
-    const [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult, photoResult] = await Promise.all([
+    const [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult, salesResult, photoResult] = await Promise.all([
       access.admin.from("xpace_contract_charges").select("id,contract_id,competence_on,due_on,base_amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,amount_cents,paid_amount_cents,status,paid_at").eq("tenant_company_id", access.company.id).eq("student_id", id).order("due_on", { ascending: false }).limit(240),
       access.admin.from("xpace_person_activities").select("id,activity_type,subject,content,occurred_at,created_by").eq("tenant_company_id", access.company.id).eq("person_id", id).order("occurred_at", { ascending: false }).limit(160),
       access.admin.from("xpace_person_benefits").select("id,benefit_profile_id,starts_on,ends_on,status,note,created_at").eq("tenant_company_id", access.company.id).eq("person_id", id).order("created_at", { ascending: false }),
       access.admin.from("xpace_benefit_profiles").select("id,name,kind,discount_type,discount_value,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_rewards_ledger").select("points_delta,reason,occurred_at").eq("tenant_company_id", access.company.id).eq("person_id", id).order("occurred_at", { ascending: false }).limit(50),
       access.admin.from("xpace_class_enrollments").select("id,class_group_id,starts_on,ends_on,status").eq("tenant_company_id", access.company.id).eq("student_id", id).eq("status", "ATIVA"),
+      access.admin.from("xpace_contract_sales").select("id,sale_number,contract_id,status,signature_required,signature_status,signature_provider,signature_url,signature_error,sent_for_signature_at,signed_at,cancelled_at,cancellation_reason,created_at").eq("tenant_company_id", access.company.id).eq("student_id", id).order("created_at", { ascending: false }).limit(240),
       photoRequest,
     ]);
-    for (const result of [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult]) if (result.error) throw result.error;
+    for (const result of [chargesResult, activitiesResult, benefitsResult, profilesResult, rewardsResult, enrollmentsResult, salesResult]) if (result.error) throw result.error;
 
     const profilesById = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
     const benefits = (benefitsResult.data ?? []).map((benefit) => ({ id: benefit.id, profileId: benefit.benefit_profile_id, profile: profilesById.get(benefit.benefit_profile_id) ?? null, startsOn: benefit.starts_on, endsOn: benefit.ends_on, status: benefit.status, note: benefit.note ?? "", createdAt: benefit.created_at }));
     const charges = chargesResult.data ?? [];
     const today = todayIso();
     const openCharges = charges.filter((charge) => charge.status === "ABERTO");
+    const contractsById = new Map((contracts ?? []).map((contract) => [contract.id, contract]));
     const activeContract = (contracts ?? []).find((contract) => contract.status === "ATIVO" && (!contract.cancel_effective_on || contract.cancel_effective_on > today));
     const photoUrl = photoResult.data?.signedUrl ?? "";
 
@@ -53,7 +55,12 @@ export async function GET(request: Request, context: Context) {
         rewardsBalance: (rewardsResult.data ?? []).reduce((sum, reward) => sum + reward.points_delta, 0),
         nextDueOn: openCharges.slice().sort((a, b) => a.due_on.localeCompare(b.due_on))[0]?.due_on ?? null,
       },
-      contracts: (contracts ?? []).map((contract) => ({ id: contract.id, contractNumber: contract.contract_number, planName: contract.plan_name_snapshot, billingInterval: contract.billing_interval_snapshot, durationMonths: contract.duration_months_snapshot, baseAmountCents: contract.base_amount_cents, amountCents: contract.amount_cents, benefitName: contract.benefit_name_snapshot ?? "", renewsAutomatically: contract.renews_automatically, startsOn: contract.starts_on, endsOn: contract.ends_on, status: contract.status, statusNote: contract.status_note ?? "", cancelEffectiveOn: contract.cancel_effective_on })),
+      contracts: (contracts ?? []).map((contract) => ({ id: contract.id, planId: contract.plan_id ?? "", contractNumber: contract.contract_number, planName: contract.plan_name_snapshot, billingInterval: contract.billing_interval_snapshot, durationMonths: contract.duration_months_snapshot, baseAmountCents: contract.base_amount_cents, amountCents: contract.amount_cents, benefitName: contract.benefit_name_snapshot ?? "", renewsAutomatically: contract.renews_automatically, startsOn: contract.starts_on, endsOn: contract.ends_on, status: contract.status, statusNote: contract.status_note ?? "", cancelEffectiveOn: contract.cancel_effective_on })),
+      sales: (salesResult.data ?? []).flatMap((sale) => {
+        const contract = contractsById.get(sale.contract_id);
+        if (!contract) return [];
+        return [{ id: sale.id, saleNumber: sale.sale_number, contractId: sale.contract_id, contractNumber: contract.contract_number, planName: contract.plan_name_snapshot, soldAt: sale.created_at, status: sale.status, signatureRequired: sale.signature_required, signatureStatus: sale.signature_status, signatureProvider: sale.signature_provider ?? "", signatureUrl: sale.signature_url ?? "", signatureError: sale.signature_error ?? "", signedAt: sale.signed_at, cancelledAt: sale.cancelled_at, cancellationReason: sale.cancellation_reason ?? "", baseAmountCents: contract.base_amount_cents, amountCents: contract.amount_cents, discountCents: Math.max(0, contract.base_amount_cents - contract.amount_cents) }];
+      }),
       charges: charges.map((charge) => ({ id: charge.id, contractId: charge.contract_id, competenceOn: charge.competence_on, dueOn: charge.due_on, baseAmountCents: charge.base_amount_cents, amountCents: charge.amount_cents, status: charge.status, paidAmountCents: charge.paid_amount_cents, paidAt: charge.paid_at, benefitName: charge.benefit_name_snapshot ?? "" })),
       activities: (activitiesResult.data ?? []).map((activity) => ({ id: activity.id, type: activity.activity_type, subject: activity.subject, content: activity.content ?? "", occurredAt: activity.occurred_at })),
       rewards: rewardsResult.data ?? [],

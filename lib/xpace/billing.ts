@@ -18,8 +18,6 @@ type ContractForCharges = {
   cancel_effective_on: string | null;
 };
 
-const intervalMonths: Record<string, number> = { MENSAL: 1, TRIMESTRAL: 3, SEMESTRAL: 6, ANUAL: 12 };
-
 export function calculateDiscountedAmount(baseAmountCents: number, benefit?: { discountType: "PERCENTUAL" | "FIXO"; discountValue: number } | null) {
   if (!benefit) return baseAmountCents;
   const discount = benefit.discountType === "PERCENTUAL"
@@ -29,10 +27,9 @@ export function calculateDiscountedAmount(baseAmountCents: number, benefit?: { d
 }
 
 export async function ensureContractCharges(admin: SupabaseClient, companyId: string, contract: ContractForCharges) {
-  if (!['AGENDADO', 'ATIVO', 'PAUSADO'].includes(contract.status)) return;
-  const today = todayIso();
-  const interval = intervalMonths[contract.billing_interval_snapshot] ?? Math.max(1, contract.duration_months_snapshot);
-  const latestDate = contract.renews_automatically ? today : minDate(today, contract.ends_on);
+  if (!['AGENDADO', 'ATIVO'].includes(contract.status)) return;
+  const interval = 1;
+  const latestDate = contract.ends_on;
   const charges: Array<Record<string, unknown>> = [];
   const enrollment = parseEnrollmentService(contract.enrollment_service_snapshot);
   const chargeCount = countCharges(contract.starts_on, contract.ends_on, interval);
@@ -98,5 +95,3 @@ function enrollmentFeeForCharge(enrollment: ReturnType<typeof parseEnrollmentSer
   if (chargeIndex >= chargeCount) return 0;
   return Math.floor((enrollment.salePriceCents * (chargeIndex + 1)) / chargeCount) - Math.floor((enrollment.salePriceCents * chargeIndex) / chargeCount);
 }
-
-function minDate(first: string, second: string) { return first < second ? first : second; }

@@ -6,7 +6,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 const companySlug = "xpace";
 const intervals = ["MENSAL", "SEMESTRAL", "ANUAL"] as const;
 const supportedCycles: Record<(typeof intervals)[number], number> = { MENSAL: 1, SEMESTRAL: 6, ANUAL: 12 };
-const statuses = ["AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as const;
+const statuses = ["AGUARDANDO_ASSINATURA", "AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as const;
 
 type BillingInterval = (typeof intervals)[number];
 type ContractStatus = (typeof statuses)[number];
@@ -125,11 +125,12 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (!isCurrency(amountCents)) throw new RequestError("VALOR DO CONTRATO INVALIDO.", 400);
   const startsOn = contract.startsOn;
   const endsOn = endOfTerm(startsOn, plan.duration_months);
-  const status: ContractStatus = startsOn > today() ? "AGENDADO" : "ATIVO";
+  const signatureRequired = Boolean(plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { sendForSignature?: unknown }).sendForSignature);
+  const status: ContractStatus = signatureRequired ? "AGUARDANDO_ASSINATURA" : startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
   const enrollmentService = await resolveEnrollmentService(access, plan.catalog_settings);
   const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
-  const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGENDADO", "ATIVO", "PAUSADO"]);
+  const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGUARDANDO_ASSINATURA", "AGENDADO", "ATIVO", "PAUSADO"]);
   if (conflictError) throw conflictError;
   if ((existing ?? []).some((item) => item.renews_automatically || (item.starts_on <= endsOn && item.ends_on >= startsOn))) throw new RequestError("ESTE ALUNO JÁ POSSUI UM CONTRATO EM VIGOR PARA ESTE PLANO.", 409);
   const manuallyDiscounted = amountCents !== benefitAmount;
@@ -140,10 +141,15 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
       : { benefit_profile_id: null, benefit_name_snapshot: null, discount_type_snapshot: null, discount_value_snapshot: null };
   const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, renews_automatically: renewsAutomatically, starts_on: startsOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
+  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signed_at: null, created_by: access.user.id, updated_by: access.user.id });
+  if (saleError) {
+    await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
+    throw saleError;
+  }
   const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: saved.id, event_type: "CRIADO", next_status: status, created_by: access.user.id });
   if (eventError) throw eventError;
-  await ensureContractCharges(access.admin, access.company.id, saved);
-  return NextResponse.json({ success: true, contract: { id: saved.id, contractNumber: saved.contract_number } }, { status: 201 });
+  if (!signatureRequired) await ensureContractCharges(access.admin, access.company.id, saved);
+  return NextResponse.json({ success: true, pendingSignature: signatureRequired, contract: { id: saved.id, contractNumber: saved.contract_number } }, { status: 201 });
 }
 
 async function setPlanActive(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["plan"]) {
@@ -161,12 +167,16 @@ async function setContractStatus(access: Awaited<ReturnType<typeof requireCompan
   const { data: current, error: currentError } = await access.admin.from("xpace_student_contracts").select("id,status").eq("id", contract.id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("CONTRATO NAO ENCONTRADO.", 404);
-  const effectiveOn = contract.status === "CANCELADO" ? todayIso() : null;
-  const { error } = await access.admin.from("xpace_student_contracts").update({ status: contract.status, status_note: contract.statusNote || null, cancelled_at: contract.status === "CANCELADO" ? new Date().toISOString() : null, cancel_effective_on: effectiveOn, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", current.id).eq("tenant_company_id", access.company.id);
+  const effectiveOn = contract.status === "CANCELADO" || contract.status === "ENCERRADO" || contract.status === "PAUSADO" ? todayIso() : null;
+  const { error } = await access.admin.from("xpace_student_contracts").update({ status: contract.status, status_note: contract.statusNote || null, cancelled_at: contract.status === "CANCELADO" ? new Date().toISOString() : null, cancel_effective_on: contract.status === "CANCELADO" ? effectiveOn : null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", current.id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
-  if (contract.status === "CANCELADO") {
+  if (contract.status === "CANCELADO" || contract.status === "ENCERRADO" || contract.status === "PAUSADO") {
     const { error: chargesError } = await access.admin.from("xpace_contract_charges").update({ status: "CANCELADO", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id).eq("status", "ABERTO").gte("due_on", effectiveOn);
     if (chargesError) throw chargesError;
+  }
+  if (contract.status === "CANCELADO") {
+    const { error: saleError } = await access.admin.from("xpace_contract_sales").update({ status: "CANCELADA", cancelled_at: new Date().toISOString(), cancellation_reason: contract.statusNote || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id);
+    if (saleError) throw saleError;
   }
   if (current.status !== contract.status) {
     const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: current.id, event_type: "STATUS_ALTERADO", previous_status: current.status, next_status: contract.status, note: contract.statusNote || null, created_by: access.user.id });
