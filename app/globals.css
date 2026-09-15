@@ -3432,8 +3432,6 @@ button {
 .xd-service-fields .xd-service-description { grid-column: 1 / -1; }
 .xd-service-fields input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #e0d8e6; border-radius: 11px; outline: 0; background: #fff; color: #2b1b37; font: inherit; font-size: 12px; font-weight: 700; }
 .xd-service-fields input:focus { border-color: #a36ada; box-shadow: 0 0 0 3px rgba(133,72,205,.1); }
-.xd-service-fiscal-note { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 11px; border-radius: 11px; background: #f7f0fd; color: #695576; font-size: 10px; font-weight: 650; line-height: 1.45; }
-.xd-service-fiscal-note a { flex: 0 0 auto; color: #7e23c0; font-size: 9px; font-weight: 900; text-decoration: none; }
 .xd-service-image > div { display: grid; justify-items: center; gap: 11px; min-height: 215px; padding: 15px; border: 1px dashed #d8c6e9; border-radius: 14px; background: #fcfaff; text-align: center; }
 .xd-service-image img { width: 130px; height: 130px; border-radius: 13px; object-fit: cover; }
 .xd-service-image > div > span { display: grid; place-items: center; width: 130px; height: 130px; border-radius: 13px; background: #f0e5fb; color: #8e37c9; }
@@ -3448,7 +3446,7 @@ button {
 .xd-service-list small { color: #7a6b83; font-size: 9px; font-weight: 800; }
 .xd-service-list b { color: #0b8f57; font-size: 13px; white-space: nowrap; }
 .xd-service-list .is-archived { opacity: .56; }
-@media (max-width: 760px) { .xd-service-form { grid-template-columns: 1fr; } .xd-service-list > article { grid-template-columns: 42px minmax(0,1fr); } .xd-service-list > article > b, .xd-service-list .xd-room-actions { grid-column: 2; } .xd-service-fiscal-note { display: grid; } }
+@media (max-width: 760px) { .xd-service-form { grid-template-columns: 1fr; } .xd-service-list > article { grid-template-columns: 42px minmax(0,1fr); } .xd-service-list > article > b, .xd-service-list .xd-room-actions { grid-column: 2; } }
 .xd-modality-rule-settings, .xd-modality-rule-advanced { display: grid; gap: 11px; padding: 14px; border: 1px solid #eee6f2; border-radius: 13px; background: #fcfaff; }
 .xd-modality-rule-settings h3 { margin: 0; color: #63566c; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
 .xd-modality-rule-advanced > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: transparent; color: #4a3658; font: inherit; font-size: 11px; font-weight: 900; text-align: left; cursor: pointer; }

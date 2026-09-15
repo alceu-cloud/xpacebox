@@ -13,7 +13,7 @@ type AccessPeriod = "SEM_LIMITE" | "DIA" | "SEMANA" | "MES";
 type EnrollmentChargeMode = "PRIMEIRA_PARCELA" | "RATEAR_PARCELAS";
 type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; accessPeriod?: string; accessLimit?: number | null; allowEarlyAccess?: boolean; allowReschedule?: boolean; requiresEnrollment?: boolean; limitPromotionalTimes?: boolean };
 type RequestBody = {
-  action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
+  action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
   contract?: { id?: string; studentId?: string; planId?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
 };
@@ -63,6 +63,7 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as RequestBody;
     const access = await requireCompanyAccess(request, companySlug);
     if (body.action === "SET_PLAN_ACTIVE") return setPlanActive(access, body.plan);
+    if (body.action === "UPDATE_PLAN") return updatePlan(access, body.plan);
     if (body.action === "SET_CONTRACT_STATUS") return setContractStatus(access, body.contract);
     throw new RequestError("ATUALIZACAO DE CONTRATO INVALIDA.", 400);
   } catch (error) { return handleError(error); }
@@ -126,7 +127,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const status: ContractStatus = startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
   const enrollmentService = await resolveEnrollmentService(access, plan.catalog_settings);
-  const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, ncm: enrollmentService.ncm, cest: enrollmentService.cest, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
+  const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
   const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGENDADO", "ATIVO", "PAUSADO"]);
   if (conflictError) throw conflictError;
   if ((existing ?? []).some((item) => item.renews_automatically || (item.starts_on <= endsOn && item.ends_on >= startsOn))) throw new RequestError("ESTE ALUNO JÁ POSSUI UM CONTRATO EM VIGOR PARA ESTE PLANO.", 409);
@@ -216,6 +217,22 @@ function normalizeModalityRules(value?: PlanModalityInput[]) {
     return [{ modalityId, sessionsPerWeek: Number(rule?.sessionsPerWeek), accessPeriod: accessPeriod as AccessPeriod, accessLimit: accessPeriod === "SEM_LIMITE" ? null : Number(rule?.accessLimit), allowEarlyAccess: Boolean(rule?.allowEarlyAccess), allowReschedule: Boolean(rule?.allowReschedule), requiresEnrollment: Boolean(rule?.requiresEnrollment), limitPromotionalTimes: Boolean(rule?.limitPromotionalTimes) }];
   }).slice(0, 12);
 }
+
+async function updatePlan(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["plan"]) {
+  requireManager(access.profile.platform_role);
+  const planId = input?.id?.trim();
+  if (!planId) throw new RequestError("CONTRATO INVÁLIDO.", 400);
+  const plan = normalizePlan(input);
+  if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURAÇÃO E VALOR DO CONTRATO.", 400);
+  validateCatalogSettings(plan.catalogSettings);
+  const modalityRules = await resolveModalityRules(access, plan.modalityRules);
+  await resolveEnrollmentService(access, plan.catalogSettings);
+  const catalogSettings = { ...plan.catalogSettings, enrollmentChargeMode: plan.catalogSettings.enrollmentFeeEnabled && plan.billingInterval === "MENSAL" ? "PRIMEIRA_PARCELA" : plan.catalogSettings.enrollmentChargeMode };
+  const { data, error } = await access.admin.from("xpace_membership_plans").update({ name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: modalityRules.map((rule) => rule.modalityName), modality_rules: modalityRules.map(({ modalityName: _modalityName, ...rule }) => rule), catalog_settings: catalogSettings, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", planId).eq("tenant_company_id", access.company.id).select("id,name").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("CONTRATO NÃO ENCONTRADO NESTA EMPRESA.", 404);
+  return NextResponse.json({ success: true, plan: { id: data.id, name: data.name } });
+}
 async function resolveModalityRules(access: Awaited<ReturnType<typeof requireCompanyAccess>>, rules: ReturnType<typeof normalizeModalityRules>) {
   if (!rules.length) throw new RequestError("ADICIONE AO MENOS UMA MODALIDADE AO CONTRATO.", 400);
   const ids = rules.map((rule) => rule.modalityId);
@@ -258,10 +275,10 @@ async function resolveEnrollmentService(access: Awaited<ReturnType<typeof requir
   if (!settings.enrollmentFeeEnabled) return null;
   const serviceId = typeof settings.enrollmentServiceId === "string" ? settings.enrollmentServiceId.trim() : "";
   if (!serviceId) throw new RequestError("SELECIONE O SERVIÇO DE ADESÃO OU MATRÍCULA.", 400);
-  const { data, error } = await access.admin.from("xpace_services").select("id,description,sale_price_cents,ncm,cest,active").eq("id", serviceId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
+  const { data, error } = await access.admin.from("xpace_services").select("id,description,sale_price_cents,active").eq("id", serviceId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
   if (error) throw error;
   if (!data) throw new RequestError("O SERVIÇO DE ADESÃO SELECIONADO NÃO ESTÁ DISPONÍVEL. ATUALIZE O CONTRATO.", 409);
-  return { id: data.id, description: data.description, salePriceCents: data.sale_price_cents, ncm: data.ncm ?? "", cest: data.cest ?? "", chargeMode: settings.enrollmentChargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as EnrollmentChargeMode : "PRIMEIRA_PARCELA" as EnrollmentChargeMode };
+  return { id: data.id, description: data.description, salePriceCents: data.sale_price_cents, chargeMode: settings.enrollmentChargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as EnrollmentChargeMode : "PRIMEIRA_PARCELA" as EnrollmentChargeMode };
 }
 function normalizeContract(value?: RequestBody["contract"]) {
   return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", startsOn: value?.startsOn?.trim() ?? "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };

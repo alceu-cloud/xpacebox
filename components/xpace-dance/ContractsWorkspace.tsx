@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeDollarSign, FileText, FileUp, Filter, Landmark, Plus, Search, Settings2, ShieldCheck } from "lucide-react";
+import { BadgeDollarSign, FileText, FileUp, Filter, Landmark, Pencil, Plus, Search, Settings2, ShieldCheck } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -45,6 +45,7 @@ export default function ContractsWorkspace() {
   const templateInput = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"CATALOG" | "NEW">("CATALOG");
+  const [editingPlanId, setEditingPlanId] = useState("");
   const [draft, setDraft] = useState<PlanDraft>(emptyDraft);
   const [dialog, setDialog] = useState<"PERMISSIONS" | "FINANCE" | null>(null);
   const [modalitiesDialogOpen, setModalitiesDialogOpen] = useState(false);
@@ -80,7 +81,8 @@ export default function ContractsWorkspace() {
     return plans.filter((plan) => !term || normalize(`${plan.name} ${plan.description} ${plan.modalities.join(" ")}`).includes(term));
   }, [plans, search]);
 
-  function startNew() { setDraft(emptyDraft()); setTemplateFile(null); setNotice(""); setView("NEW"); }
+  function startNew() { setEditingPlanId(""); setDraft(emptyDraft()); setTemplateFile(null); setNotice(""); setView("NEW"); }
+  function startEdit(plan: Plan) { setEditingPlanId(plan.id); setDraft({ name: plan.name, duration: String(plan.durationMonths), amount: currencyInput(String(plan.amountCents)), modalityRules: plan.modalityRules, renewsAutomatically: plan.renewsAutomatically, settings: { ...defaultSettings(), ...plan.catalogSettings } }); setTemplateFile(null); setNotice("ALTERAÇÕES VALEM APENAS PARA AS PRÓXIMAS VENDAS. CONTRATOS JÁ VENDIDOS MANTÊM O HISTÓRICO."); setView("NEW"); }
   function addModalityRule(rule: PlanModalityRule) { setDraft({ ...draft, modalityRules: [...draft.modalityRules, rule] }); setModalitiesDialogOpen(false); }
   function removeModalityRule(modalityId: string) { setDraft({ ...draft, modalityRules: draft.modalityRules.filter((rule) => rule.modalityId !== modalityId) }); }
 
@@ -89,10 +91,11 @@ export default function ContractsWorkspace() {
     setSaving(true); setNotice("");
     try {
       const created = await request<{ plan: { id: string } }>("/api/xpace/contratos", {
-        method: "POST",
+        method: editingPlanId ? "PATCH" : "POST",
         body: JSON.stringify({
-          action: "CREATE_PLAN",
+          action: editingPlanId ? "UPDATE_PLAN" : "CREATE_PLAN",
           plan: {
+            id: editingPlanId || undefined,
             name: draft.name,
             description: "",
             billingInterval: "MENSAL",
@@ -110,7 +113,7 @@ export default function ContractsWorkspace() {
         const payload = await response.json().catch(() => ({})) as { success?: boolean; message?: string };
         if (!response.ok || !payload.success) throw new Error(payload.message || "O CONTRATO FOI CRIADO, MAS O MODELO NÃO FOI ENVIADO.");
       }
-      await loadCatalog(); setView("CATALOG"); setNotice("CONTRATO CADASTRADO NO CATÁLOGO.");
+      await loadCatalog(); setView("CATALOG"); setNotice(editingPlanId ? "CONTRATO DO CATÁLOGO ATUALIZADO. VENDAS JÁ REALIZADAS FORAM PRESERVADAS." : "CONTRATO CADASTRADO NO CATÁLOGO.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CADASTRAR O CONTRATO."); }
     finally { setSaving(false); }
   }
@@ -134,7 +137,7 @@ export default function ContractsWorkspace() {
   }
 
   if (view === "NEW") return <section className="xd-contracts">
-    <ModuleHeader title="NOVO CONTRATO." copy="Defina o contrato que poderá ser vendido depois no perfil do aluno." />
+    <ModuleHeader title={editingPlanId ? "ATUALIZAR CONTRATO." : "NOVO CONTRATO."} copy={editingPlanId ? "As alterações valem para novas vendas; contratos de alunos já emitidos permanecem intactos." : "Defina o contrato que poderá ser vendido depois no perfil do aluno."} />
     <form className="xd-contract-builder" onSubmit={createPlan}>
       <fieldset className="xd-contract-builder-section"><legend><FileText size={18} /> DADOS DO CONTRATO</legend><div className="xd-contract-form-grid xd-contract-form-grid--plan">
         <Field label="DESCRIÇÃO" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} placeholder="EX.: BALLET MENSAL" required />
@@ -151,7 +154,7 @@ export default function ContractsWorkspace() {
         <Toggle label="ENVIAR PARA ASSINATURA ONLINE" checked={draft.settings.sendForSignature} onChange={(sendForSignature) => setDraft({ ...draft, settings: { ...draft.settings, sendForSignature } })} />
       </div><div className="xd-contract-template"><span>MODELO DE CONTRATO{templateFile ? ` · ${templateFile.name}` : ""}</span><input ref={templateInput} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(event: ChangeEvent<HTMLInputElement>) => setTemplateFile(event.target.files?.[0] ?? null)} /><button type="button" className="xd-secondary" onClick={() => templateInput.current?.click()}><FileUp size={16} /> IMPORTAR ARQUIVO</button></div></fieldset>
       <fieldset className="xd-contract-builder-section"><legend><Settings2 size={18} /> CONFIGURAÇÕES AVANÇADAS <small>(OPCIONAL)</small></legend><div className="xd-contract-advanced-list"><article><div><strong>PERMISSÕES E RESTRIÇÕES</strong><p>Defina período de venda, pré-venda, faixa etária e regras de suspensão deste contrato.</p></div><button type="button" onClick={() => setDialog("PERMISSIONS")} aria-label="Configurar permissões e restrições" title="Configurar permissões e restrições"><Settings2 size={18} /></button></article><article><div><strong>FINANCEIRO</strong><p>Defina adesão, comissão e a categoria de receita deste contrato.</p></div><button type="button" onClick={() => setDialog("FINANCE")} aria-label="Configurar financeiro" title="Configurar financeiro"><Landmark size={18} /></button></article></div></fieldset>
-      <footer className="xd-contract-form-actions"><button type="button" className="xd-secondary" onClick={() => setView("CATALOG")}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>{saving ? "SALVANDO..." : "SALVAR CONTRATO"}</button></footer>
+      <footer className="xd-contract-form-actions"><button type="button" className="xd-secondary" onClick={() => setView("CATALOG")}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>{saving ? "SALVANDO..." : editingPlanId ? "SALVAR ALTERAÇÕES" : "SALVAR CONTRATO"}</button></footer>
     </form>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
     {dialog ? <SettingsDialog kind={dialog} settings={draft.settings} services={services} billingInterval="MENSAL" onChange={(settings) => setDraft({ ...draft, settings })} onClose={() => setDialog(null)} /> : null}
@@ -162,7 +165,7 @@ export default function ContractsWorkspace() {
     <div className="xd-contract-title"><div><span>ADMINISTRATIVO · CATÁLOGO</span><h1>CONTRATOS.</h1><p>Cadastre as opções que poderão ser vendidas depois para cada aluno.</p></div><button type="button" className="xd-primary" onClick={startNew}><Plus size={17} /> ADICIONAR CONTRATO</button></div>
     <div className="xd-contract-tools"><label><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="PESQUISAR CONTRATO" /></label><button type="button" className="xd-secondary" disabled title="Filtros em preparação"><Filter size={16} /> FILTROS</button></div>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
-    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span>{plan.durationMonths} {formatDurationUnit(plan.catalogSettings.durationUnit, plan.durationMonths)}</span><b>{formatCurrency(plan.amountCents)}</b><div className="xd-room-actions"><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button><button type="button" className="xd-quiet-action xd-danger-link" disabled={saving} onClick={() => void deletePlan(plan)}>EXCLUIR</button></div></article>)}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
+    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span>{plan.durationMonths} {formatDurationUnit(plan.catalogSettings.durationUnit, plan.durationMonths)}</span><b>{formatCurrency(plan.amountCents)}</b><div className="xd-room-actions"><button type="button" className="xd-secondary" disabled={saving} onClick={() => startEdit(plan)}><Pencil size={14} /> EDITAR</button><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button><button type="button" className="xd-quiet-action xd-danger-link" disabled={saving} onClick={() => void deletePlan(plan)}>EXCLUIR</button></div></article>)}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
   </section>;
 }
 

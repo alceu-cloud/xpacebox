@@ -5,15 +5,15 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 const companySlug = "xpace";
 type RequestBody = {
   action?: "CREATE_SERVICE" | "UPDATE_SERVICE" | "SET_SERVICE_ACTIVE" | "DELETE_SERVICE";
-  service?: { id?: string; description?: string; salePriceCents?: number; ncm?: string; cest?: string; active?: boolean };
+  service?: { id?: string; description?: string; salePriceCents?: number; active?: boolean };
 };
 
 export async function GET(request: Request) {
   try {
     const access = await requireCompanyAccess(request, companySlug);
-    const { data, error } = await access.admin.from("xpace_services").select("id,description,sale_price_cents,ncm,cest,image_path,active,created_at").eq("tenant_company_id", access.company.id).order("active", { ascending: false }).order("description");
+    const { data, error } = await access.admin.from("xpace_services").select("id,description,sale_price_cents,image_path,active,created_at").eq("tenant_company_id", access.company.id).order("active", { ascending: false }).order("description");
     if (error) throw error;
-    return NextResponse.json({ success: true, services: (data ?? []).map((service) => ({ id: service.id, description: service.description, salePriceCents: service.sale_price_cents, ncm: service.ncm ?? "", cest: service.cest ?? "", imagePath: service.image_path ?? "", imageUrl: service.image_path ? access.admin.storage.from("xpace-service-images").getPublicUrl(service.image_path).data.publicUrl : "", active: service.active, createdAt: service.created_at })) });
+    return NextResponse.json({ success: true, services: (data ?? []).map((service) => ({ id: service.id, description: service.description, salePriceCents: service.sale_price_cents, imagePath: service.image_path ?? "", imageUrl: service.image_path ? access.admin.storage.from("xpace-service-images").getPublicUrl(service.image_path).data.publicUrl : "", active: service.active, createdAt: service.created_at })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (body.action !== "CREATE_SERVICE") throw new RequestError("AÇÃO DE SERVIÇO INVÁLIDA.", 400);
     const service = normalizeService(body.service);
     validateService(service);
-    const { data, error } = await access.admin.from("xpace_services").insert({ tenant_company_id: access.company.id, description: service.description, sale_price_cents: service.salePriceCents, ncm: service.ncm || null, cest: service.cest || null, created_by: access.user.id, updated_by: access.user.id }).select("id,description").single();
+    const { data, error } = await access.admin.from("xpace_services").insert({ tenant_company_id: access.company.id, description: service.description, sale_price_cents: service.salePriceCents, created_by: access.user.id, updated_by: access.user.id }).select("id,description").single();
     if (error) throw error;
     return NextResponse.json({ success: true, service: { id: data.id, description: data.description } }, { status: 201 });
   } catch (error) { return handleError(error); }
@@ -44,7 +44,7 @@ export async function PATCH(request: Request) {
     if (body.action !== "UPDATE_SERVICE" || !body.service?.id) throw new RequestError("ATUALIZAÇÃO DE SERVIÇO INVÁLIDA.", 400);
     const service = normalizeService(body.service);
     validateService(service);
-    const { error } = await access.admin.from("xpace_services").update({ description: service.description, sale_price_cents: service.salePriceCents, ncm: service.ncm || null, cest: service.cest || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.service.id).eq("tenant_company_id", access.company.id);
+    const { error } = await access.admin.from("xpace_services").update({ description: service.description, sale_price_cents: service.salePriceCents, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.service.id).eq("tenant_company_id", access.company.id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) { return handleError(error); }
@@ -76,12 +76,10 @@ export async function DELETE(request: Request) {
 }
 
 function normalizeService(value?: RequestBody["service"]) {
-  return { description: value?.description?.trim().replace(/\s+/g, " ").slice(0, 140) ?? "", salePriceCents: Number(value?.salePriceCents), ncm: (value?.ncm ?? "").replace(/\D/g, "").slice(0, 8), cest: (value?.cest ?? "").replace(/\D/g, "").slice(0, 7) };
+  return { description: value?.description?.trim().replace(/\s+/g, " ").slice(0, 140) ?? "", salePriceCents: Number(value?.salePriceCents) };
 }
 function validateService(service: ReturnType<typeof normalizeService>) {
   if (!service.description || !Number.isInteger(service.salePriceCents) || service.salePriceCents < 0) throw new RequestError("INFORME DESCRIÇÃO E PREÇO DE VENDA VÁLIDOS.", 400);
-  if (service.ncm && service.ncm.length !== 8) throw new RequestError("O NCM DEVE TER 8 DÍGITOS.", 400);
-  if (service.cest && service.cest.length !== 7) throw new RequestError("O CEST DEVE TER 7 DÍGITOS.", 400);
 }
 function requireManager(role: string) { if (!['platform_owner', 'company_manager'].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR OS SERVIÇOS.", 403); }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }
