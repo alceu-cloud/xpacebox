@@ -3,10 +3,19 @@ import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
 function encryptionKey() {
-  const value = process.env.INTEGRATION_CREDENTIAL_ENCRYPTION_KEY || process.env.BALDUSSI_CREDENTIAL_ENCRYPTION_KEY || "";
-  const key = Buffer.from(value, "base64");
+  const key = Buffer.from(process.env.INTEGRATION_CREDENTIAL_ENCRYPTION_KEY || process.env.BALDUSSI_CREDENTIAL_ENCRYPTION_KEY || "", "base64");
   if (key.length !== 32) throw new Error("CRIPTOGRAFIA DAS INTEGRACOES NAO CONFIGURADA.");
   return key;
+}
+
+function decryptionKeys() {
+  const values = [
+    process.env.INTEGRATION_CREDENTIAL_ENCRYPTION_KEY,
+    process.env.BALDUSSI_CREDENTIAL_ENCRYPTION_KEY,
+  ].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
+  const keys = values.map((value) => Buffer.from(value, "base64")).filter((key) => key.length === 32);
+  if (!keys.length) throw new Error("CRIPTOGRAFIA DAS INTEGRACOES NAO CONFIGURADA.");
+  return keys;
 }
 
 export function encryptIntegrationCredential(value: string) {
@@ -32,9 +41,17 @@ export function encryptBaldussiCredential(value: string) {
 
 export function decryptBaldussiCredential({ ciphertext, iv, authTag }: { ciphertext: string; iv: string; authTag: string }) {
   if (!ciphertext || !iv || !authTag) throw new Error("CREDENCIAL DA BALDUSSI INCOMPLETA.");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64"));
-  decipher.setAuthTag(Buffer.from(authTag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
+  let lastError: unknown;
+  for (const key of decryptionKeys()) {
+    try {
+      const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64"));
+      decipher.setAuthTag(Buffer.from(authTag, "base64"));
+      return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 export function hashWebhookSecret(value: string) {
