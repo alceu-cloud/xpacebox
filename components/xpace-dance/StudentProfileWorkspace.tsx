@@ -17,7 +17,8 @@ type Profile = {
   activities: Array<{ id: string; type: string; subject: string; content: string; occurredAt: string }>;
   rewards: Array<{ points_delta: number; reason: string; occurred_at: string }>;
 };
-type SalePlan = { id: string; name: string; description: string; billingInterval: string; durationMonths: number; amountCents: number; renewsAutomatically: boolean; active: boolean; catalogSettings: { sendForSignature?: boolean } };
+type SalePlan = { id: string; name: string; description: string; billingInterval: string; durationMonths: number; amountCents: number; renewsAutomatically: boolean; active: boolean; modalityRules: Array<{ modalityId?: string }>; catalogSettings: { sendForSignature?: boolean } };
+type SaleClassGroup = { id: string; name: string; modalityId: string; schedules: Array<{ weekday: number; startsAt: string; endsAt: string }> };
 
 export default function StudentProfileWorkspace({ studentId }: { studentId: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,6 +32,7 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
   const [benefitNote, setBenefitNote] = useState("");
   const [saleOpen, setSaleOpen] = useState(false);
   const [salePlans, setSalePlans] = useState<SalePlan[]>([]);
+  const [saleClassGroups, setSaleClassGroups] = useState<SaleClassGroup[]>([]);
   const [salePreset, setSalePreset] = useState<{ planId?: string; startsOn?: string }>({});
   const [activity, setActivity] = useState({ type: "ATIVIDADE", subject: "", content: "" });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -115,17 +117,18 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
   async function openSale(preset: { planId?: string; startsOn?: string } = {}) {
     setSaving(true); setNotice("");
     try {
-      const payload = await request<{ plans: SalePlan[] }>("/api/xpace/contratos");
+      const payload = await request<{ plans: SalePlan[]; classGroups: SaleClassGroup[] }>("/api/xpace/contratos");
       setSalePlans(payload.plans.filter((plan) => plan.active !== false));
+      setSaleClassGroups(payload.classGroups);
       setSalePreset(preset); setSaleOpen(true);
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR OS CONTRATOS PARA VENDA."); }
     finally { setSaving(false); }
   }
 
-  async function createSale(input: { planId: string; startsOn: string; amountCents: number }) {
+  async function createSale(input: { planId: string; classGroupId: string; startsOn: string; amountCents: number }) {
     setSaving(true); setNotice("");
     try {
-      const payload = await request<{ pendingSignature?: boolean }>("/api/xpace/contratos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "CREATE_CONTRACT", contract: { studentId, planId: input.planId, startsOn: input.startsOn, amountCents: input.amountCents } }) });
+      const payload = await request<{ pendingSignature?: boolean }>("/api/xpace/contratos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "CREATE_CONTRACT", contract: { studentId, planId: input.planId, classGroupId: input.classGroupId, startsOn: input.startsOn, amountCents: input.amountCents } }) });
       setSaleOpen(false); await loadProfile(); setTab("VENDAS"); setNotice(payload.pendingSignature ? "VENDA REGISTRADA. ENVIE O CONTRATO PARA ASSINATURA QUANDO CONFERIR O MODELO E OS DADOS DO ALUNO." : "VENDA REGISTRADA. O CONTRATO E AS COBRANÇAS MENSAIS FORAM CRIADOS.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL REGISTRAR A VENDA."); }
     finally { setSaving(false); }
@@ -175,7 +178,7 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
     {tab === "FINANCEIRO" ? <Finance charges={profile.charges} contracts={profile.contracts} /> : null}
     {editing ? <StudentEdit profile={profile} saving={saving} onClose={() => setEditing(false)} onSaved={async () => { setEditing(false); await loadProfile(); setNotice("CADASTRO ATUALIZADO."); }} request={request} /> : null}
     {benefitOpen ? <BenefitDialog profiles={profile.benefitProfiles} current={activeBenefit} selected={benefitProfileId} note={benefitNote} saving={saving} onSelect={setBenefitProfileId} onNote={setBenefitNote} onClose={() => setBenefitOpen(false)} onSubmit={saveBenefit} onEnd={endBenefit} onCreate={createBenefitProfile} /> : null}
-    {saleOpen ? <SaleDialog plans={salePlans} preset={salePreset} saving={saving} onClose={() => setSaleOpen(false)} onSubmit={createSale} /> : null}
+    {saleOpen ? <SaleDialog plans={salePlans} classGroups={saleClassGroups} preset={salePreset} saving={saving} onClose={() => setSaleOpen(false)} onSubmit={createSale} /> : null}
   </section>;
 }
 
@@ -195,7 +198,37 @@ function Contracts({ contracts, saving, onRenew, onStatus }: { contracts: Profil
   return <div className="xd-profile-content"><section className="xd-profile-panel xd-contract-history"><header><div><span><FileText size={18} /> HISTÓRICO DE CONTRATOS</span><small>ATIVOS APARECEM PRIMEIRO. NENHUM ENCERRAMENTO APAGA O PASSADO.</small></div><label className="xd-history-select"><Filter size={14} /><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="TODOS">TODOS</option><option value="ATIVO">ATIVOS</option><option value="AGENDADO">AGENDADOS</option><option value="PAUSADO">SUSPENSOS</option><option value="AGUARDANDO_ASSINATURA">AGUARDANDO ASSINATURA</option><option value="ENCERRADO">ENCERRADOS</option><option value="CANCELADO">CANCELADOS</option></select></label></header>{visible.length ? visible.map((contract) => <article key={contract.id}><div><strong>#{String(contract.contractNumber).padStart(5, "0")} · {contract.planName}</strong><small>{cycleLabel(contract.durationMonths)} · VÁLIDO DE {date(contract.startsOn)} ATÉ {date(contract.endsOn)}{contract.benefitName ? ` · ${contract.benefitName}` : ""}</small></div><b>{currency(contract.amountCents)}<small>POR MÊS</small></b><span className={`xd-contract-state xd-contract-state--${contract.status.toLowerCase()}`}>{labelContractStatus(contract.status)}</span><div className="xd-contract-actions">{!contract.renewsAutomatically && ["ATIVO", "AGENDADO", "ENCERRADO"].includes(contract.status) ? <button type="button" className="xd-secondary" disabled={saving} onClick={() => onRenew(contract)}><RotateCw size={14} /> RENOVAR</button> : null}{contract.status === "ATIVO" ? <button type="button" className="xd-secondary" disabled={saving} onClick={() => onStatus(contract.id, "PAUSADO")}>SUSPENDER</button> : null}{["ATIVO", "PAUSADO", "AGENDADO"].includes(contract.status) ? <button type="button" className="xd-secondary" disabled={saving} onClick={() => onStatus(contract.id, "ENCERRADO")}>ENCERRAR</button> : null}<button type="button" className="xd-icon-copy" title="Detalhes do contrato"><Settings2 size={16} /></button><button type="button" className="xd-icon-copy" title="Imprimir contrato" onClick={() => window.print()}><Printer size={16} /></button>{contract.status !== "CANCELADO" && contract.status !== "ENCERRADO" ? <button type="button" className="xd-quiet-action xd-danger-link" disabled={saving} onClick={() => onStatus(contract.id, "CANCELADO")}><XCircle size={14} /> CANCELAR</button> : null}</div></article>) : <Empty title="SEM CONTRATOS NESTE FILTRO" copy="Os contratos emitidos para o aluno ficam aqui, inclusive encerrados e cancelados." />}</section></div>;
 }
 function Finance({ charges, contracts }: { charges: Profile["charges"]; contracts: Profile["contracts"] }) { const plans = new Map(contracts.map((contract) => [contract.id, contract.planName])); return <div className="xd-profile-content"><section className="xd-profile-panel xd-finance-history"><header><div><span><WalletCards size={18} /> HISTÓRICO FINANCEIRO</span><small>PARCELAS PROGRAMADAS E RECEBIMENTOS NUNCA SÃO APAGADOS.</small></div><small>{charges.length} LANÇAMENTO(S)</small></header>{charges.length ? <div className="xd-finance-table xd-finance-table--full"><div className="xd-finance-head"><span>CONTRATO</span><span>VENCIMENTO</span><span>ORIGINAL</span><span>RECEBIDO</span><span>SITUAÇÃO</span><span>AÇÕES</span></div>{charges.map((charge) => <article key={charge.id}><strong>{plans.get(charge.contractId) ?? "CONTRATO"}<small>COMPETÊNCIA {date(charge.competenceOn)}</small></strong><span>{date(charge.dueOn)}</span><b>{currency(charge.amountCents)}</b><span>{charge.paidAt ? currency(charge.paidAmountCents) : "—"}</span><span className={`xd-charge-state xd-charge-state--${charge.status.toLowerCase()}`}>{charge.status}</span><div><button type="button" className="xd-secondary" disabled={!charge.paidAt}>VER RECEBIDO</button><button type="button" className="xd-secondary" disabled>RECEBER</button><button type="button" className="xd-icon-copy" title="Detalhes e recibo"><Settings2 size={15} /></button></div></article>)}</div> : <Empty title="SEM MOVIMENTAÇÃO FINANCEIRA" copy="Ao concluir uma venda, as mensalidades do contrato serão listadas aqui." />}</section></div>; }
-function SaleDialog({ plans, preset, saving, onClose, onSubmit }: { plans: SalePlan[]; preset: { planId?: string; startsOn?: string }; saving: boolean; onClose: () => void; onSubmit: (input: { planId: string; startsOn: string; amountCents: number }) => Promise<void> }) { const [planId, setPlanId] = useState(preset.planId || plans[0]?.id || ""); const [startsOn, setStartsOn] = useState(preset.startsOn || localToday()); const [discount, setDiscount] = useState(""); const plan = plans.find((item) => item.id === planId); const discountCents = cents(discount); const finalValue = Math.max(0, (plan?.amountCents ?? 0) - discountCents); async function submit(event: FormEvent) { event.preventDefault(); if (!plan) return; await onSubmit({ planId: plan.id, startsOn, amountCents: finalValue }); } return <div className="xd-profile-overlay" role="presentation"><form className="xd-profile-dialog xd-sale-dialog" onSubmit={submit}><header><span><FileSignature size={17} /> NOVA VENDA</span><button type="button" title="Fechar" onClick={onClose}>×</button></header><h2>VENDER CONTRATO.</h2><p>A venda gera o contrato e as mensalidades. Assinatura, contrato e financeiro mantêm estados separados.</p><label>CONTRATO<select value={planId} onChange={(event) => { setPlanId(event.target.value); setDiscount(""); }} required><option value="">SELECIONE</option>{plans.map((item) => <option key={item.id} value={item.id}>{item.name} · {currency(item.amountCents)}</option>)}</select></label>{plan ? <div className="xd-sale-plan-preview"><strong>{plan.name}</strong><span>{cycleLabel(plan.durationMonths)} · {plan.renewsAutomatically ? "RENOVAÇÃO AUTOMÁTICA" : "RENOVAÇÃO MANUAL"}</span><b>{currency(plan.amountCents)} / MÊS</b>{plan.catalogSettings?.sendForSignature ? <small>VAI AGUARDAR A ASSINATURA PARA ATIVAR O CONTRATO.</small> : <small>CONTRATO SEM ASSINATURA EXTERNA CONFIGURADA.</small>}</div> : null}<label>INÍCIO DO CONTRATO<input type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required /></label><label>DESCONTO (R$)<input inputMode="numeric" value={discount} onChange={(event) => setDiscount(currencyInput(event.target.value))} placeholder="R$ 0,00" /></label><div className="xd-sale-total"><span>VALOR MENSAL FINAL</span><strong>{currency(finalValue)}</strong></div><footer><button type="button" className="xd-secondary" onClick={onClose}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving || !plan}>{saving ? "REGISTRANDO..." : "EMITIR VENDA"}</button></footer></form></div>; }
+function SaleDialog({ plans, classGroups, preset, saving, onClose, onSubmit }: { plans: SalePlan[]; classGroups: SaleClassGroup[]; preset: { planId?: string; startsOn?: string }; saving: boolean; onClose: () => void; onSubmit: (input: { planId: string; classGroupId: string; startsOn: string; amountCents: number }) => Promise<void> }) {
+  const [planId, setPlanId] = useState(preset.planId || plans[0]?.id || "");
+  const [classGroupId, setClassGroupId] = useState("");
+  const [startsOn, setStartsOn] = useState(preset.startsOn || localToday());
+  const [discount, setDiscount] = useState("");
+  const plan = plans.find((item) => item.id === planId);
+  const planModalityIds = new Set(plan?.modalityRules.map((rule) => rule.modalityId).filter((id): id is string => Boolean(id)) ?? []);
+  const availableGroups = classGroups.filter((group) => planModalityIds.has(group.modalityId));
+  const selectedGroup = availableGroups.find((group) => group.id === classGroupId);
+  const discountCents = cents(discount);
+  const finalValue = Math.max(0, (plan?.amountCents ?? 0) - discountCents);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!plan || !selectedGroup) return;
+    await onSubmit({ planId: plan.id, classGroupId: selectedGroup.id, startsOn, amountCents: finalValue });
+  }
+
+  return <div className="xd-profile-overlay" role="presentation"><form className="xd-profile-dialog xd-sale-dialog" onSubmit={submit}>
+    <header><span><FileSignature size={17} /> NOVA VENDA</span><button type="button" title="Fechar" onClick={onClose}>×</button></header>
+    <h2>VENDER CONTRATO.</h2>
+    <p>A venda vincula uma grade de aula compatível e só então gera contrato e mensalidades.</p>
+    <label>CONTRATO<select value={planId} onChange={(event) => { setPlanId(event.target.value); setClassGroupId(""); setDiscount(""); }} required><option value="">SELECIONE</option>{plans.map((item) => <option key={item.id} value={item.id}>{item.name} · {currency(item.amountCents)}</option>)}</select></label>
+    {plan ? <div className="xd-sale-plan-preview"><strong>{plan.name}</strong><span>{cycleLabel(plan.durationMonths)} · {plan.renewsAutomatically ? "RENOVAÇÃO AUTOMÁTICA" : "RENOVAÇÃO MANUAL"}</span><b>{currency(plan.amountCents)} / MÊS</b>{plan.catalogSettings?.sendForSignature ? <small>VAI AGUARDAR A ASSINATURA PARA ATIVAR O CONTRATO.</small> : <small>CONTRATO SEM ASSINATURA EXTERNA CONFIGURADA.</small>}</div> : null}
+    <label>GRADE DE AULA<select value={classGroupId} onChange={(event) => setClassGroupId(event.target.value)} required disabled={!plan}><option value="">{plan ? "SELECIONE A GRADE" : "SELECIONE O CONTRATO PRIMEIRO"}</option>{availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name} · {scheduleLabel(group.schedules)}</option>)}</select>{plan && !availableGroups.length ? <small>CADASTRE UMA GRADE ATIVA PARA UMA DAS MODALIDADES DESTE CONTRATO ANTES DE VENDER.</small> : null}</label>
+    <label>INÍCIO DO CONTRATO<input type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required /></label>
+    <label>DESCONTO (R$)<input inputMode="numeric" value={discount} onChange={(event) => setDiscount(currencyInput(event.target.value))} placeholder="R$ 0,00" /></label>
+    <div className="xd-sale-total"><span>VALOR MENSAL FINAL</span><strong>{currency(finalValue)}</strong></div>
+    <footer><button type="button" className="xd-secondary" onClick={onClose}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving || !plan || !selectedGroup}>{saving ? "REGISTRANDO..." : "EMITIR VENDA"}</button></footer>
+  </form></div>;
+}
 function BenefitDialog({ profiles, current, selected, note, saving, onSelect, onNote, onClose, onSubmit, onEnd, onCreate }: { profiles: Profile["benefitProfiles"]; current: Profile["benefits"][number] | undefined; selected: string; note: string; saving: boolean; onSelect: (value: string) => void; onNote: (value: string) => void; onClose: () => void; onSubmit: (event: FormEvent) => void; onEnd: () => void; onCreate: (value: { name: string; kind: string; discountType: string; discountValue: number }) => Promise<void> }) {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({ name: "", kind: "VIP", discountType: "PERCENTUAL", discount: "" });
@@ -217,6 +250,7 @@ function localToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Ame
 function addDays(value: string, days: number) { const current = new Date(`${value}T12:00:00`); current.setDate(current.getDate() + days); return current.toISOString().slice(0, 10); }
 function cents(value: string) { const digits = value.replace(/\D/g, ""); return digits ? Number(digits) : 0; }
 function currencyInput(value: string) { const amount = cents(value); return amount ? currency(amount) : ""; }
+function scheduleLabel(schedules: SaleClassGroup["schedules"]) { const days = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]; return schedules.map((schedule) => `${days[schedule.weekday]} ${schedule.startsAt}–${schedule.endsAt}`).join(" · "); }
 function cycleLabel(months: number) { return months === 1 ? "MENSAL" : months === 6 ? "SEMESTRAL" : months === 12 ? "ANUAL" : `${months} MESES`; }
 function labelContractStatus(value: string) { return ({ AGUARDANDO_ASSINATURA: "ASSINATURA PENDENTE", AGENDADO: "AGENDADO", ATIVO: "ATIVO", PAUSADO: "SUSPENSO", CANCELADO: "CANCELADO", ENCERRADO: "ENCERRADO" } as Record<string, string>)[value] ?? value; }
 function labelSaleStatus(value: string) { return ({ EM_PREPARACAO: "EM PREPARAÇÃO", PENDENTE_ASSINATURA: "ASSINATURA PENDENTE", ENVIADA_PARA_ASSINATURA: "ASSINATURA ENVIADA", CONCLUIDA: "CONCLUÍDA", CANCELADA: "CANCELADA", PROCESSANDO: "PROCESSANDO", ERRO: "ERRO" } as Record<string, string>)[value] ?? value; }
