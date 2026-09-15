@@ -3,14 +3,14 @@ import { NextResponse } from "next/server";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
 const companySlug = "xpace";
-type RequestBody = { action?: "CREATE_ROOM" | "UPDATE_ROOM" | "SET_ROOM_ACTIVE"; room?: { id?: string; name?: string; coverageType?: string; active?: boolean } };
+type RequestBody = { action?: "CREATE_ROOM" | "UPDATE_ROOM" | "SET_ROOM_ACTIVE"; room?: { id?: string; name?: string; coverageType?: string; capacity?: number | null; active?: boolean } };
 
 export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
-    const { data, error } = await admin.from("xpace_rooms").select("id,name,coverage_type,active").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name");
+    const { data, error } = await admin.from("xpace_rooms").select("id,name,coverage_type,capacity,active").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name");
     if (error) throw error;
-    return NextResponse.json({ success: true, rooms: (data ?? []).map((room) => ({ id: room.id, name: room.name, coverageType: room.coverage_type, active: room.active })) });
+    return NextResponse.json({ success: true, rooms: (data ?? []).map((room) => ({ id: room.id, name: room.name, coverageType: room.coverage_type, capacity: room.capacity, active: room.active })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -21,9 +21,9 @@ export async function POST(request: Request) {
     if (body.action !== "CREATE_ROOM") throw new RequestError("AÇÃO DE SALA INVÁLIDA.", 400);
     const room = normalize(body.room);
     if (!room.name) throw new RequestError("INFORME A DESCRIÇÃO DA SALA.", 400);
-    const { data, error } = await access.admin.from("xpace_rooms").insert({ tenant_company_id: access.company.id, name: room.name, coverage_type: room.coverageType, created_by: access.user.id, updated_by: access.user.id }).select("id,name,coverage_type,active").single();
+    const { data, error } = await access.admin.from("xpace_rooms").insert({ tenant_company_id: access.company.id, name: room.name, coverage_type: room.coverageType, capacity: room.capacity, created_by: access.user.id, updated_by: access.user.id }).select("id,name,coverage_type,capacity,active").single();
     if (error) throw error;
-    return NextResponse.json({ success: true, room: { id: data.id, name: data.name, coverageType: data.coverage_type, active: data.active } }, { status: 201 });
+    return NextResponse.json({ success: true, room: { id: data.id, name: data.name, coverageType: data.coverage_type, capacity: data.capacity, active: data.active } }, { status: 201 });
   } catch (error) { return handleError(error); }
 }
 
@@ -35,7 +35,7 @@ export async function PATCH(request: Request) {
       const roomId = body.room?.id?.trim();
       const room = normalize(body.room);
       if (!roomId || !room.name) throw new RequestError("INFORME A DESCRIÇÃO DA SALA.", 400);
-      const { data, error } = await access.admin.from("xpace_rooms").update({ name: room.name, coverage_type: room.coverageType, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", roomId).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
+      const { data, error } = await access.admin.from("xpace_rooms").update({ name: room.name, coverage_type: room.coverageType, capacity: room.capacity, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", roomId).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
       if (error) throw error;
       if (!data) throw new RequestError("SALA NÃO ENCONTRADA NESTA EMPRESA.", 404);
       return NextResponse.json({ success: true });
@@ -47,7 +47,7 @@ export async function PATCH(request: Request) {
   } catch (error) { return handleError(error); }
 }
 
-function normalize(value?: RequestBody["room"]) { return { name: value?.name?.trim().replace(/\s+/g, " ").slice(0, 80) ?? "", coverageType: ["COBERTO", "ABERTO", "OUTRO"].includes(value?.coverageType ?? "") ? value?.coverageType : "COBERTO" }; }
+function normalize(value?: RequestBody["room"]) { const capacity = value?.capacity === null || value?.capacity === undefined || value.capacity === 0 ? null : Number(value.capacity); if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 10000)) throw new RequestError("INFORME UMA CAPACIDADE ENTRE 1 E 10.000 OU DEIXE EM BRANCO.", 400); return { name: value?.name?.trim().replace(/\s+/g, " ").slice(0, 80) ?? "", coverageType: ["COBERTO", "ABERTO", "OUTRO"].includes(value?.coverageType ?? "") ? value?.coverageType : "COBERTO", capacity }; }
 function requireManager(role: string) { if (!["platform_owner", "company_manager"].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR AS SALAS.", 403); }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }
 function handleError(error: unknown) { if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "JÁ EXISTE UMA SALA COM ESTA DESCRIÇÃO.", }, { status: 409 }); console.error("XPACE ROOMS ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR AS SALAS." }, { status: 500 }); }
