@@ -45,7 +45,11 @@ export async function POST(request: Request) {
       .not("stage", "in", "(WON,LOST)");
     if (activeOpportunitiesError) throw activeOpportunitiesError;
     const opportunityId = overdueAgenda?.opportunity_id || (activeOpportunities?.length === 1 ? activeOpportunities[0].id : null);
-    const agendaKind = overdueAgenda?.agenda_kind || (opportunityId ? "OPPORTUNITY" : "FOLLOW_UP");
+    // Completing a commercial cycle records a normal follow-up. A new cycle is
+    // scheduled only when a sale is registered or an opportunity is won.
+    const agendaKind = overdueAgenda?.agenda_kind === "CYCLE"
+      ? "FOLLOW_UP"
+      : overdueAgenda?.agenda_kind || (opportunityId ? "OPPORTUNITY" : "FOLLOW_UP");
 
     const { error: clearDirectAgendaError } = await admin
       .from("crm_activities")
@@ -98,15 +102,6 @@ export async function POST(request: Request) {
       created_by: user.id,
     }).select("*").single();
     if (error) throw error;
-
-    if (agendaKind === "CYCLE") {
-      const { error: profileUpdateError } = await admin
-        .from("crm_customer_profiles")
-        .update({ next_contact_at: nextActionAt, updated_at: new Date().toISOString() })
-        .eq("tenant_company_id", company.id)
-        .eq("client_id", input.clientId);
-      if (profileUpdateError) throw profileUpdateError;
-    }
 
     return NextResponse.json({
       success: true,

@@ -225,22 +225,22 @@ export default function CrmEmpresa({
   const selectedProfile = selectedClient ? profileByClient.get(selectedClient.id) : undefined;
   const scheduledActivity = useMemo(() => {
     if (!selectedClient) return undefined;
-    const nextContactAt = selectedProfile?.nextContactAt || "";
-    return overview.activities.find((activity) => {
+    return overview.activities
+      .filter((activity) => {
       if (activity.clientId !== selectedClient.id || !activity.nextActionAt || activity.agendaKind !== "FOLLOW_UP") return false;
-      return !nextContactAt || new Date(activity.nextActionAt).getTime() === new Date(nextContactAt).getTime();
-    });
-  }, [overview.activities, selectedClient, selectedProfile?.nextContactAt]);
+      return true;
+      })
+      .sort((first, second) => Date.parse(first.nextActionAt) - Date.parse(second.nextActionAt))[0];
+  }, [overview.activities, selectedClient]);
   const scheduledAgendaAt = useMemo(() => {
     if (!selectedClient) return "";
     const stages = new Map(overview.opportunities.map((item) => [item.id, item.stage]));
     const dates = overview.activities
       .filter((item) => item.clientId === selectedClient.id && isPendingCrmAgenda(item, stages))
       .map((item) => item.nextActionAt);
-    if (selectedProfile?.nextContactAt) dates.push(selectedProfile.nextContactAt);
     return dates.filter((date) => Number.isFinite(Date.parse(date)))
       .sort((a, b) => Date.parse(a) - Date.parse(b))[0] || "";
-  }, [overview.activities, overview.opportunities, selectedClient, selectedProfile?.nextContactAt]);
+  }, [overview.activities, overview.opportunities, selectedClient]);
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -290,15 +290,8 @@ export default function CrmEmpresa({
     const clientById = new Map(clients.map((client) => [client.id, client]));
     const profileById = new Map(overview.profiles.map((profile) => [profile.clientId, profile]));
     const rows: AgendaItem[] = [];
-    for (const profile of overview.profiles) {
-      if (!profile.nextContactAt) continue;
-      const client = clientById.get(profile.clientId);
-      if (!client) continue;
-      const activity = overview.activities.find((item) => item.clientId === client.id && item.agendaKind === "CYCLE" && item.nextActionAt === profile.nextContactAt);
-      rows.push({ id: `cycle:${client.id}`, client, displayName: client.tradeName || client.legalName, ownerId: profile.ownerProfileId || client.representativeUserId, ownerName: profile.ownerName || client.representativeName, activityId: activity?.id || "", kind: "CYCLE", actionType: "ACOMPANHAR", opportunityId: "", opportunityTitle: "", directQuote: false, scheduledAt: profile.nextContactAt, daysToAction: daysUntil(profile.nextContactAt) });
-    }
     for (const activity of overview.activities) {
-      if (!activity.nextActionAt || activity.agendaKind === "CYCLE") continue;
+      if (!activity.nextActionAt) continue;
       const client = clientById.get(activity.clientId);
       const opportunity = activity.opportunityId ? overview.opportunities.find((item) => item.id === activity.opportunityId) : undefined;
       if (activity.agendaKind === "OPPORTUNITY" && (!opportunity || opportunity.stage === "WON" || opportunity.stage === "LOST")) continue;
@@ -1341,7 +1334,6 @@ function ClientDetail({
             <CrmInput label="VALOR MEDIO DE COMPRA" value={profileDraft.averagePurchaseValue || ""} onChange={(value) => setProfileDraft({ ...profileDraft, averagePurchaseValue: Number(value || 0) })} currency />
             <CrmInput label="ULTIMA COMPRA" type="date" value={profileDraft.lastPurchaseAt} onChange={(lastPurchaseAt) => setProfileDraft({ ...profileDraft, lastPurchaseAt, nextPurchaseAt: calculateNextPurchaseDate(lastPurchaseAt, profileDraft.purchaseFrequencyDays) })} />
             <CrmInput label="PROXIMA COMPRA PREVISTA" type="date" value={profileDraft.nextPurchaseAt} onChange={() => undefined} readOnly />
-            <CrmInput label="PROXIMO CONTATO" type="datetime-local" value={profileDraft.nextContactAt} onChange={(nextContactAt) => setProfileDraft({ ...profileDraft, nextContactAt })} />
             <CrmSelect label="SITUACAO" value={profileDraft.relationshipStatus} onChange={(relationshipStatus) => setProfileDraft({ ...profileDraft, relationshipStatus: relationshipStatus as CrmProfileInput["relationshipStatus"] })} options={[{ value: "ACTIVE", label: "ATIVO" }, { value: "DORMANT", label: "INATIVO COMERCIAL" }, { value: "BLOCKED", label: "BLOQUEADO" }]} />
             <label className="crm-check-field"><input type="checkbox" checked={profileDraft.whatsappOptIn} onChange={(event) => setProfileDraft({ ...profileDraft, whatsappOptIn: event.target.checked })} /><span>AUTORIZOU CONTATO PELO WHATSAPP</span></label>
             <label className="crm-textarea crm-span-2"><span>ANOTACOES DA CARTEIRA</span><textarea value={profileDraft.notes} onChange={(event) => setProfileDraft({ ...profileDraft, notes: upper(event.target.value) })} /></label>

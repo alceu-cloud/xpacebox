@@ -23,19 +23,6 @@ export async function PUT(request: Request) {
     if (currentProfileError) throw currentProfileError;
     const purchaseFrequencyDays = input.purchaseFrequencyDays && input.purchaseFrequencyDays > 0 ? Math.trunc(input.purchaseFrequencyDays) : null;
     const nextPurchaseAt = input.nextPurchaseAt || calculateNextPurchaseDate(input.lastPurchaseAt, purchaseFrequencyDays);
-    const hadPurchaseHistory = Boolean(
-      currentProfile?.last_purchase_at ||
-      currentProfile?.purchase_frequency_days ||
-      Number(currentProfile?.average_purchase_value || 0) > 0
-    );
-    const isInitialPurchaseSetup = !hadPurchaseHistory && Boolean(
-      input.lastPurchaseAt || purchaseFrequencyDays || Number(input.averagePurchaseValue || 0) > 0
-    );
-
-    // Initial portfolio data is a baseline, not a new sale to be pursued.
-    // Real cycle agendas are created by a registered order or a won opportunity.
-    const nextContactAt = isInitialPurchaseSetup ? null : input.nextContactAt || null;
-
     const payload = {
       tenant_company_id: company.id,
       client_id: input.clientId,
@@ -44,7 +31,9 @@ export async function PUT(request: Request) {
       average_purchase_value: Math.max(0, Number(input.averagePurchaseValue || 0)),
       last_purchase_at: input.lastPurchaseAt || null,
       next_purchase_at: nextPurchaseAt || null,
-      next_contact_at: nextContactAt,
+      // A cycle is scheduled only after a registered sale or won opportunity.
+      // Editing the portfolio must never create or overwrite an agenda.
+      next_contact_at: currentProfile?.next_contact_at || null,
       relationship_status: input.relationshipStatus || "ACTIVE",
       whatsapp_opt_in: Boolean(input.whatsappOptIn),
       whatsapp_opt_in_at: input.whatsappOptIn ? new Date().toISOString() : null,
@@ -56,122 +45,10 @@ export async function PUT(request: Request) {
 
     const { data, error } = await admin.from("crm_customer_profiles").upsert(payload, { onConflict: "tenant_company_id,client_id" }).select("*").single();
     if (error) throw error;
-    await syncProfileAgenda({
-      admin,
-      companyId: company.id,
-      clientId: input.clientId,
-      representativeId: input.ownerProfileId || user.id,
-      userId: user.id,
-      previousNextContactAt: currentProfile?.next_contact_at || "",
-      nextContactAt,
-    });
     return NextResponse.json({ success: true, profile: data });
   } catch (error) {
     return handleError(error);
   }
-}
-
-async function syncProfileAgenda({
-  admin,
-  companyId,
-  clientId,
-  representativeId,
-  userId,
-  previousNextContactAt,
-  nextContactAt,
-}: {
-  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"];
-  companyId: string;
-  clientId: string;
-  representativeId: string;
-  userId: string;
-  previousNextContactAt: string;
-  nextContactAt: string | null;
-}) {
-  if (!nextContactAt) {
-    if (!previousNextContactAt) return;
-    const { error } = await admin
-      .from("crm_activities")
-      .update({ next_action_type: null, next_action_at: null })
-      .eq("tenant_company_id", companyId)
-      .eq("client_id", clientId)
-      .eq("agenda_kind", "CYCLE")
-      .is("opportunity_id", null)
-      .eq("next_action_at", previousNextContactAt);
-    if (error) throw error;
-    return;
-  }
-
-  const { data: agendaAtTarget, error: agendaAtTargetError } = await admin
-    .from("crm_activities")
-    .select("id")
-    .eq("tenant_company_id", companyId)
-    .eq("client_id", clientId)
-    .eq("agenda_kind", "CYCLE")
-    .eq("next_action_at", nextContactAt)
-    .limit(1);
-  if (agendaAtTargetError) throw agendaAtTargetError;
-  if (agendaAtTarget?.length) return;
-
-  if (previousNextContactAt) {
-    const { data: directAgenda, error: directAgendaError } = await admin
-      .from("crm_activities")
-      .select("id,next_action_type")
-      .eq("tenant_company_id", companyId)
-      .eq("client_id", clientId)
-      .eq("agenda_kind", "CYCLE")
-      .is("opportunity_id", null)
-      .eq("next_action_at", previousNextContactAt)
-      .order("occurred_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (directAgendaError) throw directAgendaError;
-    if (directAgenda) {
-      const { error } = await admin
-        .from("crm_activities")
-        .update({ next_action_type: directAgenda.next_action_type || "FOLLOW_UP", next_action_at: nextContactAt })
-        .eq("id", directAgenda.id)
-        .eq("tenant_company_id", companyId);
-      if (error) throw error;
-      return;
-    }
-
-    const { data: agendasAtPreviousDate, error: agendasAtPreviousDateError } = await admin
-      .from("crm_activities")
-      .select("id,next_action_type")
-      .eq("tenant_company_id", companyId)
-      .eq("client_id", clientId)
-      .eq("agenda_kind", "CYCLE")
-      .eq("next_action_at", previousNextContactAt)
-      .limit(2);
-    if (agendasAtPreviousDateError) throw agendasAtPreviousDateError;
-    if (agendasAtPreviousDate?.length === 1) {
-      const agenda = agendasAtPreviousDate[0];
-      const { error } = await admin
-        .from("crm_activities")
-        .update({ next_action_type: agenda.next_action_type || "FOLLOW_UP", next_action_at: nextContactAt })
-        .eq("id", agenda.id)
-        .eq("tenant_company_id", companyId);
-      if (error) throw error;
-      return;
-    }
-  }
-
-  const { error } = await admin.from("crm_activities").insert({
-    tenant_company_id: companyId,
-    client_id: clientId,
-    representative_profile_id: representativeId,
-    activity_type: "NOTE",
-    outcome: "FOLLOW_UP",
-    subject: "CONTATO PROGRAMADO",
-    notes: "AGENDA CRIADA A PARTIR DO RESUMO DO CLIENTE.",
-    occurred_at: new Date().toISOString(),
-    next_action_type: "FOLLOW_UP",
-    next_action_at: nextContactAt,
-    agenda_kind: "CYCLE",
-    created_by: userId,
-  });
-  if (error) throw error;
 }
 
 function calculateNextPurchaseDate(lastPurchaseAt: string, purchaseFrequencyDays: number | null) {
