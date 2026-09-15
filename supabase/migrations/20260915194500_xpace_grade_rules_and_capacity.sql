@@ -4,6 +4,7 @@ alter table public.xpace_rooms
 alter table public.xpace_class_groups
   add column if not exists source_type text not null default 'CONTRATO' check (source_type in ('CONTRATO', 'SERVICO')),
   add column if not exists settings jsonb not null default '{}'::jsonb,
+  drop constraint if exists xpace_class_groups_settings_object_check,
   add constraint xpace_class_groups_settings_object_check check (jsonb_typeof(settings) = 'object');
 
 create or replace function private.enforce_xpace_class_capacity()

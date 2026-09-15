@@ -4,7 +4,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
 const companySlug = "xpace";
 type Body = {
-  action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS";
+  action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS" | "DELETE_GRADE";
   group?: { id?: string; name?: string; modalityId?: string; roomId?: string; color?: string; capacity?: number; sourceType?: string; settings?: unknown; weekdays?: number[]; startsAt?: string; endsAt?: string };
   enrollment?: { classGroupId?: string; studentId?: string; startsOn?: string };
   rental?: { roomName?: string; renterName?: string; startsAt?: string; endsAt?: string; amountCents?: number; note?: string };
@@ -63,9 +63,31 @@ export async function PATCH(request: Request) {
   } catch (error) { return handleError(error); }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const body = (await request.json()) as Body;
+    const access = await requireCompanyAccess(request, companySlug);
+    const gradeId = body.group?.id?.trim();
+    if (body.action !== "DELETE_GRADE" || !gradeId) throw new RequestError("GRADE INVÁLIDA PARA EXCLUSÃO.", 400);
+    if (!["platform_owner", "company_manager"].includes(access.profile.platform_role)) throw new AccessError("APENAS GESTORES PODEM EXCLUIR GRADES.", 403);
+    const [gradeResult, enrollmentResult, contractResult] = await Promise.all([
+      access.admin.from("xpace_class_groups").select("id,name").eq("id", gradeId).eq("tenant_company_id", access.company.id).maybeSingle(),
+      access.admin.from("xpace_class_enrollments").select("id", { count: "exact", head: true }).eq("class_group_id", gradeId).eq("tenant_company_id", access.company.id),
+      access.admin.from("xpace_student_contracts").select("id", { count: "exact", head: true }).eq("class_group_id", gradeId).eq("tenant_company_id", access.company.id),
+    ]);
+    if (gradeResult.error || enrollmentResult.error || contractResult.error) throw gradeResult.error ?? enrollmentResult.error ?? contractResult.error;
+    if (!gradeResult.data) throw new RequestError("GRADE NÃO ENCONTRADA.", 404);
+    if ((enrollmentResult.count ?? 0) > 0) throw new RequestError("NÃO É POSSÍVEL EXCLUIR ESTA GRADE: HÁ ALUNO(S) MATRICULADO(S).", 409);
+    if ((contractResult.count ?? 0) > 0) throw new RequestError("NÃO É POSSÍVEL EXCLUIR ESTA GRADE: HÁ CONTRATO(S) VINCULADO(S).", 409);
+    const { error } = await access.admin.from("xpace_class_groups").delete().eq("id", gradeId).eq("tenant_company_id", access.company.id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) { return handleError(error); }
+}
+
 async function createClass(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["group"]) {
   const weekdays = [...new Set(Array.isArray(input?.weekdays) ? input.weekdays.map(Number) : [])].sort((left, right) => left - right);
-  const group = { name: input?.name?.trim().replace(/\s+/g, " ") ?? "", modalityId: input?.modalityId?.trim() ?? "", roomId: input?.roomId?.trim() ?? "", color: input?.color?.trim() ?? "#7435d9", capacity: input?.capacity ? Number(input.capacity) : null, sourceType: input?.sourceType === "SERVICO" ? "SERVICO" : "CONTRATO", startsAt: input?.startsAt?.trim() ?? "", endsAt: input?.endsAt?.trim() ?? "" };
+  const group = { name: input?.name?.trim().replace(/\s+/g, " ") ?? "", modalityId: input?.modalityId?.trim() ?? "", roomId: input?.roomId?.trim() ?? "", color: input?.color?.trim() ?? "#7435d9", capacity: input?.capacity ? Number(input.capacity) : null, sourceType: input?.sourceType === "SERVICO" ? "SERVICO" : "CONTRATO", settings: normalizeSettings(input?.settings), startsAt: input?.startsAt?.trim() ?? "", endsAt: input?.endsAt?.trim() ?? "" };
   if (!group.name || !group.modalityId || !group.roomId || !/^#[0-9a-fA-F]{6}$/.test(group.color) || !weekdays.length || weekdays.some((weekday) => !Number.isInteger(weekday) || weekday < 0 || weekday > 6) || !isTime(group.startsAt) || !isTime(group.endsAt) || group.endsAt <= group.startsAt || (group.capacity !== null && (!Number.isInteger(group.capacity) || group.capacity < 1))) throw new RequestError("PREENCHA NOME, MODALIDADE, SALA, DIA, HORÁRIOS E UMA COR VÁLIDA PARA A GRADE.", 400);
   const { data: modality, error: modalityError } = await access.admin.from("xpace_modalities").select("id,name,instructor_id,requires_instructor").eq("id", group.modalityId).eq("tenant_company_id", access.company.id).eq("active", true).eq("uses_schedule", true).maybeSingle();
   if (modalityError) throw modalityError;
@@ -75,7 +97,8 @@ async function createClass(access: Awaited<ReturnType<typeof requireCompanyAcces
   if (!room) throw new RequestError("SELECIONE UMA SALA ATIVA CADASTRADA.", 400);
   const capacity = group.capacity ?? room.capacity;
   if (room.capacity !== null && capacity !== null && capacity > room.capacity) throw new RequestError(`A GRADE NÃO PODE TER MAIS QUE AS ${room.capacity} VAGAS DA SALA.`, 409);
-  const { data: saved, error } = await access.admin.from("xpace_class_groups").insert({ tenant_company_id: access.company.id, name: group.name, modality: modality.name, modality_id: modality.id, instructor_id: modality.instructor_id ?? null, color: group.color, capacity, source_type: group.sourceType, created_by: access.user.id, updated_by: access.user.id }).select("id").single();
+  if (group.settings.maxClientsEnabled && capacity !== null && (group.settings.maxClients ?? 0) > capacity) throw new RequestError(`O LIMITE DE ALUNOS NÃO PODE PASSAR DAS ${capacity} VAGAS DA GRADE.`, 400);
+  const { data: saved, error } = await access.admin.from("xpace_class_groups").insert({ tenant_company_id: access.company.id, name: group.name, modality: modality.name, modality_id: modality.id, instructor_id: modality.instructor_id ?? null, color: group.color, capacity, source_type: group.sourceType, settings: group.settings, created_by: access.user.id, updated_by: access.user.id }).select("id").single();
   if (error) throw error;
   const { error: scheduleError } = await access.admin.from("xpace_class_schedules").insert(weekdays.map((weekday) => ({ tenant_company_id: access.company.id, class_group_id: saved.id, weekday, starts_at: group.startsAt, ends_at: group.endsAt, room_name: room.name, room_id: room.id, instructor_id: modality.instructor_id, created_by: access.user.id })));
   if (scheduleError) throw scheduleError;
