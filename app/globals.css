@@ -418,6 +418,15 @@ body {
 .xd-plan-cycle--legacy { border-color: #ded5e4 !important; background: #f5f2f7; color: #71677a !important; }
 .xd-plans article > b { color: #16834d; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .xd-plans article .xd-secondary { min-height: 34px; padding: 0 11px; font-size: 9px; }
+@media (min-width: 1200px) {
+  .xd-plans > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .xd-plans article { grid-template-columns: 42px minmax(0, 1fr) auto; grid-template-areas: "icon details cycle" "icon price actions"; gap: 9px 12px; min-height: 104px; }
+  .xd-plans article > .xd-plan-icon { grid-area: icon; }
+  .xd-plans article > div:nth-child(2) { grid-area: details; }
+  .xd-plans article > .xd-plan-cycle { grid-area: cycle; align-self: end; }
+  .xd-plans article > b { grid-area: price; align-self: start; }
+  .xd-plans article > .xd-room-actions { grid-area: actions; align-self: start; }
+}
 .xd-contract-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 18px; background: rgba(29,17,44,.44); backdrop-filter: blur(5px); }
 .xd-status-dialog { display: grid; width: min(100%, 420px); gap: 14px; padding: 23px; border: 1px solid #e0cbee; border-radius: 20px; background: #fff; box-shadow: 0 28px 72px rgba(35,17,53,.28); }
 .xd-status-dialog > span { color: #833bc5; font-size: 9px; font-weight: 900; letter-spacing: .15em; }
