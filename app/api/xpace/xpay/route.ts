@@ -123,7 +123,7 @@ function normalizeRegistration(input?: Partial<XPayRegistration>): XPayRegistrat
   return {
     legalEntityType: input?.legalEntityType === "PF" ? "PF" : "PJ",
     companyType: input?.companyType,
-    legalName: clean(input?.legalName), tradeName: clean(input?.tradeName), documentNumber: digits(input?.documentNumber ?? ""), email: clean(input?.email).toLowerCase(), phone: digits(input?.phone ?? ""), mobilePhone: digits(input?.mobilePhone ?? ""), monthlyIncomeCents: Number(input?.monthlyIncomeCents), postalCode: digits(input?.postalCode ?? ""), address: clean(input?.address), addressNumber: clean(input?.addressNumber), neighborhood: clean(input?.neighborhood), complement: clean(input?.complement), responsibleName: clean(input?.responsibleName), responsibleDocument: digits(input?.responsibleDocument ?? ""), responsibleBirthDate: clean(input?.responsibleBirthDate),
+    legalName: clean(input?.legalName), tradeName: clean(input?.tradeName), documentNumber: digits(input?.documentNumber ?? ""), email: clean(input?.email, false).toLowerCase(), phone: digits(input?.phone ?? ""), mobilePhone: digits(input?.mobilePhone ?? ""), monthlyIncomeCents: Number(input?.monthlyIncomeCents), postalCode: digits(input?.postalCode ?? ""), address: clean(input?.address), addressNumber: clean(input?.addressNumber), neighborhood: clean(input?.neighborhood), complement: clean(input?.complement), responsibleName: clean(input?.responsibleName), responsibleDocument: digits(input?.responsibleDocument ?? ""), responsibleBirthDate: clean(input?.responsibleBirthDate),
   };
 }
 
@@ -141,7 +141,7 @@ function serializeAccount(account: Record<string, unknown>) {
 }
 
 function requireManager(role: string) { if (!['platform_owner', 'company_manager'].includes(role)) throw new AccessError("APENAS GESTORES PODEM ADMINISTRAR A CONTA XPAY.", 403); }
-function clean(value?: string) { return value?.trim().replace(/\s+/g, " ") ?? ""; }
+function clean(value?: string, uppercase = true) { const normalized = value?.trim().replace(/\s+/g, " ") ?? ""; return uppercase ? normalized.toLocaleUpperCase("pt-BR") : normalized; }
 function digits(value: string) { return value.replace(/\D/g, ""); }
 function maskDocument(value: string) { return value.length === 14 ? `${value.slice(0, 2)}.***.***/****-${value.slice(-2)}` : value.length === 11 ? `***.***.***-${value.slice(-2)}` : ""; }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }

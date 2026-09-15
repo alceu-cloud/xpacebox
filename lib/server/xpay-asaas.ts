@@ -110,5 +110,5 @@ async function asaasRequest<T>(path: string, accessToken: string, init: RequestI
   return payload;
 }
 
-function providerMessage(payload: { errors?: Array<{ description?: string }> }) { return payload.errors?.map((item) => item.description).filter(Boolean).join(" "); }
+function providerMessage(payload: { errors?: Array<{ description?: string }> }) { const message = payload.errors?.map((item) => item.description).filter(Boolean).join(" ") ?? ""; const normalized = message.toLowerCase(); if (normalized.includes("mesmo padrão") && normalized.includes("cnpj da conta principal")) return "USE UM CNPJ DIFERENTE DO CNPJ DA CONTA-MÃE PARA CRIAR A SUBCONTA DE TESTE."; if (normalized.includes("email") && normalized.includes("já está em uso")) return "USE UM E-MAIL DIFERENTE DO E-MAIL DA CONTA-MÃE PARA CRIAR A SUBCONTA DE TESTE."; return message; }
 function digits(value: string) { return value.replace(/\D/g, ""); }
