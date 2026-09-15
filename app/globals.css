@@ -3417,6 +3417,38 @@ button {
 .xd-modality-search-results button:hover, .xd-modality-search-results button.is-selected { border-color: #b982e5; background: #f6edff; }
 .xd-modality-search-results button small { color: #8a3ad1; font-size: 8px; font-weight: 900; letter-spacing: .06em; }
 .xd-modality-search-results p { margin: 8px; color: #786a7f; font-size: 9px; font-weight: 800; text-align: center; }
+.xd-enrollment-fields { display: grid; gap: 12px; padding: 12px; border: 1px solid #e9ddf3; border-radius: 12px; background: #fcf9ff; }
+.xd-enrollment-fields label { display: grid; gap: 6px; color: #675c70; font-size: 9px; font-weight: 900; letter-spacing: .07em; }
+.xd-enrollment-fields select { width: 100%; min-height: 42px; padding: 0 10px; border: 1px solid #e0d8e6; border-radius: 11px; outline: 0; background: #fff; color: #2b1b37; font: inherit; font-size: 12px; font-weight: 700; }
+.xd-enrollment-fields small { color: #806e8b; font-size: 9px; font-weight: 700; line-height: 1.4; letter-spacing: 0; }
+.xd-services { display: grid; gap: 18px; }
+.xd-service-form { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(245px, .7fr); gap: 16px; }
+.xd-service-form > section { display: grid; align-content: start; gap: 15px; padding: 18px; border: 1px solid #e6ddec; border-radius: 18px; background: rgba(255,255,255,.84); box-shadow: 0 10px 24px rgba(65,28,103,.04); }
+.xd-service-form > section > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #43245d; font-size: 12px; font-weight: 900; letter-spacing: .06em; }
+.xd-service-form > section > header span { display: inline-flex; align-items: center; gap: 8px; }
+.xd-service-form > section > header small { color: #927da1; font-size: 8px; }
+.xd-service-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.xd-service-fields label { display: grid; gap: 6px; color: #675c70; font-size: 9px; font-weight: 900; letter-spacing: .07em; }
+.xd-service-fields .xd-service-description { grid-column: 1 / -1; }
+.xd-service-fields input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #e0d8e6; border-radius: 11px; outline: 0; background: #fff; color: #2b1b37; font: inherit; font-size: 12px; font-weight: 700; }
+.xd-service-fields input:focus { border-color: #a36ada; box-shadow: 0 0 0 3px rgba(133,72,205,.1); }
+.xd-service-fiscal-note { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 11px; border-radius: 11px; background: #f7f0fd; color: #695576; font-size: 10px; font-weight: 650; line-height: 1.45; }
+.xd-service-fiscal-note a { flex: 0 0 auto; color: #7e23c0; font-size: 9px; font-weight: 900; text-decoration: none; }
+.xd-service-image > div { display: grid; justify-items: center; gap: 11px; min-height: 215px; padding: 15px; border: 1px dashed #d8c6e9; border-radius: 14px; background: #fcfaff; text-align: center; }
+.xd-service-image img { width: 130px; height: 130px; border-radius: 13px; object-fit: cover; }
+.xd-service-image > div > span { display: grid; place-items: center; width: 130px; height: 130px; border-radius: 13px; background: #f0e5fb; color: #8e37c9; }
+.xd-service-image p { margin: 0; color: #816e8d; font-size: 9px; font-weight: 800; }
+.xd-service-form footer { grid-column: 1 / -1; }
+.xd-service-list { display: grid; gap: 9px; }
+.xd-service-list > article { display: grid; grid-template-columns: 45px minmax(0,1fr) auto auto; align-items: center; gap: 13px; padding: 11px 14px; border: 1px solid #e7deeb; border-radius: 14px; background: rgba(255,255,255,.86); }
+.xd-service-list > article > img, .xd-service-list > article > span { width: 45px; height: 45px; border-radius: 11px; object-fit: cover; }
+.xd-service-list > article > span { display: grid; place-items: center; background: #f1e5fb; color: #9136cb; }
+.xd-service-list > article > div:nth-child(2) { display: grid; gap: 4px; min-width: 0; }
+.xd-service-list strong { color: #2d183e; font-size: 13px; }
+.xd-service-list small { color: #7a6b83; font-size: 9px; font-weight: 800; }
+.xd-service-list b { color: #0b8f57; font-size: 13px; white-space: nowrap; }
+.xd-service-list .is-archived { opacity: .56; }
+@media (max-width: 760px) { .xd-service-form { grid-template-columns: 1fr; } .xd-service-list > article { grid-template-columns: 42px minmax(0,1fr); } .xd-service-list > article > b, .xd-service-list .xd-room-actions { grid-column: 2; } .xd-service-fiscal-note { display: grid; } }
 .xd-modality-rule-settings, .xd-modality-rule-advanced { display: grid; gap: 11px; padding: 14px; border: 1px solid #eee6f2; border-radius: 13px; background: #fcfaff; }
 .xd-modality-rule-settings h3 { margin: 0; color: #63566c; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
 .xd-modality-rule-advanced > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: transparent; color: #4a3658; font: inherit; font-size: 11px; font-weight: 900; text-align: left; cursor: pointer; }

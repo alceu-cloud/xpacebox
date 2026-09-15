@@ -10,6 +10,7 @@ const statuses = ["AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as c
 type BillingInterval = (typeof intervals)[number];
 type ContractStatus = (typeof statuses)[number];
 type AccessPeriod = "SEM_LIMITE" | "DIA" | "SEMANA" | "MES";
+type EnrollmentChargeMode = "PRIMEIRA_PARCELA" | "RATEAR_PARCELAS";
 type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; accessPeriod?: string; accessLimit?: number | null; allowEarlyAccess?: boolean; allowReschedule?: boolean; requiresEnrollment?: boolean; limitPromotionalTimes?: boolean };
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
@@ -20,21 +21,24 @@ type RequestBody = {
 export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
-    const [plansResult, studentsResult, contractsResult, modalitiesResult] = await Promise.all([
+    const [plansResult, studentsResult, contractsResult, modalitiesResult, servicesResult] = await Promise.all([
       admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,modality_rules,catalog_settings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
       admin.from("xpace_people").select("id,person_number,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,created_at,cancel_effective_on").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(300),
       admin.from("xpace_modalities").select("id,name,active").eq("tenant_company_id", company.id).eq("active", true).order("name"),
+      admin.from("xpace_services").select("id,description,sale_price_cents,active").eq("tenant_company_id", company.id).eq("active", true).order("description"),
     ]);
     if (plansResult.error) throw plansResult.error;
     if (studentsResult.error) throw studentsResult.error;
     if (contractsResult.error) throw contractsResult.error;
     if (modalitiesResult.error) throw modalitiesResult.error;
+    if (servicesResult.error) throw servicesResult.error;
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,
       plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], modalityRules: plan.modality_rules ?? [], catalogSettings: plan.catalog_settings ?? {}, active: plan.active, createdAt: plan.created_at })),
       modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, active: modality.active })),
+      services: (servicesResult.data ?? []).map((service) => ({ id: service.id, description: service.description, salePriceCents: service.sale_price_cents })),
       students: (studentsResult.data ?? []).map((student) => ({ id: student.id, personNumber: student.person_number, name: student.full_name, mobile: student.mobile ?? "" })),
       contracts: (contractsResult.data ?? []).map((contract) => {
         const student = studentsById.get(contract.student_id);
@@ -89,7 +93,9 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURACAO E VALOR DO PLANO.", 400);
   validateCatalogSettings(plan.catalogSettings);
   const modalityRules = await resolveModalityRules(access, plan.modalityRules);
-  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: modalityRules.map((rule) => rule.modalityName), modality_rules: modalityRules.map(({ modalityName: _modalityName, ...rule }) => rule), catalog_settings: plan.catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
+  await resolveEnrollmentService(access, plan.catalogSettings);
+  const catalogSettings = { ...plan.catalogSettings, enrollmentChargeMode: plan.catalogSettings.enrollmentFeeEnabled && plan.billingInterval === "MENSAL" ? "PRIMEIRA_PARCELA" : plan.catalogSettings.enrollmentChargeMode };
+  const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: modalityRules.map((rule) => rule.modalityName), modality_rules: modalityRules.map(({ modalityName: _modalityName, ...rule }) => rule), catalog_settings: catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
   if (error) throw error;
   return NextResponse.json({ success: true, plan: { id: data.id, name: data.name } }, { status: 201 });
 }
@@ -119,6 +125,8 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const endsOn = endOfTerm(startsOn, plan.duration_months);
   const status: ContractStatus = startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
+  const enrollmentService = await resolveEnrollmentService(access, plan.catalog_settings);
+  const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, ncm: enrollmentService.ncm, cest: enrollmentService.cest, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
   const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGENDADO", "ATIVO", "PAUSADO"]);
   if (conflictError) throw conflictError;
   if ((existing ?? []).some((item) => item.renews_automatically || (item.starts_on <= endsOn && item.ends_on >= startsOn))) throw new RequestError("ESTE ALUNO JÁ POSSUI UM CONTRATO EM VIGOR PARA ESTE PLANO.", 409);
@@ -128,7 +136,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
     : manuallyDiscounted
       ? { benefit_profile_id: null, benefit_name_snapshot: "CONDIÇÃO COMERCIAL", discount_type_snapshot: "FIXO", discount_value_snapshot: Math.max(0, plan.amount_cents - amountCents) }
       : { benefit_profile_id: null, benefit_name_snapshot: null, discount_type_snapshot: null, discount_value_snapshot: null };
-  const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], renews_automatically: renewsAutomatically, starts_on: startsOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,status,cancel_effective_on").single();
+  const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, renews_automatically: renewsAutomatically, starts_on: startsOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
   const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: saved.id, event_type: "CRIADO", next_status: status, created_by: access.user.id });
   if (eventError) throw eventError;
@@ -190,6 +198,8 @@ function normalizePlan(value?: RequestBody["plan"]) {
       minAge: boundedInteger(settings.minAge, 0, 120),
       maxAge: boundedInteger(settings.maxAge, 0, 120),
       enrollmentFeeEnabled: Boolean(settings.enrollmentFeeEnabled),
+      enrollmentServiceId: typeof settings.enrollmentServiceId === "string" ? settings.enrollmentServiceId.trim() : "",
+      enrollmentChargeMode: settings.enrollmentChargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as EnrollmentChargeMode : "PRIMEIRA_PARCELA" as EnrollmentChargeMode,
       salesCommissionEnabled: Boolean(settings.salesCommissionEnabled),
       revenueCategory: typeof settings.revenueCategory === "string" && settings.revenueCategory.trim() ? settings.revenueCategory.trim().slice(0, 80) : "VENDAS",
       durationUnit: settings.durationUnit === "DIA" || settings.durationUnit === "SEMANA" || settings.durationUnit === "MÊS" ? settings.durationUnit : "MÊS",
@@ -240,6 +250,18 @@ function validateSaleRestrictions(value: unknown, birthDate: string | null) {
 function validateCatalogSettings(settings: ReturnType<typeof normalizePlan>["catalogSettings"]) {
   if (settings.limitSalePeriod && (!settings.saleStartsOn || !settings.saleEndsOn || settings.saleStartsOn > settings.saleEndsOn)) throw new RequestError("INFORME O INÍCIO E O FIM VÁLIDOS DO PERÍODO DE VENDA.", 400);
   if (settings.limitAgeRange && settings.minAge > settings.maxAge) throw new RequestError("A IDADE MÍNIMA NÃO PODE SER MAIOR QUE A IDADE MÁXIMA.", 400);
+  if (settings.enrollmentFeeEnabled && !settings.enrollmentServiceId) throw new RequestError("SELECIONE O SERVIÇO DE ADESÃO OU MATRÍCULA.", 400);
+}
+async function resolveEnrollmentService(access: Awaited<ReturnType<typeof requireCompanyAccess>>, value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const settings = value as Record<string, unknown>;
+  if (!settings.enrollmentFeeEnabled) return null;
+  const serviceId = typeof settings.enrollmentServiceId === "string" ? settings.enrollmentServiceId.trim() : "";
+  if (!serviceId) throw new RequestError("SELECIONE O SERVIÇO DE ADESÃO OU MATRÍCULA.", 400);
+  const { data, error } = await access.admin.from("xpace_services").select("id,description,sale_price_cents,ncm,cest,active").eq("id", serviceId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("O SERVIÇO DE ADESÃO SELECIONADO NÃO ESTÁ DISPONÍVEL. ATUALIZE O CONTRATO.", 409);
+  return { id: data.id, description: data.description, salePriceCents: data.sale_price_cents, ncm: data.ncm ?? "", cest: data.cest ?? "", chargeMode: settings.enrollmentChargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as EnrollmentChargeMode : "PRIMEIRA_PARCELA" as EnrollmentChargeMode };
 }
 function normalizeContract(value?: RequestBody["contract"]) {
   return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", startsOn: value?.startsOn?.trim() ?? "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
