@@ -5,7 +5,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
 function encryptionKey() {
   const value = process.env.INTEGRATION_CREDENTIAL_ENCRYPTION_KEY || process.env.BALDUSSI_CREDENTIAL_ENCRYPTION_KEY || "";
   const key = Buffer.from(value, "base64");
-  if (key.length !== 32) throw new Error("CRIPTOGRAFIA DA BALDUSSI NAO CONFIGURADA.");
+  if (key.length !== 32) throw new Error("CRIPTOGRAFIA DAS INTEGRACOES NAO CONFIGURADA.");
   return key;
 }
 
