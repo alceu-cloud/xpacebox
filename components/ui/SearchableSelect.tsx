@@ -4,7 +4,7 @@ import { ChevronDown, X } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 
-export type SearchableOption = { value: string; label: string };
+export type SearchableOption = { value: string; label: string; tone?: "special" };
 
 type SharedProps = {
   options: SearchableOption[];
@@ -20,6 +20,7 @@ type SearchableSelectProps = SharedProps & {
   onChange: (value: string) => void;
   name?: string;
   searchableFrom?: number;
+  forceSearchable?: boolean;
 };
 
 type SearchableFilterProps = SharedProps & {
@@ -41,6 +42,7 @@ export function SearchableSelect({
   ariaLabel,
   name,
   searchableFrom = 11,
+  forceSearchable = false,
 }: SearchableSelectProps) {
   const selectedOption = options.find((option) => option.value === value);
   const [query, setQuery] = useState(selectedOption?.label || "");
@@ -49,7 +51,7 @@ export function SearchableSelect({
     setQuery(selectedOption?.label || "");
   }, [selectedOption?.label]);
 
-  if (options.length < searchableFrom) {
+  if (!forceSearchable && options.length < searchableFrom) {
     return (
       <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} autoFocus={autoFocus} style={inputStyle} aria-label={ariaLabel} name={name}>
         <option value="">{placeholder}</option>
@@ -232,9 +234,9 @@ function SearchInput({
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => selectOption(option)}
-              style={{ ...optionStyle, ...(activeIndex === index ? optionActiveStyle : {}) }}
+              style={{ ...optionStyle, ...(option.tone === "special" ? specialOptionStyle : {}), ...(activeIndex === index ? optionActiveStyle : {}) }}
             >
-              {option.label}
+              <span>{option.label}</span>{option.tone === "special" ? <span style={specialBadgeStyle}>ESPECIAL</span> : null}
             </button>
           )) : <div style={emptyStyle}>NENHUM RESULTADO ENCONTRADO.</div>}
         </div>
@@ -254,4 +256,6 @@ const chevronStyle: CSSProperties = { position: "absolute", top: "50%", transfor
 const menuStyle: CSSProperties = { position: "absolute", zIndex: 30, top: "calc(100% + 6px)", left: 0, width: "100%", maxHeight: visibleRows * 42 + 12, overflowY: "auto", padding: 6, border: "1px solid var(--xb-line)", borderRadius: "var(--xb-radius-field)", background: "var(--xb-surface)", boxShadow: "0 14px 30px rgba(39,36,67,.16)" };
 const optionStyle: CSSProperties = { display: "flex", alignItems: "center", width: "100%", minHeight: 42, padding: "9px 12px", border: 0, borderRadius: 9, background: "transparent", color: "var(--xb-ink)", textAlign: "left", font: "inherit", fontSize: 13, fontWeight: 700, lineHeight: 1.25, cursor: "pointer" };
 const optionActiveStyle: CSSProperties = { background: "var(--xb-accent-soft)", color: "var(--xb-accent-strong)" };
+const specialOptionStyle: CSSProperties = { justifyContent: "space-between", gap: 12, background: "#fff1f8", color: "#9d174d" };
+const specialBadgeStyle: CSSProperties = { flex: "0 0 auto", padding: "3px 6px", borderRadius: 999, background: "#fce7f3", color: "#be185d", fontSize: 10, fontWeight: 900, letterSpacing: ".04em" };
 const emptyStyle: CSSProperties = { padding: "13px 12px", color: "var(--xb-quiet)", fontSize: 12, fontWeight: 700 };
