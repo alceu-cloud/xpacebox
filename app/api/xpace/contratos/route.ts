@@ -4,7 +4,8 @@ import { calculateDiscountedAmount, ensureContractCharges, todayIso } from "@/li
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
 const companySlug = "xpace";
-const intervals = ["MENSAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"] as const;
+const intervals = ["MENSAL", "SEMESTRAL", "ANUAL"] as const;
+const supportedCycles: Record<(typeof intervals)[number], number> = { MENSAL: 1, SEMESTRAL: 6, ANUAL: 12 };
 const statuses = ["AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as const;
 
 type BillingInterval = (typeof intervals)[number];
@@ -91,7 +92,7 @@ export async function DELETE(request: Request) {
 async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["plan"]) {
   requireManager(access.profile.platform_role);
   const plan = normalizePlan(input);
-  if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURACAO E VALOR DO PLANO.", 400);
+  if (!plan.name || !isSupportedCycle(plan) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURAÇÃO E VALOR DO PLANO.", 400);
   validateCatalogSettings(plan.catalogSettings);
   const modalityRules = await resolveModalityRules(access, plan.modalityRules);
   await resolveEnrollmentService(access, plan.catalogSettings);
@@ -207,6 +208,9 @@ function normalizePlan(value?: RequestBody["plan"]) {
     },
   };
 }
+function isSupportedCycle(plan: ReturnType<typeof normalizePlan>) {
+  return intervals.includes(plan.billingInterval) && supportedCycles[plan.billingInterval] === plan.durationMonths;
+}
 function normalizeModalityRules(value?: PlanModalityInput[]) {
   const seen = new Set<string>();
   return (Array.isArray(value) ? value : []).flatMap((rule) => {
@@ -223,7 +227,7 @@ async function updatePlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   const planId = input?.id?.trim();
   if (!planId) throw new RequestError("CONTRATO INVÁLIDO.", 400);
   const plan = normalizePlan(input);
-  if (!plan.name || !intervals.includes(plan.billingInterval) || !isPositiveInteger(plan.durationMonths) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURAÇÃO E VALOR DO CONTRATO.", 400);
+  if (!plan.name || !isSupportedCycle(plan) || !isCurrency(plan.amountCents)) throw new RequestError("PREENCHA NOME, CICLO, DURAÇÃO E VALOR DO CONTRATO.", 400);
   validateCatalogSettings(plan.catalogSettings);
   const modalityRules = await resolveModalityRules(access, plan.modalityRules);
   await resolveEnrollmentService(access, plan.catalogSettings);

@@ -411,6 +411,11 @@ body {
 .xd-plans article > div:nth-child(2) { display: grid; min-width: 0; gap: 5px; }
 .xd-plans article strong { overflow: hidden; color: #2a1a37; font-family: "Chillax", sans-serif; font-size: 18px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .xd-plans article small, .xd-plans article > span { color: #7e7189; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.xd-plans article > .xd-plan-cycle { justify-self: start; display: inline-flex; align-items: center; min-height: 34px; padding: 0 13px; border: 1px solid transparent; border-radius: 999px; font-family: "Chillax", sans-serif; font-size: 15px; font-weight: 800; letter-spacing: .045em; line-height: 1; }
+.xd-plan-cycle--monthly { border-color: #a9d8f6 !important; background: #eaf7ff; color: #1870ad !important; }
+.xd-plan-cycle--semiannual { border-color: #d9b8f4 !important; background: #f7ecff; color: #7c35b1 !important; }
+.xd-plan-cycle--annual { border-color: #a8e0bd !important; background: #e9faef; color: #16834d !important; }
+.xd-plan-cycle--legacy { border-color: #ded5e4 !important; background: #f5f2f7; color: #71677a !important; }
 .xd-plans article > b { color: #16834d; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .xd-plans article .xd-secondary { min-height: 34px; padding: 0 11px; font-size: 9px; }
 .xd-contract-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 18px; background: rgba(29,17,44,.44); backdrop-filter: blur(5px); }
