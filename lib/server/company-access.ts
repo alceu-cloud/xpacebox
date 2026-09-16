@@ -13,7 +13,7 @@ export async function requireCompanyAccess(request: Request, slug: string) {
 
   if (error || !data.user) throw new AccessError("SESSAO INVALIDA.", 401);
 
-  const [{ data: company, error: companyError }, { data: profile }] = await Promise.all([
+  const [{ data: company, error: companyError }, { data: profile, error: profileError }] = await Promise.all([
     admin
       .from("companies")
       .select("id, name, slug")
@@ -29,7 +29,12 @@ export async function requireCompanyAccess(request: Request, slug: string) {
 
   if (companyError || !company) throw new AccessError("EMPRESA NAO ENCONTRADA.", 404);
 
-  if (!profile?.active) throw new AccessError("USUARIO INATIVO.", 403);
+  if (profileError) {
+    console.error("COMPANY ACCESS PROFILE LOOKUP ERROR", { userId: data.user.id, error: profileError });
+    throw new AccessError("NÃO FOI POSSÍVEL VALIDAR O PERFIL DE ACESSO. ATUALIZE A PÁGINA E TENTE NOVAMENTE.", 503);
+  }
+  if (!profile) throw new AccessError("SEU USUÁRIO NÃO POSSUI PERFIL DE ACESSO CADASTRADO.", 403);
+  if (!profile.active) throw new AccessError("SEU USUÁRIO ESTÁ DESATIVADO. PEÇA A UM GESTOR PARA REATIVÁ-LO.", 403);
 
   if (profile.platform_role !== "platform_owner") {
     const { data: membership } = await admin
