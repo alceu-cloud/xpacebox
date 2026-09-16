@@ -112,6 +112,7 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
 async function createContract(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["contract"]) {
   const contract = normalizeContract(input);
   if (!contract.studentId || !contract.planId || !contract.classGroupIds.length || !isDate(contract.saleOn) || !isDate(contract.firstDueOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO, AS GRADES E AS DATAS DA VENDA.", 400);
+  if (contract.paymentMethod === "CARTAO") throw new RequestError("O CARTÃO AINDA NÃO ESTÁ LIBERADO: FALTA A TOKENIZAÇÃO SEGURA COM O ASAAS. USE PIX NO SANDBOX POR ENQUANTO.", 409);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
     access.admin.from("xpace_people").select("id,birth_date").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
     access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,modality_rules,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
