@@ -30,7 +30,10 @@ export async function scheduleCommercialCycle(input: CycleInput) {
     .update({ next_action_type: null, next_action_at: null })
     .eq("tenant_company_id", companyId)
     .eq("client_id", clientId)
-    .eq("agenda_kind", "CYCLE")
+    // A confirmed purchase replaces the client's standalone commercial follow-up
+    // with the cadence date. Agendas tied to other open opportunities stay intact.
+    .is("opportunity_id", null)
+    .in("agenda_kind", ["CYCLE", "FOLLOW_UP"])
     .not("next_action_at", "is", null);
   if (clearError) throw clearError;
 
