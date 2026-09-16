@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>, sale: { id: string; tenant_company_id: string; contract_id: string }, eventType: string, data: Record<string, unknown>) {
   const now = new Date().toISOString();
   if (eventType === "document.finished") {
-    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,enrollment_fee_enabled,payment_method,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
+    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,first_due_on,ends_on,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,enrollment_fee_enabled,payment_method,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
     if (contractError) throw contractError;
     if (!contract) throw new Error("CONTRATO NÃO ENCONTRADO PARA A ASSINATURA.");
     const nextStatus = contract.starts_on > todayIso() ? "AGENDADO" : "ATIVO";
