@@ -16,7 +16,7 @@ type AccessPeriod = "SEM_LIMITE" | "DIA" | "SEMANA" | "MES";
 type EnrollmentChargeMode = "PRIMEIRA_PARCELA" | "RATEAR_PARCELAS";
 type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; accessPeriod?: string; accessLimit?: number | null; allowEarlyAccess?: boolean; allowReschedule?: boolean; requiresEnrollment?: boolean; limitPromotionalTimes?: boolean };
 type RequestBody = {
-  action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
+  action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "GENERATE_PIX" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
   contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; classGroupIds?: string[]; saleOn?: string; startsOn?: string; firstDueOn?: string; amountCents?: number; discountType?: string; discountValue?: number; enrollmentFeeEnabled?: boolean; paymentMethod?: string; renewsAutomatically?: boolean; status?: string; statusNote?: string; effectiveOn?: string };
 };
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
     const access = await requireCompanyAccess(request, companySlug);
     if (body.action === "CREATE_PLAN") return createPlan(access, body.plan);
     if (body.action === "CREATE_CONTRACT") return createContract(access, body.contract);
+    if (body.action === "GENERATE_PIX") return generatePix(access, body.contract?.id);
     throw new RequestError("ACAO DE CONTRATO INVALIDA.", 400);
   } catch (error) { return handleError(error); }
 }
@@ -345,6 +346,22 @@ function normalizeContract(value?: RequestBody["contract"]) {
   return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupIds, saleOn, firstDueOn: value?.firstDueOn?.trim() || saleOn, amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), discountType: value?.discountType === "PERCENTUAL" || value?.discountType === "FIXO" ? value.discountType : "", discountValue: Number(value?.discountValue ?? 0), enrollmentFeeEnabled: value?.enrollmentFeeEnabled, paymentMethod: value?.paymentMethod === "PIX" || value?.paymentMethod === "CARTAO" ? value.paymentMethod : "", renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "", effectiveOn: value?.effectiveOn?.trim() ?? "" };
 }
 
+async function generatePix(access: Awaited<ReturnType<typeof requireCompanyAccess>>, contractId?: string) {
+  const id = contractId?.trim() ?? "";
+  if (!id) throw new RequestError("CONTRATO INVÁLIDO PARA GERAR O PIX.", 400);
+  const { data: contract, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,student_id,plan_name_snapshot,payment_method,status").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
+  if (contractError) throw contractError;
+  if (!contract) throw new RequestError("CONTRATO NÃO ENCONTRADO NESTA EMPRESA.", 404);
+  if (contract.payment_method !== "PIX") throw new RequestError("ESTE CONTRATO NÃO FOI VENDIDO COM PIX.", 409);
+  if (!["ATIVO", "AGENDADO"].includes(contract.status)) throw new RequestError("SÓ É POSSÍVEL GERAR PIX PARA UM CONTRATO ATIVO OU AGENDADO.", 409);
+
+  await issueInitialPixCharge(access, contract.id, contract.student_id, contract.plan_name_snapshot);
+  const { data: charge, error: chargeError } = await access.admin.from("xpace_contract_charges").select("id,pix_copy_paste,pix_qr_code_url,provider_status,provider_error").eq("tenant_company_id", access.company.id).eq("contract_id", contract.id).order("competence_on").limit(1).maybeSingle();
+  if (chargeError) throw chargeError;
+  if (!charge?.pix_copy_paste) throw new RequestError(charge?.provider_error || "O PIX AINDA NÃO FOI GERADO. TENTE NOVAMENTE.", 409);
+  return NextResponse.json({ success: true, charge: { id: charge.id, pixCopyPaste: charge.pix_copy_paste, pixQrCodeUrl: charge.pix_qr_code_url ?? "", providerStatus: charge.provider_status ?? "PENDING" } });
+}
+
 async function issueInitialPixCharge(access: Awaited<ReturnType<typeof requireCompanyAccess>>, contractId: string, studentId: string, planName: string) {
   const [{ data: account, error: accountError }, { data: charge, error: chargeError }, { data: student, error: studentError }] = await Promise.all([
     access.admin.from("xpace_payment_accounts").select("id,account_status,provider_environment,provider_access_token_ciphertext,provider_access_token_iv,provider_access_token_auth_tag").eq("tenant_company_id", access.company.id).eq("account_status", "ATIVA").is("closed_at", null).maybeSingle(),
@@ -352,11 +369,11 @@ async function issueInitialPixCharge(access: Awaited<ReturnType<typeof requireCo
     access.admin.from("xpace_people").select("id,full_name,cpf,email,mobile").eq("tenant_company_id", access.company.id).eq("id", studentId).maybeSingle(),
   ]);
   if (accountError) throw accountError; if (chargeError) throw chargeError; if (studentError) throw studentError;
-  if (!account || !charge || charge.provider_payment_id || !student) return;
+  if (!charge || charge.provider_payment_id) return;
+  if (!account) return savePixError(access, charge.id, "NÃO HÁ UMA CONTA XPAY ATIVA PARA GERAR O PIX.");
+  if (!student) return savePixError(access, charge.id, "ALUNO NÃO ENCONTRADO PARA GERAR O PIX.");
   if (account.provider_environment !== "SANDBOX" || xPayEnvironment() !== "SANDBOX") {
-    const { error } = await access.admin.from("xpace_contract_charges").update({ provider_error: "A geração automática de PIX está liberada apenas no Sandbox nesta etapa.", updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", access.company.id);
-    if (error) throw error;
-    return;
+    return savePixError(access, charge.id, "A geração automática de PIX está liberada apenas no Sandbox nesta etapa.");
   }
   try {
     const payment = await createAsaasPixCharge(account, { person: { name: student.full_name, cpf: student.cpf ?? "", email: student.email ?? "", mobile: student.mobile ?? "" }, valueCents: charge.amount_cents, dueOn: charge.due_on, description: `XPACE · ${planName}`, externalReference: charge.id });
@@ -364,9 +381,12 @@ async function issueInitialPixCharge(access: Awaited<ReturnType<typeof requireCo
     if (error) throw error;
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : "NÃO FOI POSSÍVEL GERAR O PIX.";
-    const { error: updateError } = await access.admin.from("xpace_contract_charges").update({ provider_error: message, updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", access.company.id);
-    if (updateError) throw updateError;
+    await savePixError(access, charge.id, message);
   }
+}
+async function savePixError(access: Awaited<ReturnType<typeof requireCompanyAccess>>, chargeId: string, message: string) {
+  const { error } = await access.admin.from("xpace_contract_charges").update({ provider_error: message, updated_at: new Date().toISOString() }).eq("id", chargeId).eq("tenant_company_id", access.company.id);
+  if (error) throw error;
 }
 function requireManager(role: string) { if (!["platform_owner", "company_manager"].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR O CATALOGO DE PLANOS.", 403); }
 function isPositiveInteger(value: number) { return Number.isInteger(value) && value > 0 && value <= 60; }
