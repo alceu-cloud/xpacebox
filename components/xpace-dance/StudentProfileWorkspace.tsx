@@ -43,6 +43,20 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { void loadProfile(); }, [studentId]);
+  useEffect(() => {
+    if (tab !== "FINANCEIRO") return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadProfile({ silent: true });
+    };
+    const interval = window.setInterval(refresh, 8_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [studentId, tab]);
 
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const { data } = await supabase.auth.getSession();
@@ -54,11 +68,11 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
     return payload;
   }
 
-  async function loadProfile() {
-    setLoading(true);
+  async function loadProfile({ silent = false }: { silent?: boolean } = {}) {
+    if (!silent) setLoading(true);
     try { const payload = await request<Profile>(`/api/xpace/alunos/${studentId}`); setProfile(payload); }
     catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR O PERFIL."); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   }
 
   async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -258,7 +272,7 @@ function Finance({ charges, contracts, saving, onGeneratePix }: { charges: Profi
           <span>{date(charge.dueOn)}</span><b>{currency(charge.amountCents)}</b><span>{charge.paidAt ? currency(charge.paidAmountCents) : "—"}</span>
           <span className={`xd-charge-state xd-charge-state--${charge.status.toLowerCase()}`}>{charge.status}</span>
           <div className="xd-finance-actions">
-            {charge.pixCopyPaste ? <button type="button" className="xd-secondary" onClick={() => { setCopied(false); setPixCharge(charge); }}>VER PIX</button> : null}
+            {charge.pixCopyPaste && charge.status === "ABERTO" ? <button type="button" className="xd-secondary" onClick={() => { setCopied(false); setPixCharge(charge); }}>VER PIX</button> : null}
             {!charge.pixCopyPaste && charge.paymentMethod === "PIX" && charge.status === "ABERTO" ? <button type="button" className="xd-secondary" disabled={saving} onClick={() => void generate(charge)}>{saving ? "GERANDO..." : "GERAR PIX"}</button> : null}
             {charge.providerError ? <small className="xd-finance-error">{charge.providerError}</small> : null}
             <button type="button" className="xd-secondary" disabled={!charge.paidAt}>VER RECEBIDO</button><button type="button" className="xd-secondary" disabled>RECEBER</button>
