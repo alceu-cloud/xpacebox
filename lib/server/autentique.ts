@@ -79,11 +79,11 @@ function buildSigner(signer: Signer) {
   const cpf = digits(signer.cpf);
   if (!phone && !email) throw new AutentiqueError("INFORME CELULAR OU E-MAIL NO CADASTRO DO ALUNO PARA ENVIAR A ASSINATURA.", 409);
   const result: Record<string, unknown> = { name: signer.name, action: "SIGN" };
-  if (phone) {
+  if (email) {
+    result.email = email;
+  } else {
     result.phone = phone;
     result.delivery_method = "DELIVERY_METHOD_WHATSAPP";
-  } else {
-    result.email = email;
   }
   if (cpf.length === 11) result.configs = { cpf };
   return result;

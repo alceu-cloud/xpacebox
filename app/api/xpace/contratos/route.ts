@@ -18,7 +18,7 @@ type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; access
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
-  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; classGroupIds?: string[]; saleOn?: string; startsOn?: string; firstDueOn?: string; amountCents?: number; discountType?: string; discountValue?: number; enrollmentFeeEnabled?: boolean; paymentMethod?: string; renewsAutomatically?: boolean; status?: string; statusNote?: string };
+  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; classGroupIds?: string[]; saleOn?: string; startsOn?: string; firstDueOn?: string; amountCents?: number; discountType?: string; discountValue?: number; enrollmentFeeEnabled?: boolean; paymentMethod?: string; renewsAutomatically?: boolean; status?: string; statusNote?: string; effectiveOn?: string };
 };
 
 export async function GET(request: Request) {
@@ -155,8 +155,10 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const startsOn = contract.saleOn;
   const firstDueOn = contract.firstDueOn;
   const endsOn = endOfTerm(startsOn, plan.duration_months);
-  const signatureRequired = Boolean(plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { sendForSignature?: unknown }).sendForSignature);
-  const status: ContractStatus = signatureRequired ? "AGUARDANDO_ASSINATURA" : startsOn > today() ? "AGENDADO" : "ATIVO";
+  // A assinatura é administrada depois de concluir a venda. Ela não pode
+  // impedir a matrícula, a cobrança ou o acesso de um aluno já vendido.
+  const signatureRequired = false;
+  const status: ContractStatus = startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
   const enrollmentService = contract.enrollmentFeeEnabled === false ? null : await resolveEnrollmentService(access, plan.catalog_settings);
   const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
@@ -205,19 +207,23 @@ async function setContractStatus(access: Awaited<ReturnType<typeof requireCompan
   const { data: current, error: currentError } = await access.admin.from("xpace_student_contracts").select("id,status").eq("id", contract.id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("CONTRATO NAO ENCONTRADO.", 404);
-  const effectiveOn = contract.status === "CANCELADO" || contract.status === "ENCERRADO" || contract.status === "PAUSADO" ? todayIso() : null;
-  const { error } = await access.admin.from("xpace_student_contracts").update({ status: contract.status, status_note: contract.statusNote || null, cancelled_at: contract.status === "CANCELADO" ? new Date().toISOString() : null, cancel_effective_on: contract.status === "CANCELADO" ? effectiveOn : null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", current.id).eq("tenant_company_id", access.company.id);
+  const requestedEffectiveOn = input?.effectiveOn && isDate(input.effectiveOn) ? input.effectiveOn : todayIso();
+  const scheduledEnding = ["CANCELADO", "ENCERRADO"].includes(contract.status) && requestedEffectiveOn > todayIso();
+  const effectiveOn = contract.status === "CANCELADO" || contract.status === "ENCERRADO" || contract.status === "PAUSADO" ? requestedEffectiveOn : null;
+  const nextStatus = scheduledEnding ? current.status : contract.status;
+  const nextNote = scheduledEnding ? `ENCERRAMENTO AGENDADO PARA ${requestedEffectiveOn}.` : contract.statusNote || null;
+  const { error } = await access.admin.from("xpace_student_contracts").update({ status: nextStatus, status_note: nextNote, cancelled_at: contract.status === "CANCELADO" && !scheduledEnding ? new Date().toISOString() : null, cancel_effective_on: ["CANCELADO", "ENCERRADO"].includes(contract.status) ? effectiveOn : null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", current.id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
   if (contract.status === "CANCELADO" || contract.status === "ENCERRADO" || contract.status === "PAUSADO") {
     const { error: chargesError } = await access.admin.from("xpace_contract_charges").update({ status: "CANCELADO", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id).eq("status", "ABERTO").gte("due_on", effectiveOn);
     if (chargesError) throw chargesError;
   }
-  if (contract.status === "CANCELADO") {
+  if (contract.status === "CANCELADO" && !scheduledEnding) {
     const { error: saleError } = await access.admin.from("xpace_contract_sales").update({ status: "CANCELADA", cancelled_at: new Date().toISOString(), cancellation_reason: contract.statusNote || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id);
     if (saleError) throw saleError;
   }
-  if (current.status !== contract.status) {
-    const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: current.id, event_type: "STATUS_ALTERADO", previous_status: current.status, next_status: contract.status, note: contract.statusNote || null, created_by: access.user.id });
+  if (current.status !== nextStatus || scheduledEnding) {
+    const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: current.id, event_type: "STATUS_ALTERADO", previous_status: current.status, next_status: contract.status, note: nextNote, created_by: access.user.id });
     if (eventError) throw eventError;
   }
   return NextResponse.json({ success: true });
@@ -336,7 +342,7 @@ function normalizeContract(value?: RequestBody["contract"]) {
   const legacyGroupId = value?.classGroupId?.trim() ?? "";
   const classGroupIds = [...new Set((Array.isArray(value?.classGroupIds) ? value.classGroupIds : [legacyGroupId]).map((id) => id?.trim()).filter((id): id is string => Boolean(id)))];
   const saleOn = value?.saleOn?.trim() || value?.startsOn?.trim() || "";
-  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupIds, saleOn, firstDueOn: value?.firstDueOn?.trim() || saleOn, amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), discountType: value?.discountType === "PERCENTUAL" || value?.discountType === "FIXO" ? value.discountType : "", discountValue: Number(value?.discountValue ?? 0), enrollmentFeeEnabled: value?.enrollmentFeeEnabled, paymentMethod: value?.paymentMethod === "PIX" || value?.paymentMethod === "CARTAO" ? value.paymentMethod : "", renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
+  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupIds, saleOn, firstDueOn: value?.firstDueOn?.trim() || saleOn, amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), discountType: value?.discountType === "PERCENTUAL" || value?.discountType === "FIXO" ? value.discountType : "", discountValue: Number(value?.discountValue ?? 0), enrollmentFeeEnabled: value?.enrollmentFeeEnabled, paymentMethod: value?.paymentMethod === "PIX" || value?.paymentMethod === "CARTAO" ? value.paymentMethod : "", renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "", effectiveOn: value?.effectiveOn?.trim() ?? "" };
 }
 
 async function issueInitialPixCharge(access: Awaited<ReturnType<typeof requireCompanyAccess>>, contractId: string, studentId: string, planName: string) {
