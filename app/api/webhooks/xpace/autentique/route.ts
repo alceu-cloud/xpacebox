@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { ensureContractCharges, todayIso } from "@/lib/xpace/billing";
 import { ensureContractEnrollment } from "@/lib/xpace/enrollment";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { createAsaasPixCharge, xPayEnvironment } from "@/lib/server/xpay-asaas";
 
 type WebhookEvent = { event?: { id?: string; type?: string; data?: Record<string, unknown> } };
 
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
 async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>, sale: { id: string; tenant_company_id: string; contract_id: string }, eventType: string, data: Record<string, unknown>) {
   const now = new Date().toISOString();
   if (eventType === "document.finished") {
-    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
+    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,enrollment_fee_enabled,payment_method,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
     if (contractError) throw contractError;
     if (!contract) throw new Error("CONTRATO NÃO ENCONTRADO PARA A ASSINATURA.");
     const nextStatus = contract.starts_on > todayIso() ? "AGENDADO" : "ATIVO";
@@ -61,6 +62,7 @@ async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>
     const { error: eventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: sale.tenant_company_id, contract_id: contract.id, event_type: "ASSINATURA_CONCLUIDA", previous_status: contract.status, next_status: nextStatus, note: "CONTRATO ASSINADO VIA AUTENTIQUE.", created_by: null });
     if (eventError) throw eventError;
     await ensureContractCharges(admin, sale.tenant_company_id, { ...contract, status: nextStatus });
+    if (contract.payment_method === "PIX") await issueInitialPixCharge(admin, sale.tenant_company_id, contract);
     if (nextStatus === "ATIVO") {
       const { data: classGroups, error: classGroupsError } = await admin.from("xpace_contract_class_groups").select("class_group_id").eq("tenant_company_id", sale.tenant_company_id).eq("contract_id", contract.id);
       if (classGroupsError) throw classGroupsError;
@@ -75,6 +77,30 @@ async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>
     if (saleError) throw saleError;
     const { error: eventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: sale.tenant_company_id, contract_id: sale.contract_id, event_type: eventType === "signature.rejected" ? "ASSINATURA_RECUSADA" : "ASSINATURA_FALHOU", note: reason, created_by: null });
     if (eventError) throw eventError;
+  }
+}
+
+async function issueInitialPixCharge(admin: ReturnType<typeof createSupabaseAdmin>, companyId: string, contract: { id: string; student_id: string; payment_method: string | null; plan_name_snapshot: string }) {
+  const [{ data: account, error: accountError }, { data: charge, error: chargeError }, { data: student, error: studentError }] = await Promise.all([
+    admin.from("xpace_payment_accounts").select("id,provider_environment,provider_access_token_ciphertext,provider_access_token_iv,provider_access_token_auth_tag").eq("tenant_company_id", companyId).eq("account_status", "ATIVA").is("closed_at", null).maybeSingle(),
+    admin.from("xpace_contract_charges").select("id,amount_cents,due_on,provider_payment_id").eq("tenant_company_id", companyId).eq("contract_id", contract.id).order("competence_on").limit(1).maybeSingle(),
+    admin.from("xpace_people").select("id,full_name,cpf,email,mobile").eq("tenant_company_id", companyId).eq("id", contract.student_id).maybeSingle(),
+  ]);
+  if (accountError) throw accountError; if (chargeError) throw chargeError; if (studentError) throw studentError;
+  if (!account || !charge || charge.provider_payment_id || !student) return;
+  if (account.provider_environment !== "SANDBOX" || xPayEnvironment() !== "SANDBOX") {
+    const { error } = await admin.from("xpace_contract_charges").update({ provider_error: "A geração automática de PIX está liberada apenas no Sandbox nesta etapa.", updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", companyId);
+    if (error) throw error;
+    return;
+  }
+  try {
+    const payment = await createAsaasPixCharge(account, { person: { name: student.full_name, cpf: student.cpf ?? "", email: student.email ?? "", mobile: student.mobile ?? "" }, valueCents: charge.amount_cents, dueOn: charge.due_on, description: `XPACE · ${contract.plan_name_snapshot}`, externalReference: charge.id });
+    const { error } = await admin.from("xpace_contract_charges").update({ provider_payment_id: payment.providerPaymentId, provider_status: payment.providerStatus, pix_copy_paste: payment.pixCopyPaste || null, pix_qr_code_url: payment.pixQrCodeUrl || null, issued_at: new Date().toISOString(), provider_error: null, updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", companyId);
+    if (error) throw error;
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : "NÃO FOI POSSÍVEL GERAR O PIX.";
+    const { error: updateError } = await admin.from("xpace_contract_charges").update({ provider_error: message, updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", companyId);
+    if (updateError) throw updateError;
   }
 }
 

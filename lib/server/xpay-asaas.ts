@@ -92,6 +92,28 @@ export class XPayProviderError extends Error {
   constructor(message: string, public status = 502) { super(message); }
 }
 
+type AccountCredential = { provider_access_token_ciphertext: string | null; provider_access_token_iv: string | null; provider_access_token_auth_tag: string | null };
+type AsaasCustomer = { id?: string; name?: string };
+type AsaasPayment = { id?: string; status?: string; invoiceUrl?: string };
+type AsaasPix = { encodedImage?: string; payload?: string };
+
+export async function createAsaasPixCharge(account: AccountCredential, input: { person: { name: string; cpf: string; email?: string; mobile?: string }; valueCents: number; dueOn: string; description: string; externalReference: string }) {
+  const apiKey = decryptAccountToken(account);
+  const document = digits(input.person.cpf);
+  if (document.length !== 11) throw new XPayProviderError("INFORME O CPF DO ALUNO PARA GERAR A COBRANÇA PIX.", 409);
+  const found = await asaasRequest<{ data?: AsaasCustomer[] }>(`/customers?cpfCnpj=${encodeURIComponent(document)}`, apiKey, { method: "GET" });
+  let customerId = found.data?.[0]?.id;
+  if (!customerId) {
+    const customer = await asaasRequest<AsaasCustomer>("/customers", apiKey, { method: "POST", body: JSON.stringify({ name: input.person.name, cpfCnpj: document, email: input.person.email || undefined, mobilePhone: digits(input.person.mobile ?? "") || undefined, externalReference: input.externalReference }) });
+    customerId = customer.id;
+  }
+  if (!customerId) throw new XPayProviderError("O ASAAS NÃO RETORNOU O CLIENTE DA COBRANÇA.", 502);
+  const payment = await asaasRequest<AsaasPayment>("/payments", apiKey, { method: "POST", body: JSON.stringify({ customer: customerId, billingType: "PIX", value: input.valueCents / 100, dueDate: input.dueOn, description: input.description.slice(0, 500), externalReference: input.externalReference }) });
+  if (!payment.id) throw new XPayProviderError("O ASAAS NÃO RETORNOU A COBRANÇA PIX.", 502);
+  const pix = await asaasRequest<AsaasPix>(`/payments/${encodeURIComponent(payment.id)}/pixQrCode`, apiKey, { method: "GET" });
+  return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "" };
+}
+
 function decryptAccountToken(account: { provider_access_token_ciphertext: string | null; provider_access_token_iv: string | null; provider_access_token_auth_tag: string | null }) {
   if (!account.provider_access_token_ciphertext || !account.provider_access_token_iv || !account.provider_access_token_auth_tag) throw new XPayProviderError("A CREDENCIAL DESTA CONTA XPAY NÃO ESTÁ DISPONÍVEL.", 409);
   return decryptIntegrationCredential({ ciphertext: account.provider_access_token_ciphertext, iv: account.provider_access_token_iv, authTag: account.provider_access_token_auth_tag });
