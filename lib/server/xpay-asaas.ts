@@ -108,7 +108,11 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
     customerId = customer.id;
   }
   if (!customerId) throw new XPayProviderError("O ASAAS NÃO RETORNOU O CLIENTE DA COBRANÇA.", 502);
-  const payment = await asaasRequest<AsaasPayment>("/payments", apiKey, { method: "POST", body: JSON.stringify({ customer: customerId, billingType: "PIX", value: input.valueCents / 100, dueDate: input.dueOn, description: input.description.slice(0, 500), externalReference: input.externalReference }) });
+  // The provider can accept the payment and fail only when the QR is requested.
+  // Reconcile by our immutable local charge id before issuing another payment.
+  const existing = await asaasRequest<{ data?: AsaasPayment[] }>(`/payments?externalReference=${encodeURIComponent(input.externalReference)}&limit=10`, apiKey, { method: "GET" });
+  const payment = existing.data?.find((item) => item.id && !["CANCELED", "REFUNDED", "DELETED"].includes(item.status ?? ""))
+    ?? await asaasRequest<AsaasPayment>("/payments", apiKey, { method: "POST", body: JSON.stringify({ customer: customerId, billingType: "PIX", value: input.valueCents / 100, dueDate: input.dueOn, description: input.description.slice(0, 500), externalReference: input.externalReference }) });
   if (!payment.id) throw new XPayProviderError("O ASAAS NÃO RETORNOU A COBRANÇA PIX.", 502);
   const pix = await asaasRequest<AsaasPix>(`/payments/${encodeURIComponent(payment.id)}/pixQrCode`, apiKey, { method: "GET" });
   return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "" };
