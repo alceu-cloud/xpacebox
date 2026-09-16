@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { findOverdueCrmAgenda } from "@/lib/server/crm-overdue-agenda";
 
 const postponementPrefix = "AGENDA_ADIADA:";
 
@@ -10,17 +11,11 @@ export async function GET(request: Request) {
     if (!slug) return failure("EMPRESA NAO INFORMADA.", 400);
 
     const { admin, company, profile } = await requireCompanyAccess(request, slug);
-    const { data: agenda, error: agendaError } = await admin
-      .from("crm_activities")
-      .select("id,client_id,opportunity_id,representative_profile_id,next_action_type,next_action_at,agenda_kind")
-      .eq("tenant_company_id", company.id)
-      .eq("representative_profile_id", profile.id)
-      .not("next_action_at", "is", null)
-      .lt("next_action_at", startOfSaoPauloDay())
-      .order("next_action_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (agendaError) throw agendaError;
+    const agenda = await findOverdueCrmAgenda(admin, {
+      tenantCompanyId: company.id,
+      representativeProfileId: profile.id,
+      before: startOfSaoPauloDay(),
+    });
     if (!agenda) return NextResponse.json({ success: true, lock: null });
 
     const postponementSubject = `${postponementPrefix}${agenda.id}`;

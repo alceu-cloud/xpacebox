@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/server/company-access";
+import { findOverdueCrmAgenda } from "@/lib/server/crm-overdue-agenda";
 import type { CrmActivityInput } from "@/types/crm";
 
 export async function POST(request: Request) {
@@ -15,17 +16,11 @@ export async function POST(request: Request) {
     const { data: client } = await admin.from("clients").select("id").eq("id", input.clientId).eq("tenant_company_id", company.id).eq("active", true).maybeSingle();
     if (!client) return failure("CLIENTE NAO ENCONTRADO.", 404);
 
-    const { data: overdueAgenda, error: overdueAgendaError } = await admin
-      .from("crm_activities")
-      .select("id,client_id,opportunity_id,agenda_kind")
-      .eq("tenant_company_id", company.id)
-      .eq("representative_profile_id", profile.id)
-      .not("next_action_at", "is", null)
-      .lt("next_action_at", startOfSaoPauloDay())
-      .order("next_action_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (overdueAgendaError) throw overdueAgendaError;
+    const overdueAgenda = await findOverdueCrmAgenda(admin, {
+      tenantCompanyId: company.id,
+      representativeProfileId: profile.id,
+      before: startOfSaoPauloDay(),
+    });
     if (overdueAgenda && overdueAgenda.client_id !== input.clientId) {
       return failure("EXISTE UM ATENDIMENTO ATRASADO. REGISTRE-O ANTES DE ATUALIZAR OUTRO CLIENTE.", 409);
     }
