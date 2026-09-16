@@ -7,6 +7,7 @@ import { ArrowLeft, Box, Building2, Calculator, CircleDollarSign, ContactRound, 
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 
+import BuildRevision from "@/components/BuildRevision";
 import ModuleNavigation from "@/components/ui/ModuleNavigation";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
@@ -512,6 +513,7 @@ export default function EmpresaPage() {
           setModuloAtivo("financeiro");
         }}
       />
+      {!moduloSelecionado ? <BuildRevision /> : null}
     </main>
   );
 }

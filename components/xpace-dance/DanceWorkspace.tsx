@@ -4,6 +4,7 @@ import { ArrowUpRight, CalendarDays, ClipboardList, LayoutDashboard, MessagesSqu
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import BuildRevision from "@/components/BuildRevision";
 import CommunityWorkspace from "@/components/xpace-dance/CommunityWorkspace";
 import ContractsWorkspace from "@/components/xpace-dance/ContractsWorkspace";
 import AgendaWorkspace from "@/components/xpace-dance/AgendaWorkspace";
@@ -89,5 +90,6 @@ export default function DanceWorkspace() {
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />
       </button>)}
     </section>
+    <BuildRevision />
   </main>;
 }
