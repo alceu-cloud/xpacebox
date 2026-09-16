@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>, sale: { id: string; tenant_company_id: string; contract_id: string }, eventType: string, data: Record<string, unknown>) {
   const now = new Date().toISOString();
   if (eventType === "document.finished") {
-    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
+    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
     if (contractError) throw contractError;
     if (!contract) throw new Error("CONTRATO NÃO ENCONTRADO PARA A ASSINATURA.");
     const nextStatus = contract.starts_on > todayIso() ? "AGENDADO" : "ATIVO";
@@ -61,7 +61,12 @@ async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>
     const { error: eventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: sale.tenant_company_id, contract_id: contract.id, event_type: "ASSINATURA_CONCLUIDA", previous_status: contract.status, next_status: nextStatus, note: "CONTRATO ASSINADO VIA AUTENTIQUE.", created_by: null });
     if (eventError) throw eventError;
     await ensureContractCharges(admin, sale.tenant_company_id, { ...contract, status: nextStatus });
-    await ensureContractEnrollment(admin, { tenant_company_id: sale.tenant_company_id, student_id: contract.student_id, class_group_id: contract.class_group_id, starts_on: contract.starts_on });
+    if (nextStatus === "ATIVO") {
+      const { data: classGroups, error: classGroupsError } = await admin.from("xpace_contract_class_groups").select("class_group_id").eq("tenant_company_id", sale.tenant_company_id).eq("contract_id", contract.id);
+      if (classGroupsError) throw classGroupsError;
+      const groupIds = (classGroups ?? []).map((group) => group.class_group_id).filter(Boolean);
+      await Promise.all((groupIds.length ? groupIds : [contract.class_group_id]).map((classGroupId) => ensureContractEnrollment(admin, { tenant_company_id: sale.tenant_company_id, student_id: contract.student_id, class_group_id: classGroupId, starts_on: contract.starts_on })));
+    }
     return;
   }
   if (eventType === "signature.rejected" || eventType === "signature.delivery_failed") {

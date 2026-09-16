@@ -4,6 +4,7 @@ type ContractForCharges = {
   id: string;
   student_id: string;
   starts_on: string;
+  first_due_on: string;
   ends_on: string;
   billing_interval_snapshot: string;
   duration_months_snapshot: number;
@@ -44,7 +45,7 @@ export async function ensureContractCharges(admin: SupabaseClient, companyId: st
       contract_id: contract.id,
       student_id: contract.student_id,
       competence_on: competence,
-      due_on: competence,
+      due_on: addMonths(contract.first_due_on, guard),
       base_amount_cents: contract.base_amount_cents,
       benefit_name_snapshot: contract.benefit_name_snapshot,
       discount_type_snapshot: contract.discount_type_snapshot,

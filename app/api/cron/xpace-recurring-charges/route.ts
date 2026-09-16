@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const { data: company, error: companyError } = await admin.from("companies").select("id").eq("slug", "xpace").eq("active", true).maybeSingle();
     if (companyError) throw companyError;
     if (!company) return NextResponse.json({ success: true, generatedFor: 0 });
-    const { data: contracts, error: contractsError } = await admin.from("xpace_student_contracts").select("id,student_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").eq("tenant_company_id", company.id).in("status", ["AGENDADO", "ATIVO", "PAUSADO"]).limit(1000);
+    const { data: contracts, error: contractsError } = await admin.from("xpace_student_contracts").select("id,student_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").eq("tenant_company_id", company.id).in("status", ["AGENDADO", "ATIVO", "PAUSADO"]).limit(1000);
     if (contractsError) throw contractsError;
     await Promise.all((contracts ?? []).map((contract) => ensureContractCharges(admin, company.id, contract)));
     return NextResponse.json({ success: true, generatedFor: contracts?.length ?? 0 });

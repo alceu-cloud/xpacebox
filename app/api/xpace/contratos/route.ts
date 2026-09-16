@@ -17,7 +17,7 @@ type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; access
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
-  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; saleOn?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
+  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; classGroupIds?: string[]; saleOn?: string; startsOn?: string; firstDueOn?: string; amountCents?: number; discountType?: string; discountValue?: number; enrollmentFeeEnabled?: boolean; paymentMethod?: string; renewsAutomatically?: boolean; status?: string; statusNote?: string };
 };
 
 export async function GET(request: Request) {
@@ -110,7 +110,7 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
 
 async function createContract(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["contract"]) {
   const contract = normalizeContract(input);
-  if (!contract.studentId || !contract.planId || !contract.classGroupId || !isDate(contract.saleOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO, A GRADE E A DATA DA VENDA.", 400);
+  if (!contract.studentId || !contract.planId || !contract.classGroupIds.length || !isDate(contract.saleOn) || !isDate(contract.firstDueOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO, AS GRADES E AS DATAS DA VENDA.", 400);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
     access.admin.from("xpace_people").select("id,birth_date").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
     access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,modality_rules,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
@@ -122,48 +122,67 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (!student) throw new RequestError("ALUNO NAO ENCONTRADO NA COMUNIDADE.", 404);
   if (!plan?.active) throw new RequestError("ESCOLHA UM PLANO ATIVO.", 400);
   validateSaleRestrictions(plan.catalog_settings, student.birth_date);
-  const { data: classGroup, error: classGroupError } = await access.admin.from("xpace_class_groups").select("id,name,modality_id").eq("id", contract.classGroupId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
+  const { data: classGroups, error: classGroupError } = await access.admin.from("xpace_class_groups").select("id,name,modality_id").eq("tenant_company_id", access.company.id).eq("active", true).in("id", contract.classGroupIds);
   if (classGroupError) throw classGroupError;
-  if (!classGroup?.modality_id || !(Array.isArray(plan.modality_rules) ? plan.modality_rules : []).some((rule) => rule && typeof rule === "object" && (rule as { modalityId?: unknown }).modalityId === classGroup.modality_id)) throw new RequestError("A GRADE ESCOLHIDA NÃO PERTENCE A UMA MODALIDADE DESTE CONTRATO.", 409);
-  const { data: classSchedules, error: classSchedulesError } = await access.admin.from("xpace_class_schedules").select("weekday,starts_at,ends_at").eq("tenant_company_id", access.company.id).eq("class_group_id", classGroup.id).eq("active", true).order("weekday").order("starts_at");
+  if ((classGroups ?? []).length !== contract.classGroupIds.length) throw new RequestError("SELECIONE APENAS GRADES ATIVAS DA XPACE.", 409);
+  const rules = (Array.isArray(plan.modality_rules) ? plan.modality_rules : []) as Array<{ modalityId?: string; sessionsPerWeek?: number }>;
+  const ruleByModality = new Map(rules.filter((rule) => rule?.modalityId).map((rule) => [String(rule.modalityId), Number(rule.sessionsPerWeek)]));
+  const selectedPerModality = new Map<string, number>();
+  for (const group of classGroups ?? []) {
+    if (!group.modality_id || !ruleByModality.has(group.modality_id)) throw new RequestError("A GRADE ESCOLHIDA NÃO PERTENCE A UMA MODALIDADE DESTE CONTRATO.", 409);
+    selectedPerModality.set(group.modality_id, (selectedPerModality.get(group.modality_id) ?? 0) + 1);
+  }
+  for (const [modalityId, sessionsPerWeek] of ruleByModality) {
+    const selected = selectedPerModality.get(modalityId) ?? 0;
+    if (!selected) throw new RequestError("SELECIONE AO MENOS UMA GRADE PARA CADA MODALIDADE DO CONTRATO.", 409);
+    if (selected > sessionsPerWeek) throw new RequestError(`ESTE CONTRATO PERMITE APENAS ${sessionsPerWeek} HORÁRIO(S) POR SEMANA NESTA MODALIDADE.`, 409);
+  }
+  const { data: classSchedules, error: classSchedulesError } = await access.admin.from("xpace_class_schedules").select("class_group_id,weekday,starts_at,ends_at").eq("tenant_company_id", access.company.id).in("class_group_id", contract.classGroupIds).eq("active", true).order("weekday").order("starts_at");
   if (classSchedulesError) throw classSchedulesError;
-  if (!(classSchedules ?? []).length) throw new RequestError("A GRADE ESCOLHIDA NÃO POSSUI HORÁRIOS ATIVOS.", 409);
+  if ((classGroups ?? []).some((group) => !(classSchedules ?? []).some((schedule) => schedule.class_group_id === group.id))) throw new RequestError("UMA DAS GRADES ESCOLHIDAS NÃO POSSUI HORÁRIOS ATIVOS.", 409);
   if (plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit !== "MÊS") throw new RequestError("A VENDA DE CONTRATOS COM DURAÇÃO EM DIA OU SEMANA SERÁ LIBERADA QUANDO AS REGRAS FINANCEIRAS FOREM DEFINIDAS.", 400);
   const { data: benefitProfile, error: benefitProfileError } = activeBenefit ? await access.admin.from("xpace_benefit_profiles").select("id,name,discount_type,discount_value").eq("id", activeBenefit.benefit_profile_id).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle() : { data: null, error: null };
   if (benefitProfileError) throw benefitProfileError;
+  const manualDiscount = contract.discountType === "PERCENTUAL" || contract.discountType === "FIXO"
+    ? { discountType: contract.discountType, discountValue: Math.max(0, Math.floor(contract.discountValue ?? 0)) } as const
+    : null;
   const benefitDiscount = benefitProfile ? { discountType: benefitProfile.discount_type as "PERCENTUAL" | "FIXO", discountValue: benefitProfile.discount_value } : null;
-  const benefitAmount = calculateDiscountedAmount(plan.amount_cents, benefitDiscount);
-  const amountCents = contract.amountCents === undefined || contract.amountCents === plan.amount_cents ? benefitAmount : contract.amountCents;
+  const appliedDiscount = manualDiscount ?? benefitDiscount;
+  const amountCents = calculateDiscountedAmount(plan.amount_cents, appliedDiscount);
   if (!isCurrency(amountCents)) throw new RequestError("VALOR DO CONTRATO INVALIDO.", 400);
   const startsOn = contract.saleOn;
-  const firstDueOn = startsOn;
+  const firstDueOn = contract.firstDueOn;
   const endsOn = endOfTerm(startsOn, plan.duration_months);
   const signatureRequired = Boolean(plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { sendForSignature?: unknown }).sendForSignature);
   const status: ContractStatus = signatureRequired ? "AGUARDANDO_ASSINATURA" : startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
-  const enrollmentService = await resolveEnrollmentService(access, plan.catalog_settings);
+  const enrollmentService = contract.enrollmentFeeEnabled === false ? null : await resolveEnrollmentService(access, plan.catalog_settings);
   const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
   const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGUARDANDO_ASSINATURA", "AGENDADO", "ATIVO", "PAUSADO"]);
   if (conflictError) throw conflictError;
   if ((existing ?? []).some((item) => item.renews_automatically || (item.starts_on <= endsOn && item.ends_on >= startsOn))) throw new RequestError("ESTE ALUNO JÁ POSSUI UM CONTRATO EM VIGOR PARA ESTE PLANO.", 409);
-  const manuallyDiscounted = amountCents !== benefitAmount;
-  const snapshot = benefitProfile && !manuallyDiscounted
+  const snapshot = benefitProfile && !manualDiscount
     ? { benefit_profile_id: benefitProfile.id, benefit_name_snapshot: benefitProfile.name, discount_type_snapshot: benefitProfile.discount_type, discount_value_snapshot: benefitProfile.discount_value }
-    : manuallyDiscounted
-      ? { benefit_profile_id: null, benefit_name_snapshot: "CONDIÇÃO COMERCIAL", discount_type_snapshot: "FIXO", discount_value_snapshot: Math.max(0, plan.amount_cents - amountCents) }
+    : manualDiscount
+      ? { benefit_profile_id: null, benefit_name_snapshot: "CONDIÇÃO COMERCIAL", discount_type_snapshot: manualDiscount.discountType, discount_value_snapshot: manualDiscount.discountValue }
       : { benefit_profile_id: null, benefit_name_snapshot: null, discount_type_snapshot: null, discount_value_snapshot: null };
-  const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, class_group_id: classGroup.id, class_group_name_snapshot: classGroup.name, class_schedule_snapshot: classSchedules ?? [], plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, enrollment_fee_enabled: Boolean(enrollmentService), renews_automatically: renewsAutomatically, starts_on: startsOn, first_due_on: firstDueOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
+  const primaryGroup = (classGroups ?? [])[0];
+  if (!primaryGroup) throw new RequestError("SELECIONE UMA GRADE ATIVA.", 409);
+  const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, class_group_id: primaryGroup.id, class_group_name_snapshot: primaryGroup.name, class_schedule_snapshot: classSchedules ?? [], plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, enrollment_fee_enabled: Boolean(enrollmentService), payment_method: contract.paymentMethod || null, renews_automatically: renewsAutomatically, starts_on: startsOn, first_due_on: firstDueOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
-  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, enrollment_fee_enabled: Boolean(enrollmentService), status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signed_at: null, created_by: access.user.id, updated_by: access.user.id });
+  const discountCents = Math.max(0, plan.amount_cents - amountCents);
+  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signed_at: null, created_by: access.user.id, updated_by: access.user.id });
   if (saleError) {
     await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
     throw saleError;
   }
+  const { error: groupsError } = await access.admin.from("xpace_contract_class_groups").insert((classGroups ?? []).map((group) => ({ tenant_company_id: access.company.id, contract_id: saved.id, class_group_id: group.id, modality_id: group.modality_id })));
+  if (groupsError) throw groupsError;
   const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: saved.id, event_type: "CRIADO", next_status: status, created_by: access.user.id });
   if (eventError) throw eventError;
   if (!signatureRequired) {
     await ensureContractCharges(access.admin, access.company.id, saved);
-    await ensureContractEnrollment(access.admin, { tenant_company_id: access.company.id, student_id: saved.student_id, class_group_id: saved.class_group_id, starts_on: saved.starts_on });
+    if (status === "ATIVO") await Promise.all((classGroups ?? []).map((group) => ensureContractEnrollment(access.admin, { tenant_company_id: access.company.id, student_id: saved.student_id, class_group_id: group.id, starts_on: saved.starts_on })));
   }
   return NextResponse.json({ success: true, pendingSignature: signatureRequired, contract: { id: saved.id, contractNumber: saved.contract_number } }, { status: 201 });
 }
@@ -311,7 +330,10 @@ async function resolveEnrollmentService(access: Awaited<ReturnType<typeof requir
   return { id: data.id, description: data.description, salePriceCents: data.sale_price_cents, chargeMode: settings.enrollmentChargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as EnrollmentChargeMode : "PRIMEIRA_PARCELA" as EnrollmentChargeMode };
 }
 function normalizeContract(value?: RequestBody["contract"]) {
-  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupId: value?.classGroupId?.trim() ?? "", saleOn: value?.saleOn?.trim() || value?.startsOn?.trim() || "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
+  const legacyGroupId = value?.classGroupId?.trim() ?? "";
+  const classGroupIds = [...new Set((Array.isArray(value?.classGroupIds) ? value.classGroupIds : [legacyGroupId]).map((id) => id?.trim()).filter((id): id is string => Boolean(id)))];
+  const saleOn = value?.saleOn?.trim() || value?.startsOn?.trim() || "";
+  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupIds, saleOn, firstDueOn: value?.firstDueOn?.trim() || saleOn, amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), discountType: value?.discountType === "PERCENTUAL" || value?.discountType === "FIXO" ? value.discountType : "", discountValue: Number(value?.discountValue ?? 0), enrollmentFeeEnabled: value?.enrollmentFeeEnabled, paymentMethod: value?.paymentMethod === "PIX" || value?.paymentMethod === "CARTAO" ? value.paymentMethod : "", renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
 }
 function requireManager(role: string) { if (!["platform_owner", "company_manager"].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR O CATALOGO DE PLANOS.", 403); }
 function isPositiveInteger(value: number) { return Number.isInteger(value) && value > 0 && value <= 60; }
