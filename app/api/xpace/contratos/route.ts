@@ -17,7 +17,7 @@ type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; access
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
-  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
+  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; saleOn?: string; startsOn?: string; amountCents?: number; renewsAutomatically?: boolean; status?: string; statusNote?: string };
 };
 
 export async function GET(request: Request) {
@@ -110,7 +110,7 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
 
 async function createContract(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["contract"]) {
   const contract = normalizeContract(input);
-  if (!contract.studentId || !contract.planId || !contract.classGroupId || !isDate(contract.startsOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO, A GRADE E A DATA DE INÍCIO.", 400);
+  if (!contract.studentId || !contract.planId || !contract.classGroupId || !isDate(contract.saleOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO, A GRADE E A DATA DA VENDA.", 400);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
     access.admin.from("xpace_people").select("id,birth_date").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
     access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,modality_rules,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
@@ -135,7 +135,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const benefitAmount = calculateDiscountedAmount(plan.amount_cents, benefitDiscount);
   const amountCents = contract.amountCents === undefined || contract.amountCents === plan.amount_cents ? benefitAmount : contract.amountCents;
   if (!isCurrency(amountCents)) throw new RequestError("VALOR DO CONTRATO INVALIDO.", 400);
-  const startsOn = contract.startsOn;
+  const startsOn = contract.saleOn;
   const endsOn = endOfTerm(startsOn, plan.duration_months);
   const signatureRequired = Boolean(plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { sendForSignature?: unknown }).sendForSignature);
   const status: ContractStatus = signatureRequired ? "AGUARDANDO_ASSINATURA" : startsOn > today() ? "AGENDADO" : "ATIVO";
@@ -153,7 +153,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
       : { benefit_profile_id: null, benefit_name_snapshot: null, discount_type_snapshot: null, discount_value_snapshot: null };
   const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, class_group_id: classGroup.id, class_group_name_snapshot: classGroup.name, class_schedule_snapshot: classSchedules ?? [], plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, renews_automatically: renewsAutomatically, starts_on: startsOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,class_group_id,starts_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
-  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signed_at: null, created_by: access.user.id, updated_by: access.user.id });
+  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signed_at: null, created_by: access.user.id, updated_by: access.user.id });
   if (saleError) {
     await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
     throw saleError;
@@ -310,7 +310,7 @@ async function resolveEnrollmentService(access: Awaited<ReturnType<typeof requir
   return { id: data.id, description: data.description, salePriceCents: data.sale_price_cents, chargeMode: settings.enrollmentChargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as EnrollmentChargeMode : "PRIMEIRA_PARCELA" as EnrollmentChargeMode };
 }
 function normalizeContract(value?: RequestBody["contract"]) {
-  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupId: value?.classGroupId?.trim() ?? "", startsOn: value?.startsOn?.trim() ?? "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
+  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupId: value?.classGroupId?.trim() ?? "", saleOn: value?.saleOn?.trim() || value?.startsOn?.trim() || "", amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "" };
 }
 function requireManager(role: string) { if (!["platform_owner", "company_manager"].includes(role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR O CATALOGO DE PLANOS.", 403); }
 function isPositiveInteger(value: number) { return Number.isInteger(value) && value > 0 && value <= 60; }
