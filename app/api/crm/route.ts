@@ -20,11 +20,10 @@ export async function GET(request: Request) {
     if (!isManager) telephonyCallsQuery = telephonyCallsQuery.eq("representative_profile_id", profile.id);
     let samplesQuery = admin
       .from("client_samples")
-      .select("id,client_id,responsible_profile_id,delivery_date,status,product_description")
+      .select("id,client_id,responsible_profile_id,delivery_date,production_due_date,customer_delivery_date,approval_due_date,status,product_description")
       .eq("tenant_company_id", company.id)
       .is("closed_at", null)
-      .not("delivery_date", "is", null)
-      .order("delivery_date", { ascending: true })
+      .in("status", ["REQUESTED", "IN_PRODUCTION", "READY", "SENT"])
       .limit(500);
     if (!isManager) samplesQuery = samplesQuery.eq("responsible_profile_id", profile.id);
 
@@ -161,14 +160,10 @@ export async function GET(request: Request) {
         })),
         quotes: [...quoteMap.entries()].map(([clientId, value]) => ({ clientId, ...value })),
         expiredQuotes: [...expiredQuoteMap.entries()].map(([clientId, count]) => ({ clientId, count })),
-        samples: (samplesResult.data ?? []).map((row) => ({
-          id: row.id,
-          clientId: row.client_id,
-          responsibleProfileId: row.responsible_profile_id || "",
-          deliveryDate: row.delivery_date || "",
-          status: row.status || "",
-          productDescription: row.product_description || "",
-        })),
+        samples: (samplesResult.data ?? []).map((row) => {
+          const control = sampleControl(row);
+          return { id: row.id, clientId: row.client_id, responsibleProfileId: row.responsible_profile_id || "", deliveryDate: control.dueDate, controlStage: control.stage, status: row.status || "", productDescription: row.product_description || "" };
+        }).filter((sample) => Boolean(sample.deliveryDate)),
         whatsappConnections: (connectionsResult.data ?? []).map((row) => ({
           sellerCompanyId: row.seller_company_id,
           sellerCompanyName: sellerNames.get(row.seller_company_id) || "EMPRESA",
@@ -183,6 +178,14 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleError(error);
   }
+}
+
+function sampleControl(row: Record<string, unknown>) {
+  const status = String(row.status || "REQUESTED");
+  if (["REQUESTED", "IN_PRODUCTION"].includes(status)) return { stage: "PRODUCAO" as const, dueDate: String(row.production_due_date || row.delivery_date || "") };
+  if (status === "READY") return { stage: "ENTREGA" as const, dueDate: String(row.customer_delivery_date || "") };
+  if (status === "SENT") return { stage: "APROVACAO" as const, dueDate: String(row.approval_due_date || "") };
+  return { stage: "PRODUCAO" as const, dueDate: "" };
 }
 
 async function activateDueCommercialCycles({

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { deleteClientSample, loadClientSamples, saveClientSample } from "@/lib/amostras";
+import { deleteClientSample, loadClientSamples, saveClientSample, transitionClientSample } from "@/lib/amostras";
+import type { SampleTransitionAction } from "@/lib/amostras";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
@@ -15,8 +16,14 @@ const emptyForm: ClientSampleFormData = {
   responsibleProfileId: "",
   requestedAt: today,
   deliveryDate: "",
+  productionDueDate: "",
+  readyAt: "",
+  customerDeliveryDate: "",
+  deliveredAt: "",
+  approvalDueDate: "",
+  approvedAt: "",
   closedAt: "",
-  status: "REQUESTED",
+  status: "IN_PRODUCTION",
   productFichaId: "",
   productDescription: "",
   dimensions: "",
@@ -29,7 +36,8 @@ const emptyForm: ClientSampleFormData = {
 const statusOptions: Array<{ value: SampleStatus; label: string }> = [
   { value: "REQUESTED", label: "SOLICITADA" },
   { value: "IN_PRODUCTION", label: "EM PRODUCAO" },
-  { value: "SENT", label: "ENVIADA" },
+  { value: "READY", label: "PRONTA PARA ENTREGA" },
+  { value: "SENT", label: "ENTREGUE AO CLIENTE" },
   { value: "APPROVED", label: "APROVADA" },
   { value: "REJECTED", label: "REPROVADA" },
   { value: "CANCELLED", label: "CANCELADA" },
@@ -55,6 +63,8 @@ export default function AmostrasEmpresa({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [transition, setTransition] = useState<{ sample: ClientSampleRecord; action: SampleTransitionAction } | null>(null);
+  const [transitionDueDate, setTransitionDueDate] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -137,6 +147,12 @@ export default function AmostrasEmpresa({
       responsibleProfileId: sample.responsibleProfileId,
       requestedAt: sample.requestedAt,
       deliveryDate: sample.deliveryDate,
+      productionDueDate: sample.productionDueDate,
+      readyAt: sample.readyAt,
+      customerDeliveryDate: sample.customerDeliveryDate,
+      deliveredAt: sample.deliveredAt,
+      approvalDueDate: sample.approvalDueDate,
+      approvedAt: sample.approvedAt,
       closedAt: sample.closedAt,
       status: sample.status,
       productFichaId: sample.productFichaId,
@@ -165,18 +181,45 @@ export default function AmostrasEmpresa({
     }
   }
 
+  function startTransition(sample: ClientSampleRecord, action: SampleTransitionAction) {
+    setTransition({ sample, action });
+    setTransitionDueDate("");
+  }
+
+  async function confirmTransition() {
+    if (!transition) return;
+    const requiresNextDeadline = ["MARK_READY", "MARK_DELIVERED"].includes(transition.action);
+    if (requiresNextDeadline && !transitionDueDate) {
+      setError("INFORME O PROXIMO PRAZO PARA CONTINUAR.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await transitionClientSample(slug, transition.sample.id, transition.action, transitionDueDate);
+      setSamples(await loadClientSamples(slug));
+      setMessage(transitionMessage(transition.action, transition.sample.sampleCode));
+      setTransition(null);
+    } catch (transitionError) {
+      setError(messageFrom(transitionError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <section className="samples-shell">
       <header className="samples-header">
         <div>
           <span className="clients-eyebrow">CONTROLE DE AMOSTRAS</span>
           <h2>AMOSTRAS DE CLIENTES</h2>
-          <p>CADASTRE SOLICITACOES, ACOMPANHE PRAZOS E MANTENHA O HISTORICO POR CLIENTE.</p>
+          <p>CONTROLE PRODUCAO, ENTREGA AO CLIENTE E APROVACAO COM UM PRAZO PARA CADA ETAPA.</p>
         </div>
         <div className="samples-summary">
           <Summary label="ABERTAS" value={samples.filter((sample) => !sample.closedAt).length} />
           <Summary label="BAIXADAS" value={samples.filter((sample) => Boolean(sample.closedAt)).length} />
-          <Summary label="COM PRAZO" value={samples.filter((sample) => !sample.closedAt && sample.deliveryDate).length} />
+          <Summary label="COM PRAZO" value={samples.filter((sample) => !sample.closedAt && sample.controlDueDate).length} />
         </div>
       </header>
 
@@ -189,9 +232,7 @@ export default function AmostrasEmpresa({
           <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
           <SampleSelect label="CONSULTOR DE VENDAS" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
           <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
-          <SampleInput label="ENTREGA PREVISTA" type="date" value={form.deliveryDate} onChange={(value) => update("deliveryDate", value)} />
-          <SampleInput label="DATA DA BAIXA" type="date" value={form.closedAt} onChange={(value) => update("closedAt", value)} />
-          <SampleSelect label="STATUS" value={form.status} onChange={(value) => update("status", value)} options={statusOptions} />
+          <SampleInput label="PRAZO PARA FICAR PRONTA" type="date" value={form.productionDueDate} onChange={(value) => update("productionDueDate", value)} />
           <SampleSelect label="ITEM CADASTRADO" value={form.productFichaId} onChange={selectProductFicha} options={clientFichas.map((ficha) => ({ value: ficha.id, label: productFichaLabel(ficha) }))} />
           <SampleInput label="QUANTIDADE" type="number" value={form.quantity} onChange={(value) => update("quantity", value)} />
           <label className="samples-field samples-span-2">
@@ -242,11 +283,12 @@ export default function AmostrasEmpresa({
                 </div>
                 <dl>
                   <div><dt>QTDE.</dt><dd>{sample.quantity}</dd></div>
-                  <div><dt>ENTREGA</dt><dd>{displayDate(sample.deliveryDate)}</dd></div>
-                  <div><dt>BAIXA</dt><dd>{displayDate(sample.closedAt)}</dd></div>
+                  <div><dt>{stageLabel(sample.controlStage)}</dt><dd>{displayDate(sample.controlDueDate)}</dd></div>
+                  <div><dt>CONCLUSAO</dt><dd>{displayDate(sample.closedAt)}</dd></div>
                   <div><dt>CONSULTOR</dt><dd>{sample.responsibleName || "-"}</dd></div>
                 </dl>
                 <div className="samples-card-actions">
+                  {sampleActions(sample).map((action) => <button key={action.action} type="button" className={action.action === "REJECT" ? "danger" : ""} onClick={() => startTransition(sample, action.action)}>{action.label}</button>)}
                   <button type="button" onClick={() => handleEdit(sample)}>EDITAR</button>
                   <button type="button" className="danger" onClick={() => handleDelete(sample)}>EXCLUIR</button>
                 </div>
@@ -255,6 +297,7 @@ export default function AmostrasEmpresa({
           </div>
         ) : null}
       </section>
+      {transition ? <div className="samples-transition-backdrop" role="presentation"><section className="samples-transition-dialog" role="dialog" aria-modal="true" aria-labelledby="samples-transition-title"><span className="clients-eyebrow">FLUXO DA AMOSTRA</span><h3 id="samples-transition-title">{transitionTitle(transition.action)}</h3><p>{transition.sample.sampleCode} · {transition.sample.clientName}</p>{["MARK_READY", "MARK_DELIVERED"].includes(transition.action) ? <SampleInput label={transition.action === "MARK_READY" ? "DATA PREVISTA PARA ENTREGAR AO CLIENTE" : "DATA LIMITE PARA APROVACAO DO CLIENTE"} type="date" value={transitionDueDate} onChange={setTransitionDueDate} /> : <p className="samples-transition-confirm">CONFIRME A DECISAO PARA ENCERRAR ESTA ETAPA.</p>}<div className="samples-actions"><button type="button" className="clients-button-secondary" onClick={() => setTransition(null)} disabled={saving}>CANCELAR</button><button type="button" className="clients-button-primary" onClick={() => void confirmTransition()} disabled={saving}>{saving ? "SALVANDO..." : "CONFIRMAR"}</button></div></section></div> : null}
     </section>
   );
 }
@@ -290,6 +333,29 @@ function displayDate(value: string) {
 
 function statusLabel(status: SampleStatus) {
   return statusOptions.find((item) => item.value === status)?.label || status;
+}
+
+function stageLabel(stage: ClientSampleRecord["controlStage"]) {
+  return stage === "PRODUCAO" ? "FICAR PRONTA" : stage === "ENTREGA" ? "ENTREGAR CLIENTE" : stage === "APROVACAO" ? "APROVACAO" : "ENCERRADA";
+}
+
+function sampleActions(sample: ClientSampleRecord): Array<{ action: SampleTransitionAction; label: string }> {
+  if (["REQUESTED", "IN_PRODUCTION"].includes(sample.status)) return [{ action: "MARK_READY", label: "MARCAR PRONTA" }];
+  if (sample.status === "READY") return [{ action: "MARK_DELIVERED", label: "MARCAR ENTREGUE" }];
+  if (sample.status === "SENT") return [{ action: "APPROVE", label: "APROVAR" }, { action: "REJECT", label: "REPROVAR" }];
+  return [];
+}
+
+function transitionTitle(action: SampleTransitionAction) {
+  if (action === "MARK_READY") return "AMOSTRA PRONTA";
+  if (action === "MARK_DELIVERED") return "AMOSTRA ENTREGUE";
+  return action === "APPROVE" ? "APROVAR AMOSTRA" : "REPROVAR AMOSTRA";
+}
+
+function transitionMessage(action: SampleTransitionAction, sampleCode: string) {
+  if (action === "MARK_READY") return `${sampleCode} MARCADA COMO PRONTA. O PRAZO DE ENTREGA AO CLIENTE ESTA ATIVO.`;
+  if (action === "MARK_DELIVERED") return `${sampleCode} MARCADA COMO ENTREGUE. O PRAZO DE APROVACAO ESTA ATIVO.`;
+  return `${sampleCode} ${action === "APPROVE" ? "APROVADA" : "REPROVADA"} E ENCERRADA.`;
 }
 
 function productFichaLabel(ficha: ProductFicha) {

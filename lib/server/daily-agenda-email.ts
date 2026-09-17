@@ -46,6 +46,8 @@ type SampleRequestEmail = {
 
 type SampleOverdueEmail = SampleRequestEmail & {
   overdueDays: number;
+  controlStage: "PRODUCAO" | "ENTREGA" | "APROVACAO";
+  controlDueLabel: string;
 };
 
 type QuoteEmailInput = {
@@ -181,14 +183,14 @@ export async function sendScheduledSampleOverdueEmails() {
 
   const { data: rows, error: samplesError } = await admin
     .from("client_samples")
-    .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,product_description,quantity,notes,status,closed_at")
+    .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,production_due_date,customer_delivery_date,approval_due_date,product_description,quantity,notes,status,closed_at")
     .eq("tenant_company_id", dawos.id)
-    .is("closed_at", null)
-    .not("delivery_date", "is", null)
-    .lt("delivery_date", scheduledFor);
+    .is("closed_at", null);
   if (samplesError) throw samplesError;
 
-  const openSamples = (rows ?? []).filter((sample) => !["APPROVED", "REJECTED", "CANCELLED"].includes(String(sample.status)));
+  const openSamples = (rows ?? [])
+    .map((sample) => ({ ...sample, control: sampleOverdueControl(sample) }))
+    .filter((sample) => Boolean(sample.control.dueDate) && sample.control.dueDate < scheduledFor);
   if (!openSamples.length) return { sent: 0, skipped: 0, failed: 0, overdue: 0 };
 
   const clientIds = [...new Set(openSamples.map((sample) => String(sample.client_id || "")).filter(Boolean))];
@@ -207,7 +209,7 @@ export async function sendScheduledSampleOverdueEmails() {
 
   const results = { sent: 0, skipped: 0, failed: 0, overdue: openSamples.length };
   for (const sample of openSamples) {
-    const overdueDays = calendarDaysBetween(String(sample.delivery_date), scheduledFor);
+    const overdueDays = calendarDaysBetween(sample.control.dueDate, scheduledFor);
     const consultantEmail = consultantEmails.get(String(sample.responsible_profile_id || "")) || "";
     const recipientEmail = ["ppcp@dawos.com.br", "suporte@dawos.com.br", consultantEmail].filter(Boolean).join(", ");
     const { data: delivery, error: insertError } = await admin
@@ -215,12 +217,13 @@ export async function sendScheduledSampleOverdueEmails() {
       .upsert({
         tenant_company_id: dawos.id,
         sample_id: sample.id,
+        control_stage: sample.control.stage,
         scheduled_for: scheduledFor,
         recipient_email: recipientEmail,
         overdue_days: overdueDays,
         status: "PENDING",
         updated_at: new Date().toISOString(),
-      }, { onConflict: "sample_id,scheduled_for", ignoreDuplicates: true })
+      }, { onConflict: "sample_id,control_stage,scheduled_for", ignoreDuplicates: true })
       .select("id")
       .maybeSingle();
     if (insertError) throw insertError;
@@ -238,10 +241,12 @@ export async function sendScheduledSampleOverdueEmails() {
         productDescription: String(sample.product_description || "ITEM SEM DESCRICAO"),
         quantity: Number(sample.quantity || 0),
         requestedAt: String(sample.requested_at || ""),
-        deliveryDate: String(sample.delivery_date || ""),
+        deliveryDate: sample.control.dueDate,
         notes: String(sample.notes || ""),
         consultantEmail,
         overdueDays,
+        controlStage: sample.control.stage,
+        controlDueLabel: sample.control.label,
       });
       const { error } = await admin
         .from("sample_overdue_email_deliveries")
@@ -261,6 +266,14 @@ export async function sendScheduledSampleOverdueEmails() {
   }
 
   return results;
+}
+
+function sampleOverdueControl(sample: Record<string, unknown>) {
+  const status = String(sample.status || "REQUESTED");
+  if (["REQUESTED", "IN_PRODUCTION"].includes(status)) return { stage: "PRODUCAO" as const, dueDate: String(sample.production_due_date || sample.delivery_date || ""), label: "PRAZO PARA FICAR PRONTA" };
+  if (status === "READY") return { stage: "ENTREGA" as const, dueDate: String(sample.customer_delivery_date || ""), label: "PRAZO PARA ENTREGAR AO CLIENTE" };
+  if (status === "SENT") return { stage: "APROVACAO" as const, dueDate: String(sample.approval_due_date || ""), label: "PRAZO PARA APROVACAO DO CLIENTE" };
+  return { stage: "PRODUCAO" as const, dueDate: "", label: "PRAZO DA AMOSTRA" };
 }
 
 async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
@@ -582,22 +595,22 @@ function renderText(input: RecipientAgenda & { appUrl: string; date: string; tes
 
 function renderSampleRequestHtml(input: SampleRequestEmail & { appUrl: string }) {
   const notes = input.notes ? escapeHtml(input.notes).replace(/\n/g, "<br>") : "SEM OBSERVACOES.";
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#e68019;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">NOVA AMOSTRA SOLICITADA</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">A PROGRAMACAO DE UMA NOVA AMOSTRA FOI REGISTRADA.</p><section style="padding:18px;border:1px solid #e8e3eb;border-left:4px solid #e68019;border-radius:8px;background:#fff"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>DATA DA SOLICITACAO:</strong> ${formatDate(input.requestedAt)}<br><strong>ENTREGA PREVISTA:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#7435d9;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#e68019;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">NOVA AMOSTRA SOLICITADA</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">A PROGRAMACAO DE UMA NOVA AMOSTRA FOI REGISTRADA.</p><section style="padding:18px;border:1px solid #e8e3eb;border-left:4px solid #e68019;border-radius:8px;background:#fff"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>DATA DA SOLICITACAO:</strong> ${formatDate(input.requestedAt)}<br><strong>PRAZO PARA FICAR PRONTA:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#7435d9;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
 }
 
 function renderSampleRequestText(input: SampleRequestEmail & { appUrl: string }) {
-  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nNOVA AMOSTRA SOLICITADA\n\n${input.sampleCode} - ${input.productDescription}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nENTREGA PREVISTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
+  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nNOVA AMOSTRA SOLICITADA\n\n${input.sampleCode} - ${input.productDescription}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nPRAZO PARA FICAR PRONTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
 }
 
 function renderSampleOverdueHtml(input: SampleOverdueEmail & { appUrl: string }) {
   const notes = input.notes ? escapeHtml(input.notes).replace(/\n/g, "<br>") : "SEM OBSERVACOES.";
   const daysLabel = input.overdueDays === 1 ? "1 DIA DE ATRASO" : `${input.overdueDays} DIAS DE ATRASO`;
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#d24156;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">AMOSTRA EM ATRASO</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">ESTA AMOSTRA AINDA ESTA EM ABERTO E PASSOU DA DATA PREVISTA DE ENTREGA.</p><section style="padding:18px;border:1px solid #f1c7ce;border-left:4px solid #d24156;border-radius:8px;background:#fff8f8"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0 0 12px;color:#b22743;font:700 14px Arial,sans-serif">${daysLabel}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>SOLICITADA EM:</strong> ${formatDate(input.requestedAt)}<br><strong>ENTREGA PREVISTA:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#d24156;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#d24156;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">AMOSTRA EM ATRASO</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">A ETAPA ATUAL DA AMOSTRA PASSOU DO PRAZO E AINDA ESTA PENDENTE.</p><section style="padding:18px;border:1px solid #f1c7ce;border-left:4px solid #d24156;border-radius:8px;background:#fff8f8"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0 0 12px;color:#b22743;font:700 14px Arial,sans-serif">${daysLabel}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>SOLICITADA EM:</strong> ${formatDate(input.requestedAt)}<br><strong>${escapeHtml(input.controlDueLabel)}:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#d24156;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
 }
 
 function renderSampleOverdueText(input: SampleOverdueEmail & { appUrl: string }) {
   const daysLabel = input.overdueDays === 1 ? "1 DIA DE ATRASO" : `${input.overdueDays} DIAS DE ATRASO`;
-  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nAMOSTRA EM ATRASO\n\n${input.sampleCode} - ${input.productDescription}\n${daysLabel}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\nENTREGA PREVISTA: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
+  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nAMOSTRA EM ATRASO\n\n${input.sampleCode} - ${input.productDescription}\n${daysLabel}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\n${input.controlDueLabel}: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
 }
 
 function renderQuoteEmailHtml(input: QuoteEmailInput) {

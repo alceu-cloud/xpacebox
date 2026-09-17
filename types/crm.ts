@@ -95,6 +95,7 @@ export type CrmSampleAgendaItem = {
   clientId: string;
   responsibleProfileId: string;
   deliveryDate: string;
+  controlStage: "PRODUCAO" | "ENTREGA" | "APROVACAO";
   status: string;
   productDescription: string;
 };

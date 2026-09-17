@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 import { ContactRound, Eye, EyeOff, PackageCheck, PhoneCall, Plus, Target, Trash2 } from "lucide-react";
 
-import { closeClientSample } from "@/lib/amostras";
 import { isPendingCrmAgenda } from "@/lib/crm-agenda";
 import { createCrmActivity, loadCrmOverview, logWhatsappOpened, postponeCrmAgenda, registerCrmOrder, saveCrmOpportunity, saveCrmProfile } from "@/lib/crm";
 import { supabase } from "@/lib/supabase";
@@ -161,7 +160,6 @@ export default function CrmEmpresa({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [postponingAgendaId, setPostponingAgendaId] = useState("");
-  const [closingSampleId, setClosingSampleId] = useState("");
   const [dialingClientId, setDialingClientId] = useState("");
   const [openingWhatsappClientId, setOpeningWhatsappClientId] = useState("");
   const [profileDraft, setProfileDraft] = useState<CrmProfileInput>(emptyProfile);
@@ -623,23 +621,6 @@ export default function CrmEmpresa({
     }
   }
 
-  async function handleCloseSample(sampleId: string) {
-    setClosingSampleId(sampleId);
-    clearFeedback();
-    try {
-      await closeClientSample(slug, sampleId);
-      setOverview((current) => ({
-        ...current,
-        samples: current.samples.filter((sample) => sample.id !== sampleId),
-      }));
-      setMessage("AMOSTRA BAIXADA COM SUCESSO.");
-    } catch (closeError) {
-      setError(messageFrom(closeError));
-    } finally {
-      setClosingSampleId("");
-    }
-  }
-
   async function handleDial(clientId: string) {
     setDialingClientId(clientId);
     clearFeedback();
@@ -766,7 +747,7 @@ export default function CrmEmpresa({
             }}
             onOpenDirectOpportunity={() => onViewChange("pipeline")}
           />
-          <SampleAgendaBoard items={sampleAgendaItems} closingSampleId={closingSampleId} onClose={handleCloseSample} />
+          <SampleAgendaBoard items={sampleAgendaItems} />
         </>
       ) : null}
 
@@ -1102,12 +1083,8 @@ type SampleAgendaRow = CrmSampleAgendaItem & {
 
 function SampleAgendaBoard({
   items,
-  closingSampleId,
-  onClose,
 }: {
   items: SampleAgendaRow[];
-  closingSampleId: string;
-  onClose: (sampleId: string) => void;
 }) {
   const groups = [
     { key: "overdue", label: "ATRASADAS", items: items.filter((item) => item.daysToDue < 0) },
@@ -1122,7 +1099,7 @@ function SampleAgendaBoard({
         <div>
           <span className="clients-eyebrow">CONTROLE OPERACIONAL</span>
           <h3>AGENDA DE AMOSTRAS</h3>
-          <p>PRAZOS DE AMOSTRAS EM ABERTO. A BAIXA REGISTRA A DATA REAL DE CONCLUSAO.</p>
+          <p>PRAZOS DA ETAPA ATUAL: PRODUCAO, ENTREGA AO CLIENTE OU APROVACAO.</p>
         </div>
         <b>{items.length} EM ABERTO</b>
       </header>
@@ -1136,8 +1113,7 @@ function SampleAgendaBoard({
                 <article className="sample-agenda-item" key={item.id}>
                   <i className="sample-agenda-dot" />
                   <div className="sample-agenda-client"><strong>{item.clientName}</strong></div>
-                  <div className="sample-agenda-date"><span>DATA PREVISTA</span><strong>{displayDate(item.deliveryDate)}</strong></div>
-                  <button type="button" onClick={() => onClose(item.id)} disabled={closingSampleId === item.id}>{closingSampleId === item.id ? "BAIXANDO..." : "DAR BAIXA"}</button>
+                  <div className="sample-agenda-date"><span>{item.controlStage === "PRODUCAO" ? "FICAR PRONTA" : item.controlStage === "ENTREGA" ? "ENTREGAR CLIENTE" : "APROVACAO"}</span><strong>{displayDate(item.deliveryDate)}</strong></div>
                 </article>
               ))}
               {!group.items.length ? <p>NENHUMA AMOSTRA NESTA FAIXA.</p> : null}

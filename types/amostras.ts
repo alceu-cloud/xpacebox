@@ -1,4 +1,5 @@
-export type SampleStatus = "REQUESTED" | "IN_PRODUCTION" | "SENT" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type SampleStatus = "REQUESTED" | "IN_PRODUCTION" | "READY" | "SENT" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type SampleControlStage = "PRODUCAO" | "ENTREGA" | "APROVACAO" | "ENCERRADA";
 
 export type ClientSampleRecord = {
   id: string;
@@ -12,6 +13,14 @@ export type ClientSampleRecord = {
   responsibleName: string;
   requestedAt: string;
   deliveryDate: string;
+  productionDueDate: string;
+  readyAt: string;
+  customerDeliveryDate: string;
+  deliveredAt: string;
+  approvalDueDate: string;
+  approvedAt: string;
+  controlStage: SampleControlStage;
+  controlDueDate: string;
   closedAt: string;
   status: SampleStatus;
   productFichaId: string;
@@ -30,6 +39,12 @@ export type ClientSampleFormData = {
   responsibleProfileId: string;
   requestedAt: string;
   deliveryDate: string;
+  productionDueDate: string;
+  readyAt: string;
+  customerDeliveryDate: string;
+  deliveredAt: string;
+  approvalDueDate: string;
+  approvedAt: string;
   closedAt: string;
   status: SampleStatus;
   productFichaId: string;

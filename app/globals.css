@@ -1903,6 +1903,51 @@ button {
   margin-top: 22px;
 }
 
+.samples-transition-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(28, 21, 39, 0.48);
+}
+
+.samples-transition-dialog {
+  width: min(100%, 510px);
+  padding: 28px;
+  border: 1px solid rgba(111, 50, 210, 0.22);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(26, 17, 39, 0.28);
+}
+
+.samples-transition-dialog h3 {
+  margin: 7px 0 8px;
+  color: #171b2d;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.samples-transition-dialog > p {
+  margin: 0;
+  color: #667085;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.samples-transition-dialog .samples-field {
+  margin-top: 22px;
+}
+
+.samples-transition-confirm {
+  margin-top: 22px !important;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f7f2ff;
+  color: #56339d !important;
+}
+
 .samples-filters {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
@@ -2502,7 +2547,7 @@ button {
 
 .sample-agenda-item {
   display: grid;
-  grid-template-columns: 10px minmax(160px, 1fr) minmax(130px, .65fr) auto;
+  grid-template-columns: 10px minmax(160px, 1fr) minmax(130px, .65fr);
   align-items: center;
   gap: 12px;
   min-height: 76px;

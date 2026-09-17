@@ -1,5 +1,7 @@
 import type { ClientSampleFormData, ClientSampleRecord } from "@/types/amostras";
 
+export type SampleTransitionAction = "MARK_READY" | "MARK_DELIVERED" | "APPROVE" | "REJECT";
+
 async function authorizedFetch(path: string, init?: RequestInit) {
   const { supabase } = await import("@/lib/supabase");
   const { data } = await supabase.auth.getSession();
@@ -41,10 +43,9 @@ export async function deleteClientSample(slug: string, id: string) {
   });
 }
 
-export async function closeClientSample(slug: string, id: string): Promise<string> {
-  const payload = await authorizedFetch(`/api/clientes/amostras/${id}/baixa`, {
+export async function transitionClientSample(slug: string, id: string, action: SampleTransitionAction, nextDueDate = "") {
+  await authorizedFetch(`/api/clientes/amostras/${id}/transicao`, {
     method: "POST",
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ slug, action, nextDueDate }),
   });
-  return payload.closedAt;
 }
