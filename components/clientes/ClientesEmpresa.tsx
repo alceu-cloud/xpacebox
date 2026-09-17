@@ -171,6 +171,7 @@ export default function ClientesEmpresa({
     setMessage("");
     try {
       const company = await lookupCnpj(form.cnpj);
+      const companyCep = digits(company.postalCode);
       setForm((current) => ({
         ...current,
         cnpj: formatCnpj(company.cnpj),
@@ -190,6 +191,9 @@ export default function ClientesEmpresa({
         city: company.city || current.city,
         state: company.state || current.state,
       }));
+      // Some CNPJ sources return only the CEP. Complete the address through the
+      // dedicated CEP lookup instead of leaving the registration half-filled.
+      if (companyCep.length === 8) void handlePostalCodeLookup(companyCep, true);
       setMessage(`DADOS PUBLICOS ENCONTRADOS. SITUACAO CADASTRAL: ${company.status || "CONSULTADA"}.`);
     } catch (lookupError) {
       setError(messageFrom(lookupError));
@@ -265,16 +269,18 @@ export default function ClientesEmpresa({
     }
   }
 
-  async function handlePostalCodeLookup(cep: string) {
+  async function handlePostalCodeLookup(cep: string, fromCnpjLookup = false) {
     if (cepLookupRef.current === cep) return;
     cepLookupRef.current = cep;
     setError("");
     try {
       const address = await lookupCep(cep);
       setForm((current) => {
-        if (digits(current.postalCode) !== cep) return current;
+        const currentCep = digits(current.postalCode);
+        if ((!fromCnpjLookup && currentCep !== cep) || (fromCnpjLookup && currentCep && currentCep !== cep)) return current;
         return {
           ...current,
+          postalCode: formatCep(cep),
           street: address.street || current.street,
           district: address.district || current.district,
           city: address.city || current.city,
