@@ -1345,7 +1345,37 @@ export function ProductCatalogPanel({
             <label style={productSearchFieldStyle}>BUSCAR POR FICHA<input type="search" value={fichaSearch} onChange={(event) => setFichaSearch(event.target.value)} placeholder="NUMERO DA FT OU REFERENCIA" style={productInputStyle} /></label>
             <div style={productSearchSummaryStyle}><strong>{filteredFichas.length}</strong><span>FICHA(S) ENCONTRADA(S)</span>{(clientSearch || fichaSearch) && <button type="button" onClick={() => { setClientSearch(""); setFichaSearch(""); }} style={productSearchClearStyle} title="LIMPAR BUSCAS" aria-label="LIMPAR BUSCAS">X</button>}</div>
           </div>
-          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => { const client = clientsById.get(ficha.clientId); const clientName = productClientName(client) || "CLIENTE NAO INFORMADO"; return <article key={ficha.id} style={fichaRowStyle}><div><strong style={fichaNumberStyle}>{ficha.ftNumber}</strong><span style={fichaReferenceStyle}>{ficha.reference}</span><small style={fichaClientStyle}>{clientName}</small><small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S)</small></div><div style={fichaActionsStyle}><button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button><button type="button" onClick={() => duplicateEngineering(ficha)} style={duplicateButtonStyle}>DUPLICAR ENGENHARIA</button><button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button></div></article>; })}
+          {fichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA TECNICA CADASTRADA.</div> : filteredFichas.length === 0 ? <div style={emptyListStyle}>NENHUMA FICHA ENCONTRADA PARA OS FILTROS INFORMADOS.</div> : filteredFichas.map((ficha) => {
+            const client = clientsById.get(ficha.clientId);
+            const clientName = productClientName(client) || "CLIENTE NAO INFORMADO";
+            const engineeringPrice = Number(ficha.pricingData?.price || 0);
+            const displayedPrice = engineeringPrice > 0 ? engineeringPrice : Number(ficha.price || 0);
+            const totalAreaM2 = Number(ficha.totalAreaM2 ?? calculateProductFichaTotalArea(ficha)) || 0;
+
+            return <article key={ficha.id} style={fichaRowStyle}>
+              <div style={fichaInfoStyle}>
+                <strong style={fichaNumberStyle}>{ficha.ftNumber}</strong>
+                <span style={fichaReferenceStyle}>{ficha.reference}</span>
+                <small style={fichaClientStyle}>{clientName}</small>
+                <div style={fichaMetricsStyle}>
+                  <span style={fichaMetricStyle}>
+                    <small style={fichaMetricLabelStyle}>{engineeringPrice > 0 ? "PRECO DA ENGENHARIA" : "PRECO CADASTRADO"}</small>
+                    <strong style={fichaMetricPriceStyle}>{displayedPrice > 0 ? formatCurrencyValue(displayedPrice) : "SEM PRECO"}</strong>
+                  </span>
+                  <span style={fichaMetricStyle}>
+                    <small style={fichaMetricLabelStyle}>AREA TOTAL</small>
+                    <strong style={fichaMetricValueStyle}>{totalAreaM2 > 0 ? `${totalAreaM2.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} M2` : "NAO CALCULADA"}</strong>
+                  </span>
+                </div>
+                <small style={fichaMetaStyle}>{ficha.company} · {ficha.accessories.length} ACESSORIO(S)</small>
+              </div>
+              <div style={fichaActionsStyle}>
+                <button type="button" onClick={() => openFicha(ficha)} style={editButtonStyle}>ABRIR</button>
+                <button type="button" onClick={() => duplicateEngineering(ficha)} style={duplicateButtonStyle}>DUPLICAR ENGENHARIA</button>
+                <button type="button" onClick={() => onChange(fichas.filter((item) => item.id !== ficha.id))} style={deleteButtonStyle}>EXCLUIR</button>
+              </div>
+            </article>;
+          })}
         </Panel>
       )}
     </>
@@ -2254,9 +2284,15 @@ const removeAccessoryStyle = { border: "none", background: "transparent", color:
 const secondaryActionStyle = { minHeight: 48, width: "100%", borderRadius: 11, border: "1px solid rgba(111,50,210,.25)", background: "rgba(111,50,210,.06)", color: "#6f32d2", fontSize: 14, fontWeight: 900, cursor: "pointer" };
 const emptyListStyle = { padding: 44, borderRadius: 14, border: "1px dashed rgba(111,50,210,.30)", color: "#667085", fontSize: 16, fontWeight: 800, textAlign: "center" as const };
 const fichaRowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 22, padding: "22px 24px", borderBottom: "1px solid rgba(255,0,135,.12)", background: "rgba(255,255,255,.72)" , flexWrap: "wrap" as const };
+const fichaInfoStyle = { minWidth: 0, flex: "1 1 560px" };
 const fichaNumberStyle = { display: "block", color: "#6f32d2", fontSize: 16, fontWeight: 900 };
 const fichaReferenceStyle = { display: "block", marginTop: 5, color: "#141827", fontSize: 16, fontWeight: 900 };
 const fichaClientStyle = { display: "block", marginTop: 8, color: "#e6007e", fontSize: 14, fontWeight: 900 };
+const fichaMetricsStyle = { display: "flex", flexWrap: "wrap" as const, gap: 10, marginTop: 12 };
+const fichaMetricStyle = { display: "grid", gap: 3, minWidth: 166, padding: "8px 10px", border: "1px solid rgba(111,50,210,.16)", borderRadius: 9, background: "rgba(111,50,210,.045)" };
+const fichaMetricLabelStyle = { color: "#667085", fontSize: 10, fontWeight: 900, letterSpacing: .35 };
+const fichaMetricValueStyle = { color: "#344054", fontSize: 14, fontWeight: 900 };
+const fichaMetricPriceStyle = { ...fichaMetricValueStyle, color: "#16803d" };
 const fichaMetaStyle = { display: "block", marginTop: 7, color: "#667085", fontSize: 13, fontWeight: 800 };
 const fichaActionsStyle = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const };
 const colorAddStyle = { display: "flex", alignItems: "center", gap: 10 , flexWrap: "wrap" as const };
