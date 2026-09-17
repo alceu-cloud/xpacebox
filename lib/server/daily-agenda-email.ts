@@ -185,12 +185,15 @@ export async function sendScheduledSampleOverdueEmails() {
     .from("client_samples")
     .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,production_due_date,customer_delivery_date,approval_due_date,product_description,quantity,notes,status,closed_at")
     .eq("tenant_company_id", dawos.id)
-    .is("closed_at", null);
+    .is("closed_at", null)
+    // Delivery and approval remain visible in the CRM, but only the PPCP
+    // production deadline receives automatic e-mail reminders.
+    .in("status", ["REQUESTED", "IN_PRODUCTION"]);
   if (samplesError) throw samplesError;
 
   const openSamples = (rows ?? [])
     .map((sample) => ({ ...sample, control: sampleOverdueControl(sample) }))
-    .filter((sample) => Boolean(sample.control.dueDate) && sample.control.dueDate < scheduledFor);
+    .filter((sample) => sample.control.stage === "PRODUCAO" && Boolean(sample.control.dueDate) && sample.control.dueDate < scheduledFor);
   if (!openSamples.length) return { sent: 0, skipped: 0, failed: 0, overdue: 0 };
 
   const clientIds = [...new Set(openSamples.map((sample) => String(sample.client_id || "")).filter(Boolean))];
