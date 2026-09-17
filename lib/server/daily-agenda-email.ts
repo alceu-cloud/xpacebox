@@ -186,14 +186,12 @@ export async function sendScheduledSampleOverdueEmails() {
     .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,production_due_date,customer_delivery_date,approval_due_date,product_description,quantity,notes,status,closed_at")
     .eq("tenant_company_id", dawos.id)
     .is("closed_at", null)
-    // Delivery and approval remain visible in the CRM, but only the PPCP
-    // production deadline receives automatic e-mail reminders.
-    .in("status", ["REQUESTED", "IN_PRODUCTION"]);
+    .in("status", ["REQUESTED", "IN_PRODUCTION", "READY", "SENT"]);
   if (samplesError) throw samplesError;
 
   const openSamples = (rows ?? [])
     .map((sample) => ({ ...sample, control: sampleOverdueControl(sample) }))
-    .filter((sample) => sample.control.stage === "PRODUCAO" && Boolean(sample.control.dueDate) && sample.control.dueDate < scheduledFor);
+    .filter((sample) => Boolean(sample.control.dueDate) && sample.control.dueDate < scheduledFor);
   if (!openSamples.length) return { sent: 0, skipped: 0, failed: 0, overdue: 0 };
 
   const clientIds = [...new Set(openSamples.map((sample) => String(sample.client_id || "")).filter(Boolean))];
@@ -213,8 +211,16 @@ export async function sendScheduledSampleOverdueEmails() {
   const results = { sent: 0, skipped: 0, failed: 0, overdue: openSamples.length };
   for (const sample of openSamples) {
     const overdueDays = calendarDaysBetween(sample.control.dueDate, scheduledFor);
-    const consultantEmail = consultantEmails.get(String(sample.responsible_profile_id || "")) || "";
-    const recipientEmail = ["ppcp@dawos.com.br", "suporte@dawos.com.br", consultantEmail].filter(Boolean).join(", ");
+    const consultantEmail = String(consultantEmails.get(String(sample.responsible_profile_id || "")) || "").trim().toLowerCase();
+    // Once production is complete, the responsibility moves to the assigned representative.
+    // No fallback is used: sending it to PPCP/support would violate that ownership.
+    if (sample.control.stage !== "PRODUCAO" && !consultantEmail) {
+      results.skipped += 1;
+      continue;
+    }
+    const recipientEmail = sample.control.stage === "PRODUCAO"
+      ? ["ppcp@dawos.com.br", "suporte@dawos.com.br", consultantEmail].filter(Boolean).join(", ")
+      : consultantEmail;
     const { data: delivery, error: insertError } = await admin
       .from("sample_overdue_email_deliveries")
       .upsert({
@@ -290,8 +296,11 @@ async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
   });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://xpacebox.com.br";
   const consultantEmail = sample.consultantEmail?.trim().toLowerCase() || "";
-  const primaryRecipients = new Set(["ppcp@dawos.com.br", "suporte@dawos.com.br"]);
-  const consultantCc = consultantEmail && !primaryRecipients.has(consultantEmail) ? [consultantEmail] : undefined;
+  const isProduction = sample.controlStage === "PRODUCAO";
+  const primaryRecipients = isProduction
+    ? ["ppcp@dawos.com.br", "suporte@dawos.com.br"]
+    : [consultantEmail];
+  const consultantCc = isProduction && consultantEmail && !primaryRecipients.includes(consultantEmail) ? [consultantEmail] : undefined;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
