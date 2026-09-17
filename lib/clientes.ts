@@ -1,4 +1,4 @@
-import type { ClientChangeLog, ClientFormData, ClientRecord, CnpjLookupResult, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
+import type { CepLookupResult, ClientChangeLog, ClientFormData, ClientRecord, CnpjLookupResult, RepresentativeOption, SellerCompanyOption } from "@/types/clientes";
 import type { ProductFicha } from "@/types/gerenciador";
 
 type ClientOptions = {
@@ -76,4 +76,9 @@ export async function deactivateClient(slug: string, id: string) {
 export async function lookupCnpj(cnpj: string): Promise<CnpjLookupResult> {
   const payload = await authorizedFetch<{ company: CnpjLookupResult }>(`/api/cnpj/${cnpj.replace(/\D/g, "")}`);
   return payload.company;
+}
+
+export async function lookupCep(cep: string): Promise<CepLookupResult> {
+  const payload = await authorizedFetch<{ address: CepLookupResult }>(`/api/cep/${cep.replace(/\D/g, "")}`);
+  return payload.address;
 }

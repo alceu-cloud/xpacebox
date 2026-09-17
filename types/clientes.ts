@@ -111,3 +111,11 @@ export type CnpjLookupResult = {
   mainCnae: string;
   legalNature: string;
 };
+
+export type CepLookupResult = {
+  postalCode: string;
+  street: string;
+  district: string;
+  city: string;
+  state: string;
+};

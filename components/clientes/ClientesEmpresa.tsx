@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CalendarDays, ClipboardList, ContactRound, PackageCheck, TrendingUp } from "lucide-react";
 
 import {
@@ -8,6 +8,7 @@ import {
   loadClientChangeHistory,
   loadClientOptions,
   loadClients,
+  lookupCep,
   lookupCnpj,
   saveClient as persistClient,
 } from "@/lib/clientes";
@@ -95,6 +96,7 @@ export default function ClientesEmpresa({
   const [historyLoadingId, setHistoryLoadingId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const cepLookupRef = useRef("");
 
   useEffect(() => {
     if (forceCrm) setActiveTab("crm");
@@ -263,6 +265,36 @@ export default function ClientesEmpresa({
     }
   }
 
+  async function handlePostalCodeLookup(cep: string) {
+    if (cepLookupRef.current === cep) return;
+    cepLookupRef.current = cep;
+    setError("");
+    try {
+      const address = await lookupCep(cep);
+      setForm((current) => {
+        if (digits(current.postalCode) !== cep) return current;
+        return {
+          ...current,
+          street: address.street || current.street,
+          district: address.district || current.district,
+          city: address.city || current.city,
+          state: address.state || current.state,
+        };
+      });
+      setMessage("ENDEREÇO PREENCHIDO PELO CEP.");
+    } catch (lookupError) {
+      cepLookupRef.current = "";
+      setError(messageFrom(lookupError));
+    }
+  }
+
+  function handlePostalCodeChange(value: string) {
+    const postalCode = formatCep(value);
+    const cep = digits(postalCode);
+    setForm((current) => ({ ...current, postalCode }));
+    if (cep.length === 8) void handlePostalCodeLookup(cep);
+  }
+
   async function handleDeactivate(client: ClientRecord) {
     if (!window.confirm(`DESATIVAR O CLIENTE ${client.legalName}?`)) return;
     setError("");
@@ -400,7 +432,7 @@ export default function ClientesEmpresa({
 
         <FormSection title="ENDERECO">
           <div className="clients-grid clients-address-grid">
-            <Field label="CEP" value={form.postalCode} onChange={(postalCode) => setForm({ ...form, postalCode: formatCep(postalCode) })} />
+            <Field label="CEP" value={form.postalCode} onChange={handlePostalCodeChange} />
             <Field label="ENDERECO" value={form.street} onChange={(street) => setForm({ ...form, street })} wide />
             <Field label="NUMERO" value={form.streetNumber} onChange={(streetNumber) => setForm({ ...form, streetNumber })} />
             <Field label="COMPLEMENTO" value={form.complement} onChange={(complement) => setForm({ ...form, complement })} />

@@ -229,7 +229,7 @@ function mapCompany(source: Record<string, unknown>, cnpj: string) {
     status: text(status.descricao ?? status.codigo ?? source.situacao ?? source.descricao_situacao_cadastral),
     openedAt: text(source.dataAbertura ?? source.data_inicio_atividade ?? source.openedAt),
     stateRegistration: text(source.inscricaoEstadual ?? source.stateRegistration),
-    taxRegime: findTaxRegime(source),
+    taxRegime: findTaxRegime(source) || findBrasilApiTaxRegime(source),
     phone:
       [text(firstPhone.ddd), text(firstPhone.numero)].filter(Boolean).join(" ") ||
       text(source.telefone ?? source.ddd_telefone_1),
@@ -281,6 +281,14 @@ function findTaxRegime(value: unknown): string {
     "regimetributacao",
   ]));
   return normalizeTaxRegime(directValue);
+}
+
+function findBrasilApiTaxRegime(value: unknown): string {
+  const source = object(value);
+  if (isAffirmative(source.opcao_pelo_mei)) return "MEI";
+  if (isAffirmative(source.opcao_pelo_simples)) return "SIMPLES NACIONAL";
+  if (source.opcao_pelo_simples === false) return "NAO OPTANTE DO SIMPLES";
+  return "";
 }
 
 function findCnpjWsTaxRegime(value: unknown): string {
@@ -378,7 +386,7 @@ function summarizePayload(value: unknown) {
   };
 }
 function text(value: unknown) {
-  return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value).trim() : "";
 }
 
 function failure(message: string, status: number) {
