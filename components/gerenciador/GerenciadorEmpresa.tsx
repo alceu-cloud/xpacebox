@@ -625,13 +625,7 @@ export default function GerenciadorEmpresa({
                         <tr key={material.id}>
                           <td style={strongCellStyle}>{material.code}</td>
                           <td style={centerCellStyle}>{material.supplier}</td>
-                          <td style={moneyCellStyle}>
-                            <CurrencyInput
-                              value={material.costIpi || ""}
-                              onValueChange={(costIpi) => updateMaterialCost(material.id, costIpi || 0)}
-                              style={costPriceInputStyle}
-                            />
-                          </td>
+                          <td style={moneyCellStyle}>{formatMoney(material.costIpi)}</td>
                           <td style={moneyCellStyle}>{formatMoney(cost.purchaseWithoutIpi)}</td>
                           <td style={moneyCellStyle}>{formatMoney(cost.purchaseLp)}</td>
                           <td style={moneyCellStyle}>{formatMoney(cost.pisCofinsValue)}</td>
@@ -660,7 +654,7 @@ export default function GerenciadorEmpresa({
                             <tr key={material.id} style={active ? specialMaterialRowStyle : expiredSpecialMaterialRowStyle}>
                               <td style={strongCellStyle}>{material.code}</td>
                               <td style={centerCellStyle}>{material.supplier}</td>
-                              <td style={moneyCellStyle}><CurrencyInput value={material.costIpi || ""} onValueChange={(costIpi) => updateMaterialCost(material.id, costIpi || 0)} style={costPriceInputStyle} /></td>
+                              <td style={moneyCellStyle}>{formatMoney(material.costIpi)}</td>
                               <td style={centerCellStyle}>{displayDate(material.specialValidUntil || "")}</td>
                               <td style={centerCellStyle}><span style={active ? specialMaterialTagStyle : expiredSpecialMaterialTagStyle}>{active ? "ATIVA" : "VENCIDA"}</span></td>
                               <td style={moneyCellStyle}>{formatMoney(cost.purchaseWithoutIpi)}</td>
@@ -849,11 +843,6 @@ export default function GerenciadorEmpresa({
     };
     setMaterials(form?.mode === "edit" ? materials.map((item) => (item.id === form.id ? next : item)) : [...materials, next]);
     setForm(null);
-  }
-
-  function updateMaterialCost(materialId: string, costIpi: number) {
-    const value = Math.max(0, Number(costIpi || 0));
-    setMaterials(materials.map((material) => material.id === materialId ? { ...material, costIpi: value } : material));
   }
 
   function saveEngineering() {
@@ -2154,7 +2143,6 @@ const priceCellStyle = { ...centerCellStyle, color: "#22c55e" };
 const priceHintStyle = { display: "block", color: "#667085", fontSize: 12, marginTop: 4 };
 const formulaCellStyle = { ...centerCellStyle, fontFamily: "monospace", fontSize: 16, lineHeight: 1.35 };
 const moneyCellStyle = { ...centerCellStyle, minWidth: 150 };
-const costPriceInputStyle = { width: 118, minHeight: 36, padding: "0 9px", textAlign: "right" as const, fontWeight: 900 };
 const specialConditionToggleStyle = { display: "flex", alignItems: "center", gap: 10, marginTop: 18, color: "#a21caf", fontSize: 16, fontWeight: 900, cursor: "pointer" };
 const specialMaterialRowStyle = { background: "#fff3fb" };
 const expiredSpecialMaterialRowStyle = { background: "#f3f4f6", opacity: 0.7 };
