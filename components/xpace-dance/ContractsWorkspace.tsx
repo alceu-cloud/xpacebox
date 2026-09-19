@@ -28,7 +28,7 @@ type CatalogSettings = {
 };
 type AccessPeriod = "SEM_LIMITE" | "DIA" | "SEMANA" | "MES";
 type PlanModalityRule = { modalityId: string; sessionsPerWeek: number; accessPeriod: AccessPeriod; accessLimit: number | null; allowEarlyAccess: boolean; allowReschedule: boolean; requiresEnrollment: boolean; limitPromotionalTimes: boolean };
-type Plan = { id: string; name: string; description: string; billingInterval: string; durationMonths: number; amountCents: number; renewsAutomatically: boolean; modalities: string[]; modalityRules: PlanModalityRule[]; catalogSettings: Partial<CatalogSettings>; active: boolean };
+type Plan = { id: string; name: string; description: string; billingInterval: string; durationMonths: number; amountCents: number; renewsAutomatically: boolean; modalities: string[]; modalityRules: PlanModalityRule[]; catalogSettings: Partial<CatalogSettings>; templateFileName: string; active: boolean };
 type PlanDraft = { name: string; duration: string; amount: string; modalityRules: PlanModalityRule[]; renewsAutomatically: boolean; settings: CatalogSettings };
 type Modality = { id: string; name: string; active: boolean };
 type Service = { id: string; description: string; salePriceCents: number };
@@ -46,6 +46,7 @@ export default function ContractsWorkspace() {
   const [modalities, setModalities] = useState<Modality[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [storedTemplateName, setStoredTemplateName] = useState("");
   const templateInput = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"CATALOG" | "NEW">("CATALOG");
@@ -85,8 +86,8 @@ export default function ContractsWorkspace() {
     return plans.filter((plan) => !term || normalize(`${plan.name} ${plan.description} ${plan.modalities.join(" ")}`).includes(term));
   }, [plans, search]);
 
-  function startNew() { setEditingPlanId(""); setDraft(emptyDraft()); setTemplateFile(null); setNotice(""); setView("NEW"); }
-  function startEdit(plan: Plan) { setEditingPlanId(plan.id); setDraft({ name: plan.name, duration: String(plan.durationMonths), amount: currencyInput(String(plan.amountCents)), modalityRules: plan.modalityRules, renewsAutomatically: plan.renewsAutomatically, settings: { ...defaultSettings(), ...plan.catalogSettings } }); setTemplateFile(null); setNotice("ALTERAÇÕES VALEM APENAS PARA AS PRÓXIMAS VENDAS. CONTRATOS JÁ VENDIDOS MANTÊM O HISTÓRICO."); setView("NEW"); }
+  function startNew() { setEditingPlanId(""); setDraft(emptyDraft()); setTemplateFile(null); setStoredTemplateName(""); setNotice(""); setView("NEW"); }
+  function startEdit(plan: Plan) { setEditingPlanId(plan.id); setDraft({ name: plan.name, duration: String(plan.durationMonths), amount: currencyInput(String(plan.amountCents)), modalityRules: plan.modalityRules, renewsAutomatically: plan.renewsAutomatically, settings: { ...defaultSettings(), ...plan.catalogSettings } }); setTemplateFile(null); setStoredTemplateName(plan.templateFileName); setNotice("ALTERAÇÕES VALEM APENAS PARA AS PRÓXIMAS VENDAS. CONTRATOS JÁ VENDIDOS MANTÊM O HISTÓRICO."); setView("NEW"); }
   function addModalityRule(rule: PlanModalityRule) { setDraft({ ...draft, modalityRules: [...draft.modalityRules, rule] }); setModalitiesDialogOpen(false); }
   function removeModalityRule(modalityId: string) { setDraft({ ...draft, modalityRules: draft.modalityRules.filter((rule) => rule.modalityId !== modalityId) }); }
 
@@ -114,8 +115,9 @@ export default function ContractsWorkspace() {
       if (templateFile) {
         const { data } = await supabase.auth.getSession();
         const response = await fetch(`/api/xpace/contratos/${created.plan.id}/modelo`, { method: "POST", headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` }, body: (() => { const form = new FormData(); form.set("file", templateFile); return form; })() });
-        const payload = await response.json().catch(() => ({})) as { success?: boolean; message?: string };
+        const payload = await response.json().catch(() => ({})) as { success?: boolean; message?: string; fileName?: string };
         if (!response.ok || !payload.success) throw new Error(payload.message || "O CONTRATO FOI CRIADO, MAS O MODELO NÃO FOI ENVIADO.");
+        setStoredTemplateName(payload.fileName || templateFile.name);
       }
       await loadCatalog(); setView("CATALOG"); setNotice(editingPlanId ? "CONTRATO DO CATÁLOGO ATUALIZADO. VENDAS JÁ REALIZADAS FORAM PRESERVADAS." : "CONTRATO CADASTRADO NO CATÁLOGO.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CADASTRAR O CONTRATO."); }
@@ -155,7 +157,7 @@ export default function ContractsWorkspace() {
         <Toggle label="PERMITE RECEBER PARCELADO" checked={draft.settings.allowInstallments} onChange={(allowInstallments) => setDraft({ ...draft, settings: { ...draft.settings, allowInstallments } })} />
         <Toggle label="VENDER PELO APP" checked={draft.settings.allowAppSale} onChange={(allowAppSale) => setDraft({ ...draft, settings: { ...draft.settings, allowAppSale } })} />
         <Toggle label="ENVIAR PARA ASSINATURA ONLINE" checked={draft.settings.sendForSignature} onChange={(sendForSignature) => setDraft({ ...draft, settings: { ...draft.settings, sendForSignature } })} />
-      </div><div className="xd-contract-template"><span>MODELO DE CONTRATO{templateFile ? ` · ${templateFile.name}` : ""}</span><input ref={templateInput} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(event: ChangeEvent<HTMLInputElement>) => setTemplateFile(event.target.files?.[0] ?? null)} /><button type="button" className="xd-secondary" onClick={() => templateInput.current?.click()}><FileUp size={16} /> IMPORTAR ARQUIVO</button></div></fieldset>
+      </div><div className="xd-contract-template"><span>MODELO DE CONTRATO · {templateFile?.name || storedTemplateName || "NÃO IMPORTADO"}</span><input ref={templateInput} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(event: ChangeEvent<HTMLInputElement>) => setTemplateFile(event.target.files?.[0] ?? null)} /><button type="button" className="xd-secondary" onClick={() => templateInput.current?.click()}><FileUp size={16} /> IMPORTAR ARQUIVO</button></div></fieldset>
       <fieldset className="xd-contract-builder-section"><legend><Settings2 size={18} /> CONFIGURAÇÕES AVANÇADAS <small>(OPCIONAL)</small></legend><div className="xd-contract-advanced-list"><article><div><strong>PERMISSÕES E RESTRIÇÕES</strong><p>Defina período de venda, pré-venda, faixa etária e regras de suspensão deste contrato.</p></div><button type="button" onClick={() => setDialog("PERMISSIONS")} aria-label="Configurar permissões e restrições" title="Configurar permissões e restrições"><Settings2 size={18} /></button></article><article><div><strong>FINANCEIRO</strong><p>Defina adesão, comissão e a categoria de receita deste contrato.</p></div><button type="button" onClick={() => setDialog("FINANCE")} aria-label="Configurar financeiro" title="Configurar financeiro"><Landmark size={18} /></button></article></div></fieldset>
       <footer className="xd-contract-form-actions"><button type="button" className="xd-secondary" onClick={() => setView("CATALOG")}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>{saving ? "SALVANDO..." : editingPlanId ? "SALVAR ALTERAÇÕES" : "SALVAR CONTRATO"}</button></footer>
     </form>

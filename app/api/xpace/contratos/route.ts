@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const [plansResult, studentsResult, contractsResult, modalitiesResult, servicesResult, classGroupsResult, schedulesResult] = await Promise.all([
-      admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,modality_rules,catalog_settings,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
+      admin.from("xpace_membership_plans").select("id,name,description,billing_interval,duration_months,amount_cents,renews_automatically,modalities,modality_rules,catalog_settings,contract_template_path,contract_template_name,active,created_at").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name"),
       admin.from("xpace_people").select("id,person_number,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_student_contracts").select("id,contract_number,student_id,plan_id,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,renews_automatically,starts_on,ends_on,status,status_note,created_at,cancel_effective_on").eq("tenant_company_id", company.id).order("created_at", { ascending: false }).limit(300),
       admin.from("xpace_modalities").select("id,name,active").eq("tenant_company_id", company.id).eq("active", true).order("name"),
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,
-      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], modalityRules: plan.modality_rules ?? [], catalogSettings: plan.catalog_settings ?? {}, active: plan.active, createdAt: plan.created_at })),
+      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], modalityRules: plan.modality_rules ?? [], catalogSettings: plan.catalog_settings ?? {}, templateFileName: plan.contract_template_name ?? templateNameFromPath(plan.contract_template_path), active: plan.active, createdAt: plan.created_at })),
       modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, active: modality.active })),
       services: (servicesResult.data ?? []).map((service) => ({ id: service.id, description: service.description, salePriceCents: service.sale_price_cents })),
       classGroups: (classGroupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modalityId: group.modality_id ?? "", schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5) })) })).filter((group) => group.schedules.length),
@@ -156,9 +156,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const startsOn = contract.saleOn;
   const firstDueOn = contract.firstDueOn;
   const endsOn = endOfTerm(startsOn, plan.duration_months);
-  // A assinatura é administrada depois de concluir a venda. Ela não pode
-  // impedir a matrícula, a cobrança ou o acesso de um aluno já vendido.
-  const signatureRequired = false;
+  const signatureRequired = Boolean((plan.catalog_settings as { sendForSignature?: unknown } | null)?.sendForSignature);
   const status: ContractStatus = startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
   const enrollmentService = contract.enrollmentFeeEnabled === false ? null : await resolveEnrollmentService(access, plan.catalog_settings);
@@ -176,7 +174,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, class_group_id: primaryGroup.id, class_group_name_snapshot: primaryGroup.name, class_schedule_snapshot: classSchedules ?? [], plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, enrollment_fee_enabled: Boolean(enrollmentService), payment_method: contract.paymentMethod || null, renews_automatically: renewsAutomatically, starts_on: startsOn, first_due_on: firstDueOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
   const discountCents = Math.max(0, plan.amount_cents - amountCents);
-  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signed_at: null, created_by: access.user.id, updated_by: access.user.id });
+  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signature_due_on: signatureRequired ? addDays(todayIso(), 7) : null, signed_at: null, created_by: access.user.id, updated_by: access.user.id });
   if (saleError) {
     await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
     throw saleError;
@@ -185,11 +183,9 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (groupsError) throw groupsError;
   const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: saved.id, event_type: "CRIADO", next_status: status, created_by: access.user.id });
   if (eventError) throw eventError;
-  if (!signatureRequired) {
-    await ensureContractCharges(access.admin, access.company.id, saved);
-    if (status === "ATIVO") await Promise.all((classGroups ?? []).map((group) => ensureContractEnrollment(access.admin, { tenant_company_id: access.company.id, student_id: saved.student_id, class_group_id: group.id, starts_on: saved.starts_on })));
-    if (contract.paymentMethod === "PIX") await issueInitialPixCharge(access, saved.id, student.id, plan.name);
-  }
+  await ensureContractCharges(access.admin, access.company.id, saved);
+  if (status === "ATIVO") await Promise.all((classGroups ?? []).map((group) => ensureContractEnrollment(access.admin, { tenant_company_id: access.company.id, student_id: saved.student_id, class_group_id: group.id, starts_on: saved.starts_on })));
+  if (contract.paymentMethod === "PIX") await issueInitialPixCharge(access, saved.id, student.id, plan.name);
   return NextResponse.json({ success: true, pendingSignature: signatureRequired, contract: { id: saved.id, contractNumber: saved.contract_number } }, { status: 201 });
 }
 
@@ -402,6 +398,8 @@ function endOfTerm(startsOn: string, months: number) {
   const boundary = Date.UTC(targetYear, targetMonthNumber - 1, Math.min(day, lastDay));
   return new Date(boundary - 86_400_000).toISOString().slice(0, 10);
 }
+function addDays(value: string, days: number) { const date = new Date(`${value}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }
+function templateNameFromPath(value: string | null) { return value ? value.split("/").at(-1)?.replace(/^modelo-\d+\./, "MODELO.") ?? "MODELO IMPORTADO" : ""; }
 function today() { return todayIso(); }
 function ageOnToday(value: string) { const birth = new Date(`${value}T12:00:00`); const current = new Date(`${today()}T12:00:00`); let age = current.getFullYear() - birth.getFullYear(); if (current.getMonth() < birth.getMonth() || (current.getMonth() === birth.getMonth() && current.getDate() < birth.getDate())) age -= 1; return age; }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }

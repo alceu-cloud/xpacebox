@@ -22,7 +22,7 @@ export async function POST(request: Request, context: Context) {
     const path = `${access.company.id}/${id}/modelo-${Date.now()}.${extension}`;
     const { error: uploadError } = await access.admin.storage.from("xpace-contract-templates").upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: false });
     if (uploadError) throw uploadError;
-    const { error: updateError } = await access.admin.from("xpace_membership_plans").update({ contract_template_path: path, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", id).eq("tenant_company_id", access.company.id);
+    const { error: updateError } = await access.admin.from("xpace_membership_plans").update({ contract_template_path: path, contract_template_name: file.name, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", id).eq("tenant_company_id", access.company.id);
     if (updateError) { await access.admin.storage.from("xpace-contract-templates").remove([path]); throw updateError; }
     if (plan.contract_template_path) await access.admin.storage.from("xpace-contract-templates").remove([plan.contract_template_path]);
     return NextResponse.json({ success: true, fileName: file.name });

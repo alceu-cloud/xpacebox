@@ -57,7 +57,7 @@ async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>
     const nextStatus = contract.starts_on > todayIso() ? "AGENDADO" : "ATIVO";
     const { error: saleUpdateError } = await admin.from("xpace_contract_sales").update({ status: "CONCLUIDA", signature_status: "ASSINADA", signed_at: now, signed_document_url: nestedString(data, "files", "signed") || null, signature_error: null, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", sale.tenant_company_id);
     if (saleUpdateError) throw saleUpdateError;
-    const { error: contractUpdateError } = await admin.from("xpace_student_contracts").update({ status: nextStatus, status_note: null, updated_at: now }).eq("id", contract.id).eq("tenant_company_id", sale.tenant_company_id);
+    const { error: contractUpdateError } = await admin.from("xpace_student_contracts").update({ status: nextStatus, status_note: null, signature_access_blocked: false, signature_access_blocked_at: null, updated_at: now }).eq("id", contract.id).eq("tenant_company_id", sale.tenant_company_id);
     if (contractUpdateError) throw contractUpdateError;
     const { error: eventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: sale.tenant_company_id, contract_id: contract.id, event_type: "ASSINATURA_CONCLUIDA", previous_status: contract.status, next_status: nextStatus, note: "CONTRATO ASSINADO VIA AUTENTIQUE.", created_by: null });
     if (eventError) throw eventError;
