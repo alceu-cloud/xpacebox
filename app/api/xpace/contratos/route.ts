@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { processPaymentCancellations } from "@/lib/server/xpace-payment-cancellations";
 
 import { calculateDiscountedAmount, ensureContractCharges, todayIso } from "@/lib/xpace/billing";
 import { ensureContractEnrollment } from "@/lib/xpace/enrollment";
@@ -174,7 +175,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, class_group_id: primaryGroup.id, class_group_name_snapshot: primaryGroup.name, class_schedule_snapshot: classSchedules ?? [], plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, enrollment_fee_enabled: Boolean(enrollmentService), payment_method: contract.paymentMethod || null, renews_automatically: renewsAutomatically, starts_on: startsOn, first_due_on: firstDueOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
   const discountCents = Math.max(0, plan.amount_cents - amountCents);
-  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: signatureRequired ? "PENDENTE_ASSINATURA" : "CONCLUIDA", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signature_due_on: signatureRequired ? addDays(todayIso(), 7) : null, signed_at: null, created_by: access.user.id, updated_by: access.user.id });
+  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: "EM_PREPARACAO", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signature_due_on: signatureRequired ? addDays(todayIso(), 7) : null, signed_at: null, created_by: access.user.id, updated_by: access.user.id });
   if (saleError) {
     await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
     throw saleError;
@@ -211,20 +212,14 @@ async function setContractStatus(access: Awaited<ReturnType<typeof requireCompan
   const nextNote = scheduledEnding ? `ENCERRAMENTO AGENDADO PARA ${requestedEffectiveOn}.` : contract.statusNote || null;
   const { error } = await access.admin.from("xpace_student_contracts").update({ status: nextStatus, status_note: nextNote, cancelled_at: contract.status === "CANCELADO" && !scheduledEnding ? new Date().toISOString() : null, cancel_effective_on: ["CANCELADO", "ENCERRADO"].includes(contract.status) ? effectiveOn : null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", current.id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
-  if (contract.status === "CANCELADO" || contract.status === "ENCERRADO" || contract.status === "PAUSADO") {
-    const { error: chargesError } = await access.admin.from("xpace_contract_charges").update({ status: "CANCELADO", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id).eq("status", "ABERTO").gte("due_on", effectiveOn);
-    if (chargesError) throw chargesError;
-  }
-  if (contract.status === "CANCELADO" && !scheduledEnding) {
-    // Ending an already completed contract does not undo its commercial sale.
-    const { error: saleError } = await access.admin.from("xpace_contract_sales").update({ status: "CANCELADA", cancelled_at: new Date().toISOString(), cancellation_reason: contract.statusNote || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id).neq("status", "CONCLUIDA");
-    if (saleError) throw saleError;
-  }
+  // Database triggers persist the contract, sale, charges and cancellation
+  // intent in the same transaction. Provider processing is independently retryable.
   if (current.status !== nextStatus || scheduledEnding) {
     const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: current.id, event_type: "STATUS_ALTERADO", previous_status: current.status, next_status: contract.status, note: nextNote, created_by: access.user.id });
     if (eventError) throw eventError;
   }
-  return NextResponse.json({ success: true });
+  const cancellations = await processPaymentCancellations(access.admin, access.company.id, current.id);
+  return NextResponse.json({ success: true, cancellations });
 }
 
 function normalizePlan(value?: RequestBody["plan"]) {
@@ -362,17 +357,20 @@ async function generatePix(access: Awaited<ReturnType<typeof requireCompanyAcces
 async function issueInitialPixCharge(access: Awaited<ReturnType<typeof requireCompanyAccess>>, contractId: string, studentId: string, planName: string) {
   const [{ data: account, error: accountError }, { data: charge, error: chargeError }, { data: student, error: studentError }] = await Promise.all([
     access.admin.from("xpace_payment_accounts").select("id,account_status,provider_environment,provider_access_token_ciphertext,provider_access_token_iv,provider_access_token_auth_tag").eq("tenant_company_id", access.company.id).eq("account_status", "ATIVA").is("closed_at", null).maybeSingle(),
-    access.admin.from("xpace_contract_charges").select("id,amount_cents,due_on,provider_payment_id").eq("tenant_company_id", access.company.id).eq("contract_id", contractId).order("competence_on").limit(1).maybeSingle(),
+    access.admin.from("xpace_contract_charges").select("id,amount_cents,due_on,provider_payment_id,status").eq("tenant_company_id", access.company.id).eq("contract_id", contractId).order("competence_on").limit(1).maybeSingle(),
     access.admin.from("xpace_people").select("id,full_name,cpf,email,mobile").eq("tenant_company_id", access.company.id).eq("id", studentId).maybeSingle(),
   ]);
   if (accountError) throw accountError; if (chargeError) throw chargeError; if (studentError) throw studentError;
-  if (!charge || charge.provider_payment_id) return;
+  if (!charge || charge.status !== "ABERTO" || charge.provider_payment_id) return;
   if (!account) return savePixError(access, charge.id, "NÃO HÁ UMA CONTA XPAY ATIVA PARA GERAR O PIX.");
   if (!student) return savePixError(access, charge.id, "ALUNO NÃO ENCONTRADO PARA GERAR O PIX.");
   if (account.provider_environment !== "SANDBOX" || xPayEnvironment() !== "SANDBOX") {
     return savePixError(access, charge.id, "A geração automática de PIX está liberada apenas no Sandbox nesta etapa.");
   }
   try {
+    const { data: bound, error: bindError } = await access.admin.from("xpace_contract_charges").update({ payment_account_id: account.id }).eq("id", charge.id).eq("tenant_company_id", access.company.id).eq("status", "ABERTO").select("id").maybeSingle();
+    if (bindError) throw bindError;
+    if (!bound) return;
     const payment = await createAsaasPixCharge(account, { person: { name: student.full_name, cpf: student.cpf ?? "", email: student.email ?? "", mobile: student.mobile ?? "" }, valueCents: charge.amount_cents, dueOn: charge.due_on, description: `XPACE · ${planName}`, externalReference: charge.id });
     const { error } = await access.admin.from("xpace_contract_charges").update({ provider_payment_id: payment.providerPaymentId, provider_status: payment.providerStatus, pix_copy_paste: payment.pixCopyPaste || null, pix_qr_code_url: payment.pixQrCodeUrl || null, issued_at: new Date().toISOString(), provider_error: null, updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", access.company.id);
     if (error) throw error;

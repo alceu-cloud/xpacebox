@@ -18,15 +18,17 @@ export async function POST(request: Request) {
     access = await requireCompanyAccess(request, companySlug);
     if (!["platform_owner", "company_manager"].includes(access.profile.platform_role)) throw new AccessError("APENAS GESTORES PODEM ENVIAR CONTRATOS PARA ASSINATURA.", 403);
 
-    const { data: sale, error: saleError } = await access.admin.from("xpace_contract_sales").select("id,contract_id,signature_required,signature_status,signature_envelope_id").eq("id", saleId).eq("tenant_company_id", access.company.id).maybeSingle();
+    const { data: sale, error: saleError } = await access.admin.from("xpace_contract_sales").select("id,contract_id,status,signature_required,signature_status,signature_envelope_id").eq("id", saleId).eq("tenant_company_id", access.company.id).maybeSingle();
     if (saleError) throw saleError;
     if (!sale) throw new RequestError("VENDA NÃO ENCONTRADA NESTA EMPRESA.", 404);
     const resend = Boolean(body.resend);
     if ((sale.signature_envelope_id || ["ENVIADA", "ASSINADA"].includes(sale.signature_status)) && !resend) throw new RequestError("ESTE CONTRATO JÁ FOI ENVIADO. USE O LINK GERADO OU ESCOLHA REENVIAR.", 409);
 
-    const { data: contract, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,contract_number,plan_id,student_id,duration_months_snapshot,modality_rules_snapshot,enrollment_service_snapshot").eq("id", sale.contract_id).eq("tenant_company_id", access.company.id).maybeSingle();
+    const { data: contract, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,contract_number,status,plan_id,student_id,duration_months_snapshot,modality_rules_snapshot,enrollment_service_snapshot").eq("id", sale.contract_id).eq("tenant_company_id", access.company.id).maybeSingle();
     if (contractError) throw contractError;
     if (!contract?.plan_id) throw new RequestError("O PLANO DE ORIGEM DESTE CONTRATO NÃO ESTÁ DISPONÍVEL PARA ASSINATURA.", 409);
+
+    if (sale.status === "CANCELADA" || ["CANCELADO", "ENCERRADO"].includes(contract.status)) throw new RequestError("ESTE CONTRATO FOI ENCERRADO. NÃO É POSSÍVEL SOLICITAR NOVA ASSINATURA.", 409);
 
     const [{ data: plan, error: planError }, { data: student, error: studentError }, { data: school, error: schoolError }, { data: charges, error: chargesError }, { data: groupLinks, error: groupLinksError }] = await Promise.all([
       access.admin.from("xpace_membership_plans").select("contract_template_path,contract_template_name").eq("id", contract.plan_id).eq("tenant_company_id", access.company.id).maybeSingle(),
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
     if (processingError) throw processingError;
     dispatchStarted = true;
     const document = await createAutentiqueSignatureDocument({ file: renderedFile, fileName: `xpace-contrato-${contract.contract_number}.docx`, documentName: `XPACE · CONTRATO #${String(contract.contract_number).padStart(5, "0")} · ${student.full_name}`, signer: { name: student.full_name, email: student.email, mobile: student.mobile, cpf: student.cpf } });
-    const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ status: "ENVIADA_PARA_ASSINATURA", signature_required: true, signature_status: "ENVIADA", signature_provider: "AUTENTIQUE", signature_envelope_id: document.documentId, signature_url: document.signatureUrl || null, signature_error: null, sent_for_signature_at: now, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
+    const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ signature_required: true, signature_status: "ENVIADA", signature_provider: "AUTENTIQUE", signature_envelope_id: document.documentId, signature_url: document.signatureUrl || null, signature_error: null, sent_for_signature_at: now, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
     if (updateError) throw updateError;
     const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: contract.id, event_type: "ASSINATURA_ENVIADA", note: resend ? "ASSINATURA REENVIADA." : document.sandbox ? "ENVIADO À AUTENTIQUE EM MODO DE TESTE (SANDBOX)." : "ENVIADO À AUTENTIQUE PARA ASSINATURA.", created_by: access.user.id });
     if (eventError) console.error("XPACE SIGNATURE EVENT ERROR", eventError);

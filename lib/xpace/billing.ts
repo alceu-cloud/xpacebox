@@ -38,7 +38,7 @@ export async function ensureContractCharges(admin: SupabaseClient, companyId: st
   let guard = 0;
 
   while (competence <= latestDate && guard < 120) {
-    if (contract.cancel_effective_on && competence >= contract.cancel_effective_on) break;
+    if (contract.cancel_effective_on && addMonths(contract.first_due_on, guard) >= contract.cancel_effective_on) break;
     const enrollmentFeeCents = enrollmentFeeForCharge(enrollment, guard, chargeCount);
     charges.push({
       tenant_company_id: companyId,

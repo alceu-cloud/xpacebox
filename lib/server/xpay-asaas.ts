@@ -1,6 +1,7 @@
 import "server-only";
 
 import { decryptIntegrationCredential, encryptIntegrationCredential } from "@/lib/server/telephony-credentials";
+import { cancelPendingPayment, type ProviderPayment } from "@/lib/xpace/asaas-cancellation";
 
 type XPayEnvironment = "SANDBOX" | "PRODUCAO";
 
@@ -55,7 +56,7 @@ export async function createAsaasSubaccount(registration: XPayRegistration, loca
     enabled: true,
     apiVersion: 3,
     authToken: config.webhookToken,
-    events: ["PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"],
+    events: ["PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_DELETED"],
   }] : undefined;
 
   const body = {
@@ -118,6 +119,22 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
   return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "" };
 }
 
+export async function cancelAsaasCharge(account: AccountCredential, paymentId: string) {
+  const token = decryptAccountToken(account);
+  return cancelPendingPayment(paymentId, <T>(path: string, method: "GET" | "DELETE") => asaasRequest<T>(path, token, { method }));
+}
+
+export async function findAsaasCharges(account: AccountCredential, externalReference: string) {
+  const token = decryptAccountToken(account);
+  const payments: ProviderPayment[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const page = await asaasRequest<{ data: ProviderPayment[]; hasMore: boolean }>(`/payments?externalReference=${encodeURIComponent(externalReference)}&limit=100&offset=${offset}`, token, { method: "GET" });
+    payments.push(...page.data);
+    if (!page.hasMore) return payments;
+    if (offset >= 900) throw new XPayProviderError("MUITAS COBRANÇAS PARA A MESMA REFERÊNCIA. REVISÃO NECESSÁRIA.");
+  }
+}
+
 function decryptAccountToken(account: { provider_access_token_ciphertext: string | null; provider_access_token_iv: string | null; provider_access_token_auth_tag: string | null }) {
   if (!account.provider_access_token_ciphertext || !account.provider_access_token_iv || !account.provider_access_token_auth_tag) throw new XPayProviderError("A CREDENCIAL DESTA CONTA XPAY NÃO ESTÁ DISPONÍVEL.", 409);
   return decryptIntegrationCredential({ ciphertext: account.provider_access_token_ciphertext, iv: account.provider_access_token_iv, authTag: account.provider_access_token_auth_tag });
@@ -127,7 +144,7 @@ async function asaasRequest<T>(path: string, accessToken: string, init: RequestI
   const config = xPayConfiguration();
   let response: Response;
   try {
-    response = await fetch(`${config.baseUrl}${path}`, { ...init, headers: { accept: "application/json", "content-type": "application/json", access_token: accessToken, "user-agent": "XPACE-XPay/1.0", ...init.headers }, cache: "no-store" });
+    response = await fetch(`${config.baseUrl}${path}`, { ...init, signal: AbortSignal.timeout(15000), headers: { accept: "application/json", "content-type": "application/json", access_token: accessToken, "user-agent": "XPACE-XPay/1.0", ...init.headers }, cache: "no-store" });
   } catch {
     throw new XPayProviderError("NÃO FOI POSSÍVEL CONECTAR AO ASAAS. TENTE NOVAMENTE.", 503);
   }
