@@ -95,18 +95,20 @@ export async function getAutentiqueSignatureStatus(documentId: string) {
   const token = process.env.AUTENTIQUE_API_TOKEN?.trim();
   if (!token) throw new AutentiqueError("A INTEGRAÇÃO AUTENTIQUE AINDA NÃO ESTÁ CONFIGURADA.", 503);
   if (!/^[a-z0-9_-]{12,128}$/i.test(documentId)) throw new AutentiqueError("O DOCUMENTO NÃO POSSUI UM IDENTIFICADOR VÁLIDO PARA CONSULTA.", 409);
-  const query = `query { document(id: "${documentId}") { files { signed } signatures { signed { created_at } rejected { created_at } } } }`;
+  const query = `query { document(id: "${documentId}") { files { signed } signatures { action { name } signed { created_at } rejected { created_at } } } }`;
   let response: Response;
   try {
     response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ query }), cache: "no-store" });
   } catch {
     throw new AutentiqueError("NÃO FOI POSSÍVEL CONECTAR À AUTENTIQUE PARA CONSULTAR A ASSINATURA.", 502);
   }
-  const payload = await response.json().catch(() => null) as { data?: { document?: { files?: { signed?: string | null } | null; signatures?: Array<{ signed?: { created_at?: string | null } | null; rejected?: { created_at?: string | null } | null }> | null } | null }; errors?: Array<{ message?: string }> } | null;
+  const payload = await response.json().catch(() => null) as { data?: { document?: { files?: { signed?: string | null } | null; signatures?: Array<{ action?: { name?: string | null } | null; signed?: { created_at?: string | null } | null; rejected?: { created_at?: string | null } | null }> | null } | null }; errors?: Array<{ message?: string }> } | null;
   const errorMessage = payload?.errors?.map((item) => item.message).filter(Boolean).join(" · ");
   const document = payload?.data?.document;
   if (!response.ok || errorMessage || !document) throw new AutentiqueError(errorMessage || "A AUTENTIQUE NÃO RETORNOU O STATUS DO DOCUMENTO.", 502);
-  const signatures = document.signatures ?? [];
+  // Autentique includes the API account as a document participant without an
+  // action. Only entries with an action are actual requested signatures.
+  const signatures = (document.signatures ?? []).filter((signature) => Boolean(signature.action?.name));
   const signedAt = signatures.map((signature) => signature.signed?.created_at ?? "").find(Boolean) ?? "";
   if (signedAt && signatures.length && signatures.every((signature) => Boolean(signature.signed?.created_at))) return { status: "ASSINADA" as AutentiqueSignatureStatus, signedAt, signedDocumentUrl: document.files?.signed ?? "" };
   if (signatures.some((signature) => Boolean(signature.rejected?.created_at))) return { status: "RECUSADA" as AutentiqueSignatureStatus, signedAt: "", signedDocumentUrl: "" };

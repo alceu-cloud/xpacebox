@@ -35,8 +35,25 @@ export async function ensureContractCharges(admin: SupabaseClient, companyId: st
   const chargeCount = countCharges(contract.starts_on, contract.ends_on, contract.billing_interval_snapshot);
   let competence = contract.starts_on;
   let guard = 0;
+  let generated = 0;
 
-  while (competence <= latestDate && guard < 120) {
+  if (contract.billing_interval_snapshot === "DIARIO") {
+    const { data: latestCharge, error: latestChargeError } = await admin
+      .from("xpace_contract_charges")
+      .select("competence_on")
+      .eq("tenant_company_id", companyId)
+      .eq("contract_id", contract.id)
+      .order("competence_on", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestChargeError) throw latestChargeError;
+    if (latestCharge?.competence_on) {
+      competence = addDays(latestCharge.competence_on, 1);
+      guard = daysBetween(contract.starts_on, competence);
+    }
+  }
+
+  while (competence <= latestDate && generated < 120) {
     const dueOn = nextBillingDate(contract.first_due_on, guard, contract.billing_interval_snapshot);
     if (contract.cancel_effective_on && dueOn >= contract.cancel_effective_on) break;
     const enrollmentFeeCents = enrollmentFeeForCharge(enrollment, guard, chargeCount);
@@ -55,6 +72,7 @@ export async function ensureContractCharges(admin: SupabaseClient, companyId: st
     });
     competence = nextBillingDate(competence, 1, contract.billing_interval_snapshot);
     guard += 1;
+    generated += 1;
   }
 
   if (!charges.length) return;
@@ -98,6 +116,12 @@ function addDays(date: string, days: number) {
   const value = new Date(`${date}T12:00:00Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
+}
+
+function daysBetween(from: string, to: string) {
+  const start = new Date(`${from}T12:00:00Z`).getTime();
+  const end = new Date(`${to}T12:00:00Z`).getTime();
+  return Math.max(0, Math.round((end - start) / 86_400_000));
 }
 
 function enrollmentFeeForCharge(enrollment: ReturnType<typeof parseEnrollmentService>, chargeIndex: number, chargeCount: number) {
