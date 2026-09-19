@@ -3867,3 +3867,24 @@ input[type="email"] { text-transform: none !important; }
   .xb-workspace .clients-tabs,
   .xb-workspace .crm-nav { grid-template-columns: 1fr; border-radius: 16px; }
 }
+
+.xd-contract-actions .xd-contract-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.xd-contract-actions .xd-contract-action:disabled { cursor: wait; opacity: .58; }
+.xd-contract-action--suspend { border-color: #e2b653; color: #936400; background: #fffaf0; }
+.xd-contract-action--print { border-color: #93c5e8; color: #176b9d; background: #f2f9ff; }
+.xd-contract-action--end { border-color: #efabb7; color: #b6384d; background: #fff3f5; }
+.xd-contract-details-dialog .xd-danger-link { display: none; }
