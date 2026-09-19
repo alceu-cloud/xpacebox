@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { AutentiqueError, createAutentiqueSignatureDocument } from "@/lib/server/autentique";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { ContractTemplateError, renderXpaceContractTemplate, type ContractTemplateData } from "@/lib/server/xpace-contract-template";
+import { todayIso } from "@/lib/xpace/billing";
 
 const companySlug = "xpace";
 type Body = { saleId?: string; resend?: boolean };
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     if (processingError) throw processingError;
     dispatchStarted = true;
     const document = await createAutentiqueSignatureDocument({ file: renderedFile, fileName: `xpace-contrato-${contract.contract_number}.docx`, documentName: `XPACE · CONTRATO #${String(contract.contract_number).padStart(5, "0")} · ${student.full_name}`, signer: { name: student.full_name, email: student.email, mobile: student.mobile, cpf: student.cpf } });
-    const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ signature_required: true, signature_status: "ENVIADA", signature_provider: "AUTENTIQUE", signature_envelope_id: document.documentId, signature_url: document.signatureUrl || null, signature_error: null, sent_for_signature_at: now, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
+    const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ signature_required: true, signature_status: "ENVIADA", signature_provider: "AUTENTIQUE", signature_envelope_id: document.documentId, signature_url: document.signatureUrl || null, signature_error: null, sent_for_signature_at: now, signature_due_on: addDays(todayIso(), 7), signature_reminder_day_2_at: null, signature_reminder_day_5_at: null, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
     if (updateError) throw updateError;
     const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: contract.id, event_type: "ASSINATURA_ENVIADA", note: resend ? "ASSINATURA REENVIADA." : document.sandbox ? "ENVIADO À AUTENTIQUE EM MODO DE TESTE (SANDBOX)." : "ENVIADO À AUTENTIQUE PARA ASSINATURA.", created_by: access.user.id });
     if (eventError) console.error("XPACE SIGNATURE EVENT ERROR", eventError);
@@ -220,3 +221,4 @@ function digits(value: string) { return value.replace(/\D/g, ""); }
 function formatCpf(value: string) { const number = digits(value); return `${number.slice(0, 3)}.${number.slice(3, 6)}.${number.slice(6, 9)}-${number.slice(9, 11)}`; }
 function formatCnpj(value: string) { const number = digits(value); return `${number.slice(0, 2)}.${number.slice(2, 5)}.${number.slice(5, 8)}/${number.slice(8, 12)}-${number.slice(12, 14)}`; }
 function formatCep(value: string) { const number = digits(value); return `${number.slice(0, 5)}-${number.slice(5, 8)}`; }
+function addDays(value: string, days: number) { const date = new Date(`${value}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }

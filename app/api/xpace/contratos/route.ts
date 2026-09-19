@@ -175,7 +175,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const { data: saved, error: savedError } = await access.admin.from("xpace_student_contracts").insert({ tenant_company_id: access.company.id, student_id: student.id, plan_id: plan.id, class_group_id: primaryGroup.id, class_group_name_snapshot: primaryGroup.name, class_schedule_snapshot: classSchedules ?? [], plan_name_snapshot: plan.name, billing_interval_snapshot: plan.billing_interval, duration_months_snapshot: plan.duration_months, base_amount_cents: plan.amount_cents, amount_cents: amountCents, modality_rules_snapshot: plan.modality_rules ?? [], enrollment_service_snapshot: enrollmentServiceSnapshot, enrollment_fee_enabled: Boolean(enrollmentService), payment_method: contract.paymentMethod || null, renews_automatically: renewsAutomatically, starts_on: startsOn, first_due_on: firstDueOn, ends_on: endsOn, status, created_by: access.user.id, updated_by: access.user.id, ...snapshot }).select("id,contract_number,student_id,class_group_id,starts_on,first_due_on,ends_on,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,renews_automatically,status,cancel_effective_on").single();
   if (savedError) throw savedError;
   const discountCents = Math.max(0, plan.amount_cents - amountCents);
-  const { error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: "EM_PREPARACAO", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signature_due_on: signatureRequired ? addDays(todayIso(), 7) : null, signed_at: null, created_by: access.user.id, updated_by: access.user.id });
+  const { data: sale, error: saleError } = await access.admin.from("xpace_contract_sales").insert({ tenant_company_id: access.company.id, student_id: student.id, contract_id: saved.id, sold_on: contract.saleOn, starts_on: startsOn, first_due_on: firstDueOn, payment_method: contract.paymentMethod || null, enrollment_fee_enabled: Boolean(enrollmentService), discount_type: manualDiscount?.discountType ?? null, discount_value: manualDiscount?.discountValue ?? 0, discount_cents: discountCents, status: "EM_PREPARACAO", signature_required: signatureRequired, signature_status: signatureRequired ? "PENDENTE" : "NAO_SOLICITADA", signature_due_on: null, signed_at: null, created_by: access.user.id, updated_by: access.user.id }).select("id").single();
   if (saleError) {
     await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
     throw saleError;
@@ -187,7 +187,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   await ensureContractCharges(access.admin, access.company.id, saved);
   if (status === "ATIVO") await Promise.all((classGroups ?? []).map((group) => ensureContractEnrollment(access.admin, { tenant_company_id: access.company.id, student_id: saved.student_id, class_group_id: group.id, starts_on: saved.starts_on })));
   if (contract.paymentMethod === "PIX") await issueInitialPixCharge(access, saved.id, student.id, plan.name);
-  return NextResponse.json({ success: true, pendingSignature: signatureRequired, contract: { id: saved.id, contractNumber: saved.contract_number } }, { status: 201 });
+  return NextResponse.json({ success: true, pendingSignature: signatureRequired, saleId: sale?.id, contract: { id: saved.id, contractNumber: saved.contract_number } }, { status: 201 });
 }
 
 async function setPlanActive(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["plan"]) {
@@ -397,7 +397,6 @@ function endOfTerm(startsOn: string, months: number) {
   const boundary = Date.UTC(targetYear, targetMonthNumber - 1, Math.min(day, lastDay));
   return new Date(boundary - 86_400_000).toISOString().slice(0, 10);
 }
-function addDays(value: string, days: number) { const date = new Date(`${value}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }
 function templateNameFromPath(value: string | null) { return value ? value.split("/").at(-1)?.replace(/^modelo-\d+\./, "MODELO.") ?? "MODELO IMPORTADO" : ""; }
 function today() { return todayIso(); }
 function ageOnToday(value: string) { const birth = new Date(`${value}T12:00:00`); const current = new Date(`${today()}T12:00:00`); let age = current.getFullYear() - birth.getFullYear(); if (current.getMonth() < birth.getMonth() || (current.getMonth() === birth.getMonth() && current.getDate() < birth.getDate())) age -= 1; return age; }
