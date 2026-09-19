@@ -151,7 +151,11 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
     try {
       const payload = await request<{ pendingSignature?: boolean }>("/api/xpace/contratos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "CREATE_CONTRACT", contract: { studentId, ...input } }) });
       setSaleOpen(false); await loadProfile(); setTab("VENDAS"); setNotice(payload.pendingSignature ? "VENDA REGISTRADA. ENVIE O CONTRATO PARA ASSINATURA QUANDO CONFERIR O MODELO E OS DADOS DO ALUNO." : "VENDA REGISTRADA. O CONTRATO E AS COBRANÇAS MENSAIS FORAM CRIADOS.");
-    } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL REGISTRAR A VENDA."); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "NÃO FOI POSSÍVEL REGISTRAR A VENDA.";
+      setNotice(message);
+      window.alert(message);
+    }
     finally { setSaving(false); }
   }
 
