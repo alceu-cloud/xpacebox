@@ -14,8 +14,10 @@ type CreateSignatureDocumentInput = {
 
 type AutentiqueDocument = {
   id: string;
-  signatures?: Array<{ link?: { short_link?: string | null } | null }>;
+  signatures?: Array<{ public_id?: string | null; link?: { short_link?: string | null } | null }>;
 };
+
+type AutentiqueSignatureStatus = "ENVIADA" | "ASSINADA" | "RECUSADA";
 
 const endpoint = "https://api.autentique.com.br/v2/graphql";
 
@@ -37,7 +39,7 @@ export async function createAutentiqueSignatureDocument(input: CreateSignatureDo
     createDocument(sandbox: ${sandbox ? "true" : "false"}, document: $document, signers: $signers, file: $file) {
       id
       name
-      signatures { link { short_link } }
+      signatures { public_id link { short_link } }
     }
   }`;
   const form = new FormData();
@@ -48,7 +50,6 @@ export async function createAutentiqueSignatureDocument(input: CreateSignatureDo
         name: input.documentName,
         refusable: true,
         stop_on_rejected: true,
-        reminder: "WEEKLY",
         locale: { country: "BR", language: "pt-BR", timezone: "America/Sao_Paulo", date_format: "DD_MM_YYYY" },
       },
       signers: [signer],
@@ -70,7 +71,46 @@ export async function createAutentiqueSignatureDocument(input: CreateSignatureDo
     throw new AutentiqueError(errorMessage || "A AUTENTIQUE NÃO ACEITOU O DOCUMENTO PARA ASSINATURA.", 502);
   }
   const document = payload.data.createDocument;
-  return { documentId: document.id, signatureUrl: document.signatures?.find((signature) => signature.link?.short_link)?.link?.short_link ?? "", sandbox };
+  const signature = document.signatures?.find((item) => item.link?.short_link) ?? document.signatures?.[0];
+  return { documentId: document.id, signatureId: signature?.public_id ?? "", signatureUrl: signature?.link?.short_link ?? "", sandbox };
+}
+
+export async function resendAutentiqueSignature(signatureId: string) {
+  const token = process.env.AUTENTIQUE_API_TOKEN?.trim();
+  if (!token) throw new AutentiqueError("A INTEGRAÇÃO AUTENTIQUE AINDA NÃO ESTÁ CONFIGURADA.", 503);
+  if (!/^[0-9a-f-]{20,}$/i.test(signatureId)) throw new AutentiqueError("A ASSINATURA NÃO POSSUI UM IDENTIFICADOR VÁLIDO PARA REENVIO.", 409);
+  const query = `mutation ResendSignatures($publicIds: [UUID!]!) { resendSignatures(public_ids: $publicIds) }`;
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ query, variables: { publicIds: [signatureId] } }), cache: "no-store" });
+  } catch {
+    throw new AutentiqueError("NÃO FOI POSSÍVEL CONECTAR À AUTENTIQUE PARA REENVIAR A ASSINATURA.", 502);
+  }
+  const payload = await response.json().catch(() => null) as { data?: { resendSignatures?: boolean }; errors?: Array<{ message?: string }> } | null;
+  const errorMessage = payload?.errors?.map((item) => item.message).filter(Boolean).join(" · ");
+  if (!response.ok || errorMessage || !payload?.data?.resendSignatures) throw new AutentiqueError(errorMessage || "A AUTENTIQUE NÃO ACEITOU O REENVIO DA ASSINATURA.", 502);
+}
+
+export async function getAutentiqueSignatureStatus(documentId: string) {
+  const token = process.env.AUTENTIQUE_API_TOKEN?.trim();
+  if (!token) throw new AutentiqueError("A INTEGRAÇÃO AUTENTIQUE AINDA NÃO ESTÁ CONFIGURADA.", 503);
+  if (!/^[a-z0-9_-]{12,128}$/i.test(documentId)) throw new AutentiqueError("O DOCUMENTO NÃO POSSUI UM IDENTIFICADOR VÁLIDO PARA CONSULTA.", 409);
+  const query = `query { document(id: "${documentId}") { files { signed } signatures { signed { created_at } rejected { created_at } } } }`;
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ query }), cache: "no-store" });
+  } catch {
+    throw new AutentiqueError("NÃO FOI POSSÍVEL CONECTAR À AUTENTIQUE PARA CONSULTAR A ASSINATURA.", 502);
+  }
+  const payload = await response.json().catch(() => null) as { data?: { document?: { files?: { signed?: string | null } | null; signatures?: Array<{ signed?: { created_at?: string | null } | null; rejected?: { created_at?: string | null } | null }> | null } | null }; errors?: Array<{ message?: string }> } | null;
+  const errorMessage = payload?.errors?.map((item) => item.message).filter(Boolean).join(" · ");
+  const document = payload?.data?.document;
+  if (!response.ok || errorMessage || !document) throw new AutentiqueError(errorMessage || "A AUTENTIQUE NÃO RETORNOU O STATUS DO DOCUMENTO.", 502);
+  const signatures = document.signatures ?? [];
+  const signedAt = signatures.map((signature) => signature.signed?.created_at ?? "").find(Boolean) ?? "";
+  if (signedAt && signatures.length && signatures.every((signature) => Boolean(signature.signed?.created_at))) return { status: "ASSINADA" as AutentiqueSignatureStatus, signedAt, signedDocumentUrl: document.files?.signed ?? "" };
+  if (signatures.some((signature) => Boolean(signature.rejected?.created_at))) return { status: "RECUSADA" as AutentiqueSignatureStatus, signedAt: "", signedDocumentUrl: "" };
+  return { status: "ENVIADA" as AutentiqueSignatureStatus, signedAt: "", signedDocumentUrl: "" };
 }
 
 function buildSigner(signer: Signer) {

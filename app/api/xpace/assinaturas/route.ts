@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { AutentiqueError, createAutentiqueSignatureDocument } from "@/lib/server/autentique";
+import { AutentiqueError, createAutentiqueSignatureDocument, resendAutentiqueSignature } from "@/lib/server/autentique";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { ContractTemplateError, renderXpaceContractTemplate, type ContractTemplateData } from "@/lib/server/xpace-contract-template";
 import { todayIso } from "@/lib/xpace/billing";
@@ -19,11 +19,20 @@ export async function POST(request: Request) {
     access = await requireCompanyAccess(request, companySlug);
     if (!["platform_owner", "company_manager"].includes(access.profile.platform_role)) throw new AccessError("APENAS GESTORES PODEM ENVIAR CONTRATOS PARA ASSINATURA.", 403);
 
-    const { data: sale, error: saleError } = await access.admin.from("xpace_contract_sales").select("id,contract_id,status,signature_required,signature_status,signature_envelope_id").eq("id", saleId).eq("tenant_company_id", access.company.id).maybeSingle();
+    const { data: sale, error: saleError } = await access.admin.from("xpace_contract_sales").select("id,contract_id,status,signature_required,signature_status,signature_envelope_id,signature_provider,signature_provider_signature_id,signature_url").eq("id", saleId).eq("tenant_company_id", access.company.id).maybeSingle();
     if (saleError) throw saleError;
     if (!sale) throw new RequestError("VENDA NÃO ENCONTRADA NESTA EMPRESA.", 404);
     const resend = Boolean(body.resend);
     if ((sale.signature_envelope_id || ["ENVIADA", "ASSINADA"].includes(sale.signature_status)) && !resend) throw new RequestError("ESTE CONTRATO JÁ FOI ENVIADO. USE O LINK GERADO OU ESCOLHA REENVIAR.", 409);
+    if (resend && sale.signature_provider === "AUTENTIQUE" && sale.signature_provider_signature_id) {
+      const now = new Date().toISOString();
+      await resendAutentiqueSignature(sale.signature_provider_signature_id);
+      const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ signature_status: "ENVIADA", signature_error: null, sent_for_signature_at: now, signature_due_on: addDays(todayIso(), 7), signature_reminder_day_2_at: null, signature_reminder_day_5_at: null, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
+      if (updateError) throw updateError;
+      const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: sale.contract_id, event_type: "ASSINATURA_ENVIADA", note: "ASSINATURA REENVIADA.", created_by: access.user.id });
+      if (eventError) console.error("XPACE SIGNATURE EVENT ERROR", eventError);
+      return NextResponse.json({ success: true, signatureUrl: sale.signature_url || "", sandbox: false });
+    }
 
     const { data: contract, error: contractError } = await access.admin.from("xpace_student_contracts").select("id,contract_number,status,plan_id,student_id,duration_months_snapshot,modality_rules_snapshot,enrollment_service_snapshot").eq("id", sale.contract_id).eq("tenant_company_id", access.company.id).maybeSingle();
     if (contractError) throw contractError;
@@ -60,7 +69,7 @@ export async function POST(request: Request) {
     if (processingError) throw processingError;
     dispatchStarted = true;
     const document = await createAutentiqueSignatureDocument({ file: renderedFile, fileName: `xpace-contrato-${contract.contract_number}.docx`, documentName: `XPACE · CONTRATO #${String(contract.contract_number).padStart(5, "0")} · ${student.full_name}`, signer: { name: student.full_name, email: student.email, mobile: student.mobile, cpf: student.cpf } });
-    const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ signature_required: true, signature_status: "ENVIADA", signature_provider: "AUTENTIQUE", signature_envelope_id: document.documentId, signature_url: document.signatureUrl || null, signature_error: null, sent_for_signature_at: now, signature_due_on: addDays(todayIso(), 7), signature_reminder_day_2_at: null, signature_reminder_day_5_at: null, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
+    const { error: updateError } = await access.admin.from("xpace_contract_sales").update({ signature_required: true, signature_status: "ENVIADA", signature_provider: "AUTENTIQUE", signature_envelope_id: document.documentId, signature_provider_signature_id: document.signatureId || null, signature_url: document.signatureUrl || null, signature_error: null, sent_for_signature_at: now, signature_due_on: addDays(todayIso(), 7), signature_reminder_day_2_at: null, signature_reminder_day_5_at: null, updated_by: access.user.id, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", access.company.id);
     if (updateError) throw updateError;
     const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: contract.id, event_type: "ASSINATURA_ENVIADA", note: resend ? "ASSINATURA REENVIADA." : document.sandbox ? "ENVIADO À AUTENTIQUE EM MODO DE TESTE (SANDBOX)." : "ENVIADO À AUTENTIQUE PARA ASSINATURA.", created_by: access.user.id });
     if (eventError) console.error("XPACE SIGNATURE EVENT ERROR", eventError);
