@@ -3888,3 +3888,4 @@ input[type="email"] { text-transform: none !important; }
 .xd-contract-action--print { border-color: #93c5e8; color: #176b9d; background: #f2f9ff; }
 .xd-contract-action--end { border-color: #efabb7; color: #b6384d; background: #fff3f5; }
 .xd-contract-details-dialog .xd-danger-link { display: none; }
+.xd-sales-table article > div > .xd-secondary { justify-self: start; width: fit-content; min-height: 34px; padding: 0 12px; }
