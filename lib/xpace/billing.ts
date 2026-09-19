@@ -29,23 +29,23 @@ export function calculateDiscountedAmount(baseAmountCents: number, benefit?: { d
 
 export async function ensureContractCharges(admin: SupabaseClient, companyId: string, contract: ContractForCharges) {
   if (!['AGENDADO', 'ATIVO'].includes(contract.status)) return;
-  const interval = 1;
   const latestDate = contract.ends_on;
   const charges: Array<Record<string, unknown>> = [];
   const enrollment = parseEnrollmentService(contract.enrollment_service_snapshot);
-  const chargeCount = countCharges(contract.starts_on, contract.ends_on, interval);
+  const chargeCount = countCharges(contract.starts_on, contract.ends_on, contract.billing_interval_snapshot);
   let competence = contract.starts_on;
   let guard = 0;
 
   while (competence <= latestDate && guard < 120) {
-    if (contract.cancel_effective_on && addMonths(contract.first_due_on, guard) >= contract.cancel_effective_on) break;
+    const dueOn = nextBillingDate(contract.first_due_on, guard, contract.billing_interval_snapshot);
+    if (contract.cancel_effective_on && dueOn >= contract.cancel_effective_on) break;
     const enrollmentFeeCents = enrollmentFeeForCharge(enrollment, guard, chargeCount);
     charges.push({
       tenant_company_id: companyId,
       contract_id: contract.id,
       student_id: contract.student_id,
       competence_on: competence,
-      due_on: addMonths(contract.first_due_on, guard),
+      due_on: dueOn,
       base_amount_cents: contract.base_amount_cents,
       benefit_name_snapshot: contract.benefit_name_snapshot,
       discount_type_snapshot: contract.discount_type_snapshot,
@@ -53,7 +53,7 @@ export async function ensureContractCharges(admin: SupabaseClient, companyId: st
       enrollment_fee_cents: enrollmentFeeCents,
       amount_cents: contract.amount_cents + enrollmentFeeCents,
     });
-    competence = addMonths(competence, interval);
+    competence = nextBillingDate(competence, 1, contract.billing_interval_snapshot);
     guard += 1;
   }
 
@@ -83,11 +83,21 @@ function parseEnrollmentService(value: unknown) {
   return { salePriceCents, chargeMode: service.chargeMode === "RATEAR_PARCELAS" ? "RATEAR_PARCELAS" as const : "PRIMEIRA_PARCELA" as const };
 }
 
-function countCharges(startsOn: string, endsOn: string, intervalMonths: number) {
+function countCharges(startsOn: string, endsOn: string, billingInterval: string) {
   let count = 0;
   let competence = startsOn;
-  while (competence <= endsOn && count < 120) { count += 1; competence = addMonths(competence, intervalMonths); }
+  while (competence <= endsOn && count < 120) { count += 1; competence = nextBillingDate(competence, 1, billingInterval); }
   return Math.max(1, count);
+}
+
+export function nextBillingDate(date: string, count: number, billingInterval: string) {
+  return billingInterval === "DIARIO" ? addDays(date, count) : addMonths(date, count);
+}
+
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
 }
 
 function enrollmentFeeForCharge(enrollment: ReturnType<typeof parseEnrollmentService>, chargeIndex: number, chargeCount: number) {

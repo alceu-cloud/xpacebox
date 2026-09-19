@@ -3,6 +3,16 @@ create role anon;
 create role authenticated;
 create role service_role;
 create table public.companies(id uuid primary key);
+create table public.xpace_membership_plans(
+id uuid primary key default gen_random_uuid(),
+tenant_company_id uuid not null,
+name text not null,
+billing_interval text not null,
+duration_months integer not null,
+amount_cents integer not null,
+active boolean not null default true
+);
+alter table public.xpace_membership_plans add constraint xpace_membership_plans_billing_interval_check CHECK ((billing_interval = ANY (ARRAY['MENSAL'::text, 'TRIMESTRAL'::text, 'SEMESTRAL'::text, 'ANUAL'::text])));
 create table public.xpace_student_contracts(
 id uuid default gen_random_uuid() not null,
 contract_number bigint generated always as identity not null,

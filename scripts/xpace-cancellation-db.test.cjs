@@ -18,7 +18,7 @@ async function main() {
       insert into public.xpace_contract_charges(tenant_company_id,student_id,contract_id,competence_on,due_on,base_amount_cents,amount_cents,status,provider_payment_id)
         select tenant_company_id,student_id,id,starts_on,first_due_on,base_amount_cents,amount_cents,'CANCELADO','pay_fixture' from public.xpace_student_contracts;
     `);
-    await db.exec(fs.readFileSync('supabase/migrations/20260919192109_xpace_sale_cancellation_lifecycle.sql','utf8'));
+    await db.exec(fs.readFileSync('supabase/migrations/20260919192506_xpace_sale_cancellation_lifecycle.sql','utf8'));
     assert.equal((await db.query('select status from public.xpace_contract_sales')).rows[0].status,'CANCELADA');
     assert.equal((await db.query('select status from public.xpace_payment_cancellations')).rows[0].status,'PENDING');
     const results = await db.exec(fs.readFileSync('scripts/xpace-cancellation-regression.sql','utf8'));

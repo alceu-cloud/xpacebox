@@ -7,8 +7,8 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { createAsaasPixCharge, xPayEnvironment } from "@/lib/server/xpay-asaas";
 
 const companySlug = "xpace";
-const intervals = ["MENSAL", "SEMESTRAL", "ANUAL"] as const;
-const supportedCycles: Record<(typeof intervals)[number], number> = { MENSAL: 1, SEMESTRAL: 6, ANUAL: 12 };
+const intervals = ["DIARIO", "MENSAL", "SEMESTRAL", "ANUAL"] as const;
+const supportedCycles: Record<(typeof intervals)[number], number> = { DIARIO: 1, MENSAL: 1, SEMESTRAL: 6, ANUAL: 12 };
 const statuses = ["AGUARDANDO_ASSINATURA", "AGENDADO", "ATIVO", "PAUSADO", "CANCELADO", "ENCERRADO"] as const;
 
 type BillingInterval = (typeof intervals)[number];
@@ -105,7 +105,7 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   validateCatalogSettings(plan.catalogSettings);
   const modalityRules = await resolveModalityRules(access, plan.modalityRules);
   await resolveEnrollmentService(access, plan.catalogSettings);
-  const catalogSettings = { ...plan.catalogSettings, enrollmentChargeMode: plan.catalogSettings.enrollmentFeeEnabled && plan.billingInterval === "MENSAL" ? "PRIMEIRA_PARCELA" : plan.catalogSettings.enrollmentChargeMode };
+  const catalogSettings = { ...plan.catalogSettings, enrollmentChargeMode: plan.catalogSettings.enrollmentFeeEnabled && ["DIARIO", "MENSAL"].includes(plan.billingInterval) ? "PRIMEIRA_PARCELA" : plan.catalogSettings.enrollmentChargeMode };
   const { data, error } = await access.admin.from("xpace_membership_plans").insert({ tenant_company_id: access.company.id, name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: modalityRules.map((rule) => rule.modalityName), modality_rules: modalityRules.map(({ modalityName: _modalityName, ...rule }) => rule), catalog_settings: catalogSettings, created_by: access.user.id, updated_by: access.user.id }).select("id,name").single();
   if (error) throw error;
   return NextResponse.json({ success: true, plan: { id: data.id, name: data.name } }, { status: 201 });
@@ -144,7 +144,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const { data: classSchedules, error: classSchedulesError } = await access.admin.from("xpace_class_schedules").select("class_group_id,weekday,starts_at,ends_at").eq("tenant_company_id", access.company.id).in("class_group_id", contract.classGroupIds).eq("active", true).order("weekday").order("starts_at");
   if (classSchedulesError) throw classSchedulesError;
   if ((classGroups ?? []).some((group) => !(classSchedules ?? []).some((schedule) => schedule.class_group_id === group.id))) throw new RequestError("UMA DAS GRADES ESCOLHIDAS NÃO POSSUI HORÁRIOS ATIVOS.", 409);
-  if (plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit !== "MÊS") throw new RequestError("A VENDA DE CONTRATOS COM DURAÇÃO EM DIA OU SEMANA SERÁ LIBERADA QUANDO AS REGRAS FINANCEIRAS FOREM DEFINIDAS.", 400);
+  if (plan.billing_interval !== "DIARIO" && plan.catalog_settings && typeof plan.catalog_settings === "object" && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit && (plan.catalog_settings as { durationUnit?: unknown }).durationUnit !== "MÊS") throw new RequestError("A VENDA DE CONTRATOS COM DURAÇÃO EM DIA OU SEMANA SERÁ LIBERADA QUANDO AS REGRAS FINANCEIRAS FOREM DEFINIDAS.", 400);
   const { data: benefitProfile, error: benefitProfileError } = activeBenefit ? await access.admin.from("xpace_benefit_profiles").select("id,name,discount_type,discount_value").eq("id", activeBenefit.benefit_profile_id).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle() : { data: null, error: null };
   if (benefitProfileError) throw benefitProfileError;
   const manualDiscount = contract.discountType === "PERCENTUAL" || contract.discountType === "FIXO"
@@ -156,12 +156,12 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (!isCurrency(amountCents)) throw new RequestError("VALOR DO CONTRATO INVALIDO.", 400);
   const startsOn = contract.saleOn;
   const firstDueOn = contract.firstDueOn;
-  const endsOn = endOfTerm(startsOn, plan.duration_months);
+  const endsOn = endOfTerm(startsOn, plan.billing_interval, plan.duration_months);
   const signatureRequired = Boolean((plan.catalog_settings as { sendForSignature?: unknown } | null)?.sendForSignature);
   const status: ContractStatus = startsOn > today() ? "AGENDADO" : "ATIVO";
   const renewsAutomatically = contract.renewsAutomatically ?? plan.renews_automatically;
   const enrollmentService = contract.enrollmentFeeEnabled === false ? null : await resolveEnrollmentService(access, plan.catalog_settings);
-  const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, chargeMode: plan.billing_interval === "MENSAL" ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
+  const enrollmentServiceSnapshot = enrollmentService ? { serviceId: enrollmentService.id, description: enrollmentService.description, salePriceCents: enrollmentService.salePriceCents, chargeMode: ["DIARIO", "MENSAL"].includes(plan.billing_interval) ? "PRIMEIRA_PARCELA" : enrollmentService.chargeMode } : {};
   const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGUARDANDO_ASSINATURA", "AGENDADO", "ATIVO", "PAUSADO"]);
   if (conflictError) throw conflictError;
   if ((existing ?? []).some((item) => item.renews_automatically || (item.starts_on <= endsOn && item.ends_on >= startsOn))) throw new RequestError("ESTE ALUNO JÁ POSSUI UM CONTRATO EM VIGOR PARA ESTE PLANO.", 409);
@@ -278,7 +278,7 @@ async function updatePlan(access: Awaited<ReturnType<typeof requireCompanyAccess
   validateCatalogSettings(plan.catalogSettings);
   const modalityRules = await resolveModalityRules(access, plan.modalityRules);
   await resolveEnrollmentService(access, plan.catalogSettings);
-  const catalogSettings = { ...plan.catalogSettings, enrollmentChargeMode: plan.catalogSettings.enrollmentFeeEnabled && plan.billingInterval === "MENSAL" ? "PRIMEIRA_PARCELA" : plan.catalogSettings.enrollmentChargeMode };
+  const catalogSettings = { ...plan.catalogSettings, enrollmentChargeMode: plan.catalogSettings.enrollmentFeeEnabled && ["DIARIO", "MENSAL"].includes(plan.billingInterval) ? "PRIMEIRA_PARCELA" : plan.catalogSettings.enrollmentChargeMode };
   const { data, error } = await access.admin.from("xpace_membership_plans").update({ name: plan.name, description: plan.description || null, billing_interval: plan.billingInterval, duration_months: plan.durationMonths, amount_cents: plan.amountCents, renews_automatically: plan.renewsAutomatically, modalities: modalityRules.map((rule) => rule.modalityName), modality_rules: modalityRules.map(({ modalityName: _modalityName, ...rule }) => rule), catalog_settings: catalogSettings, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", planId).eq("tenant_company_id", access.company.id).select("id,name").maybeSingle();
   if (error) throw error;
   if (!data) throw new RequestError("CONTRATO NÃO ENCONTRADO NESTA EMPRESA.", 404);
@@ -388,7 +388,8 @@ function isPositiveInteger(value: number) { return Number.isInteger(value) && va
 function isCurrency(value: number | undefined): value is number { return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100_000_000; }
 function boundedInteger(value: unknown, min: number, max: number) { const number = Number(value); return Number.isInteger(number) ? Math.min(max, Math.max(min, number)) : min; }
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
-function endOfTerm(startsOn: string, months: number) {
+function endOfTerm(startsOn: string, billingInterval: BillingInterval, months: number) {
+  if (billingInterval === "DIARIO") return startsOn;
   const [year, month, day] = startsOn.split("-").map(Number);
   const targetMonth = month - 1 + months;
   const targetYear = year + Math.floor(targetMonth / 12);

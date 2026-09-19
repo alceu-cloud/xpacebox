@@ -34,12 +34,13 @@ type Modality = { id: string; name: string; active: boolean };
 type Service = { id: string; description: string; salePriceCents: number };
 
 const contractCycles = [
+  { durationMonths: 1, billingInterval: "DIARIO", label: "DIÁRIO", color: "daily" },
   { durationMonths: 1, billingInterval: "MENSAL", label: "MENSAL", color: "monthly" },
   { durationMonths: 6, billingInterval: "SEMESTRAL", label: "SEMESTRAL", color: "semiannual" },
   { durationMonths: 12, billingInterval: "ANUAL", label: "ANUAL", color: "annual" },
 ] as const;
 const defaultSettings = (): CatalogSettings => ({ allowManualRenewal: true, allowInstallments: false, allowAppSale: false, sendForSignature: false, limitSalePeriod: false, saleStartsOn: "", saleEndsOn: "", maxSuspensions: 0, maxSuspensionDays: 0, allowPreSale: false, limitAgeRange: false, minAge: 0, maxAge: 120, enrollmentFeeEnabled: false, enrollmentServiceId: "", enrollmentChargeMode: "PRIMEIRA_PARCELA", salesCommissionEnabled: false, revenueCategory: "VENDAS", durationUnit: "MÊS" });
-const emptyDraft = (): PlanDraft => ({ name: "", duration: "1", amount: "", modalityRules: [], renewsAutomatically: true, settings: defaultSettings() });
+const emptyDraft = (): PlanDraft => ({ name: "", duration: "MENSAL", amount: "", modalityRules: [], renewsAutomatically: true, settings: defaultSettings() });
 
 export default function ContractsWorkspace() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -87,7 +88,7 @@ export default function ContractsWorkspace() {
   }, [plans, search]);
 
   function startNew() { setEditingPlanId(""); setDraft(emptyDraft()); setTemplateFile(null); setStoredTemplateName(""); setNotice(""); setView("NEW"); }
-  function startEdit(plan: Plan) { setEditingPlanId(plan.id); setDraft({ name: plan.name, duration: String(plan.durationMonths), amount: currencyInput(String(plan.amountCents)), modalityRules: plan.modalityRules, renewsAutomatically: plan.renewsAutomatically, settings: { ...defaultSettings(), ...plan.catalogSettings } }); setTemplateFile(null); setStoredTemplateName(plan.templateFileName); setNotice("ALTERAÇÕES VALEM APENAS PARA AS PRÓXIMAS VENDAS. CONTRATOS JÁ VENDIDOS MANTÊM O HISTÓRICO."); setView("NEW"); }
+  function startEdit(plan: Plan) { setEditingPlanId(plan.id); setDraft({ name: plan.name, duration: plan.billingInterval, amount: currencyInput(String(plan.amountCents)), modalityRules: plan.modalityRules, renewsAutomatically: plan.renewsAutomatically, settings: { ...defaultSettings(), ...plan.catalogSettings } }); setTemplateFile(null); setStoredTemplateName(plan.templateFileName); setNotice("ALTERAÇÕES VALEM APENAS PARA AS PRÓXIMAS VENDAS. CONTRATOS JÁ VENDIDOS MANTÊM O HISTÓRICO."); setView("NEW"); }
   function addModalityRule(rule: PlanModalityRule) { setDraft({ ...draft, modalityRules: [...draft.modalityRules, rule] }); setModalitiesDialogOpen(false); }
   function removeModalityRule(modalityId: string) { setDraft({ ...draft, modalityRules: draft.modalityRules.filter((rule) => rule.modalityId !== modalityId) }); }
 
@@ -103,8 +104,8 @@ export default function ContractsWorkspace() {
             id: editingPlanId || undefined,
             name: draft.name,
             description: "",
-            billingInterval: cycleForDuration(draft.duration).billingInterval,
-            durationMonths: Number(draft.duration),
+            billingInterval: cycleForInterval(draft.duration).billingInterval,
+            durationMonths: cycleForInterval(draft.duration).durationMonths,
             amountCents: inputToCents(draft.amount),
             renewsAutomatically: draft.renewsAutomatically,
             modalityRules: draft.modalityRules,
@@ -148,7 +149,7 @@ export default function ContractsWorkspace() {
       <fieldset className="xd-contract-builder-section"><legend><FileText size={18} /> DADOS DO CONTRATO</legend><div className="xd-contract-form-grid xd-contract-form-grid--plan">
         <Field label="DESCRIÇÃO" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} placeholder="EX.: BALLET MENSAL" required />
         <label>VALOR TOTAL (R$)<input inputMode="numeric" value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: currencyInput(event.target.value) })} placeholder="R$ 0,00" required /></label>
-        <label>CICLO DO CONTRATO<select value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: event.target.value, settings: { ...draft.settings, durationUnit: "MÊS", enrollmentChargeMode: event.target.value === "1" ? "PRIMEIRA_PARCELA" : draft.settings.enrollmentChargeMode } })}>{contractCycles.map((cycle) => <option key={cycle.durationMonths} value={cycle.durationMonths}>{cycle.label}</option>)}</select></label>
+        <label>CICLO DO CONTRATO<select value={draft.duration} onChange={(event) => { const cycle = cycleForInterval(event.target.value); setDraft({ ...draft, duration: cycle.billingInterval, settings: { ...draft.settings, durationUnit: cycle.billingInterval === "DIARIO" ? "DIA" : "MÊS", enrollmentChargeMode: ["DIARIO", "MENSAL"].includes(cycle.billingInterval) ? "PRIMEIRA_PARCELA" : draft.settings.enrollmentChargeMode } }); }}>{contractCycles.map((cycle) => <option key={cycle.billingInterval} value={cycle.billingInterval}>{cycle.label}</option>)}</select></label>
       </div></fieldset>
       <fieldset className="xd-contract-builder-section"><legend><BadgeDollarSign size={18} /> MODALIDADES</legend><div className="xd-contract-modalities"><span>MODALIDADES VINCULADAS</span><button type="button" className="xd-secondary" onClick={() => setModalitiesDialogOpen(true)}>ADICIONAR MODALIDADE</button>{draft.modalityRules.length ? <div className="xd-plan-modality-rules">{draft.modalityRules.map((rule) => { const modality = modalities.find((item) => item.id === rule.modalityId); return <article key={rule.modalityId}><div><strong>{modality?.name ?? "MODALIDADE"}</strong><small>{rule.sessionsPerWeek} SESSÃO(ÕES)/SEMANA · {formatAccessPeriod(rule.accessPeriod, rule.accessLimit)}</small></div><button type="button" className="xd-danger-link" onClick={() => removeModalityRule(rule.modalityId)}>REMOVER</button></article>; })}</div> : <small>NENHUMA MODALIDADE ADICIONADA. O CONTRATO PRECISA TER AO MENOS UMA.</small>}</div></fieldset>
       <fieldset className="xd-contract-builder-section"><legend><Settings2 size={18} /> CONFIGURAÇÕES</legend><div className="xd-contract-settings">
@@ -162,7 +163,7 @@ export default function ContractsWorkspace() {
       <footer className="xd-contract-form-actions"><button type="button" className="xd-secondary" onClick={() => setView("CATALOG")}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving}>{saving ? "SALVANDO..." : editingPlanId ? "SALVAR ALTERAÇÕES" : "SALVAR CONTRATO"}</button></footer>
     </form>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
-    {dialog ? <SettingsDialog kind={dialog} settings={draft.settings} services={services} billingInterval={cycleForDuration(draft.duration).billingInterval} onChange={(settings) => setDraft({ ...draft, settings })} onClose={() => setDialog(null)} /> : null}
+    {dialog ? <SettingsDialog kind={dialog} settings={draft.settings} services={services} billingInterval={cycleForInterval(draft.duration).billingInterval} onChange={(settings) => setDraft({ ...draft, settings })} onClose={() => setDialog(null)} /> : null}
     {modalitiesDialogOpen ? <PlanModalityDialog modalities={modalities} existingIds={draft.modalityRules.map((rule) => rule.modalityId)} onAdd={addModalityRule} onClose={() => setModalitiesDialogOpen(false)} /> : null}
   </section>;
 
@@ -170,7 +171,7 @@ export default function ContractsWorkspace() {
     <div className="xd-contract-title"><div><span>ADMINISTRATIVO · CATÁLOGO</span><h1>CONTRATOS.</h1><p>Cadastre as opções que poderão ser vendidas depois para cada aluno.</p></div><button type="button" className="xd-primary" onClick={startNew}><Plus size={17} /> ADICIONAR CONTRATO</button></div>
     <div className="xd-contract-tools"><label><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="PESQUISAR CONTRATO" /></label><button type="button" className="xd-secondary" disabled title="Filtros em preparação"><Filter size={16} /> FILTROS</button></div>
     {notice ? <p className="xd-feedback">{notice}</p> : null}
-    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => { const cycle = cycleForDuration(String(plan.durationMonths)); return <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span className={`xd-plan-cycle xd-plan-cycle--${cycle.color}`}>{cycle.label}</span><b>{formatCurrency(plan.amountCents)}</b><div className="xd-room-actions"><button type="button" className="xd-secondary" disabled={saving} onClick={() => startEdit(plan)}><Pencil size={14} /> EDITAR</button><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button><button type="button" className="xd-quiet-action xd-danger-link" disabled={saving} onClick={() => void deletePlan(plan)}>EXCLUIR</button></div></article>; })}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
+    {loading ? <p className="xd-contract-loading">CARREGANDO CONTRATOS...</p> : <div className="xd-plans"><header><div><span>CONTRATOS CADASTRADOS</span><h2>{plans.length} {plans.length === 1 ? "CONTRATO" : "CONTRATOS"}</h2></div></header>{visiblePlans.length ? <div>{visiblePlans.map((plan) => { const cycle = cycleForInterval(plan.billingInterval); return <article className={!plan.active ? "is-archived" : ""} key={plan.id}><div className="xd-plan-icon"><BadgeDollarSign size={20} /></div><div><strong>{plan.name}</strong><small>{plan.modalities.length ? plan.modalities.join(" · ") : plan.description || "SEM MODALIDADE VINCULADA"}</small></div><span className={`xd-plan-cycle xd-plan-cycle--${cycle.color}`}>{cycle.label}</span><b>{formatCurrency(plan.amountCents)}</b><div className="xd-room-actions"><button type="button" className="xd-secondary" disabled={saving} onClick={() => startEdit(plan)}><Pencil size={14} /> EDITAR</button><button type="button" className="xd-secondary" disabled={saving} onClick={() => void setPlanActive(plan)}>{plan.active ? "ARQUIVAR" : "REATIVAR"}</button><button type="button" className="xd-quiet-action xd-danger-link" disabled={saving} onClick={() => void deletePlan(plan)}>EXCLUIR</button></div></article>; })}</div> : <p className="xd-empty-community">NENHUM CONTRATO ENCONTRADO.</p>}</div>}
   </section>;
 }
 
@@ -193,8 +194,8 @@ function normalize(value: string) { return value.normalize("NFD").replace(/[\u03
 function formatCurrency(cents: number) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((Number.isFinite(cents) ? cents : 0) / 100); }
 function inputToCents(value: string) { const digits = value.replace(/\D/g, ""); return digits ? Number(digits) : 0; }
 function currencyInput(value: string) { const digits = value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""); if (!digits) return ""; return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(digits) / 100); }
-function cycleForDuration(duration: string) {
-  const known = contractCycles.find((cycle) => cycle.durationMonths === Number(duration));
-  return known ?? { durationMonths: Number(duration) || 0, billingInterval: "", label: `${Number(duration) || 0} MESES`, color: "legacy" };
+function cycleForInterval(interval: string) {
+  const known = contractCycles.find((cycle) => cycle.billingInterval === interval);
+  return known ?? { durationMonths: 1, billingInterval: "MENSAL", label: "MENSAL", color: "legacy" };
 }
 function formatAccessPeriod(period: AccessPeriod, limit: number | null) { if (period === "SEM_LIMITE") return "ACESSO SEM LIMITE"; return `${limit ?? 0} ACESSO(S) POR ${period === "MES" ? "MÊS" : period}`; }

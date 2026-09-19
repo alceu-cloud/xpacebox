@@ -26,8 +26,15 @@ export async function GET(request: Request) {
       const { error: contractError } = await admin.from("xpace_student_contracts").update({ status: "ENCERRADO", status_note: "ENCERRAMENTO AGENDADO EXECUTADO.", updated_at: now }).eq("id", contract.id).eq("tenant_company_id", company.id);
       if (contractError) throw contractError;
     }));
-    await Promise.all((contracts ?? []).filter((contract) => !scheduledToEnd.some((ending) => ending.id === contract.id)).map((contract) => ensureContractCharges(admin, company.id, contract)));
-    const activeContracts = (contracts ?? []).filter((contract) => !scheduledToEnd.some((ending) => ending.id === contract.id) && ["AGENDADO", "ATIVO"].includes(contract.status));
+    // The database function locks each due contract before extending it. That
+    // makes a duplicated Vercel cron delivery idempotent and keeps the same
+    // contract, signature and sales history alive across cycles.
+    const { data: renewedContracts, error: renewalError } = await admin.rpc("xpace_renew_due_contracts", { p_company: company.id, p_today: today, p_limit: 100 });
+    if (renewalError) throw renewalError;
+    const contractsForCharges = new Map((contracts ?? []).filter((contract) => !scheduledToEnd.some((ending) => ending.id === contract.id)).map((contract) => [contract.id, contract]));
+    for (const renewed of renewedContracts ?? []) contractsForCharges.set(renewed.id, renewed);
+    await Promise.all([...contractsForCharges.values()].map((contract) => ensureContractCharges(admin, company.id, contract)));
+    const activeContracts = [...contractsForCharges.values()].filter((contract) => ["AGENDADO", "ATIVO"].includes(contract.status));
     const [overdueResult, pendingSignaturesResult, signatureRemindersResult] = await Promise.all([
       admin.from("xpace_contract_charges").select("contract_id").eq("tenant_company_id", company.id).eq("status", "ABERTO").lte("due_on", addDays(today, -4)),
       admin.from("xpace_contract_sales").select("id,contract_id,signature_due_on").eq("tenant_company_id", company.id).eq("signature_required", true).neq("signature_status", "ASSINADA").not("signature_due_on", "is", null).lt("signature_due_on", today),
@@ -46,7 +53,7 @@ export async function GET(request: Request) {
     }));
     const reminders = await sendSignatureReminders(admin, company.id, today, new Set(activeContracts.map((contract) => contract.id)), signatureRemindersResult.data ?? []);
     const cancellations = await processPaymentCancellations(admin, company.id);
-    return NextResponse.json({ success: true, cancellations, reminders, generatedFor: contracts?.length ?? 0, paymentBlocked: overdueContractIds.size, signatureBlocked: signatureBlockedIds.size });
+    return NextResponse.json({ success: true, cancellations, reminders, generatedFor: contractsForCharges.size, renewedFor: renewedContracts?.length ?? 0, paymentBlocked: overdueContractIds.size, signatureBlocked: signatureBlockedIds.size });
   } catch (error) {
     console.error("XPACE RECURRING CHARGES CRON ERROR", error);
     return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL GERAR AS COBRANÇAS RECORRENTES." }, { status: 500 });
