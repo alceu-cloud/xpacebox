@@ -216,7 +216,8 @@ async function setContractStatus(access: Awaited<ReturnType<typeof requireCompan
     if (chargesError) throw chargesError;
   }
   if (contract.status === "CANCELADO" && !scheduledEnding) {
-    const { error: saleError } = await access.admin.from("xpace_contract_sales").update({ status: "CANCELADA", cancelled_at: new Date().toISOString(), cancellation_reason: contract.statusNote || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id);
+    // Ending an already completed contract does not undo its commercial sale.
+    const { error: saleError } = await access.admin.from("xpace_contract_sales").update({ status: "CANCELADA", cancelled_at: new Date().toISOString(), cancellation_reason: contract.statusNote || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("tenant_company_id", access.company.id).eq("contract_id", current.id).neq("status", "CONCLUIDA");
     if (saleError) throw saleError;
   }
   if (current.status !== nextStatus || scheduledEnding) {

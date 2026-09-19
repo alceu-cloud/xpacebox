@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const { data: existing, error: existingError } = await admin.from("xpace_signature_webhook_events").select("id,processed_at").eq("provider", "AUTENTIQUE").eq("external_event_id", eventId).maybeSingle();
   if (existingError) return fail(existingError);
   if (existing?.processed_at) return NextResponse.json({ success: true, duplicate: true });
-  const { data: sale, error: saleError } = documentId ? await admin.from("xpace_contract_sales").select("id,tenant_company_id,contract_id").eq("signature_provider", "AUTENTIQUE").eq("signature_envelope_id", documentId).maybeSingle() : { data: null, error: null };
+  const { data: sale, error: saleError } = documentId ? await admin.from("xpace_contract_sales").select("id,tenant_company_id,contract_id,status").eq("signature_provider", "AUTENTIQUE").eq("signature_envelope_id", documentId).maybeSingle() : { data: null, error: null };
   if (saleError) return fail(saleError);
   let eventRecord = existing;
   if (!eventRecord) {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>, sale: { id: string; tenant_company_id: string; contract_id: string }, eventType: string, data: Record<string, unknown>) {
+async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>, sale: { id: string; tenant_company_id: string; contract_id: string; status: string }, eventType: string, data: Record<string, unknown>) {
   const now = new Date().toISOString();
   if (eventType === "document.finished") {
     const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,starts_on,first_due_on,ends_on,plan_name_snapshot,billing_interval_snapshot,duration_months_snapshot,base_amount_cents,amount_cents,benefit_name_snapshot,discount_type_snapshot,discount_value_snapshot,enrollment_service_snapshot,enrollment_fee_enabled,payment_method,renews_automatically,status,cancel_effective_on").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
@@ -72,9 +72,25 @@ async function applySignatureEvent(admin: ReturnType<typeof createSupabaseAdmin>
     return;
   }
   if (eventType === "signature.rejected" || eventType === "signature.delivery_failed") {
+    if (sale.status === "CONCLUIDA" || sale.status === "CANCELADA") return;
     const reason = typeof data.reason === "string" && data.reason.trim() ? data.reason.trim().slice(0, 500) : eventType === "signature.rejected" ? "ASSINATURA RECUSADA PELO ALUNO." : "A AUTENTIQUE NÃO CONSEGUIU ENTREGAR A SOLICITAÇÃO DE ASSINATURA.";
-    const { error: saleError } = await admin.from("xpace_contract_sales").update({ status: "ERRO", signature_status: eventType === "signature.rejected" ? "RECUSADA" : "ERRO", signature_error: reason, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", sale.tenant_company_id);
+    const { data: contract, error: contractError } = await admin.from("xpace_student_contracts").select("id,student_id,class_group_id,status").eq("id", sale.contract_id).eq("tenant_company_id", sale.tenant_company_id).maybeSingle();
+    if (contractError) throw contractError;
+    if (!contract) throw new Error("CONTRATO NÃO ENCONTRADO PARA O CANCELAMENTO DA ASSINATURA.");
+    const { error: saleError } = await admin.from("xpace_contract_sales").update({ status: "CANCELADA", signature_status: eventType === "signature.rejected" ? "RECUSADA" : "ERRO", signature_error: reason, cancelled_at: now, cancellation_reason: reason, updated_at: now }).eq("id", sale.id).eq("tenant_company_id", sale.tenant_company_id);
     if (saleError) throw saleError;
+    const { error: contractUpdateError } = await admin.from("xpace_student_contracts").update({ status: "CANCELADO", status_note: reason, cancelled_at: now, cancel_effective_on: todayIso(), updated_at: now }).eq("id", contract.id).eq("tenant_company_id", sale.tenant_company_id);
+    if (contractUpdateError) throw contractUpdateError;
+    const { error: chargesError } = await admin.from("xpace_contract_charges").update({ status: "CANCELADO", cancelled_at: now, updated_at: now }).eq("tenant_company_id", sale.tenant_company_id).eq("contract_id", contract.id).eq("status", "ABERTO");
+    if (chargesError) throw chargesError;
+    const { data: classGroups, error: classGroupsError } = await admin.from("xpace_contract_class_groups").select("class_group_id").eq("tenant_company_id", sale.tenant_company_id).eq("contract_id", contract.id);
+    if (classGroupsError) throw classGroupsError;
+    const groupIds = (classGroups ?? []).map((group) => group.class_group_id).filter(Boolean);
+    const enrollmentGroups = groupIds.length ? groupIds : [contract.class_group_id];
+    const { error: enrollmentsError } = await admin.from("xpace_class_enrollments").update({ status: "ENCERRADA", ends_on: todayIso(), updated_at: now }).eq("tenant_company_id", sale.tenant_company_id).eq("student_id", contract.student_id).eq("status", "ATIVA").in("class_group_id", enrollmentGroups);
+    if (enrollmentsError) throw enrollmentsError;
+    const { error: statusEventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: sale.tenant_company_id, contract_id: contract.id, event_type: "STATUS_ALTERADO", previous_status: contract.status, next_status: "CANCELADO", note: reason, created_by: null });
+    if (statusEventError) throw statusEventError;
     const { error: eventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: sale.tenant_company_id, contract_id: sale.contract_id, event_type: eventType === "signature.rejected" ? "ASSINATURA_RECUSADA" : "ASSINATURA_FALHOU", note: reason, created_by: null });
     if (eventError) throw eventError;
   }
