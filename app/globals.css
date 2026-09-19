@@ -3889,3 +3889,4 @@ input[type="email"] { text-transform: none !important; }
 .xd-contract-action--end { border-color: #efabb7; color: #b6384d; background: #fff3f5; }
 .xd-contract-details-dialog .xd-danger-link { display: none; }
 .xd-sales-table article > div > .xd-secondary { justify-self: start; width: fit-content; min-height: 34px; padding: 0 12px; }
+.xd-sales-head > span:not(:first-child), .xd-sales-table article > span:not(.xd-sale-state), .xd-sales-table article > b { text-align: center; }.xd-sales-table article > .xd-sale-state { justify-self: center; }
