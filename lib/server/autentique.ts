@@ -117,16 +117,9 @@ export async function getAutentiqueSignatureStatus(documentId: string) {
 
 function buildSigner(signer: Signer) {
   const phone = normalizePhone(signer.mobile);
-  const email = signer.email?.trim().toLowerCase() ?? "";
   const cpf = digits(signer.cpf);
-  if (!phone && !email) throw new AutentiqueError("INFORME CELULAR OU E-MAIL NO CADASTRO DO ALUNO PARA ENVIAR A ASSINATURA.", 409);
-  const result: Record<string, unknown> = { name: signer.name, action: "SIGN" };
-  if (email) {
-    result.email = email;
-  } else {
-    result.phone = phone;
-    result.delivery_method = "DELIVERY_METHOD_WHATSAPP";
-  }
+  if (!phone) throw new AutentiqueError("INFORME UM CELULAR VÁLIDO COM DDD NO CADASTRO PARA ENVIAR A ASSINATURA PELO WHATSAPP.", 409);
+  const result: Record<string, unknown> = { name: signer.name, phone, delivery_method: "DELIVERY_METHOD_WHATSAPP", action: "SIGN" };
   if (cpf.length === 11) result.configs = { cpf };
   return result;
 }
