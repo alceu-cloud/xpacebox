@@ -3,6 +3,7 @@ import { processPaymentCancellations } from "@/lib/server/xpace-payment-cancella
 
 import { ensureContractCharges, todayIso } from "@/lib/xpace/billing";
 import { resendAutentiqueSignature } from "@/lib/server/autentique";
+import { issuePendingPixCharges } from "@/lib/server/xpace-charge-issuance";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
     const contractsForCharges = new Map((contracts ?? []).filter((contract) => !scheduledToEnd.some((ending) => ending.id === contract.id)).map((contract) => [contract.id, contract]));
     for (const renewed of renewedContracts ?? []) contractsForCharges.set(renewed.id, renewed);
     await Promise.all([...contractsForCharges.values()].map((contract) => ensureContractCharges(admin, company.id, contract)));
+    const issuedPix = await issuePendingPixCharges(admin, company.id);
     const activeContracts = [...contractsForCharges.values()].filter((contract) => ["AGENDADO", "ATIVO"].includes(contract.status));
     const [overdueResult, pendingSignaturesResult, signatureRemindersResult] = await Promise.all([
       admin.from("xpace_contract_charges").select("contract_id").eq("tenant_company_id", company.id).eq("status", "ABERTO").lte("due_on", addDays(today, -4)),
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
     }));
     const reminders = await sendSignatureReminders(admin, company.id, today, new Set(activeContracts.map((contract) => contract.id)), signatureRemindersResult.data ?? []);
     const cancellations = await processPaymentCancellations(admin, company.id);
-    return NextResponse.json({ success: true, cancellations, reminders, generatedFor: contractsForCharges.size, renewedFor: renewedContracts?.length ?? 0, paymentBlocked: overdueContractIds.size, signatureBlocked: signatureBlockedIds.size });
+    return NextResponse.json({ success: true, cancellations, reminders, issuedPix, generatedFor: contractsForCharges.size, renewedFor: renewedContracts?.length ?? 0, paymentBlocked: overdueContractIds.size, signatureBlocked: signatureBlockedIds.size });
   } catch (error) {
     console.error("XPACE RECURRING CHARGES CRON ERROR", error);
     return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL GERAR AS COBRANÇAS RECORRENTES." }, { status: 500 });

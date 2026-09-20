@@ -97,8 +97,19 @@ type AccountCredential = { provider_access_token_ciphertext: string | null; prov
 type AsaasCustomer = { id?: string; name?: string };
 type AsaasPayment = { id?: string; status?: string; invoiceUrl?: string };
 type AsaasPix = { encodedImage?: string; payload?: string };
+type AsaasNotification = {
+  id?: string;
+  event?: string;
+  enabled?: boolean;
+  emailEnabledForProvider?: boolean;
+  smsEnabledForProvider?: boolean;
+  emailEnabledForCustomer?: boolean;
+  smsEnabledForCustomer?: boolean;
+  phoneCallEnabledForCustomer?: boolean;
+  whatsappEnabledForCustomer?: boolean;
+};
 
-export async function createAsaasPixCharge(account: AccountCredential, input: { person: { name: string; cpf: string; email?: string; mobile?: string }; valueCents: number; dueOn: string; description: string; externalReference: string }) {
+export async function createAsaasPixCharge(account: AccountCredential, input: { person: { name: string; cpf: string; email?: string; mobile?: string; whatsappOptIn?: boolean }; valueCents: number; dueOn: string; description: string; externalReference: string }) {
   const apiKey = decryptAccountToken(account);
   const document = digits(input.person.cpf);
   if (document.length !== 11) throw new XPayProviderError("INFORME O CPF DO ALUNO PARA GERAR A COBRANÇA PIX.", 409);
@@ -109,6 +120,11 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
     customerId = customer.id;
   }
   if (!customerId) throw new XPayProviderError("O ASAAS NÃO RETORNOU O CLIENTE DA COBRANÇA.", 502);
+  // Billing must remain available even if the provider rejects a notification
+  // preference. The next charge retries this configuration automatically.
+  await configureCustomerNotifications(apiKey, customerId, input.person).catch((error) => {
+    console.error("XPACE ASAAS NOTIFICATION CONFIG ERROR", { customerId, error });
+  });
   // The provider can accept the payment and fail only when the QR is requested.
   // Reconcile by our immutable local charge id before issuing another payment.
   const existing = await asaasRequest<{ data?: AsaasPayment[] }>(`/payments?externalReference=${encodeURIComponent(input.externalReference)}&limit=10`, apiKey, { method: "GET" });
@@ -117,6 +133,27 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
   if (!payment.id) throw new XPayProviderError("O ASAAS NÃO RETORNOU A COBRANÇA PIX.", 502);
   const pix = await asaasRequest<AsaasPix>(`/payments/${encodeURIComponent(payment.id)}/pixQrCode`, apiKey, { method: "GET" });
   return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "" };
+}
+
+async function configureCustomerNotifications(apiKey: string, customerId: string, person: { email?: string; mobile?: string; whatsappOptIn?: boolean }) {
+  const mobile = digits(person.mobile ?? "");
+  const allowWhatsApp = Boolean(person.whatsappOptIn && mobile.length >= 10);
+  const allowEmail = Boolean(person.email?.trim());
+  if (!allowEmail && !allowWhatsApp) return;
+  const result = await asaasRequest<{ data?: AsaasNotification[] }>(`/customers/${encodeURIComponent(customerId)}/notifications`, apiKey, { method: "GET" });
+  const notifications = (result.data ?? []).filter((notification) => ["PAYMENT_CREATED", "PAYMENT_DUEDATE_WARNING", "PAYMENT_OVERDUE", "PAYMENT_RECEIVED"].includes(notification.event ?? "") && notification.id);
+  await Promise.all(notifications.map((notification) => asaasRequest(`/notifications/${encodeURIComponent(notification.id!)}`, apiKey, {
+    method: "PUT",
+    body: JSON.stringify({
+      enabled: notification.enabled !== false,
+      emailEnabledForProvider: Boolean(notification.emailEnabledForProvider),
+      smsEnabledForProvider: Boolean(notification.smsEnabledForProvider),
+      emailEnabledForCustomer: allowEmail,
+      smsEnabledForCustomer: false,
+      phoneCallEnabledForCustomer: false,
+      whatsappEnabledForCustomer: allowWhatsApp,
+    }),
+  })));
 }
 
 export async function cancelAsaasCharge(account: AccountCredential, paymentId: string) {
