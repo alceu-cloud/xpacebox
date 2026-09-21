@@ -15,7 +15,7 @@ export async function GET() {
     const today = brazilToday(); const end = addDays(today, bookingHorizonDays);
     const [groupsResult, schedulesResult, instructorsResult, appointmentsResult, enrollmentsResult] = await Promise.all([
       admin.from("xpace_class_groups").select("id,name,modality,class_level,instructor_id,capacity,settings").eq("tenant_company_id", company.id).eq("active", true),
-      admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,age_group,capacity,settings").eq("tenant_company_id", company.id).eq("active", true),
+      admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,age_group,capacity,settings").eq("tenant_company_id", company.id).eq("active", true),
       admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", company.id).eq("active", true),
       admin.from("xpace_lead_appointments").select("class_group_id,class_schedule_id,scheduled_on").eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO").gte("scheduled_on", today).lte("scheduled_on", end),
       admin.from("xpace_class_enrollments").select("class_group_id,starts_on,ends_on").eq("tenant_company_id", company.id).eq("status", "ATIVA"),
@@ -38,7 +38,7 @@ export async function GET() {
         const limit = slotCapacity === null ? configuredMax : configuredMax === null ? slotCapacity : Math.min(slotCapacity, configuredMax);
         const available = limit === null ? null : Math.max(0, limit - enrolled - booked);
         if (available === 0) return [];
-        return [{ classGroupId: group.id, classScheduleId: schedule.id, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", level: normalizeClassLevel(group.class_level), ageGroup: normalizeAgeGroup(schedule.age_group), instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR" : "PROFESSOR", roomName: schedule.room_name ?? "", remainingSeats: available }];
+        return [{ classGroupId: group.id, classScheduleId: schedule.id, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", level: normalizeClassLevel(schedule.class_level ?? group.class_level), ageGroup: normalizeAgeGroup(schedule.age_group), instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR" : "PROFESSOR", roomName: schedule.room_name ?? "", remainingSeats: available }];
       });
     }).sort((left, right) => `${left.scheduledOn}${left.startsAt}${left.className}`.localeCompare(`${right.scheduledOn}${right.startsAt}${right.className}`));
     return NextResponse.json({ success: true, schoolName: company.name, slots });

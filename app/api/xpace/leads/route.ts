@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       access.admin.from("xpace_lead_sources").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_lead_loss_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_class_groups").select("id,name,modality,capacity,instructor_id,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("name"),
-      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
+      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
       access.admin.from("xpace_instructors").select("id,full_name,active").eq("tenant_company_id", access.company.id).order("full_name"),
       access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("active", true),
     ]);
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     if (profilesError) throw profilesError;
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
     const schedulesByGroup = new Map<string, Array<Record<string, unknown>>>();
-    for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "" }]);
+    for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "", level: normalizeClassLevel(schedule.class_level) }]);
     return NextResponse.json({
       success: true,
       leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sourcesResult.data ?? [], lossReasons: reasonsResult.data ?? [],
@@ -221,6 +221,7 @@ async function validateAttendant(access: Awaited<ReturnType<typeof requireCompan
 async function resolveInstructor(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return null; const { data, error } = await access.admin.from("xpace_instructors").select("id,full_name").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("PROFESSOR INVÁLIDO.", 400); return data; }
 function normalizeLead(raw?: Record<string, unknown>) { const fullName = text(raw?.fullName); const mobile = digits(raw?.mobile); const email = text(raw?.email).toLowerCase(); const pipelineStage = enumValue(raw?.pipelineStage ?? "NOVO", stages, "ETAPA DO LEAD INVÁLIDA."); if (fullName.length < 2 || fullName.length > 180) throw new RequestError("INFORME O NOME COMPLETO DO LEAD.", 400); if (mobile && (mobile.length < 10 || mobile.length > 13)) throw new RequestError("INFORME UM TELEFONE VÁLIDO.", 400); if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new RequestError("INFORME UM E-MAIL VÁLIDO.", 400); return { fullName, mobile, email, pipelineStage, sourceId: nullableId(raw?.sourceId), sourceNote: text(raw?.sourceNote), assignedTo: nullableId(raw?.assignedTo) }; }
 function enumValue<T extends readonly string[]>(value: unknown, values: T, error: string): T[number] { if (typeof value !== "string" || !values.includes(value)) throw new RequestError(error, 400); return value as T[number]; }
+function normalizeClassLevel(value: unknown) { return ["INICIANTE", "INICIANTE_INTERMEDIARIO", "INTERMEDIARIO", "AVANCADO"].includes(text(value)) ? text(value) : "INICIANTE"; }
 function text(value: unknown) { return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""; }
 function digits(value: unknown) { return text(value).replace(/\D/g, ""); }
 function nullableId(value: unknown) { const id = text(value); return id || null; }

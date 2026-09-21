@@ -8,7 +8,7 @@ type AgeGroup = "BABY" | "KIDS" | "TEENS" | "ADULTO";
 type Slot = { classGroupId: string; classScheduleId: string; scheduledOn: string; startsAt: string; endsAt: string; className: string; modality: string; level: ClassLevel; ageGroup: AgeGroup; instructorName: string; roomName: string; remainingSeats: number | null };
 
 const classLevels: Array<{ value: ClassLevel; label: string }> = [{ value: "INICIANTE", label: "INICIANTE" }, { value: "INICIANTE_INTERMEDIARIO", label: "INICIANTE / INTERMEDIÁRIO" }, { value: "INTERMEDIARIO", label: "INTERMEDIÁRIO" }, { value: "AVANCADO", label: "AVANÇADO" }];
-const ageGroups: Array<{ value: AgeGroup; label: string }> = [{ value: "BABY", label: "BABY (4 A 6)" }, { value: "KIDS", label: "KIDS (7 A 11)" }, { value: "TEENS", label: "TEENS (12 A 17)" }, { value: "ADULTO", label: "ADULTO (18+)" }];
+const ageGroups: Array<{ value: AgeGroup; label: string }> = [{ value: "BABY", label: "BABY (4 A 6)" }, { value: "KIDS", label: "KIDS (7 A 11)" }, { value: "TEENS", label: "TEENS (12 A 17)" }, { value: "ADULTO", label: "ADULT (18+)" }];
 
 export default function TrialBookingPage() {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -86,7 +86,7 @@ export default function TrialBookingPage() {
 
 function supportsSelectedLevel(slotLevel: ClassLevel, selectedLevel: ClassLevel | "") { return selectedLevel === "INICIANTE_INTERMEDIARIO" ? slotLevel === "INICIANTE" || slotLevel === "INICIANTE_INTERMEDIARIO" : Boolean(selectedLevel) && slotLevel === selectedLevel; }
 function classLevelLabel(level: ClassLevel) { return classLevels.find((item) => item.value === level)?.label ?? "INICIANTE"; }
-function ageGroupLabel(ageGroup: AgeGroup) { return ageGroups.find((item) => item.value === ageGroup)?.label ?? "ADULTO (18+)"; }
+function ageGroupLabel(ageGroup: AgeGroup) { return ageGroups.find((item) => item.value === ageGroup)?.label ?? "ADULT (18+)"; }
 function slotKey(slot: Slot) { return `${slot.classGroupId}:${slot.classScheduleId}:${slot.scheduledOn}`; }
 function weekdayOf(iso: string) { return new Date(`${iso}T12:00:00`).getDay(); }
 function weekdayOrder(day: number) { return day === 0 ? 7 : day; }
