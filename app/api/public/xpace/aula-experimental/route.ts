@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       leadId = newLead.id;
       await addActivity(admin, company.id, leadId, null, "LEAD_CRIADO", "LEAD CRIADO PELO AGENDAMENTO PÚBLICO.");
     }
-    const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments").insert({ tenant_company_id: company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: "NOVO", modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, class_name_snapshot: snapshot.className, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: snapshot.welcomeVideoUrl ? "PENDENTE" : "NAO_CONFIGURADO" }).select("id").single();
+    const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments").insert({ tenant_company_id: company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: "NOVO", modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: snapshot.welcomeVideoUrl ? "PENDENTE" : "NAO_CONFIGURADO" }).select("id").single();
     if (appointmentError) throw appointmentError;
     await addActivity(admin, company.id, leadId, appointment.id, "AGENDAMENTO_CRIADO", `AGENDAMENTO PÚBLICO: ${snapshot.className} em ${scheduledOn}.`);
     if (snapshot.welcomeVideoUrl) await addActivity(admin, company.id, leadId, appointment.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
@@ -87,10 +87,10 @@ async function classSnapshot(admin: ReturnType<typeof createSupabaseAdmin>, comp
   const settings = slotSettings(schedule?.settings, group?.settings);
   if (!group?.active || !schedule?.active || schedule.class_group_id !== group.id || !Boolean(settings?.allowLeads)) throw new PublicError("ESTE HORÁRIO NÃO ESTÁ MAIS DISPONÍVEL.", 409);
   if (weekdayOf(scheduledOn) !== schedule.weekday) throw new PublicError("A DATA NÃO CORRESPONDE AO HORÁRIO ESCOLHIDO.", 400);
-  const { data: instructor, error: instructorError } = schedule.instructor_id ? await admin.from("xpace_instructors").select("full_name").eq("id", schedule.instructor_id).eq("tenant_company_id", companyId).maybeSingle() : { data: null, error: null };
+  const { data: instructor, error: instructorError } = schedule.instructor_id ? await admin.from("xpace_instructors").select("id,full_name").eq("id", schedule.instructor_id).eq("tenant_company_id", companyId).maybeSingle() : { data: null, error: null };
   if (instructorError) throw instructorError;
   const video = settings?.leadWelcomeVideoUrl;
-  return { className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", instructor: instructor?.full_name ?? "PROFESSOR", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof video === "string" && /^https?:\/\//i.test(video) ? video : "" };
+  return { className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", instructorId: instructor?.id ?? "", instructor: instructor?.full_name ?? "PROFESSOR", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof video === "string" && /^https?:\/\//i.test(video) ? video : "" };
 }
 
 async function addActivity(admin: ReturnType<typeof createSupabaseAdmin>, companyId: string, leadId: string, appointmentId: string | null, activityType: string, body: string, payload: Record<string, unknown> = {}) { const { error } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: companyId, lead_id: leadId, appointment_id: appointmentId, activity_type: activityType, body, payload }); if (error) throw error; }

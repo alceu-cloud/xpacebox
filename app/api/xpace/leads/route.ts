@@ -25,13 +25,13 @@ export async function GET(request: Request) {
     const access = await requireCompanyAccess(request, companySlug);
     const [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult] = await Promise.all([
       access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,converted_person_id,converted_contract_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("tenant_company_id", access.company.id).order("updated_at", { ascending: false }).limit(1000),
-      access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,created_at,updated_at").eq("tenant_company_id", access.company.id).order("scheduled_on", { ascending: false }).limit(1500),
+      access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,actual_instructor_id,actual_instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,created_at,updated_at").eq("tenant_company_id", access.company.id).order("scheduled_on", { ascending: false }).limit(1500),
       access.admin.from("xpace_lead_activities").select("id,lead_id,appointment_id,activity_type,body,payload,created_by,created_at").eq("tenant_company_id", access.company.id).order("created_at", { ascending: false }).limit(2000),
       access.admin.from("xpace_lead_sources").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_lead_loss_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_class_groups").select("id,name,modality,capacity,instructor_id,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("name"),
-      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
-      access.admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", access.company.id).order("full_name"),
+      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
+      access.admin.from("xpace_instructors").select("id,full_name,active").eq("tenant_company_id", access.company.id).order("full_name"),
       access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("active", true),
     ]);
     for (const result of [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult]) if (result.error) throw result.error;
@@ -40,11 +40,11 @@ export async function GET(request: Request) {
     if (profilesError) throw profilesError;
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
     const schedulesByGroup = new Map<string, Array<Record<string, unknown>>>();
-    for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "" }]);
+    for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "" }]);
     return NextResponse.json({
       success: true,
       leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sourcesResult.data ?? [], lossReasons: reasonsResult.data ?? [],
-      attendants: profiles ?? [],
+      attendants: profiles ?? [], instructors: instructorsResult.data ?? [],
       groups: (groupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: Boolean((group.settings as Record<string, unknown> | null)?.allowLeads), schedules: schedulesByGroup.get(group.id) ?? [] })),
     });
   } catch (error) { return handleError(error); }
@@ -136,7 +136,7 @@ async function createAppointment(access: Awaited<ReturnType<typeof requireCompan
   const [leadResult, snapshot] = await Promise.all([access.admin.from("xpace_leads").select("id,pipeline_stage").eq("id", leadId).eq("tenant_company_id", access.company.id).maybeSingle(), classSnapshot(access, classGroupId, classScheduleId, scheduledOn)]);
   if (leadResult.error) throw leadResult.error;
   if (!leadResult.data) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
-  const payload = { tenant_company_id: access.company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: bookingKind, assigned_to: access.profile.id, attendant_name_snapshot: access.profile.full_name, modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, class_name_snapshot: snapshot.className, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: snapshot.welcomeVideoUrl ? "PENDENTE" : "NAO_CONFIGURADO", created_by: access.profile.id, updated_by: access.profile.id };
+  const payload = { tenant_company_id: access.company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: bookingKind, assigned_to: access.profile.id, attendant_name_snapshot: access.profile.full_name, modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: snapshot.welcomeVideoUrl ? "PENDENTE" : "NAO_CONFIGURADO", created_by: access.profile.id, updated_by: access.profile.id };
   const { data, error } = await access.admin.from("xpace_lead_appointments").insert(payload).select("id").single();
   if (error) throw error;
   if (!stages.includes(leadResult.data.pipeline_stage as typeof stages[number]) || ["NOVO", "ATENDIMENTO"].includes(leadResult.data.pipeline_stage)) await access.admin.from("xpace_leads").update({ pipeline_stage: "AULA_EXPERIMENTAL", updated_by: access.profile.id, updated_at: new Date().toISOString() }).eq("id", leadId);
@@ -152,16 +152,19 @@ async function updateAppointment(access: Awaited<ReturnType<typeof requireCompan
   const enrollmentOutcome = enumValue(raw?.enrollmentOutcome, enrollments, "RESULTADO DE MATRÍCULA INVÁLIDO.");
   const surveyStatus = enumValue(raw?.surveyStatus, surveys, "STATUS DA PESQUISA INVÁLIDO.");
   const welcomeDeliveryStatus = enumValue(raw?.welcomeDeliveryStatus, welcomeDeliveries, "STATUS DO VÍDEO INVÁLIDO.");
+  const changesActualInstructor = Boolean(raw && "actualInstructorId" in raw);
+  const actualInstructorId = nullableId(raw?.actualInstructorId);
   const note = text(raw?.note);
   if (!id) throw new RequestError("AGENDAMENTO INVÁLIDO.", 400);
   const { data: current, error: currentError } = await access.admin.from("xpace_lead_appointments").select("id,lead_id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("AGENDAMENTO NÃO ENCONTRADO.", 404);
+  const actualInstructor = changesActualInstructor ? await resolveInstructor(access, actualInstructorId) : null;
   const stamp = new Date().toISOString();
-  const { error } = await access.admin.from("xpace_lead_appointments").update({ confirmation_status: confirmationStatus, attendance_status: attendanceStatus, enrollment_outcome: enrollmentOutcome, survey_status: surveyStatus, welcome_delivery_status: welcomeDeliveryStatus, note: note || null, confirmed_at: confirmationStatus === "CONFIRMADO" ? stamp : null, attended_at: attendanceStatus === "COMPARECEU" ? stamp : null, outcome_recorded_at: enrollmentOutcome !== "PENDENTE" ? stamp : null, welcome_delivered_at: welcomeDeliveryStatus === "ENVIADO" ? stamp : null, updated_by: access.profile.id, updated_at: stamp }).eq("id", id).eq("tenant_company_id", access.company.id);
+  const { error } = await access.admin.from("xpace_lead_appointments").update({ confirmation_status: confirmationStatus, attendance_status: attendanceStatus, enrollment_outcome: enrollmentOutcome, survey_status: surveyStatus, welcome_delivery_status: welcomeDeliveryStatus, note: note || null, confirmed_at: confirmationStatus === "CONFIRMADO" ? stamp : null, attended_at: attendanceStatus === "COMPARECEU" ? stamp : null, outcome_recorded_at: enrollmentOutcome !== "PENDENTE" ? stamp : null, welcome_delivered_at: welcomeDeliveryStatus === "ENVIADO" ? stamp : null, ...(changesActualInstructor ? { actual_instructor_id: actualInstructor?.id ?? null, actual_instructor_name_snapshot: actualInstructor?.full_name ?? null } : {}), updated_by: access.profile.id, updated_at: stamp }).eq("id", id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
   if (enrollmentOutcome === "MATRICULOU") await access.admin.from("xpace_leads").update({ pipeline_stage: "GANHO", won_at: stamp, updated_by: access.profile.id, updated_at: stamp }).eq("id", current.lead_id).eq("tenant_company_id", access.company.id);
-  await activity(access, current.lead_id, id, "AGENDAMENTO_ATUALIZADO", `CONFIRMAÇÃO: ${confirmationStatus} · PRESENÇA: ${attendanceStatus} · MATRÍCULA: ${enrollmentOutcome}.`);
+  await activity(access, current.lead_id, id, "AGENDAMENTO_ATUALIZADO", `CONFIRMAÇÃO: ${confirmationStatus} · PRESENÇA: ${attendanceStatus} · MATRÍCULA: ${enrollmentOutcome}.${changesActualInstructor ? ` PROFESSOR: ${actualInstructor?.full_name ?? "NÃO INFORMADO"}.` : ""}`);
   return NextResponse.json({ success: true });
 }
 
@@ -194,16 +197,17 @@ async function saveSetting(access: Awaited<ReturnType<typeof requireCompanyAcces
 async function classSnapshot(access: Awaited<ReturnType<typeof requireCompanyAccess>>, groupId: string, scheduleId: string, scheduledOn: string) {
   const [{ data: group, error: groupError }, { data: schedule, error: scheduleError }] = await Promise.all([
     access.admin.from("xpace_class_groups").select("id,name,modality,instructor_id,settings,active").eq("id", groupId).eq("tenant_company_id", access.company.id).maybeSingle(),
-    access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,active").eq("id", scheduleId).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,active").eq("id", scheduleId).eq("tenant_company_id", access.company.id).maybeSingle(),
   ]);
   if (groupError || scheduleError) throw groupError ?? scheduleError;
   if (!group?.active || !schedule?.active || schedule.class_group_id !== group.id) throw new RequestError("A TURMA OU O HORÁRIO NÃO ESTÃO DISPONÍVEIS.", 409);
   if (!Boolean((group.settings as Record<string, unknown> | null)?.allowLeads)) throw new RequestError("ESTA TURMA NÃO ESTÁ LIBERADA PARA AULA EXPERIMENTAL.", 409);
   if (new Date(`${scheduledOn}T12:00:00`).getDay() !== schedule.weekday) throw new RequestError("A DATA NÃO CORRESPONDE AO HORÁRIO DA TURMA.", 400);
-  const { data: instructor, error: instructorError } = group.instructor_id ? await access.admin.from("xpace_instructors").select("full_name").eq("id", group.instructor_id).eq("tenant_company_id", access.company.id).maybeSingle() : { data: null, error: null };
+  const instructorId = schedule.instructor_id ?? group.instructor_id;
+  const { data: instructor, error: instructorError } = instructorId ? await access.admin.from("xpace_instructors").select("id,full_name").eq("id", instructorId).eq("tenant_company_id", access.company.id).maybeSingle() : { data: null, error: null };
   if (instructorError) throw instructorError;
   const url = (group.settings as Record<string, unknown> | null)?.leadWelcomeVideoUrl;
-  return { className: group.name, modality: group.modality ?? "SEM MODALIDADE", instructor: instructor?.full_name ?? "PROFESSOR A DEFINIR", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof url === "string" && /^https?:\/\//i.test(url) ? url : "" };
+  return { className: group.name, modality: group.modality ?? "SEM MODALIDADE", instructorId: instructor?.id ?? "", instructor: instructor?.full_name ?? "PROFESSOR A DEFINIR", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof url === "string" && /^https?:\/\//i.test(url) ? url : "" };
 }
 
 async function activity(access: Awaited<ReturnType<typeof requireCompanyAccess>>, leadId: string, appointmentId: string | null, activityType: string, body: string, payload: Record<string, unknown> = {}) {
@@ -214,6 +218,7 @@ async function activity(access: Awaited<ReturnType<typeof requireCompanyAccess>>
 async function validateSource(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return; const { data, error } = await access.admin.from("xpace_lead_sources").select("id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("ORIGEM DO LEAD INVÁLIDA.", 400); }
 async function validateLossReason(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return; const { data, error } = await access.admin.from("xpace_lead_loss_reasons").select("id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("MOTIVO DE PERDA INVÁLIDO.", 400); }
 async function validateAttendant(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id || id === access.profile.id) return; const { data, error } = await access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("profile_id", id).eq("active", true).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("ATENDENTE INVÁLIDO.", 400); }
+async function resolveInstructor(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return null; const { data, error } = await access.admin.from("xpace_instructors").select("id,full_name").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("PROFESSOR INVÁLIDO.", 400); return data; }
 function normalizeLead(raw?: Record<string, unknown>) { const fullName = text(raw?.fullName); const mobile = digits(raw?.mobile); const email = text(raw?.email).toLowerCase(); const pipelineStage = enumValue(raw?.pipelineStage ?? "NOVO", stages, "ETAPA DO LEAD INVÁLIDA."); if (fullName.length < 2 || fullName.length > 180) throw new RequestError("INFORME O NOME COMPLETO DO LEAD.", 400); if (mobile && (mobile.length < 10 || mobile.length > 13)) throw new RequestError("INFORME UM TELEFONE VÁLIDO.", 400); if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new RequestError("INFORME UM E-MAIL VÁLIDO.", 400); return { fullName, mobile, email, pipelineStage, sourceId: nullableId(raw?.sourceId), sourceNote: text(raw?.sourceNote), assignedTo: nullableId(raw?.assignedTo) }; }
 function enumValue<T extends readonly string[]>(value: unknown, values: T, error: string): T[number] { if (typeof value !== "string" || !values.includes(value)) throw new RequestError(error, 400); return value as T[number]; }
 function text(value: unknown) { return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""; }
