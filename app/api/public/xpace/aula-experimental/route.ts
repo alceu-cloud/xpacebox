@@ -14,7 +14,7 @@ export async function GET() {
     if (companyError || !company) throw new PublicError("AGENDA DA ESCOLA NÃO ENCONTRADA.", 404);
     const today = brazilToday(); const end = addDays(today, bookingHorizonDays);
     const [groupsResult, schedulesResult, instructorsResult, appointmentsResult, enrollmentsResult] = await Promise.all([
-      admin.from("xpace_class_groups").select("id,name,modality,instructor_id,capacity,settings").eq("tenant_company_id", company.id).eq("active", true),
+      admin.from("xpace_class_groups").select("id,name,modality,class_level,instructor_id,capacity,settings").eq("tenant_company_id", company.id).eq("active", true),
       admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,capacity,settings").eq("tenant_company_id", company.id).eq("active", true),
       admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", company.id).eq("active", true),
       admin.from("xpace_lead_appointments").select("class_group_id,class_schedule_id,scheduled_on").eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO").gte("scheduled_on", today).lte("scheduled_on", end),
@@ -38,7 +38,7 @@ export async function GET() {
         const limit = slotCapacity === null ? configuredMax : configuredMax === null ? slotCapacity : Math.min(slotCapacity, configuredMax);
         const available = limit === null ? null : Math.max(0, limit - enrolled - booked);
         if (available === 0) return [];
-        return [{ classGroupId: group.id, classScheduleId: schedule.id, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR" : "PROFESSOR", roomName: schedule.room_name ?? "", remainingSeats: available }];
+        return [{ classGroupId: group.id, classScheduleId: schedule.id, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", level: normalizeClassLevel(group.class_level), instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR" : "PROFESSOR", roomName: schedule.room_name ?? "", remainingSeats: available }];
       });
     }).sort((left, right) => `${left.scheduledOn}${left.startsAt}${left.className}`.localeCompare(`${right.scheduledOn}${right.startsAt}${right.className}`));
     return NextResponse.json({ success: true, schoolName: company.name, slots });
@@ -101,6 +101,7 @@ function weekdayOf(iso: string) { return new Date(`${iso}T12:00:00Z`).getUTCDay(
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
 function text(value: unknown) { return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""; }
 function digits(value: unknown) { return text(value).replace(/\D/g, ""); }
+function normalizeClassLevel(value: unknown) { return ["INICIANTE", "INICIANTE_INTERMEDIARIO", "INTERMEDIARIO", "AVANCADO"].includes(text(value)) ? text(value) : "INICIANTE"; }
 function slotSettings(value: unknown, fallback: unknown) { const slot = value && typeof value === "object" ? value as Record<string, unknown> : {}; return Object.keys(slot).length ? slot : fallback && typeof fallback === "object" ? fallback as Record<string, unknown> : {}; }
 function handleError(error: unknown) { if (error instanceof PublicError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const message = (error as { message?: string })?.message ?? ""; if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTE HORÁRIO ACABOU DE SER PREENCHIDO. ESCOLHA OUTRO, POR FAVOR." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "VOCÊ JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. A TERCEIRA AULA POSSUI TAXA E DEVE SER COMBINADA COM A EQUIPE XPACE." }, { status: 409 }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "VOCÊ JÁ POSSUI ESTE AGENDAMENTO ATIVO." }, { status: 409 }); console.error("XPACE PUBLIC TRIAL BOOKING ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO. TENTE NOVAMENTE." }, { status: 500 }); }
 class PublicError extends Error { constructor(message: string, public status: number) { super(message); } }

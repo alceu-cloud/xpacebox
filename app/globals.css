@@ -3654,6 +3654,15 @@ input[type="email"] { text-transform: none !important; }
 .xd-grade-create-dialog > .xd-agenda-two-columns::-webkit-scrollbar-track { background: #f1ebf5; }
 .xd-grade-create-dialog > .xd-agenda-two-columns::-webkit-scrollbar-thumb { border: 3px solid #f1ebf5; border-radius: 8px; background: #9677b0; }
 .xd-modalities-picker.xd-grade-create-dialog .xd-agenda-form { overflow: visible; padding-top: 20px; }
+/* Keep the grade list readable after its "Grades cadastradas" heading. */
+.xd-agenda-stack > .xd-grade-list > article { grid-template-columns: 10px minmax(190px, 1fr) minmax(220px, 1fr) auto; gap: 15px; padding: 16px 18px; }
+.xd-agenda-stack > .xd-grade-list > article > i { height: 42px; }
+.xd-agenda-stack > .xd-grade-list article > div { gap: 5px; }
+.xd-agenda-stack > .xd-grade-list article strong { font-size: 14px; }
+.xd-agenda-stack > .xd-grade-list article small, .xd-agenda-stack > .xd-grade-list article > span { font-size: 11px; line-height: 1.35; }
+.xd-agenda-stack > .xd-grade-list article > b { font-size: 11px; }
+.xd-agenda-stack > .xd-grade-list .xd-grade-edit, .xd-agenda-stack > .xd-grade-list .xd-grade-delete { min-height: 36px; padding-inline: 13px; font-size: 9px; }
+.xd-agenda-stack > .xd-grade-list .xd-agenda-empty { font-size: 12px; }
 .xd-grade-create-dialog > footer { position: static; padding: 16px 24px; background: #fff; }
 .xd-grade-create-dialog .xd-schedule-preview { overflow-x: auto; }
 .xd-grade-create-dialog .xd-schedule-preview > div { min-width: 840px; }
