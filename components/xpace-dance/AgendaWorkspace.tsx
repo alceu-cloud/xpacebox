@@ -205,15 +205,25 @@ function WeeklySchedulePreview({ draft, rooms, instructors = [], onRemove }: { d
 }
 
 function GradeScheduleSummary({ schedules }: { schedules: Group["schedules"] }) {
-  const orderedSchedules = [...schedules].sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt));
+  const groupedSchedules = new Map<string, { schedule: Group["schedules"][number]; weekdays: number[] }>();
+  for (const schedule of [...schedules].sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt))) {
+    const key = [schedule.instructorId, schedule.startsAt, schedule.endsAt, schedule.roomId, schedule.ageGroup, schedule.capacity ?? "", JSON.stringify(schedule.settings)].join("|");
+    const current = groupedSchedules.get(key);
+    if (current) current.weekdays.push(schedule.weekday);
+    else groupedSchedules.set(key, { schedule, weekdays: [schedule.weekday] });
+  }
+  const rows = [...groupedSchedules.values()];
   return <section className="xd-grade-schedule-summary" aria-label="Horários cadastrados da turma">
-    {orderedSchedules.map((schedule) => <article key={schedule.id}>
-      <div><small>DIA DA SEMANA</small><strong>{weekday[schedule.weekday]}</strong></div>
-      <div><small>HORÁRIO</small><strong>{schedule.startsAt} ÀS {schedule.endsAt}</strong></div>
-      <div><small>PROFESSOR</small><strong>{schedule.instructorName || "A DEFINIR"}</strong></div>
-      <div><small>SALA</small><strong>{schedule.roomName || "A DEFINIR"}</strong></div>
-      <div><small>PÚBLICO</small><strong>{ageGroupLabel(schedule.ageGroup)}</strong></div>
-    </article>)}
+    <div className="xd-grade-schedule-table" role="table">
+      <div className="xd-grade-schedule-table-header" role="row"><span role="columnheader">PROFESSOR</span><span role="columnheader">HORÁRIO</span><span role="columnheader">DIAS DA SEMANA</span><span role="columnheader">SALA</span><span role="columnheader">PÚBLICO</span></div>
+      {rows.map(({ schedule, weekdays }) => <div className="xd-grade-schedule-table-row" role="row" key={`${schedule.id}-${weekdays.join("-")}`}>
+        <strong role="cell">{schedule.instructorName || "A DEFINIR"}</strong>
+        <strong role="cell">{schedule.startsAt} ÀS {schedule.endsAt}</strong>
+        <strong role="cell">{weekdays.map((day) => weekday[day]).join(" E ")}</strong>
+        <strong role="cell">{schedule.roomName || "A DEFINIR"}</strong>
+        <strong role="cell">{ageGroupLabel(schedule.ageGroup)}</strong>
+      </div>)}
+    </div>
   </section>;
 }
 
