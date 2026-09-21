@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, Music2, Phone, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Music2, Phone, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type ClassLevel = "INICIANTE" | "INICIANTE_INTERMEDIARIO" | "INTERMEDIARIO" | "AVANCADO";
@@ -16,7 +16,7 @@ export default function TrialBookingPage() {
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup | "">("");
   const [selectedModality, setSelectedModality] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<ClassLevel | "">("");
-  const [selectedWeekday, setSelectedWeekday] = useState<number | null>(null);
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [selected, setSelected] = useState("");
   const [form, setForm] = useState({ fullName: "", mobile: "", email: "", website: "" });
   const [loading, setLoading] = useState(true);
@@ -29,8 +29,12 @@ export default function TrialBookingPage() {
   const modalitySlots = useMemo(() => ageGroupSlots.filter((slot) => slot.modality === selectedModality), [ageGroupSlots, selectedModality]);
   const levels = useMemo(() => classLevels.filter((level) => modalitySlots.some((slot) => slot.level === level.value)), [modalitySlots]);
   const levelSlots = useMemo(() => modalitySlots.filter((slot) => supportsSelectedLevel(slot.level, selectedLevel)), [modalitySlots, selectedLevel]);
-  const weekdays = useMemo(() => Array.from(new Set(levelSlots.map((slot) => weekdayOf(slot.scheduledOn)))).sort((left, right) => weekdayOrder(left) - weekdayOrder(right)), [levelSlots]);
-  const timeSlots = useMemo(() => levelSlots.filter((slot) => weekdayOf(slot.scheduledOn) === selectedWeekday), [levelSlots, selectedWeekday]);
+  const availableWeekStarts = useMemo(() => Array.from(new Set(levelSlots.map((slot) => weekStart(slot.scheduledOn)))).sort(), [levelSlots]);
+  const selectedWeekStart = availableWeekStarts[Math.min(selectedWeekIndex, Math.max(availableWeekStarts.length - 1, 0))] ?? "";
+  const calendarDays = useMemo(() => selectedWeekStart ? Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(selectedWeekStart, index);
+    return { date, slots: levelSlots.filter((slot) => slot.scheduledOn === date) };
+  }) : [], [levelSlots, selectedWeekStart]);
   const chosen = useMemo(() => slots.find((slot) => slotKey(slot) === selected), [selected, slots]);
 
   async function loadSlots() {
@@ -44,10 +48,9 @@ export default function TrialBookingPage() {
     finally { setLoading(false); }
   }
 
-  function chooseAgeGroup(ageGroup: AgeGroup) { setSelectedAgeGroup(ageGroup); setSelectedModality(""); setSelectedLevel(""); setSelectedWeekday(null); setSelected(""); }
-  function chooseModality(modality: string) { setSelectedModality(modality); setSelectedLevel(""); setSelectedWeekday(null); setSelected(""); }
-  function chooseLevel(level: ClassLevel) { setSelectedLevel(level); setSelectedWeekday(null); setSelected(""); }
-  function chooseWeekday(day: number) { setSelectedWeekday(day); setSelected(""); }
+  function chooseAgeGroup(ageGroup: AgeGroup) { setSelectedAgeGroup(ageGroup); setSelectedModality(""); setSelectedLevel(""); setSelectedWeekIndex(0); setSelected(""); }
+  function chooseModality(modality: string) { setSelectedModality(modality); setSelectedLevel(""); setSelectedWeekIndex(0); setSelected(""); }
+  function chooseLevel(level: ClassLevel) { setSelectedLevel(level); setSelectedWeekIndex(0); setSelected(""); }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -57,7 +60,7 @@ export default function TrialBookingPage() {
       const response = await fetch("/api/public/xpace/aula-experimental", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, classGroupId: chosen.classGroupId, classScheduleId: chosen.classScheduleId, scheduledOn: chosen.scheduledOn }) });
       const payload = await response.json() as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) throw new Error(payload.message || "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO.");
-      setNotice(payload.message || "AULA EXPERIMENTAL AGENDADA!"); setSelected(""); setSelectedWeekday(null); setSelectedLevel(""); setSelectedModality(""); setSelectedAgeGroup(""); setForm({ fullName: "", mobile: "", email: "", website: "" }); await loadSlots();
+      setNotice(payload.message || "AULA EXPERIMENTAL AGENDADA!"); setSelected(""); setSelectedWeekIndex(0); setSelectedLevel(""); setSelectedModality(""); setSelectedAgeGroup(""); setForm({ fullName: "", mobile: "", email: "", website: "" }); await loadSlots();
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO."); }
     finally { setSending(false); }
   }
@@ -69,8 +72,7 @@ export default function TrialBookingPage() {
         <div><strong>1. PARA QUEM É A AULA?</strong><p>Escolha a faixa etária de quem vai experimentar.</p><nav>{loading ? <span>CARREGANDO HORÁRIOS...</span> : ageGroups.filter((ageGroup) => slots.some((slot) => slot.ageGroup === ageGroup.value)).map((ageGroup) => <button key={ageGroup.value} type="button" className={selectedAgeGroup === ageGroup.value ? "is-selected" : ""} onClick={() => chooseAgeGroup(ageGroup.value)}>{ageGroup.label}</button>)}</nav></div>
         {selectedAgeGroup ? <div><strong>2. MODALIDADE</strong><p>Escolha o estilo que quer experimentar.</p><nav>{modalities.length ? modalities.map((modality) => <button key={modality} type="button" className={selectedModality === modality ? "is-selected" : ""} onClick={() => chooseModality(modality)}>{modality}</button>) : <span>NENHUMA MODALIDADE DISPONÍVEL PARA ESTA FAIXA.</span>}</nav></div> : null}
         {selectedModality ? <div><strong>3. NÍVEL</strong><p>Escolha o nível da turma.</p><nav>{levels.map((level) => <button key={level.value} type="button" className={selectedLevel === level.value ? "is-selected" : ""} onClick={() => chooseLevel(level.value)}>{level.label}</button>)}</nav></div> : null}
-        {selectedLevel ? <div><strong>4. DIA DA SEMANA</strong><p>Veja somente os dias que têm {selectedModality} para {classLevelLabel(selectedLevel)}.</p><nav>{weekdays.map((day) => <button key={day} type="button" className={selectedWeekday === day ? "is-selected" : ""} onClick={() => chooseWeekday(day)}>{weekdayLabel(day)}</button>)}</nav></div> : null}
-        {selectedWeekday !== null ? <div><strong>5. HORÁRIO</strong><p>Escolha uma aula disponível.</p><nav className="xpace-public-booking-times">{timeSlots.map((slot) => <button key={slotKey(slot)} type="button" className={selected === slotKey(slot) ? "is-selected" : ""} onClick={() => setSelected(slotKey(slot))}><b>{slot.startsAt}–{slot.endsAt}</b><small>{formatDate(slot.scheduledOn)} · {slot.className} · {classLevelLabel(slot.level)}{slot.remainingSeats === null ? "" : ` · ${slot.remainingSeats} vaga(s)`}</small></button>)}</nav></div> : null}
+        {selectedLevel ? <div className="xpace-public-booking-calendar-step"><strong>4. DATA E HORÁRIO</strong><p>Escolha o melhor período da semana. Os botões mostram somente aulas disponíveis.</p><div className="xpace-public-calendar-toolbar"><button type="button" className="xpace-public-calendar-nav" disabled={selectedWeekIndex === 0} onClick={() => { setSelectedWeekIndex((current) => Math.max(0, current - 1)); setSelected(""); }}><ChevronLeft size={15} /> ANTERIOR</button><b>{selectedWeekStart ? weekRangeLabel(selectedWeekStart) : "SEM HORÁRIOS DISPONÍVEIS"}</b><button type="button" className="xpace-public-calendar-nav" disabled={selectedWeekIndex >= availableWeekStarts.length - 1} onClick={() => { setSelectedWeekIndex((current) => Math.min(availableWeekStarts.length - 1, current + 1)); setSelected(""); }}>PRÓXIMA <ChevronRight size={15} /></button></div><div className="xpace-public-calendar-scroll"><section className="xpace-public-calendar" aria-label="Agenda semanal de horários"><span className="xpace-public-calendar-corner" aria-hidden="true" />{calendarDays.map((day) => <header key={day.date}><small>{calendarWeekday(day.date)}</small><strong>{day.date.slice(8, 10)}</strong><em>{monthShortLabel(day.date)}</em></header>)}{timePeriods.map((period) => <div className="xpace-public-calendar-period" key={period.label}><b>{period.label}</b>{calendarDays.map((day) => { const options = day.slots.filter((slot) => period.includes(slot.startsAt)); return <div className="xpace-public-calendar-cell" key={`${period.label}-${day.date}`} aria-label={`${period.label}, ${formatDate(day.date)}`}>{options.length ? options.map((slot) => <button key={slotKey(slot)} type="button" className={selected === slotKey(slot) ? "is-selected" : ""} aria-pressed={selected === slotKey(slot)} onClick={() => setSelected(slotKey(slot))}><strong>{slot.startsAt}</strong><small>{slot.endsAt}{slot.remainingSeats === null ? "" : ` · ${slot.remainingSeats} vagas`}</small></button>) : <span>—</span>}</div>; })}</div>)}</section></div></div> : null}
       </section>
       {chosen ? <aside><Clock3 size={18} /><div><strong>{chosen.className} · {chosen.modality} · {ageGroupLabel(chosen.ageGroup)} · {classLevelLabel(chosen.level)}</strong><small>{formatDate(chosen.scheduledOn)} · {chosen.startsAt}–{chosen.endsAt} · Prof. {chosen.instructorName}{chosen.roomName ? ` · ${chosen.roomName}` : ""}</small></div></aside> : null}
       <label><UserRound size={16} /> NOME COMPLETO<input value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} autoComplete="name" required /></label>
@@ -88,7 +90,11 @@ function supportsSelectedLevel(slotLevel: ClassLevel, selectedLevel: ClassLevel 
 function classLevelLabel(level: ClassLevel) { return classLevels.find((item) => item.value === level)?.label ?? "INICIANTE"; }
 function ageGroupLabel(ageGroup: AgeGroup) { return ageGroups.find((item) => item.value === ageGroup)?.label ?? "ADULT (18+)"; }
 function slotKey(slot: Slot) { return `${slot.classGroupId}:${slot.classScheduleId}:${slot.scheduledOn}`; }
-function weekdayOf(iso: string) { return new Date(`${iso}T12:00:00`).getDay(); }
-function weekdayOrder(day: number) { return day === 0 ? 7 : day; }
-function weekdayLabel(day: number) { return ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"][day]; }
+const timePeriods = [{ label: "MANHÃ", includes: (time: string) => time < "12:00" }, { label: "TARDE", includes: (time: string) => time >= "12:00" && time < "18:00" }, { label: "NOITE", includes: (time: string) => time >= "18:00" }];
+function addDays(iso: string, days: number) { const value = new Date(`${iso}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); }
+function weekStart(iso: string) { const value = new Date(`${iso}T12:00:00Z`); const offset = (value.getUTCDay() + 6) % 7; return addDays(iso, -offset); }
+function calendarWeekday(iso: string) { return ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"][new Date(`${iso}T12:00:00Z`).getUTCDay()]; }
+function monthShortLabel(iso: string) { return new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(`${iso}T12:00:00`)).replace(".", "").toUpperCase(); }
+function weekRangeLabel(iso: string) { const endsOn = addDays(iso, 6); return `${weekDateLabel(iso)} — ${weekDateLabel(endsOn)}`.toUpperCase(); }
+function weekDateLabel(iso: string) { return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${iso}T12:00:00`)).replace(".", ""); }
 function formatDate(iso: string) { return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" }).format(new Date(`${iso}T12:00:00`)); }
