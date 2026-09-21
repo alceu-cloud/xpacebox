@@ -12,10 +12,11 @@ const surveys = ["PENDENTE", "ENVIADA", "NAO_ENVIADA", "NAO_INFORMADO"] as const
 const welcomeDeliveries = ["NAO_CONFIGURADO", "PENDENTE", "ENVIADO", "FALHOU", "DISPENSADO"] as const;
 
 type Body = {
-  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON";
+  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON" | "MAP_HISTORICAL_APPOINTMENTS";
   lead?: Record<string, unknown>;
   appointment?: Record<string, unknown>;
   setting?: Record<string, unknown>;
+  historical?: Record<string, unknown>;
   note?: string;
 };
 
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
     if (body.action === "ADD_NOTE") return addNote(access, text(body.lead?.id), text(body.note));
     if (body.action === "SAVE_SOURCE") return saveSetting(access, "xpace_lead_sources", body.setting);
     if (body.action === "SAVE_LOSS_REASON") return saveSetting(access, "xpace_lead_loss_reasons", body.setting);
+    if (body.action === "MAP_HISTORICAL_APPOINTMENTS") return mapHistoricalAppointments(access, body.historical);
     throw new RequestError("AÇÃO DO CRM INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
 }
@@ -100,6 +102,28 @@ async function updateLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   const stageChanged = current.pipeline_stage !== pipelineStage;
   await activity(access, id, null, stageChanged ? pipelineStage === "PERDIDO" ? "PERDIDO" : pipelineStage === "GANHO" ? "CONVERTIDO" : "ETAPA_ALTERADA" : changesContact ? "NOTA" : "ETAPA_ALTERADA", stageChanged ? `ETAPA ATUAL: ${pipelineStage}.` : changesContact ? "DADOS CADASTRAIS DO LEAD ATUALIZADOS." : `ETAPA ATUAL: ${pipelineStage}.`);
   return NextResponse.json({ success: true });
+}
+
+async function mapHistoricalAppointments(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
+  const classGroupId = text(raw?.classGroupId);
+  const modalityName = nullableText(raw?.modalityName);
+  const instructorName = nullableText(raw?.instructorName);
+  if (!classGroupId || (!modalityName && !instructorName)) throw new RequestError("INFORME O HISTÓRICO E A TURMA QUE RECEBERÁ O VÍNCULO.", 400);
+  const { data: group, error: groupError } = await access.admin.from("xpace_class_groups").select("id,name").eq("id", classGroupId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
+  if (groupError) throw groupError;
+  if (!group) throw new RequestError("TURMA ATIVA NÃO ENCONTRADA.", 404);
+  const stamp = new Date().toISOString();
+  const pending = access.admin.from("xpace_lead_appointments").update({ class_group_id: group.id, updated_by: access.profile.id, updated_at: stamp }).eq("tenant_company_id", access.company.id).is("class_group_id", null);
+  const byModality = modalityName ? pending.eq("modality_name_snapshot", modalityName) : pending.is("modality_name_snapshot", null);
+  const request = instructorName ? byModality.eq("instructor_name_snapshot", instructorName) : byModality.is("instructor_name_snapshot", null);
+  const { data, error } = await request.select("id,lead_id");
+  if (error) throw error;
+  const mapped = data ?? [];
+  if (mapped.length) {
+    const { error: activityError } = await access.admin.from("xpace_lead_activities").insert(mapped.map((appointment) => ({ tenant_company_id: access.company.id, lead_id: appointment.lead_id, appointment_id: appointment.id, activity_type: "AGENDAMENTO_ATUALIZADO", body: `HISTÓRICO VINCULADO À TURMA ${group.name}.`, payload: { classGroupId: group.id, source: "HISTORICO_EXCEL" }, created_by: access.profile.id })));
+    if (activityError) throw activityError;
+  }
+  return NextResponse.json({ success: true, mapped: mapped.length });
 }
 
 async function createAppointment(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
@@ -195,6 +219,7 @@ function enumValue<T extends readonly string[]>(value: unknown, values: T, error
 function text(value: unknown) { return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""; }
 function digits(value: unknown) { return text(value).replace(/\D/g, ""); }
 function nullableId(value: unknown) { const id = text(value); return id || null; }
+function nullableText(value: unknown) { const normalized = text(value); return normalized || null; }
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
 function isManager(role: string) { return role === "platform_owner" || role === "company_manager"; }
 function handleError(error: unknown) { if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const message = (error as { message?: string })?.message ?? ""; if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTA TURMA JÁ ATINGIU O LIMITE DE VAGAS NESTA DATA." }, { status: 409 }); if (message.includes("XPACE_GRADE_NAO_ACEITA_LEADS")) return NextResponse.json({ success: false, message: "ESTA TURMA NÃO ACEITA AULA EXPERIMENTAL." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "ESTE LEAD JÁ UTILIZOU AS DUAS EXPERIMENTAIS. A TERCEIRA AULA EXIGE TAXA E A LIBERAÇÃO FINANCEIRA AINDA NÃO ESTÁ CONFIGURADA." }, { status: 409 }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "JÁ EXISTE UM AGENDAMENTO ATIVO DESTE LEAD NESTA TURMA E DATA." }, { status: 409 }); console.error("XPACE LEADS ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR O CRM." }, { status: 500 }); }
