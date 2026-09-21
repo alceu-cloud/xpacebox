@@ -80,15 +80,25 @@ async function updateLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   const assignedTo = nullableId(raw?.assignedTo);
   const lossReasonId = nullableId(raw?.lossReasonId);
   const lossNote = text(raw?.lossNote);
+  const changesContact = Boolean(raw && ("fullName" in raw || "mobile" in raw || "email" in raw));
+  const fullName = text(raw?.fullName);
+  const mobile = digits(raw?.mobile);
+  const email = text(raw?.email).toLowerCase();
   if (!id) throw new RequestError("LEAD INVÁLIDO.", 400);
+  if (changesContact && (fullName.length < 2 || fullName.length > 180)) throw new RequestError("INFORME O NOME COMPLETO DO LEAD.", 400);
+  if (changesContact && mobile && (mobile.length < 10 || mobile.length > 13)) throw new RequestError("INFORME UM TELEFONE VÁLIDO.", 400);
+  if (changesContact && email && !/^\S+@\S+\.\S+$/.test(email)) throw new RequestError("INFORME UM E-MAIL VÁLIDO.", 400);
   await Promise.all([validateSource(access, sourceId), validateLossReason(access, lossReasonId), validateAttendant(access, assignedTo)]);
   if (pipelineStage === "PERDIDO" && !lossReasonId && !lossNote) throw new RequestError("INFORME O MOTIVO OU UMA OBSERVAÇÃO PARA MARCAR O LEAD COMO PERDIDO.", 400);
+  const { data: current, error: currentError } = await access.admin.from("xpace_leads").select("id,pipeline_stage").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
+  if (currentError) throw currentError;
+  if (!current) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
   const stamp = new Date().toISOString();
-  const patch = { pipeline_stage: pipelineStage, source_id: sourceId, assigned_to: assignedTo, loss_reason_id: lossReasonId, loss_note: lossNote || null, won_at: pipelineStage === "GANHO" ? stamp : null, lost_at: pipelineStage === "PERDIDO" ? stamp : null, updated_by: access.profile.id, updated_at: stamp };
-  const { data, error } = await access.admin.from("xpace_leads").update(patch).eq("id", id).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
+  const patch = { pipeline_stage: pipelineStage, source_id: sourceId, assigned_to: assignedTo, loss_reason_id: lossReasonId, loss_note: lossNote || null, won_at: pipelineStage === "GANHO" ? stamp : null, lost_at: pipelineStage === "PERDIDO" ? stamp : null, updated_by: access.profile.id, updated_at: stamp, ...(changesContact ? { full_name: fullName, mobile: mobile || null, email: email || null } : {}) };
+  const { error } = await access.admin.from("xpace_leads").update(patch).eq("id", id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
-  if (!data) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
-  await activity(access, id, null, pipelineStage === "PERDIDO" ? "PERDIDO" : pipelineStage === "GANHO" ? "CONVERTIDO" : "ETAPA_ALTERADA", `ETAPA ATUAL: ${pipelineStage}.`);
+  const stageChanged = current.pipeline_stage !== pipelineStage;
+  await activity(access, id, null, stageChanged ? pipelineStage === "PERDIDO" ? "PERDIDO" : pipelineStage === "GANHO" ? "CONVERTIDO" : "ETAPA_ALTERADA" : changesContact ? "NOTA" : "ETAPA_ALTERADA", stageChanged ? `ETAPA ATUAL: ${pipelineStage}.` : changesContact ? "DADOS CADASTRAIS DO LEAD ATUALIZADOS." : `ETAPA ATUAL: ${pipelineStage}.`);
   return NextResponse.json({ success: true });
 }
 
