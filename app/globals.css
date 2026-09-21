@@ -3663,6 +3663,7 @@ input[type="email"] { text-transform: none !important; }
 .xd-schedule-builder > .xd-agenda-slot-note { margin: 0; }
 .xd-schedule-builder-actions { display: flex !important; justify-content: flex-end; gap: 8px; }
 .xd-schedule-builder-actions .xd-secondary { min-height: 42px; padding-inline: 16px; }
+.xd-schedule-feedback { margin: 0; padding: 9px 11px; border: 1px solid #d8c1ed; border-radius: 9px; background: #f7f0fd; color: #693a9d; font-size: 9px; font-weight: 900; letter-spacing: .04em; }
 .xd-settings-dialog.xd-grade-create-dialog { height: min(900px, calc(100dvh - 36px)); max-height: calc(100dvh - 36px); }
 .xd-grade-create-dialog > header, .xd-grade-create-dialog > footer { flex: 0 0 auto; }
 .xd-settings-dialog.xd-grade-create-dialog > .xd-agenda-two-columns { display: block; overflow-x: hidden; overflow-y: scroll; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: auto; scrollbar-color: #9677b0 #f1ebf5; }
@@ -3682,6 +3683,19 @@ input[type="email"] { text-transform: none !important; }
 .xd-grade-create-dialog > footer { position: static; padding: 16px 24px; background: #fff; }
 .xd-grade-create-dialog .xd-schedule-preview { overflow-x: auto; }
 .xd-grade-create-dialog .xd-schedule-preview > div { min-width: 840px; }
+.xd-schedule-preview > .xd-schedule-preview-list { display: grid; grid-template-columns: 1fr; gap: 9px; min-width: 0; padding: 12px; background: #fcfaff; }
+.xd-schedule-preview > .xd-schedule-preview-list > article { display: grid; min-height: 0; padding: 0; border: 1px solid #e7ddec; border-left: 4px solid #7435d9; border-radius: 11px; background: #fff; overflow: hidden; }
+.xd-schedule-preview > .xd-schedule-preview-list > article > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 39px; padding: 0 11px; border-bottom: 1px solid #f0eaf4; background: #fdfaff; }
+.xd-schedule-preview > .xd-schedule-preview-list > article > header strong { color: #4d315d; font-size: 10px; font-weight: 900; letter-spacing: .03em; }
+.xd-schedule-preview > .xd-schedule-preview-list > article > header button { flex: 0 0 auto; display: grid; width: 22px; height: 22px; place-items: center; padding: 0; border: 1px solid #e2cee9; border-radius: 50%; background: #fff; color: #7944a6; font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.xd-schedule-preview > .xd-schedule-preview-list > article > header button:hover { border-color: #a875cc; background: #f8f0fe; }
+.xd-schedule-preview > .xd-schedule-preview-list dl { display: grid; grid-template-columns: 1fr; gap: 0; margin: 0; }
+.xd-schedule-preview > .xd-schedule-preview-list dl > div { display: grid; grid-template-columns: minmax(118px, 150px) minmax(0, 1fr); gap: 12px; padding: 8px 11px; border-top: 1px solid #f2edf5; }
+.xd-schedule-preview > .xd-schedule-preview-list dl > div:first-child { border-top: 0; }
+.xd-schedule-preview > .xd-schedule-preview-list dt { color: #9873ae; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.xd-schedule-preview > .xd-schedule-preview-list dd { min-width: 0; margin: 0; color: #4d3a59; font-size: 10px; font-weight: 800; overflow-wrap: anywhere; }
+.xd-schedule-preview > .xd-schedule-preview-list > p { margin: 0; padding: 14px; color: #84768d; font-size: 10px; font-weight: 800; text-align: center; }
+.xd-grade-create-dialog .xd-schedule-preview > .xd-schedule-preview-list { min-width: 0; }
 @media (max-width: 640px) {
   .xd-grade-create-dialog .xd-schedule-builder > div { grid-template-columns: minmax(0, 1fr); }
   .xd-grade-create-dialog .xd-schedule-days > div { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -3690,6 +3704,7 @@ input[type="email"] { text-transform: none !important; }
   .xd-grade-create-dialog .xd-schedule-builder-actions .xd-secondary { width: 100%; }
   .xd-grade-create-dialog .xd-schedule-builder > header { flex-wrap: wrap; }
   .xd-grade-create-dialog > footer { padding: 12px 16px; }
+  .xd-schedule-preview > .xd-schedule-preview-list dl > div { grid-template-columns: 1fr; gap: 3px; }
 }
 .xd-agenda-calculated-end strong { color: #542784; }
 .xd-settings-dialog.xd-grade-edit-dialog { display: flex; flex-direction: column; width: min(1180px, calc(100vw - 48px)); height: min(900px, calc(100dvh - 36px)); max-height: calc(100dvh - 36px); overflow: hidden; }

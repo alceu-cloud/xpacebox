@@ -101,10 +101,13 @@ function addSchedulesToDraft(draft: ClassDraft, selection: ScheduleSelection, en
       settings: draft.settings,
     }));
 
-  return { ...draft, schedules: [...draft.schedules, ...additions].sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt)) };
+  return {
+    draft: { ...draft, schedules: [...draft.schedules, ...additions].sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt)) },
+    added: additions.length,
+  };
 }
 
-function ScheduleBuilder({ value, onChange, endsAt, canAdd, onAdd }: { value: ScheduleSelection; onChange: (value: ScheduleSelection) => void; endsAt: string; canAdd: boolean; onAdd: () => void }) {
+function ScheduleBuilder({ value, onChange, endsAt, canAdd, onAdd, feedback }: { value: ScheduleSelection; onChange: (value: ScheduleSelection) => void; endsAt: string; canAdd: boolean; onAdd: () => void; feedback?: string }) {
   const orderedDays = [1, 2, 3, 4, 5, 6, 0];
   const selectedCount = value.weekdays.length;
   function toggleDay(day: number) {
@@ -127,17 +130,26 @@ function ScheduleBuilder({ value, onChange, endsAt, canAdd, onAdd }: { value: Sc
     </div>
     <p className="xd-agenda-slot-note">Ao adicionar, todos os dias marcados recebem o público, professor, sala, vagas e regras configurados acima. Depois altere o que precisar e adicione outro bloco.</p>
     <div className="xd-schedule-builder-actions"><button type="button" className="xd-secondary" disabled={!canAdd || !selectedCount} onClick={onAdd}><Plus size={15} /> ADICIONAR DIAS E HORÁRIOS</button></div>
+    {feedback ? <p className="xd-schedule-feedback" role="status">{feedback}</p> : null}
   </section>;
 }
 
 function Grades({ groups, modalities, instructors, rooms, students, classDraft, setClassDraft, enrollment, setEnrollment, saving, onClass, onEnrollment, onSettings, onDelete }: { groups: Group[]; modalities: Workspace["modalities"]; instructors: Workspace["instructors"]; rooms: Workspace["rooms"]; students: Workspace["students"]; classDraft: ClassDraft; setClassDraft: (value: ClassDraft) => void; enrollment: { classGroupId: string; studentId: string; startsOn: string }; setEnrollment: (value: { classGroupId: string; studentId: string; startsOn: string }) => void; saving: boolean; onClass: (event: FormEvent) => Promise<boolean>; onEnrollment: (event: FormEvent) => void; onSettings: (group: Group) => void; onDelete: (group: Group) => Promise<void> }) {
   const [creating, setCreating] = useState(false);
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleSelection>({ weekdays: [], startsAt: "19:00", durationMinutes: "60" });
+  const [scheduleFeedback, setScheduleFeedback] = useState("");
   const scheduleEnd = endTime(scheduleDraft.startsAt, Number(scheduleDraft.durationMinutes));
   const canAddSchedule = Boolean(scheduleEnd && classDraft.roomId && classDraft.instructorId);
   function addSchedule() {
     if (!canAddSchedule || !scheduleDraft.weekdays.length) return;
-    setClassDraft(addSchedulesToDraft(classDraft, scheduleDraft, scheduleEnd));
+    const result = addSchedulesToDraft(classDraft, scheduleDraft, scheduleEnd);
+    if (!result.added) {
+      setScheduleFeedback("ESSES HORÁRIOS JÁ ESTÃO NESTA GRADE COM A MESMA SALA, PROFESSOR E PÚBLICO.");
+      return;
+    }
+    setClassDraft(result.draft);
+    setScheduleDraft((current) => ({ ...current, weekdays: [] }));
+    setScheduleFeedback(`${result.added} HORÁRIO(S) ADICIONADO(S). AGORA CLIQUE EM SALVAR GRADE.`);
   }
 
   return <div className="xd-agenda-stack">
@@ -157,7 +169,7 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
           <label>VAGAS<input type="number" min="1" value={classDraft.capacity} onChange={(event) => setClassDraft({ ...classDraft, capacity: event.target.value })} /></label>
         </div>
         <GradeSettingsFields settings={classDraft.settings} onChange={(settings) => setClassDraft({ ...classDraft, settings })} capacity={classDraft.capacity ? Number(classDraft.capacity) : undefined} />
-        <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} />
+        <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} feedback={scheduleFeedback} />
         <WeeklySchedulePreview draft={classDraft} rooms={rooms} instructors={instructors} onRemove={(index) => setClassDraft({ ...classDraft, schedules: classDraft.schedules.filter((_, itemIndex) => itemIndex !== index) })} />
         {!modalities.length || !rooms.length || !instructors.length ? <p className="xd-agenda-empty">CADASTRE UMA MODALIDADE COM AGENDA, UM PROFESSOR E UMA SALA PARA CRIAR GRADES.</p> : null}
       </div></div>
@@ -168,27 +180,26 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
 }
 
 function WeeklySchedulePreview({ draft, rooms, instructors = [], onRemove }: { draft: ClassDraft; rooms: Workspace["rooms"]; instructors?: Workspace["instructors"]; onRemove: (index: number) => void }) {
-  const orderedDays = [1, 2, 3, 4, 5, 6, 0];
+  const schedules = draft.schedules
+    .map((schedule, index) => ({ ...schedule, index }))
+    .sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt));
   return <section className="xd-schedule-preview" aria-label="Horários cadastrados para esta grade">
     <header><strong>HORÁRIOS DESTA GRADE</strong><small>{draft.schedules.length ? `${draft.schedules.length} HORÁRIO(S) ADICIONADO(S)` : "CONFIGURE E ADICIONE UM BLOCO ABAIXO"}</small></header>
-    <div>{orderedDays.map((day) => {
-      const schedules = draft.schedules.map((item, index) => ({ ...item, index })).filter((item) => item.weekday === day);
-      return <article key={day} className={schedules.length ? "is-selected" : ""}>
-        <b>{weekday[day]}</b>
-        {schedules.length ? schedules.map((schedule) => {
-          const roomName = rooms.find((room) => room.id === schedule.roomId)?.name;
-          const instructorName = instructors.find((instructor) => instructor.id === schedule.instructorId)?.fullName;
-          return <span key={`${schedule.weekday}-${schedule.startsAt}-${schedule.index}`} style={{ borderColor: draft.color }}>
-            <button type="button" aria-label={`Remover horário ${schedule.startsAt}`} onClick={() => onRemove(schedule.index)}>×</button>
-            <strong>{schedule.startsAt} – {schedule.endsAt}</strong>
-            <small>{roomName || "SALA A DEFINIR"}</small>
-            <small>{instructorName || "PROFESSOR A DEFINIR"}</small>
-            <small>{ageGroupLabel(schedule.ageGroup)}</small>
-            <em>{schedule.capacity ? `${schedule.capacity} VAGAS` : "VAGAS DA SALA"}</em>
-          </span>;
-        }) : <i>—</i>}
+    <div className="xd-schedule-preview-list">{schedules.length ? schedules.map((schedule) => {
+      const roomName = rooms.find((room) => room.id === schedule.roomId)?.name || "SALA A DEFINIR";
+      const instructorName = instructors.find((instructor) => instructor.id === schedule.instructorId)?.fullName || "PROFESSOR A DEFINIR";
+      return <article key={`${schedule.weekday}-${schedule.startsAt}-${schedule.index}`} style={{ borderLeftColor: draft.color }}>
+        <header><strong>{weekday[schedule.weekday]} · {schedule.startsAt}–{schedule.endsAt}</strong><button type="button" aria-label={`Remover horário de ${weekday[schedule.weekday]} às ${schedule.startsAt}`} onClick={() => onRemove(schedule.index)}>×</button></header>
+        <dl>
+          <div><dt>DIA DA SEMANA</dt><dd>{weekday[schedule.weekday]}</dd></div>
+          <div><dt>HORÁRIO</dt><dd>{schedule.startsAt} ÀS {schedule.endsAt}</dd></div>
+          <div><dt>PROFESSOR</dt><dd>{instructorName}</dd></div>
+          <div><dt>SALA</dt><dd>{roomName}</dd></div>
+          <div><dt>PÚBLICO</dt><dd>{ageGroupLabel(schedule.ageGroup)}</dd></div>
+          <div><dt>VAGAS</dt><dd>{schedule.capacity ? `${schedule.capacity} VAGAS` : "VAGAS DA SALA"}</dd></div>
+        </dl>
       </article>;
-    })}</div>
+    }) : <p>NENHUM HORÁRIO ADICIONADO AINDA.</p>}</div>
   </section>;
 }
 function GradeSettingsFields({ settings, onChange, capacity }: { settings: GradeSettings; onChange: (settings: GradeSettings) => void; capacity?: number }) {
@@ -223,11 +234,19 @@ function GradeSettingsDialog({ group, modalities, instructors, rooms, saving, on
     settings: group.schedules[0]?.settings ?? group.settings,
   });
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleSelection>({ weekdays: [], startsAt: "19:00", durationMinutes: "60" });
+  const [scheduleFeedback, setScheduleFeedback] = useState("");
   const scheduleEnd = endTime(scheduleDraft.startsAt, Number(scheduleDraft.durationMinutes));
   const canAddSchedule = Boolean(scheduleEnd && draft.roomId && draft.instructorId);
   function addSchedule() {
     if (!canAddSchedule || !scheduleDraft.weekdays.length) return;
-    setDraft(addSchedulesToDraft(draft, scheduleDraft, scheduleEnd));
+    const result = addSchedulesToDraft(draft, scheduleDraft, scheduleEnd);
+    if (!result.added) {
+      setScheduleFeedback("ESSES HORÁRIOS JÁ ESTÃO NESTA GRADE COM A MESMA SALA, PROFESSOR E PÚBLICO.");
+      return;
+    }
+    setDraft(result.draft);
+    setScheduleDraft((current) => ({ ...current, weekdays: [] }));
+    setScheduleFeedback(`${result.added} HORÁRIO(S) ADICIONADO(S). AGORA CLIQUE EM SALVAR ALTERAÇÕES.`);
   }
   async function submit(event: FormEvent) { event.preventDefault(); if (await onSave(draft)) onClose(); }
 
@@ -246,7 +265,7 @@ function GradeSettingsDialog({ group, modalities, instructors, rooms, saving, on
         <label>VAGAS<input type="number" min="1" value={draft.capacity} onChange={(event) => setDraft({ ...draft, capacity: event.target.value })} /></label>
       </div>
       <GradeSettingsFields settings={draft.settings} onChange={(settings) => setDraft({ ...draft, settings })} capacity={draft.capacity ? Number(draft.capacity) : undefined} />
-      <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} />
+      <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} feedback={scheduleFeedback} />
       <WeeklySchedulePreview draft={draft} rooms={rooms} instructors={instructors} onRemove={(index) => setDraft({ ...draft, schedules: draft.schedules.filter((_, itemIndex) => itemIndex !== index) })} />
       <section className="xd-grade-students"><header><div><small>ALUNOS VINCULADOS</small><h3>{group.students.length} ALUNO(S) NESTA AGENDA</h3></div></header>{group.students.length ? <div>{group.students.map((student) => <article key={student.id}><strong>{student.studentName}</strong><small>{student.mobile || "SEM CELULAR"}</small></article>)}</div> : <p>NENHUM ALUNO MATRICULADO NESTA GRADE.</p>}</section>
     </div></div>
