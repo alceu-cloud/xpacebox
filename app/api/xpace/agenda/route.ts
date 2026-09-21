@@ -137,11 +137,11 @@ async function prepareScheduleRows(access: Awaited<ReturnType<typeof requireComp
   const roomIds = [...new Set(raw.map((slot) => slot.roomId))]; const instructorIds = [...new Set(raw.map((slot) => slot.instructorId))];
   const [roomsResult, instructorsResult, otherResult] = await Promise.all([
     access.admin.from("xpace_rooms").select("id,name,capacity").eq("tenant_company_id", access.company.id).eq("active", true).in("id", roomIds),
-    access.admin.from("xpace_instructors").select("id").eq("tenant_company_id", access.company.id).eq("active", true).in("id", instructorIds),
+    access.admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", access.company.id).eq("active", true).in("id", instructorIds),
     access.admin.from("xpace_class_schedules").select("weekday,starts_at,ends_at,room_id,instructor_id").eq("tenant_company_id", access.company.id).eq("active", true).neq("class_group_id", excludedGroupId || "00000000-0000-0000-0000-000000000000"),
   ]);
   if (roomsResult.error || instructorsResult.error || otherResult.error) throw roomsResult.error ?? instructorsResult.error ?? otherResult.error;
-  const rooms = new Map((roomsResult.data ?? []).map((room) => [room.id, room])); const instructors = new Set((instructorsResult.data ?? []).map((instructor) => instructor.id));
+  const rooms = new Map((roomsResult.data ?? []).map((room) => [room.id, room])); const instructors = new Set((instructorsResult.data ?? []).map((instructor) => instructor.id)); const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
   if (rooms.size !== roomIds.length || instructors.size !== instructorIds.length) throw new RequestError("SALA OU PROFESSOR NÃO ESTÁ ATIVO NESTA EMPRESA.", 400);
   const rows = raw.map((slot) => {
     const room = rooms.get(slot.roomId)!; const requestedCapacity = slot.capacity === "" || slot.capacity === undefined || slot.capacity === null ? room.capacity : Number(slot.capacity);
@@ -151,7 +151,13 @@ async function prepareScheduleRows(access: Awaited<ReturnType<typeof requireComp
   });
   for (const [index, slot] of rows.entries()) {
     const conflicts = [...(otherResult.data ?? []), ...rows.slice(0, index)];
-    if (conflicts.some((other) => other.weekday === slot.weekday && other.starts_at < slot.ends_at && other.ends_at > slot.starts_at && (other.room_id === slot.room_id || other.instructor_id === slot.instructor_id))) throw new RequestError("CONFLITO DE HORÁRIO: A SALA OU O PROFESSOR JÁ ESTÁ OCUPADO NESTE INTERVALO.", 409);
+    const conflict = conflicts.find((other) => other.weekday === slot.weekday && other.starts_at < slot.ends_at && other.ends_at > slot.starts_at && (other.room_id === slot.room_id || other.instructor_id === slot.instructor_id));
+    if (conflict) {
+      const conflictSubject = conflict.room_id === slot.room_id
+        ? `A SALA ${rooms.get(slot.room_id)?.name ?? "SELECIONADA"}`
+        : `O PROFESSOR ${instructorNames.get(slot.instructor_id) ?? "SELECIONADO"}`;
+      throw new RequestError(`${conflictSubject} JÁ ESTÁ OCUPADO(A) NA ${weekdayLabel(slot.weekday)}, DAS ${slot.starts_at} ÀS ${slot.ends_at}.`, 409);
+    }
   }
   return rows;
 }
@@ -252,4 +258,5 @@ function normalizeSettings(value: unknown) { const input = value && typeof value
 function boundedMinutes(value: unknown, key: string) { const raw = value && typeof value === "object" ? Number((value as Record<string, unknown>)[key]) : 0; return Number.isInteger(raw) && raw >= 0 && raw <= 1440 ? raw : 0; }
 function today() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()); }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }
-function handleError(error: unknown) { if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const code = (error as { code?: string })?.code; const message = (error as { message?: string })?.message ?? ""; if (code === "23505") return NextResponse.json({ success: false, message: "ESTE ALUNO JÁ ESTÁ MATRICULADO NESTA GRADE DE HORÁRIOS." }, { status: 409 }); if (code === "23P01") return NextResponse.json({ success: false, message: "CONFLITO DE HORÁRIO: A SALA OU O PROFESSOR JÁ ESTÁ OCUPADO NESTE INTERVALO.", }, { status: 409 }); if (message.includes("XPACE_GRADE_SEM_VAGAS")) return NextResponse.json({ success: false, message: "ESTA GRADE JÁ ATINGIU O LIMITE DE VAGAS.", }, { status: 409 }); if (message.includes("XPACE_GRADE_RESTRITA_POR_GENERO")) return NextResponse.json({ success: false, message: "ESTA GRADE POSSUI RESTRIÇÃO DE GÊNERO.", }, { status: 409 }); console.error("XPACE AGENDA ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR A AGENDA." }, { status: 500 }); }
+function weekdayLabel(value: number) { return ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"][value] ?? "DIA SELECIONADO"; }
+function handleError(error: unknown) { const typedError = error as { status?: unknown; code?: unknown; message?: unknown }; const status = typeof typedError.status === "number" ? typedError.status : undefined; const message = typeof typedError.message === "string" ? typedError.message : ""; if (error instanceof AccessError || error instanceof RequestError || (status !== undefined && status >= 400 && status < 500 && message)) return NextResponse.json({ success: false, message }, { status: status ?? 400 }); const code = typeof typedError.code === "string" ? typedError.code : ""; if (code === "23505") return NextResponse.json({ success: false, message: "ESTE ALUNO JÁ ESTÁ MATRICULADO NESTA GRADE DE HORÁRIOS." }, { status: 409 }); if (code === "23P01") return NextResponse.json({ success: false, message: "CONFLITO DE HORÁRIO: A SALA OU O PROFESSOR JÁ ESTÁ OCUPADO NESTE INTERVALO.", }, { status: 409 }); if (message.includes("XPACE_GRADE_SEM_VAGAS")) return NextResponse.json({ success: false, message: "ESTA GRADE JÁ ATINGIU O LIMITE DE VAGAS.", }, { status: 409 }); if (message.includes("XPACE_GRADE_RESTRITA_POR_GENERO")) return NextResponse.json({ success: false, message: "ESTA GRADE POSSUI RESTRIÇÃO DE GÊNERO.", }, { status: 409 }); console.error("XPACE AGENDA ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR A AGENDA." }, { status: 500 }); }
