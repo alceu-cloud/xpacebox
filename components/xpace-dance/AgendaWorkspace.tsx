@@ -86,9 +86,10 @@ function LegacyGrades({ groups, modalities, instructors, rooms, students, classD
 type ScheduleSelection = { weekdays: number[]; startsAt: string; durationMinutes: string };
 
 function addSchedulesToDraft(draft: ClassDraft, selection: ScheduleSelection, endsAt: string) {
-  const existing = new Set(draft.schedules.map((schedule) => `${schedule.weekday}-${schedule.startsAt}-${schedule.endsAt}`));
+  const scheduleKey = (schedule: Pick<ScheduleDraft, "weekday" | "startsAt" | "endsAt" | "roomId" | "instructorId" | "ageGroup">) => [schedule.weekday, schedule.startsAt, schedule.endsAt, schedule.roomId, schedule.instructorId, schedule.ageGroup].join(":");
+  const existing = new Set(draft.schedules.map(scheduleKey));
   const additions = [...new Set(selection.weekdays)]
-    .filter((day) => !existing.has(`${day}-${selection.startsAt}-${endsAt}`))
+    .filter((day) => !existing.has(scheduleKey({ weekday: day, startsAt: selection.startsAt, endsAt, roomId: draft.roomId, instructorId: draft.instructorId, ageGroup: draft.ageGroup })))
     .map((weekday): ScheduleDraft => ({
       weekday,
       startsAt: selection.startsAt,
