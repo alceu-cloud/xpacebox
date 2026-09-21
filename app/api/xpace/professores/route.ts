@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     if (body.action !== "CREATE_INSTRUCTOR") throw new RequestError("AÇÃO DE PROFESSOR INVÁLIDA.", 400);
     requireManager(access.profile.platform_role);
     const instructor = normalize(body.instructor);
-    if (!instructor.fullName) throw new RequestError("INFORME O NOME DO PROFESSOR.", 400);
+    validateInstructor(instructor);
     const { data, error } = await access.admin.from("xpace_instructors").insert({ tenant_company_id: access.company.id, full_name: instructor.fullName, mobile: instructor.mobile || null, email: instructor.email || null, created_by: access.user.id, updated_by: access.user.id }).select("id,full_name,mobile,email,active").single();
     if (error) throw error;
     return NextResponse.json({ success: true, instructor: toInstructor(data) }, { status: 201 });
@@ -39,7 +39,8 @@ export async function PATCH(request: Request) {
       requireManager(access.profile.platform_role);
       const instructorId = body.instructor?.id?.trim();
       const instructor = normalize(body.instructor);
-      if (!instructorId || !instructor.fullName) throw new RequestError("INFORME O NOME DO PROFESSOR.", 400);
+      if (!instructorId) throw new RequestError("INFORME O PROFESSOR.", 400);
+      validateInstructor(instructor);
       const { data, error } = await access.admin.from("xpace_instructors").update({ full_name: instructor.fullName, mobile: instructor.mobile || null, email: instructor.email || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", instructorId).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
       if (error) throw error;
       if (!data) throw new RequestError("PROFESSOR NÃO ENCONTRADO NESTA EMPRESA.", 404);
@@ -56,9 +57,14 @@ export async function PATCH(request: Request) {
 function normalize(value?: RequestBody["instructor"]) {
   return {
     fullName: value?.fullName?.trim().replace(/\s+/g, " ").slice(0, 120) ?? "",
-    mobile: value?.mobile?.trim().replace(/\s+/g, " ").slice(0, 32) ?? "",
+    mobile: value?.mobile?.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "").slice(0, 11) ?? "",
     email: value?.email?.trim().toLowerCase().slice(0, 160) ?? "",
   };
+}
+
+function validateInstructor(instructor: ReturnType<typeof normalize>) {
+  if (!instructor.fullName) throw new RequestError("INFORME O NOME DO PROFESSOR.", 400);
+  if (instructor.mobile && !/^\d{10,11}$/.test(instructor.mobile)) throw new RequestError("INFORME UM CELULAR COM DDD.", 400);
 }
 
 function toInstructor(instructor: { id: string; full_name: string; mobile: string | null; email: string | null; active: boolean }) { return { id: instructor.id, fullName: instructor.full_name, mobile: instructor.mobile ?? "", email: instructor.email ?? "", active: instructor.active }; }
