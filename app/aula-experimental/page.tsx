@@ -3,12 +3,16 @@
 import { Clock3, Music2, Phone, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type Slot = { classGroupId: string; classScheduleId: string; scheduledOn: string; startsAt: string; endsAt: string; className: string; modality: string; instructorName: string; roomName: string; remainingSeats: number | null };
+type ClassLevel = "INICIANTE" | "INICIANTE_INTERMEDIARIO" | "INTERMEDIARIO" | "AVANCADO";
+type Slot = { classGroupId: string; classScheduleId: string; scheduledOn: string; startsAt: string; endsAt: string; className: string; modality: string; level: ClassLevel; instructorName: string; roomName: string; remainingSeats: number | null };
+
+const classLevels: Array<{ value: ClassLevel; label: string }> = [{ value: "INICIANTE", label: "INICIANTE" }, { value: "INICIANTE_INTERMEDIARIO", label: "INICIANTE / INTERMEDIÁRIO" }, { value: "INTERMEDIARIO", label: "INTERMEDIÁRIO" }, { value: "AVANCADO", label: "AVANÇADO" }];
 
 export default function TrialBookingPage() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [schoolName, setSchoolName] = useState("XPACE");
   const [selectedModality, setSelectedModality] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState<ClassLevel | "">("");
   const [selectedWeekday, setSelectedWeekday] = useState<number | null>(null);
   const [selected, setSelected] = useState("");
   const [form, setForm] = useState({ fullName: "", mobile: "", email: "", website: "" });
@@ -19,8 +23,10 @@ export default function TrialBookingPage() {
   useEffect(() => { void loadSlots(); }, []);
   const modalities = useMemo(() => Array.from(new Set(slots.map((slot) => slot.modality))).sort((left, right) => left.localeCompare(right)), [slots]);
   const modalitySlots = useMemo(() => slots.filter((slot) => slot.modality === selectedModality), [selectedModality, slots]);
-  const weekdays = useMemo(() => Array.from(new Set(modalitySlots.map((slot) => weekdayOf(slot.scheduledOn)))).sort((left, right) => weekdayOrder(left) - weekdayOrder(right)), [modalitySlots]);
-  const timeSlots = useMemo(() => modalitySlots.filter((slot) => weekdayOf(slot.scheduledOn) === selectedWeekday), [modalitySlots, selectedWeekday]);
+  const levels = useMemo(() => classLevels.filter((level) => modalitySlots.some((slot) => slot.level === level.value)), [modalitySlots]);
+  const levelSlots = useMemo(() => modalitySlots.filter((slot) => supportsSelectedLevel(slot.level, selectedLevel)), [modalitySlots, selectedLevel]);
+  const weekdays = useMemo(() => Array.from(new Set(levelSlots.map((slot) => weekdayOf(slot.scheduledOn)))).sort((left, right) => weekdayOrder(left) - weekdayOrder(right)), [levelSlots]);
+  const timeSlots = useMemo(() => levelSlots.filter((slot) => weekdayOf(slot.scheduledOn) === selectedWeekday), [levelSlots, selectedWeekday]);
   const chosen = useMemo(() => slots.find((slot) => slotKey(slot) === selected), [selected, slots]);
 
   async function loadSlots() {
@@ -34,7 +40,8 @@ export default function TrialBookingPage() {
     finally { setLoading(false); }
   }
 
-  function chooseModality(modality: string) { setSelectedModality(modality); setSelectedWeekday(null); setSelected(""); }
+  function chooseModality(modality: string) { setSelectedModality(modality); setSelectedLevel(""); setSelectedWeekday(null); setSelected(""); }
+  function chooseLevel(level: ClassLevel) { setSelectedLevel(level); setSelectedWeekday(null); setSelected(""); }
   function chooseWeekday(day: number) { setSelectedWeekday(day); setSelected(""); }
 
   async function submit(event: FormEvent) {
@@ -45,7 +52,7 @@ export default function TrialBookingPage() {
       const response = await fetch("/api/public/xpace/aula-experimental", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, classGroupId: chosen.classGroupId, classScheduleId: chosen.classScheduleId, scheduledOn: chosen.scheduledOn }) });
       const payload = await response.json() as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) throw new Error(payload.message || "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO.");
-      setNotice(payload.message || "AULA EXPERIMENTAL AGENDADA!"); setSelected(""); setSelectedWeekday(null); setSelectedModality(""); setForm({ fullName: "", mobile: "", email: "", website: "" }); await loadSlots();
+      setNotice(payload.message || "AULA EXPERIMENTAL AGENDADA!"); setSelected(""); setSelectedWeekday(null); setSelectedLevel(""); setSelectedModality(""); setForm({ fullName: "", mobile: "", email: "", website: "" }); await loadSlots();
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO."); }
     finally { setSending(false); }
   }
@@ -55,10 +62,11 @@ export default function TrialBookingPage() {
     <form onSubmit={submit}>
       <section className="xpace-public-booking-steps" aria-label="Escolha da aula">
         <div><strong>1. MODALIDADE</strong><p>Escolha o estilo que quer experimentar.</p><nav>{loading ? <span>CARREGANDO MODALIDADES...</span> : modalities.length ? modalities.map((modality) => <button key={modality} type="button" className={selectedModality === modality ? "is-selected" : ""} onClick={() => chooseModality(modality)}>{modality}</button>) : <span>NENHUMA MODALIDADE DISPONÍVEL.</span>}</nav></div>
-        {selectedModality ? <div><strong>2. DIA DA SEMANA</strong><p>Veja somente os dias que têm {selectedModality}.</p><nav>{weekdays.map((day) => <button key={day} type="button" className={selectedWeekday === day ? "is-selected" : ""} onClick={() => chooseWeekday(day)}>{weekdayLabel(day)}</button>)}</nav></div> : null}
-        {selectedWeekday !== null ? <div><strong>3. HORÁRIO</strong><p>Escolha uma aula disponível.</p><nav className="xpace-public-booking-times">{timeSlots.map((slot) => <button key={slotKey(slot)} type="button" className={selected === slotKey(slot) ? "is-selected" : ""} onClick={() => setSelected(slotKey(slot))}><b>{slot.startsAt}–{slot.endsAt}</b><small>{formatDate(slot.scheduledOn)} · {slot.className}{slot.remainingSeats === null ? "" : ` · ${slot.remainingSeats} vaga(s)`}</small></button>)}</nav></div> : null}
+        {selectedModality ? <div><strong>2. NÍVEL</strong><p>Escolha o nível da turma.</p><nav>{levels.map((level) => <button key={level.value} type="button" className={selectedLevel === level.value ? "is-selected" : ""} onClick={() => chooseLevel(level.value)}>{level.label}</button>)}</nav></div> : null}
+        {selectedLevel ? <div><strong>3. DIA DA SEMANA</strong><p>Veja somente os dias que têm {selectedModality} para {classLevelLabel(selectedLevel)}.</p><nav>{weekdays.map((day) => <button key={day} type="button" className={selectedWeekday === day ? "is-selected" : ""} onClick={() => chooseWeekday(day)}>{weekdayLabel(day)}</button>)}</nav></div> : null}
+        {selectedWeekday !== null ? <div><strong>4. HORÁRIO</strong><p>Escolha uma aula disponível.</p><nav className="xpace-public-booking-times">{timeSlots.map((slot) => <button key={slotKey(slot)} type="button" className={selected === slotKey(slot) ? "is-selected" : ""} onClick={() => setSelected(slotKey(slot))}><b>{slot.startsAt}–{slot.endsAt}</b><small>{formatDate(slot.scheduledOn)} · {slot.className} · {classLevelLabel(slot.level)}{slot.remainingSeats === null ? "" : ` · ${slot.remainingSeats} vaga(s)`}</small></button>)}</nav></div> : null}
       </section>
-      {chosen ? <aside><Clock3 size={18} /><div><strong>{chosen.className} · {chosen.modality}</strong><small>{formatDate(chosen.scheduledOn)} · {chosen.startsAt}–{chosen.endsAt} · Prof. {chosen.instructorName}{chosen.roomName ? ` · ${chosen.roomName}` : ""}</small></div></aside> : null}
+      {chosen ? <aside><Clock3 size={18} /><div><strong>{chosen.className} · {chosen.modality} · {classLevelLabel(chosen.level)}</strong><small>{formatDate(chosen.scheduledOn)} · {chosen.startsAt}–{chosen.endsAt} · Prof. {chosen.instructorName}{chosen.roomName ? ` · ${chosen.roomName}` : ""}</small></div></aside> : null}
       <label><UserRound size={16} /> NOME COMPLETO<input value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} autoComplete="name" required /></label>
       <label><Phone size={16} /> TELEFONE / WHATSAPP<input value={form.mobile} onChange={(event) => setForm({ ...form, mobile: event.target.value })} inputMode="tel" autoComplete="tel" required /></label>
       <label><span className="xpace-public-booking-mail">@</span> E-MAIL<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" required /></label>
@@ -70,6 +78,8 @@ export default function TrialBookingPage() {
   </section></main>;
 }
 
+function supportsSelectedLevel(slotLevel: ClassLevel, selectedLevel: ClassLevel | "") { return selectedLevel === "INICIANTE_INTERMEDIARIO" ? slotLevel === "INICIANTE" || slotLevel === "INICIANTE_INTERMEDIARIO" : Boolean(selectedLevel) && slotLevel === selectedLevel; }
+function classLevelLabel(level: ClassLevel) { return classLevels.find((item) => item.value === level)?.label ?? "INICIANTE"; }
 function slotKey(slot: Slot) { return `${slot.classGroupId}:${slot.classScheduleId}:${slot.scheduledOn}`; }
 function weekdayOf(iso: string) { return new Date(`${iso}T12:00:00`).getDay(); }
 function weekdayOrder(day: number) { return day === 0 ? 7 : day; }
