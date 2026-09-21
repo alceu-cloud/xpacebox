@@ -3702,6 +3702,10 @@ input[type="email"] { text-transform: none !important; }
   .xd-grade-card > .xd-grade-actions { grid-column: 2 / -1; grid-row: 3; }
 }
 .xd-grade-create-dialog > footer { position: static; padding: 16px 24px; background: #fff; }
+.xd-grade-save-popup { position: fixed; z-index: 1210; top: 50%; left: 50%; width: min(440px, calc(100vw - 36px)); transform: translate(-50%, -50%); padding: 24px; border: 1px solid #e3b8d3; border-radius: 20px; background: #fff; box-shadow: 0 24px 70px rgba(36, 17, 54, .32); color: #382047; text-align: center; }
+.xd-grade-save-popup strong { display: block; color: #7c265f; font-size: 13px; letter-spacing: .04em; }
+.xd-grade-save-popup p { margin: 12px 0 20px; color: #5f5268; font-size: 12px; font-weight: 700; line-height: 1.55; }
+.xd-grade-save-popup .xd-primary { min-width: 112px; }
 .xd-grade-create-dialog .xd-schedule-preview { overflow-x: auto; }
 .xd-grade-create-dialog .xd-schedule-preview > div { min-width: 840px; }
 @media (max-width: 640px) {
