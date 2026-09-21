@@ -175,33 +175,48 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
       </div></div>
       <footer><button type="button" className="xd-secondary" disabled={saving} onClick={() => setCreating(false)}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving || !modalities.length || !rooms.length || !instructors.length || !classDraft.name || !classDraft.modalityId || !classDraft.schedules.length}><Save size={16} /> {saving ? "SALVANDO..." : "SALVAR GRADE"}</button></footer>
     </form></div> : null}
-    <section className="xd-grade-list">{groups.length ? groups.map((group) => <article key={group.id}><i style={{ background: group.color }} /><div><strong>{group.name}</strong><small>{group.sourceType === "SERVICO" ? "SERVIÇO · " : "CONTRATO · "}{group.modality || "SEM MODALIDADE"} · {classLevelLabel(group.level)}</small></div><span>{group.schedules.map((schedule) => `${weekday[schedule.weekday]} ${schedule.startsAt}–${schedule.endsAt}${schedule.roomName ? ` · ${schedule.roomName}` : ""}${schedule.instructorName ? ` · ${schedule.instructorName}` : ""}`).join(" · ")}</span><b>{group.students.length} ALUNOS</b><div className="xd-grade-actions"><button type="button" className="xd-grade-edit" onClick={() => onSettings(group)}><Settings2 size={14} /> EDITAR</button><button type="button" className="xd-grade-delete" disabled={saving} onClick={() => { void onDelete(group); }}>EXCLUIR</button></div></article>) : <p className="xd-agenda-empty">NENHUMA GRADE CADASTRADA.</p>}</section>
+    <section className="xd-grade-list">{groups.length ? groups.map((group) => <article className="xd-grade-card" key={group.id}><i style={{ background: group.color }} /><div className="xd-grade-card-title"><strong>{group.name}</strong><small>{group.sourceType === "SERVICO" ? "SERVIÇO · " : "CONTRATO · "}{group.modality || "SEM MODALIDADE"} · {classLevelLabel(group.level)}</small></div><GradeScheduleSummary schedules={group.schedules} /><b>{group.students.length} ALUNOS</b><div className="xd-grade-actions"><button type="button" className="xd-grade-edit" onClick={() => onSettings(group)}><Settings2 size={14} /> EDITAR</button><button type="button" className="xd-grade-delete" disabled={saving} onClick={() => { void onDelete(group); }}>EXCLUIR</button></div></article>) : <p className="xd-agenda-empty">NENHUMA GRADE CADASTRADA.</p>}</section>
   </div>;
 }
 
 function WeeklySchedulePreview({ draft, rooms, instructors = [], onRemove }: { draft: ClassDraft; rooms: Workspace["rooms"]; instructors?: Workspace["instructors"]; onRemove: (index: number) => void }) {
-  const schedules = draft.schedules
-    .map((schedule, index) => ({ ...schedule, index }))
-    .sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt));
+  const orderedDays = [1, 2, 3, 4, 5, 6, 0];
   return <section className="xd-schedule-preview" aria-label="Horários cadastrados para esta grade">
     <header><strong>HORÁRIOS DESTA GRADE</strong><small>{draft.schedules.length ? `${draft.schedules.length} HORÁRIO(S) ADICIONADO(S)` : "CONFIGURE E ADICIONE UM BLOCO ABAIXO"}</small></header>
-    <div className="xd-schedule-preview-list">{schedules.length ? schedules.map((schedule) => {
-      const roomName = rooms.find((room) => room.id === schedule.roomId)?.name || "SALA A DEFINIR";
-      const instructorName = instructors.find((instructor) => instructor.id === schedule.instructorId)?.fullName || "PROFESSOR A DEFINIR";
-      return <article key={`${schedule.weekday}-${schedule.startsAt}-${schedule.index}`} style={{ borderLeftColor: draft.color }}>
-        <header><strong>{weekday[schedule.weekday]} · {schedule.startsAt}–{schedule.endsAt}</strong><button type="button" aria-label={`Remover horário de ${weekday[schedule.weekday]} às ${schedule.startsAt}`} onClick={() => onRemove(schedule.index)}>×</button></header>
-        <dl>
-          <div><dt>DIA DA SEMANA</dt><dd>{weekday[schedule.weekday]}</dd></div>
-          <div><dt>HORÁRIO</dt><dd>{schedule.startsAt} ÀS {schedule.endsAt}</dd></div>
-          <div><dt>PROFESSOR</dt><dd>{instructorName}</dd></div>
-          <div><dt>SALA</dt><dd>{roomName}</dd></div>
-          <div><dt>PÚBLICO</dt><dd>{ageGroupLabel(schedule.ageGroup)}</dd></div>
-          <div><dt>VAGAS</dt><dd>{schedule.capacity ? `${schedule.capacity} VAGAS` : "VAGAS DA SALA"}</dd></div>
-        </dl>
+    <div>{orderedDays.map((day) => {
+      const schedules = draft.schedules.map((item, index) => ({ ...item, index })).filter((item) => item.weekday === day);
+      return <article key={day} className={schedules.length ? "is-selected" : ""}>
+        <b>{weekday[day]}</b>
+        {schedules.length ? schedules.map((schedule) => {
+          const roomName = rooms.find((room) => room.id === schedule.roomId)?.name;
+          const instructorName = instructors.find((instructor) => instructor.id === schedule.instructorId)?.fullName;
+          return <span key={`${schedule.weekday}-${schedule.startsAt}-${schedule.index}`} style={{ borderColor: draft.color }}>
+            <button type="button" aria-label={`Remover horário ${schedule.startsAt}`} onClick={() => onRemove(schedule.index)}>×</button>
+            <strong>{schedule.startsAt} – {schedule.endsAt}</strong>
+            <small>{roomName || "SALA A DEFINIR"}</small>
+            <small>{instructorName || "PROFESSOR A DEFINIR"}</small>
+            <small>{ageGroupLabel(schedule.ageGroup)}</small>
+            <em>{schedule.capacity ? `${schedule.capacity} VAGAS` : "VAGAS DA SALA"}</em>
+          </span>;
+        }) : <i>—</i>}
       </article>;
-    }) : <p>NENHUM HORÁRIO ADICIONADO AINDA.</p>}</div>
+    })}</div>
   </section>;
 }
+
+function GradeScheduleSummary({ schedules }: { schedules: Group["schedules"] }) {
+  const orderedSchedules = [...schedules].sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt));
+  return <section className="xd-grade-schedule-summary" aria-label="Horários cadastrados da turma">
+    {orderedSchedules.map((schedule) => <article key={schedule.id}>
+      <div><small>DIA DA SEMANA</small><strong>{weekday[schedule.weekday]}</strong></div>
+      <div><small>HORÁRIO</small><strong>{schedule.startsAt} ÀS {schedule.endsAt}</strong></div>
+      <div><small>PROFESSOR</small><strong>{schedule.instructorName || "A DEFINIR"}</strong></div>
+      <div><small>SALA</small><strong>{schedule.roomName || "A DEFINIR"}</strong></div>
+      <div><small>PÚBLICO</small><strong>{ageGroupLabel(schedule.ageGroup)}</strong></div>
+    </article>)}
+  </section>;
+}
+
 function GradeSettingsFields({ settings, onChange, capacity }: { settings: GradeSettings; onChange: (settings: GradeSettings) => void; capacity?: number }) {
   const checkIn = settings.checkIn ?? {};
   const restrictions = settings.restrictions ?? {};
