@@ -42,9 +42,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Body;
     const access = await requireCompanyAccess(request, companySlug);
-    if (body.action === "CREATE_CLASS") return createClassV2(access, body.group);
-    if (body.action === "ENROLL_STUDENT") return enrollStudent(access, body.enrollment);
-    if (body.action === "CREATE_RENTAL") return createRental(access, body.rental);
+    if (body.action === "CREATE_CLASS") return await createClassV2(access, body.group);
+    if (body.action === "ENROLL_STUDENT") return await enrollStudent(access, body.enrollment);
+    if (body.action === "CREATE_RENTAL") return await createRental(access, body.rental);
     throw new RequestError("AÇÃO DA AGENDA INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
 }
@@ -55,7 +55,7 @@ export async function PATCH(request: Request) {
     const access = await requireCompanyAccess(request, companySlug);
     if (!body.group?.id) throw new RequestError("CONFIGURAÇÃO DA GRADE INVÁLIDA.", 400);
     if (!["platform_owner", "company_manager"].includes(access.profile.platform_role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR AS CONFIGURAÇÕES DA GRADE.", 403);
-    if (body.action === "UPDATE_CLASS") return updateClassV2(access, body.group);
+    if (body.action === "UPDATE_CLASS") return await updateClassV2(access, body.group);
     if (body.action !== "UPDATE_GRADE_SETTINGS") throw new RequestError("AÇÃO DE GRADE INVÁLIDA.", 400);
     const settings = normalizeSettings(body.group.settings);
     const { data, error } = await access.admin.from("xpace_class_groups").update({ settings, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.group.id).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
@@ -150,13 +150,15 @@ async function prepareScheduleRows(access: Awaited<ReturnType<typeof requireComp
     return { weekday: slot.weekday, starts_at: slot.startsAt, ends_at: slot.endsAt, room_name: room.name, room_id: room.id, instructor_id: slot.instructorId, class_level: slot.level, age_group: slot.ageGroup, color: slot.color, capacity: requestedCapacity, settings: slot.settings, active: true };
   });
   for (const [index, slot] of rows.entries()) {
-    const conflicts = [...(otherResult.data ?? []), ...rows.slice(0, index)];
-    const conflict = conflicts.find((other) => other.weekday === slot.weekday && other.starts_at < slot.ends_at && other.ends_at > slot.starts_at && (other.room_id === slot.room_id || other.instructor_id === slot.instructor_id));
+    const savedConflict = (otherResult.data ?? []).find((other) => other.weekday === slot.weekday && other.starts_at < slot.ends_at && other.ends_at > slot.starts_at && (other.room_id === slot.room_id || other.instructor_id === slot.instructor_id));
+    const draftConflict = rows.slice(0, index).find((other) => other.weekday === slot.weekday && other.starts_at < slot.ends_at && other.ends_at > slot.starts_at && (other.room_id === slot.room_id || other.instructor_id === slot.instructor_id));
+    const conflict = savedConflict ?? draftConflict;
     if (conflict) {
+      if (draftConflict) throw new RequestError(`O MESMO PROFESSOR OU SALA FOI ADICIONADO DUAS VEZES NA ${weekdayLabel(slot.weekday)}, DAS ${slot.starts_at} ÀS ${slot.ends_at}. REMOVA UM DOS BLOCOS ANTES DE SALVAR.`, 409);
       const conflictSubject = conflict.room_id === slot.room_id
-        ? `A SALA ${rooms.get(slot.room_id)?.name ?? "SELECIONADA"}`
-        : `O PROFESSOR ${instructorNames.get(slot.instructor_id) ?? "SELECIONADO"}`;
-      throw new RequestError(`${conflictSubject} JÁ ESTÁ OCUPADO(A) NA ${weekdayLabel(slot.weekday)}, DAS ${slot.starts_at} ÀS ${slot.ends_at}.`, 409);
+        ? `A SALA ${rooms.get(slot.room_id)?.name ?? "SELECIONADA"} JÁ ESTÁ OCUPADA`
+        : `O PROFESSOR ${instructorNames.get(slot.instructor_id) ?? "SELECIONADO"} JÁ ESTÁ OCUPADO`;
+      throw new RequestError(`${conflictSubject} NA ${weekdayLabel(slot.weekday)}, DAS ${slot.starts_at} ÀS ${slot.ends_at}.`, 409);
     }
   }
   return rows;
