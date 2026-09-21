@@ -5,7 +5,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 const companySlug = "xpace";
 type Body = {
   action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS" | "UPDATE_CLASS" | "DELETE_GRADE";
-  group?: { id?: string; name?: string; modalityId?: string; roomId?: string; color?: string; capacity?: number; sourceType?: string; settings?: unknown; weekdays?: number[]; startsAt?: string; endsAt?: string; schedules?: Array<{ weekday?: number; startsAt?: string; endsAt?: string }> };
+  group?: { id?: string; name?: string; modalityId?: string; roomId?: string; instructorId?: string; color?: string; capacity?: number; sourceType?: string; settings?: unknown; weekdays?: number[]; startsAt?: string; endsAt?: string; schedules?: Array<{ id?: string; weekday?: number; startsAt?: string; endsAt?: string; roomId?: string; instructorId?: string; capacity?: number | string; settings?: unknown }> };
   enrollment?: { classGroupId?: string; studentId?: string; startsOn?: string };
   rental?: { roomName?: string; renterName?: string; startsAt?: string; endsAt?: string; amountCents?: number; note?: string };
 };
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult, roomsResult] = await Promise.all([
       admin.from("xpace_class_groups").select("id,name,modality,modality_id,instructor_id,color,capacity,source_type,settings,active").eq("tenant_company_id", company.id).order("name"),
-      admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,room_id,instructor_id,active").eq("tenant_company_id", company.id).eq("active", true).order("weekday").order("starts_at"),
+      admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,room_id,instructor_id,capacity,settings,active").eq("tenant_company_id", company.id).eq("active", true).order("weekday").order("starts_at"),
       admin.from("xpace_class_enrollments").select("id,class_group_id,student_id,starts_on,ends_on,status").eq("tenant_company_id", company.id).eq("status", "ATIVA"),
       admin.from("xpace_people").select("id,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
       admin.from("xpace_room_rentals").select("id,room_name,renter_name,starts_at,ends_at,amount_cents,status,note").eq("tenant_company_id", company.id).neq("status", "CANCELADA").order("starts_at").limit(200),
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       enrollmentsByGroup.set(enrollment.class_group_id, list);
     }
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
-    return NextResponse.json({ success: true, groups: (groupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: group.color, capacity: group.capacity, sourceType: group.source_type, settings: group.settings ?? {}, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "", roomId: schedule.room_id ?? "" })), students: enrollmentsByGroup.get(group.id) ?? [] })), modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), rooms: (roomsResult.data ?? []).map((room) => ({ id: room.id, name: room.name, capacity: room.capacity })), students: (studentsResult.data ?? []).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
+    return NextResponse.json({ success: true, groups: (groupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: group.color, capacity: group.capacity, sourceType: group.source_type, settings: group.settings ?? {}, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "", roomId: schedule.room_id ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: schedule.capacity ?? group.capacity, settings: schedule.settings ?? group.settings ?? {} })), students: enrollmentsByGroup.get(group.id) ?? [] })), modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), instructors: (instructorsResult.data ?? []).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })), rooms: (roomsResult.data ?? []).map((room) => ({ id: room.id, name: room.name, capacity: room.capacity })), students: (studentsResult.data ?? []).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Body;
     const access = await requireCompanyAccess(request, companySlug);
-    if (body.action === "CREATE_CLASS") return createClass(access, body.group);
+    if (body.action === "CREATE_CLASS") return createClassV2(access, body.group);
     if (body.action === "ENROLL_STUDENT") return enrollStudent(access, body.enrollment);
     if (body.action === "CREATE_RENTAL") return createRental(access, body.rental);
     throw new RequestError("AÇÃO DA AGENDA INVÁLIDA.", 400);
@@ -55,7 +55,7 @@ export async function PATCH(request: Request) {
     const access = await requireCompanyAccess(request, companySlug);
     if (!body.group?.id) throw new RequestError("CONFIGURAÇÃO DA GRADE INVÁLIDA.", 400);
     if (!["platform_owner", "company_manager"].includes(access.profile.platform_role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR AS CONFIGURAÇÕES DA GRADE.", 403);
-    if (body.action === "UPDATE_CLASS") return updateClass(access, body.group);
+    if (body.action === "UPDATE_CLASS") return updateClassV2(access, body.group);
     if (body.action !== "UPDATE_GRADE_SETTINGS") throw new RequestError("AÇÃO DE GRADE INVÁLIDA.", 400);
     const settings = normalizeSettings(body.group.settings);
     const { data, error } = await access.admin.from("xpace_class_groups").update({ settings, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", body.group.id).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
@@ -86,6 +86,73 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) { return handleError(error); }
 }
+
+async function createClassV2(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["group"]) {
+  const group = normalizeGroup(input);
+  const schedules = await prepareScheduleRows(access, input, group.modalityId);
+  if (!group.name || !group.modalityId || !/^#[0-9a-fA-F]{6}$/.test(group.color) || !schedules.length) throw new RequestError("PREENCHA NOME, MODALIDADE E PELO MENOS UM HORÁRIO CONFIGURADO.", 400);
+  const { data: modality, error: modalityError } = await access.admin.from("xpace_modalities").select("id,name").eq("id", group.modalityId).eq("tenant_company_id", access.company.id).eq("active", true).eq("uses_schedule", true).maybeSingle();
+  if (modalityError) throw modalityError;
+  if (!modality) throw new RequestError("SELECIONE UMA MODALIDADE ATIVA COM AGENDA.", 400);
+  const { data: saved, error } = await access.admin.from("xpace_class_groups").insert({ tenant_company_id: access.company.id, name: group.name, modality: modality.name, modality_id: modality.id, instructor_id: schedules[0].instructor_id, color: group.color, capacity: null, source_type: group.sourceType, settings: {}, created_by: access.user.id, updated_by: access.user.id }).select("id").single();
+  if (error) throw error;
+  const { error: scheduleError } = await access.admin.from("xpace_class_schedules").insert(schedules.map((schedule) => ({ ...schedule, tenant_company_id: access.company.id, class_group_id: saved.id, created_by: access.user.id })));
+  if (scheduleError) throw scheduleError;
+  return NextResponse.json({ success: true, groupId: saved.id }, { status: 201 });
+}
+
+async function updateClassV2(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["group"]) {
+  const id = clean(input?.id);
+  const group = normalizeGroup(input);
+  if (!id || !group.name || !group.modalityId || !/^#[0-9a-fA-F]{6}$/.test(group.color)) throw new RequestError("PREENCHA NOME, MODALIDADE E UMA COR VÁLIDA PARA A GRADE.", 400);
+  const schedules = await prepareScheduleRows(access, input, group.modalityId, id);
+  if (!schedules.length) throw new RequestError("ADICIONE AO MENOS UM HORÁRIO CONFIGURADO.", 400);
+  const [currentResult, modalityResult, previousResult] = await Promise.all([
+    access.admin.from("xpace_class_groups").select("id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_modalities").select("id,name").eq("id", group.modalityId).eq("tenant_company_id", access.company.id).eq("active", true).eq("uses_schedule", true).maybeSingle(),
+    access.admin.from("xpace_class_schedules").select("id,active").eq("class_group_id", id).eq("tenant_company_id", access.company.id),
+  ]);
+  if (currentResult.error || modalityResult.error || previousResult.error) throw currentResult.error ?? modalityResult.error ?? previousResult.error;
+  if (!currentResult.data || !modalityResult.data) throw new RequestError("GRADE OU MODALIDADE NÃO ENCONTRADA.", 404);
+  const { error: groupError } = await access.admin.from("xpace_class_groups").update({ name: group.name, modality: modalityResult.data.name, modality_id: modalityResult.data.id, instructor_id: schedules[0].instructor_id, color: group.color, capacity: null, source_type: group.sourceType, settings: {}, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", id).eq("tenant_company_id", access.company.id);
+  if (groupError) throw groupError;
+  const { error: deactivateError } = await access.admin.from("xpace_class_schedules").update({ active: false }).eq("class_group_id", id).eq("tenant_company_id", access.company.id);
+  if (deactivateError) throw deactivateError;
+  const { error: insertError } = await access.admin.from("xpace_class_schedules").insert(schedules.map((schedule) => ({ ...schedule, tenant_company_id: access.company.id, class_group_id: id, created_by: access.user.id })));
+  if (insertError) {
+    await access.admin.from("xpace_class_schedules").update({ active: true }).eq("class_group_id", id).eq("tenant_company_id", access.company.id).in("id", (previousResult.data ?? []).filter((schedule) => schedule.active).map((schedule) => schedule.id));
+    throw insertError;
+  }
+  return NextResponse.json({ success: true });
+}
+
+function normalizeGroup(input?: Body["group"]) { return { name: clean(input?.name), modalityId: clean(input?.modalityId), color: clean(input?.color) || "#7435d9", sourceType: input?.sourceType === "SERVICO" ? "SERVICO" : "CONTRATO" }; }
+async function prepareScheduleRows(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input: Body["group"] | undefined, modalityId: string, excludedGroupId = "") {
+  const fallback = { roomId: clean(input?.roomId), instructorId: clean(input?.instructorId), capacity: input?.capacity, settings: input?.settings };
+  const raw = (input?.schedules ?? []).map((item) => ({ weekday: Number(item.weekday), startsAt: clean(item.startsAt), endsAt: clean(item.endsAt), roomId: clean(item.roomId) || fallback.roomId, instructorId: clean(item.instructorId) || fallback.instructorId, capacity: item.capacity ?? fallback.capacity, settings: normalizeSettings(item.settings ?? fallback.settings) }));
+  if (!raw.length || raw.some((slot) => !Number.isInteger(slot.weekday) || slot.weekday < 0 || slot.weekday > 6 || !isTime(slot.startsAt) || !isTime(slot.endsAt) || slot.endsAt <= slot.startsAt || !slot.roomId || !slot.instructorId)) throw new RequestError("CADA HORÁRIO PRECISA TER DIA, INÍCIO, DURAÇÃO, SALA E PROFESSOR.", 400);
+  const roomIds = [...new Set(raw.map((slot) => slot.roomId))]; const instructorIds = [...new Set(raw.map((slot) => slot.instructorId))];
+  const [roomsResult, instructorsResult, otherResult] = await Promise.all([
+    access.admin.from("xpace_rooms").select("id,name,capacity").eq("tenant_company_id", access.company.id).eq("active", true).in("id", roomIds),
+    access.admin.from("xpace_instructors").select("id").eq("tenant_company_id", access.company.id).eq("active", true).in("id", instructorIds),
+    access.admin.from("xpace_class_schedules").select("weekday,starts_at,ends_at,room_id,instructor_id").eq("tenant_company_id", access.company.id).eq("active", true).neq("class_group_id", excludedGroupId || "00000000-0000-0000-0000-000000000000"),
+  ]);
+  if (roomsResult.error || instructorsResult.error || otherResult.error) throw roomsResult.error ?? instructorsResult.error ?? otherResult.error;
+  const rooms = new Map((roomsResult.data ?? []).map((room) => [room.id, room])); const instructors = new Set((instructorsResult.data ?? []).map((instructor) => instructor.id));
+  if (rooms.size !== roomIds.length || instructors.size !== instructorIds.length) throw new RequestError("SALA OU PROFESSOR NÃO ESTÁ ATIVO NESTA EMPRESA.", 400);
+  const rows = raw.map((slot) => {
+    const room = rooms.get(slot.roomId)!; const requestedCapacity = slot.capacity === "" || slot.capacity === undefined || slot.capacity === null ? room.capacity : Number(slot.capacity);
+    if (requestedCapacity !== null && (!Number.isInteger(requestedCapacity) || requestedCapacity < 1 || (room.capacity !== null && requestedCapacity > room.capacity))) throw new RequestError(`A CAPACIDADE DE ${room.name} É INVÁLIDA PARA ESTE HORÁRIO.`, 400);
+    if (slot.settings.maxClientsEnabled && requestedCapacity !== null && (slot.settings.maxClients ?? 0) > requestedCapacity) throw new RequestError("O LIMITE DE ALUNOS NÃO PODE PASSAR DAS VAGAS DESTE HORÁRIO.", 400);
+    return { weekday: slot.weekday, starts_at: slot.startsAt, ends_at: slot.endsAt, room_name: room.name, room_id: room.id, instructor_id: slot.instructorId, capacity: requestedCapacity, settings: slot.settings, active: true };
+  });
+  for (const [index, slot] of rows.entries()) {
+    const conflicts = [...(otherResult.data ?? []), ...rows.slice(0, index)];
+    if (conflicts.some((other) => other.weekday === slot.weekday && other.starts_at < slot.ends_at && other.ends_at > slot.starts_at && (other.room_id === slot.room_id || other.instructor_id === slot.instructor_id))) throw new RequestError("CONFLITO DE HORÁRIO: A SALA OU O PROFESSOR JÁ ESTÁ OCUPADO NESTE INTERVALO.", 409);
+  }
+  return rows;
+}
+function clean(value: unknown) { return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""; }
 
 async function createClass(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["group"]) {
   const weekdays = [...new Set(Array.isArray(input?.weekdays) ? input.weekdays.map(Number) : [])].sort((left, right) => left - right);
