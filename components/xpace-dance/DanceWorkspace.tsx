@@ -11,6 +11,7 @@ import AgendaWorkspace from "@/components/xpace-dance/AgendaWorkspace";
 import AdministrativeWorkspace from "@/components/xpace-dance/AdministrativeWorkspace";
 import ModalitiesWorkspace from "@/components/xpace-dance/ModalitiesWorkspace";
 import InstructorsWorkspace from "@/components/xpace-dance/InstructorsWorkspace";
+import LeadsWorkspace from "@/components/xpace-dance/LeadsWorkspace";
 import RoomsWorkspace from "@/components/xpace-dance/RoomsWorkspace";
 import ServicesWorkspace from "@/components/xpace-dance/ServicesWorkspace";
 import SettingsWorkspace from "@/components/xpace-dance/SettingsWorkspace";
@@ -32,9 +33,9 @@ const modules = [
 
 export default function DanceWorkspace() {
   const router = useRouter();
-  const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "PROFILE" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT">("HOME");
+  const [screen, setScreen] = useState<"HOME" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT">("HOME");
   const [profileId, setProfileId] = useState("");
-  const activeModule = screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "LOJA" : null;
+  const activeModule = screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "LOJA" : null;
   const returnScreen = screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVE" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "STORE" : "HOME";
   const returnTitle = screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "Voltar ao Administrativo" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "Voltar à Loja" : "Voltar ao Painel";
 
@@ -45,6 +46,7 @@ export default function DanceWorkspace() {
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
   if (screen === "PROFILE" && profileId) return <main className="xd-shell">{topbar}<StudentProfileWorkspace studentId={profileId} /></main>;
+  if (screen === "CRM") return <main className="xd-shell">{topbar}<LeadsWorkspace /></main>;
   if (screen === "AGENDA") return <main className="xd-shell">{topbar}<AgendaWorkspace /></main>;
   if (screen === "FINANCE") return <main className="xd-shell">{topbar}<section className="xd-finance"><header><span>FINANCEIRO</span><h1>CONTROLE FINANCEIRO.</h1><p>Escolha uma área para começar a estruturar a operação da escola.</p></header><div>{["CAIXA", "CONTAS A PAGAR", "CONTAS A RECEBER", "CONTAS FINANCEIRAS", "XPACEPAY"].map((item, index) => <button key={item} type="button"><i>{String(index + 1).padStart(2, "0")}</i><strong>{item}</strong><small>EM PREPARAÇÃO</small></button>)}</div></section></main>;
   if (screen === "STORE") return <main className="xd-shell">{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} /></main>;
@@ -84,7 +86,7 @@ export default function DanceWorkspace() {
     </section>
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
-      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "AGENDA", "FINANCEIRO", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
+      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "CRM", "AGENDA", "FINANCEIRO", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "CRM" ? setScreen("CRM") : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
         <span className="xd-module-copy"><strong>{title}</strong><small>{description}</small></span>
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />

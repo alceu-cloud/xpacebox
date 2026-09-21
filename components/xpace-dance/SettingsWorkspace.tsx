@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowLeft, Building2 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { ArrowLeft, Building2, CircleX, MapPinned, Plus } from "lucide-react";
+import { FormEvent, type ReactNode, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 
@@ -23,9 +23,10 @@ const empty: Profile = {
 };
 
 export default function SettingsWorkspace() {
-  const [view, setView] = useState<"HOME" | "PROFILE">("HOME");
+  const [view, setView] = useState<"HOME" | "PROFILE" | "CRM">("HOME");
 
   if (view === "PROFILE") return <SchoolProfile onBack={() => setView("HOME")} />;
+  if (view === "CRM") return <CrmRegistries onBack={() => setView("HOME")} />;
 
   return <section className="xd-administration">
     <header className="xd-administration-title">
@@ -39,8 +40,26 @@ export default function SettingsWorkspace() {
         <strong>PERFIL</strong>
         <small>DADOS CADASTRAIS E ENDEREÇO OFICIAL DA ESCOLA</small>
       </button>
+      <button type="button" className="xd-administration-card" onClick={() => setView("CRM")}>
+        <span><MapPinned size={22} /></span>
+        <strong>CRM DE LEADS</strong>
+        <small>ORIGENS DE CONTATO E MOTIVOS DE PERDA</small>
+      </button>
     </div>
   </section>;
+}
+
+type Registry = { id: string; name: string; active: boolean };
+function CrmRegistries({ onBack }: { onBack: () => void }) {
+  const [sources, setSources] = useState<Registry[]>([]); const [reasons, setReasons] = useState<Registry[]>([]); const [sourceName, setSourceName] = useState(""); const [reasonName, setReasonName] = useState(""); const [notice, setNotice] = useState("");
+  async function load() { try { const payload = await request<{ sources: Registry[]; lossReasons: Registry[] }>("/api/xpace/leads"); setSources(payload.sources); setReasons(payload.lossReasons); } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR OS CADASTROS."); } }
+  useEffect(() => { void load(); }, []);
+  async function save(action: "SAVE_SOURCE" | "SAVE_LOSS_REASON", setting: Partial<Registry>, done: () => void) { try { setNotice(""); await request("/api/xpace/leads", { method: "POST", body: JSON.stringify({ action, setting }) }); done(); await load(); } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL SALVAR O CADASTRO."); } }
+  return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><button type="button" className="xd-settings-back" onClick={onBack} title="Voltar para Configurações" aria-label="Voltar para Configurações"><ArrowLeft size={18} /></button><div><span>CONFIGURAÇÕES</span><h1>CRM DE LEADS.</h1><p>Cadastros reutilizados no funil e nos relatórios de aulas experimentais.</p></div></header><div className="xd-crm-registries">{notice ? <p className="xd-feedback">{notice}</p> : null}<RegistryEditor icon={<MapPinned size={18} />} title="ORIGENS DO LEAD" description="Como a pessoa conheceu a XPACE." items={sources} value={sourceName} onChange={setSourceName} add={() => save("SAVE_SOURCE", { name: sourceName, active: true }, () => setSourceName(""))} toggle={(item) => save("SAVE_SOURCE", { id: item.id, name: item.name, active: !item.active }, () => undefined)} /><RegistryEditor icon={<CircleX size={18} />} title="MOTIVOS DE PERDA" description="Por que o lead não avançou para matrícula." items={reasons} value={reasonName} onChange={setReasonName} add={() => save("SAVE_LOSS_REASON", { name: reasonName, active: true }, () => setReasonName(""))} toggle={(item) => save("SAVE_LOSS_REASON", { id: item.id, name: item.name, active: !item.active }, () => undefined)} /></div></section>;
+}
+
+function RegistryEditor({ icon, title, description, items, value, onChange, add, toggle }: { icon: ReactNode; title: string; description: string; items: Registry[]; value: string; onChange: (value: string) => void; add: () => void; toggle: (item: Registry) => void }) {
+  return <section><header><span>{icon}</span><div><strong>{title}</strong><small>{description}</small></div></header><div className="xd-crm-registry-add"><input value={value} onChange={(event) => onChange(event.target.value)} placeholder="NOVO CADASTRO" /><button type="button" className="xd-primary" disabled={!value.trim()} onClick={add}><Plus size={15} /> ADICIONAR</button></div><div className="xd-crm-registry-list">{items.length ? items.map((item) => <article key={item.id} className={item.active ? "" : "is-inactive"}><strong>{item.name}</strong><button type="button" onClick={() => toggle(item)}>{item.active ? "DESATIVAR" : "ATIVAR"}</button></article>) : <p>NENHUM CADASTRO AINDA.</p>}</div></section>;
 }
 
 function SchoolProfile({ onBack }: { onBack: () => void }) {
