@@ -5,16 +5,18 @@ import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 type Body = {
-  action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS" | "UPDATE_CLASS" | "DELETE_GRADE";
+  action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS" | "UPDATE_CLASS" | "DELETE_GRADE" | "UPDATE_TRIAL_ATTENDANCE";
   group?: { id?: string; name?: string; modalityId?: string; level?: string; ageGroup?: string; ageGroups?: unknown; roomId?: string; instructorId?: string; color?: string; scheduleColor?: string; capacity?: number; sourceType?: string; settings?: unknown; weekdays?: number[]; startsAt?: string; endsAt?: string; schedules?: Array<{ id?: string; weekday?: number; startsAt?: string; endsAt?: string; roomId?: string; instructorId?: string; level?: string; ageGroup?: string; ageGroups?: unknown; color?: string; capacity?: number | string; settings?: unknown }> };
   enrollment?: { classGroupId?: string; studentId?: string; startsOn?: string };
   rental?: { roomName?: string; renterName?: string; startsAt?: string; endsAt?: string; amountCents?: number; note?: string };
+  trialAttendance?: { appointmentId?: string; classScheduleId?: string; scheduledOn?: string; attendanceStatus?: string };
 };
 
 export async function GET(request: Request) {
   try {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
-    const [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult, roomsResult] = await Promise.all([
+    const range = agendaRange(request);
+    const [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult, roomsResult, appointmentsResult, leadsResult] = await Promise.all([
       admin.from("xpace_class_groups").select("id,name,modality,modality_id,class_level,instructor_id,color,capacity,source_type,settings,active").eq("tenant_company_id", company.id).eq("active", true).order("name"),
       admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,room_id,instructor_id,class_level,age_group,age_groups,color,capacity,settings,active").eq("tenant_company_id", company.id).eq("active", true).order("weekday").order("starts_at"),
       admin.from("xpace_class_enrollments").select("id,class_group_id,student_id,starts_on,ends_on,status").eq("tenant_company_id", company.id).eq("status", "ATIVA"),
@@ -23,19 +25,22 @@ export async function GET(request: Request) {
       admin.from("xpace_modalities").select("id,name,instructor_id,requires_instructor").eq("tenant_company_id", company.id).eq("active", true).eq("uses_schedule", true).order("name"),
       admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", company.id).eq("active", true).order("full_name"),
       admin.from("xpace_rooms").select("id,name,capacity").eq("tenant_company_id", company.id).eq("active", true).order("name"),
+      admin.from("xpace_lead_appointments").select("id,lead_id,class_schedule_id,scheduled_on,attendance_status").eq("tenant_company_id", company.id).gte("scheduled_on", range.from).lte("scheduled_on", range.to).not("class_schedule_id", "is", null),
+      admin.from("xpace_leads").select("id,full_name,mobile").eq("tenant_company_id", company.id).order("full_name").limit(2000),
     ]);
-    for (const result of [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult, roomsResult]) if (result.error) throw result.error;
+    for (const result of [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult, roomsResult, appointmentsResult, leadsResult]) if (result.error) throw result.error;
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
-    const enrollmentsByGroup = new Map<string, Array<{ id: string; studentId: string; studentName: string; mobile: string; startsOn: string }>>();
+    const enrollmentsByGroup = new Map<string, Array<{ id: string; studentId: string; studentName: string; mobile: string; startsOn: string; endsOn: string | null }>>();
     for (const enrollment of enrollmentsResult.data ?? []) {
       const student = studentsById.get(enrollment.student_id);
       if (!student) continue;
       const list = enrollmentsByGroup.get(enrollment.class_group_id) ?? [];
-      list.push({ id: enrollment.id, studentId: enrollment.student_id, studentName: student.full_name, mobile: student.mobile ?? "", startsOn: enrollment.starts_on });
+      list.push({ id: enrollment.id, studentId: enrollment.student_id, studentName: student.full_name, mobile: student.mobile ?? "", startsOn: enrollment.starts_on, endsOn: enrollment.ends_on ?? null });
       enrollmentsByGroup.set(enrollment.class_group_id, list);
     }
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
-    return NextResponse.json({ success: true, groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", level: normalizeClassLevel(group.class_level), instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: "#7435D9", capacity: group.capacity, sourceType: group.source_type, settings: group.settings ?? {}, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => { const ageGroups = normalizeAgeGroups(schedule.age_groups, schedule.age_group); return { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "", roomId: schedule.room_id ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", level: normalizeClassLevel(schedule.class_level ?? group.class_level), ageGroup: ageGroups[0] ?? "ADULTO", ageGroups, color: normalizeColor(schedule.color), capacity: schedule.capacity ?? group.capacity, settings: schedule.settings ?? group.settings ?? {} }; }), students: enrollmentsByGroup.get(group.id) ?? [] })), modalities: sortNaturally(modalitiesResult.data ?? [], (modality) => modality.name).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })), rooms: sortNaturally(roomsResult.data ?? [], (room) => room.name).map((room) => ({ id: room.id, name: room.name, capacity: room.capacity })), students: sortNaturally(studentsResult.data ?? [], (student) => student.full_name).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
+    const leadsById = new Map((leadsResult.data ?? []).map((lead) => [lead.id, lead]));
+    return NextResponse.json({ success: true, groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", level: normalizeClassLevel(group.class_level), instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: "#7435D9", capacity: group.capacity, sourceType: group.source_type, settings: group.settings ?? {}, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => { const ageGroups = normalizeAgeGroups(schedule.age_groups, schedule.age_group); return { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "", roomId: schedule.room_id ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", level: normalizeClassLevel(schedule.class_level ?? group.class_level), ageGroup: ageGroups[0] ?? "ADULTO", ageGroups, color: normalizeColor(schedule.color), capacity: schedule.capacity ?? group.capacity, settings: schedule.settings ?? group.settings ?? {} }; }), students: enrollmentsByGroup.get(group.id) ?? [] })), trialAppointments: (appointmentsResult.data ?? []).flatMap((appointment) => { const lead = leadsById.get(appointment.lead_id); return lead ? [{ id: appointment.id, leadId: lead.id, leadName: lead.full_name, leadMobile: lead.mobile ?? "", classScheduleId: appointment.class_schedule_id, scheduledOn: appointment.scheduled_on, attendanceStatus: appointment.attendance_status }] : []; }), modalities: sortNaturally(modalitiesResult.data ?? [], (modality) => modality.name).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })), rooms: sortNaturally(roomsResult.data ?? [], (room) => room.name).map((room) => ({ id: room.id, name: room.name, capacity: room.capacity })), students: sortNaturally(studentsResult.data ?? [], (student) => student.full_name).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -46,8 +51,19 @@ export async function POST(request: Request) {
     if (body.action === "CREATE_CLASS") return await createClassV2(access, body.group);
     if (body.action === "ENROLL_STUDENT") return await enrollStudent(access, body.enrollment);
     if (body.action === "CREATE_RENTAL") return await createRental(access, body.rental);
+    if (body.action === "UPDATE_TRIAL_ATTENDANCE") return await updateTrialAttendance(access, body.trialAttendance);
     throw new RequestError("AÇÃO DA AGENDA INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
+}
+
+async function updateTrialAttendance(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["trialAttendance"]) {
+  const appointmentId = clean(input?.appointmentId); const classScheduleId = clean(input?.classScheduleId); const scheduledOn = clean(input?.scheduledOn); const attendanceStatus = clean(input?.attendanceStatus);
+  if (!appointmentId || !classScheduleId || !isDate(scheduledOn) || !["COMPARECEU", "FALTOU"].includes(attendanceStatus)) throw new RequestError("CHAMADA DA EXPERIMENTAL INVÁLIDA.", 400);
+  const stamp = new Date().toISOString();
+  const { data, error } = await access.admin.from("xpace_lead_appointments").update({ attendance_status: attendanceStatus, attended_at: attendanceStatus === "COMPARECEU" ? stamp : null, updated_by: access.profile.id, updated_at: stamp }).eq("id", appointmentId).eq("tenant_company_id", access.company.id).eq("class_schedule_id", classScheduleId).eq("scheduled_on", scheduledOn).select("id,attendance_status,enrollment_outcome").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("A EXPERIMENTAL NÃO PERTENCE A ESTA AULA OU DATA.", 409);
+  return NextResponse.json({ success: true, appointmentId: data.id, attendanceStatus: data.attendance_status, enrollmentOutcome: data.enrollment_outcome });
 }
 
 export async function PATCH(request: Request) {
@@ -257,6 +273,11 @@ async function createRental(access: Awaited<ReturnType<typeof requireCompanyAcce
   return NextResponse.json({ success: true }, { status: 201 });
 }
 
+function agendaRange(request: Request) {
+  const url = new URL(request.url); const from = clean(url.searchParams.get("from")) || today(); const to = clean(url.searchParams.get("to")) || from;
+  if (!isDate(from) || !isDate(to) || from > to || (Date.parse(`${to}T12:00:00`) - Date.parse(`${from}T12:00:00`)) / 86_400_000 > 62) throw new RequestError("PERÍODO DA AGENDA INVÁLIDO.", 400);
+  return { from, to };
+}
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
 function isTime(value: string) { return /^\d{2}:\d{2}$/.test(value); }
 function normalizeSettings(value: unknown) { const input = value && typeof value === "object" ? value as Record<string, unknown> : {}; const maxClients = Number(input.maxClients); const gender = input.restrictions && typeof input.restrictions === "object" ? (input.restrictions as Record<string, unknown>).gender : "TODOS"; const leadWelcomeVideoUrl = typeof input.leadWelcomeVideoUrl === "string" ? input.leadWelcomeVideoUrl.trim() : ""; if (input.maxClientsEnabled && (!Number.isInteger(maxClients) || maxClients < 1 || maxClients > 10000)) throw new RequestError("INFORME UM LIMITE DE ALUNOS ENTRE 1 E 10.000.", 400); if (!["TODOS", "FEMININO", "MASCULINO"].includes(typeof gender === "string" ? gender : "")) throw new RequestError("RESTRIÇÃO DE GÊNERO INVÁLIDA.", 400); if (leadWelcomeVideoUrl && !/^https?:\/\/\S+$/i.test(leadWelcomeVideoUrl)) throw new RequestError("INFORME UMA URL VÁLIDA PARA O VÍDEO DE BOAS-VINDAS.", 400); return { maxClientsEnabled: Boolean(input.maxClientsEnabled), maxClients: input.maxClientsEnabled ? maxClients : null, allowSpecialStudents: Boolean(input.allowSpecialStudents), allowLeads: Boolean(input.allowLeads), leadWelcomeVideoUrl: leadWelcomeVideoUrl || null, checkIn: { requireClass: Boolean(input.checkIn && typeof input.checkIn === "object" && (input.checkIn as Record<string, unknown>).requireClass), showInApp: Boolean(input.checkIn && typeof input.checkIn === "object" && (input.checkIn as Record<string, unknown>).showInApp), accessBeforeMinutes: boundedMinutes(input.checkIn, "accessBeforeMinutes"), accessAfterStartMinutes: boundedMinutes(input.checkIn, "accessAfterStartMinutes") }, restrictions: { gender: typeof gender === "string" ? gender : "TODOS", freeSchedule: Boolean(input.restrictions && typeof input.restrictions === "object" && (input.restrictions as Record<string, unknown>).freeSchedule) } }; }
