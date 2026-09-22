@@ -6,6 +6,9 @@ __pycache__/
 .env.local
 *.log
 .vercel
+mobile/.expo/
+mobile/.expo-export-test*/
 .env*
+!mobile/.env.example
 supabase/.temp/*
 !supabase/.temp/cli-latest
