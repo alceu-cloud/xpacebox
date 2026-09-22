@@ -10,8 +10,7 @@ export function GET() {
     background_color: "#20142c",
     theme_color: "#20142c",
     icons: [
-      { src: "/icon", sizes: "512x512", type: "image/png" },
-      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
+      { src: "/xpace-school-app-icon.png", sizes: "1254x1254", type: "image/png" },
     ],
   }, { headers: { "Cache-Control": "public, max-age=3600" } });
 }

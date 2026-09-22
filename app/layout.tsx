@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description: "Plataforma inteligente para gestao multiempresa.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icon", sizes: "512x512", type: "image/png" }],
-    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/xpacebox-system-icon.png", sizes: "1254x1254", type: "image/png" }],
+    apple: [{ url: "/xpacebox-system-icon.png", sizes: "1254x1254", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
