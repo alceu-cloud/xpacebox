@@ -27,9 +27,10 @@ export async function GET(request: Request) {
       .limit(500);
     if (!isManager) samplesQuery = samplesQuery.eq("responsible_profile_id", profile.id);
 
-    const [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult, samplesResult] = await Promise.all([
+    const [profilesResult, activitiesResult, pendingActivities, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult, samplesResult] = await Promise.all([
       admin.from("crm_customer_profiles").select("*").eq("tenant_company_id", company.id),
-      admin.from("crm_activities").select("*").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),
+      admin.from("crm_activities").select("id,client_id,opportunity_id,representative_profile_id,activity_type,outcome,subject,notes,occurred_at,next_action_type,next_action_at,agenda_kind").eq("tenant_company_id", company.id).order("occurred_at", { ascending: false }).limit(300),
+      loadPendingCrmActivities(admin, company.id),
       admin.from("crm_opportunities").select("*").eq("tenant_company_id", company.id).order("updated_at", { ascending: false }).limit(300),
       admin.from("quotes").select("id, client_id, grand_total, created_at, valid_until").eq("tenant_company_id", company.id).not("client_id", "is", null),
       admin.from("seller_companies").select("id, name").eq("tenant_company_id", company.id).eq("active", true).order("name"),
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
     for (const result of [profilesResult, activitiesResult, opportunitiesResult, quotesResult, sellersResult, peopleResult, telephonyCallsResult, samplesResult]) {
       if (result.error) throw result.error;
     }
+    const activities = [...new Map([...(activitiesResult.data ?? []), ...pendingActivities].map((row) => [row.id, row])).values()]
+      .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at));
 
     const sellers = sellersResult.data ?? [];
     if (sellers.length) {
@@ -106,7 +109,7 @@ export async function GET(request: Request) {
           notes: row.notes || "",
           updatedAt: row.updated_at,
         })),
-        activities: (activitiesResult.data ?? []).map((row) => ({
+        activities: activities.map((row) => ({
           id: row.id,
           clientId: row.client_id,
           opportunityId: row.opportunity_id || "",
@@ -178,6 +181,27 @@ export async function GET(request: Request) {
   } catch (error) {
     return handleError(error);
   }
+}
+
+async function loadPendingCrmActivities(
+  admin: Awaited<ReturnType<typeof requireCompanyAccess>>["admin"],
+  companyId: string
+) {
+  const pageSize = 500;
+  const activities = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await admin
+      .from("crm_activities")
+      .select("id,client_id,opportunity_id,representative_profile_id,activity_type,outcome,subject,notes,occurred_at,next_action_type,next_action_at,agenda_kind")
+      .eq("tenant_company_id", companyId)
+      .not("next_action_at", "is", null)
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    activities.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+  }
+  return activities;
 }
 
 function sampleControl(row: Record<string, unknown>) {

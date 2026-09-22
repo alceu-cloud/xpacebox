@@ -1785,10 +1785,12 @@ function calculateHealth(profile?: CrmCustomerProfile, calculatedPurchase = ""):
 }
 
 function nextActionLabel(item: RankedClient) {
-  if (item.health === "GRAY") return "PROGRAMAR CONTATO";
-  if (item.daysToAction < 0) return `${Math.abs(item.daysToAction)} DIA(S) ATRASADO`;
-  if (item.daysToAction === 0) return "HOJE";
-  return `EM ${item.daysToAction} DIA(S)`;
+  const actionDate = item.profile?.nextContactAt || item.nextPurchaseAt;
+  if (!actionDate) return "PROGRAMAR CONTATO";
+  const date = displayDate(actionDate);
+  if (item.daysToAction < 0) return `${Math.abs(item.daysToAction)} DIA(S) ATRASADO · ${date}`;
+  if (item.daysToAction === 0) return `HOJE · ${date}`;
+  return `EM ${item.daysToAction} DIA(S) · ${date}`;
 }
 
 function agendaActionLabel(item: RankedClient) {
