@@ -154,6 +154,12 @@ function Home({ userId }: { userId: string }) {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setLastSeenAt(window.localStorage.getItem(seenKey) || ""); }, [seenKey]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const day = params.get("date");
+    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day) && !Number.isNaN(Date.parse(`${day}T12:00:00`))) setSelectedDay(day);
+    if (params.get("tab") === "agenda") setTab("AGENDA");
+  }, []);
 
   const events = useMemo(() => {
     const weekday = dateFromIso(selectedDay).getDay();
@@ -194,7 +200,22 @@ function Home({ userId }: { userId: string }) {
     } finally { setBusyId(""); }
   }
 
-  return <main className="xp-pocket xp-home"><div className="xp-shell"><header className="xp-top"><div className="xp-top-row"><div className="xp-avatar" aria-hidden="true">{(overview?.profileName || "X").trim().slice(0, 1).toUpperCase()}</div><div className="xp-greeting"><span>BEM-VINDO À XPACE</span><strong>Olá, {firstName(overview?.profileName || "equipe")}!</strong></div><button type="button" className="xp-bell" aria-label={`Notificações${unseen ? `, ${unseen} novas` : ""}`} onClick={openNotifications}><Bell size={23} />{unseen > 0 ? <b>{unseen}</b> : null}</button></div><div className="xp-hero"><span>SEU UNIVERSO XPACE</span><strong>Tudo no seu ritmo.<br />Tudo em um só lugar.</strong><p>Acompanhe sua escola e cuide de cada aula.</p></div></header><div className="xp-content"><nav className="xp-tabs" aria-label="Seções do aplicativo"><button type="button" className={tab === "DASHBOARD" ? "is-active" : ""} aria-current={tab === "DASHBOARD" ? "page" : undefined} onClick={() => switchTab("DASHBOARD")}>Dashboard</button><button type="button" className={tab === "AGENDA" ? "is-active" : ""} aria-current={tab === "AGENDA" ? "page" : undefined} onClick={() => switchTab("AGENDA")}>Agenda</button></nav>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div> : null}<div className="xp-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>{showNotifications ? <Notifications items={overview?.notifications ?? []} onClose={() => setShowNotifications(false)} /> : tab === "DASHBOARD" ? <Dashboard metrics={overview?.metrics} /> : selectedClass ? <ClassDetail event={selectedClass} day={selectedDay} agenda={agenda} busyId={busyId} onBack={() => setSelectedClass(null)} onMark={markTrial} /> : <Agenda selectedDay={selectedDay} week={week} events={events} agenda={agenda} onSelectDay={(day) => { setSelectedDay(day); setSelectedClass(null); }} onSelectClass={setSelectedClass} />}</div><footer className="xp-bottom"><button type="button" onClick={() => void load()} disabled={refreshing}><RefreshCw size={16} className={refreshing ? "is-spinning" : ""} /> Atualizar</button><button type="button" onClick={() => void supabase.auth.signOut()}><LogOut size={16} /> Sair</button></footer></div></div></main>;
+  async function signOut() {
+    // A shared device must stop receiving company alerts after logout.
+    if ("serviceWorker" in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration("/xpace/app");
+        const subscription = await registration?.pushManager.getSubscription();
+        if (subscription) {
+          await api<{ success: true }>("/api/xpace/mobile/push", { method: "DELETE", body: JSON.stringify({ endpoint: subscription.endpoint }) }).catch(() => undefined);
+          await subscription.unsubscribe();
+        }
+      } catch (cause) { console.error("XPACE PUSH LOGOUT CLEANUP FAILED", cause); }
+    }
+    await supabase.auth.signOut();
+  }
+
+  return <main className="xp-pocket xp-home"><div className="xp-shell"><header className="xp-top"><div className="xp-top-row"><div className="xp-avatar" aria-hidden="true">{(overview?.profileName || "X").trim().slice(0, 1).toUpperCase()}</div><div className="xp-greeting"><span>BEM-VINDO À XPACE</span><strong>Olá, {firstName(overview?.profileName || "equipe")}!</strong></div><button type="button" className="xp-bell" aria-label={`Notificações${unseen ? `, ${unseen} novas` : ""}`} onClick={openNotifications}><Bell size={23} />{unseen > 0 ? <b>{unseen}</b> : null}</button></div><div className="xp-hero"><span>SEU UNIVERSO XPACE</span><strong>Tudo no seu ritmo.<br />Tudo em um só lugar.</strong><p>Acompanhe sua escola e cuide de cada aula.</p></div></header><div className="xp-content"><nav className="xp-tabs" aria-label="Seções do aplicativo"><button type="button" className={tab === "DASHBOARD" ? "is-active" : ""} aria-current={tab === "DASHBOARD" ? "page" : undefined} onClick={() => switchTab("DASHBOARD")}>Dashboard</button><button type="button" className={tab === "AGENDA" ? "is-active" : ""} aria-current={tab === "AGENDA" ? "page" : undefined} onClick={() => switchTab("AGENDA")}>Agenda</button></nav>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div> : null}<div className="xp-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>{showNotifications ? <Notifications items={overview?.notifications ?? []} onClose={() => setShowNotifications(false)} /> : tab === "DASHBOARD" ? <Dashboard metrics={overview?.metrics} /> : selectedClass ? <ClassDetail event={selectedClass} day={selectedDay} agenda={agenda} busyId={busyId} onBack={() => setSelectedClass(null)} onMark={markTrial} /> : <Agenda selectedDay={selectedDay} week={week} events={events} agenda={agenda} onSelectDay={(day) => { setSelectedDay(day); setSelectedClass(null); }} onSelectClass={setSelectedClass} />}</div><footer className="xp-bottom"><button type="button" onClick={() => void load()} disabled={refreshing}><RefreshCw size={16} className={refreshing ? "is-spinning" : ""} /> Atualizar</button><button type="button" onClick={() => void signOut()}><LogOut size={16} /> Sair</button></footer></div></div></main>;
 }
 
 function Dashboard({ metrics }: { metrics?: OverviewResponse["metrics"] }) {
@@ -206,7 +227,69 @@ function Metric({ label, value, color, detail, wide = false }: { label: string; 
 }
 
 function Notifications({ items, onClose }: { items: OverviewResponse["notifications"]; onClose: () => void }) {
-  return <section><div className="xp-heading-row"><div><p className="xp-eyebrow">ATUALIZAÇÕES</p><h1>Notificações</h1></div><button type="button" className="xp-text-button" onClick={onClose}>Fechar</button></div><p className="xp-subtitle">Agendamentos recentes registrados no XPACE.</p>{items.length ? items.map((item) => <article className="xp-notification" key={item.id}><span className="xp-notification-dot" /><div><strong>{item.title}</strong><p>{item.detail}</p><time dateTime={item.createdAt}>{relativeTime(item.createdAt)}</time></div></article>) : <p className="xp-empty">Nenhum agendamento recente.</p>}<p className="xp-note">Estes avisos aparecem dentro do app. Notificações na tela bloqueada ainda não estão ativas.</p></section>;
+  return <section><div className="xp-heading-row"><div><p className="xp-eyebrow">ATUALIZAÇÕES</p><h1>Notificações</h1></div><button type="button" className="xp-text-button" onClick={onClose}>Fechar</button></div><p className="xp-subtitle">Agendamentos recentes registrados no XPACE.</p><PushSettings />{items.length ? items.map((item) => <article className="xp-notification" key={item.id}><span className="xp-notification-dot" /><div><strong>{item.title}</strong><p>{item.detail}</p><time dateTime={item.createdAt}>{relativeTime(item.createdAt)}</time></div></article>) : <p className="xp-empty">Nenhum agendamento recente.</p>}</section>;
+}
+
+function base64Key(value: string) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+}
+
+function PushSettings() {
+  const [publicKey, setPublicKey] = useState("");
+  const [status, setStatus] = useState("Verificando notificações neste aparelho...");
+  const [subscribed, setSubscribed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    async function check() {
+      const config = await api<{ success: true; enabled: boolean; publicKey?: string }>("/api/xpace/mobile/push");
+      if (!mounted) return;
+      if (!config.enabled || !config.publicKey) { setStatus("Notificações no aparelho ainda não estão disponíveis."); return; }
+      setPublicKey(config.publicKey);
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) { setStatus("Este navegador não oferece notificações push."); return; }
+      const installed = window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+      if (!installed) { setStatus("No iPhone, abra o app pela Tela de Início para ativar avisos."); return; }
+      if (Notification.permission === "denied") { setStatus("Notificações bloqueadas. Libere o XPACE nos Ajustes do iPhone."); return; }
+      const registration = await navigator.serviceWorker.getRegistration("/xpace/app");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) {
+        await api<{ success: true }>("/api/xpace/mobile/push", { method: "POST", body: JSON.stringify(subscription.toJSON()) });
+        if (mounted) { setSubscribed(true); setStatus("Avisos ativados neste iPhone."); }
+      } else if (mounted) setStatus("Ative avisos para receber novos agendamentos mesmo com o app fechado.");
+    }
+    void check().catch(() => { if (mounted) setStatus("Não foi possível verificar os avisos agora."); });
+    return () => { mounted = false; };
+  }, []);
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (subscribed) {
+        const registration = await navigator.serviceWorker.getRegistration("/xpace/app");
+        const subscription = await registration?.pushManager.getSubscription();
+        if (subscription) {
+          await api<{ success: true }>("/api/xpace/mobile/push", { method: "DELETE", body: JSON.stringify({ endpoint: subscription.endpoint }) });
+          await subscription.unsubscribe();
+        }
+        setSubscribed(false); setStatus("Avisos desativados neste iPhone.");
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") { setStatus("Permissão não concedida. Você pode liberar nos Ajustes do iPhone."); return; }
+        const registration = await navigator.serviceWorker.register("/xpace-push-sw.js", { scope: "/xpace/app" });
+        const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64Key(publicKey) });
+        try {
+          await api<{ success: true }>("/api/xpace/mobile/push", { method: "POST", body: JSON.stringify(subscription.toJSON()) });
+        } catch (cause) { await subscription.unsubscribe(); throw cause; }
+        setSubscribed(true); setStatus("Avisos ativados neste iPhone.");
+      }
+    } catch (cause) { setStatus(cause instanceof Error ? cause.message : "Não foi possível alterar as notificações."); }
+    finally { setBusy(false); }
+  }
+
+  return <div className="xp-push-settings"><strong>Avisos no iPhone</strong><p>{status}</p>{publicKey && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && (window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)) && Notification.permission !== "denied" ? <button type="button" onClick={() => void toggle()} disabled={busy}>{busy ? "Aguarde..." : subscribed ? "Desativar avisos" : "Ativar avisos"}</button> : null}</div>;
 }
 
 function Agenda({ selectedDay, week, events, agenda, onSelectDay, onSelectClass }: { selectedDay: string; week: string[]; events: ClassEvent[]; agenda: AgendaResponse | null; onSelectDay: (day: string) => void; onSelectClass: (event: ClassEvent) => void }) {

@@ -117,6 +117,11 @@
 .xp-notification strong { font-size: 14px; }
 .xp-notification p { margin: 5px 0; color: var(--xp-muted); font-size: 12px; }
 .xp-notification time { color: var(--xp-violet); font-size: 11px; font-weight: 800; }
+.xp-push-settings { margin: 0 0 14px; padding: 16px; border: 1px solid #dfcef2; border-radius: 14px; background: #f2eafa; }
+.xp-push-settings strong { display: block; color: var(--xp-ink); font-size: 14px; }
+.xp-push-settings p { margin: 5px 0 10px; color: var(--xp-muted); font-size: 12px; line-height: 1.4; }
+.xp-push-settings button { min-height: 38px; padding: 0 13px; border: 0; border-radius: 9px; background: var(--xp-violet); color: #fff; font-size: 12px; font-weight: 800; }
+.xp-push-settings button:disabled { opacity: .6; }
 
 @keyframes xp-spin { to { transform: rotate(360deg); } }
 @media (max-width: 360px) { .xp-content { padding-inline: 14px; } .xp-top { padding-inline: 14px; } .xp-week { grid-template-columns: 19px repeat(7, minmax(0, 1fr)) 19px; } .xp-week b { font-size: 15px; } .xp-week small { font-size: 8px; } .xp-class-footer { flex-wrap: wrap; } }

@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
+export const maxDuration = 30;
 const stages = ["NOVO", "ATENDIMENTO", "AULA_EXPERIMENTAL", "NEGOCIACAO", "GANHO", "PERDIDO"] as const;
 const bookingKinds = ["NOVO", "REAGENDAMENTO", "RECUPERACAO"] as const;
 const confirmations = ["PENDENTE", "CONFIRMADO", "NAO_CONFIRMADO", "NAO_INFORMADO"] as const;
@@ -170,6 +172,7 @@ async function createAppointment(access: Awaited<ReturnType<typeof requireCompan
   if (!stages.includes(leadResult.data.pipeline_stage as typeof stages[number]) || ["NOVO", "ATENDIMENTO"].includes(leadResult.data.pipeline_stage)) await access.admin.from("xpace_leads").update({ pipeline_stage: "AULA_EXPERIMENTAL", updated_by: access.profile.id, updated_at: new Date().toISOString() }).eq("id", leadId);
   await activity(access, leadId, data.id, "AGENDAMENTO_CRIADO", `${bookingKind}: ${snapshot.className} em ${scheduledOn}.${trialLimitOverride ? " LIBERAÇÃO EXCEPCIONAL COM TAXA REGISTRADA POR GERÊNCIA/ADMINISTRAÇÃO." : ""}`, trialLimitOverride ? { trialLimitOverride: true, trialLimitOverrideBy: access.profile.id } : {});
   if (snapshot.welcomeVideoUrl) await activity(access, leadId, data.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
+  after(() => sendNewAppointmentPush(access.company.id, data.id, scheduledOn));
   return NextResponse.json({ success: true, appointmentId: data.id }, { status: 201 });
 }
 
