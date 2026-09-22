@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 const bookingHorizonDays = 35;
+export const maxDuration = 30;
 
 type BookingBody = { fullName?: unknown; mobile?: unknown; email?: unknown; sourceId?: unknown; classGroupId?: unknown; classScheduleId?: unknown; scheduledOn?: unknown; website?: unknown };
 
@@ -87,6 +89,7 @@ export async function POST(request: Request) {
     if (appointmentError) throw appointmentError;
     await addActivity(admin, company.id, leadId, appointment.id, "AGENDAMENTO_CRIADO", `AGENDAMENTO PÚBLICO: ${snapshot.className} em ${scheduledOn}.`);
     if (snapshot.welcomeVideoUrl) await addActivity(admin, company.id, leadId, appointment.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
+    after(() => sendNewAppointmentPush(company.id, appointment.id, scheduledOn));
     return NextResponse.json({ success: true, message: "AULA EXPERIMENTAL AGENDADA! A EQUIPE XPACE CONFIRMARÁ OS DETALHES COM VOCÊ." }, { status: 201 });
   } catch (error) { return handleError(error); }
 }

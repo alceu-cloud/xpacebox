@@ -25,6 +25,7 @@ async function main() {
     await page.addInitScript((session) => localStorage.setItem("sb-example-auth-token", JSON.stringify(session)), fakeSession);
     await page.route("**/api/empresas/xpace", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, company: { id: "xpace", name: "XPACE", slug: "xpace" } }) }));
     await page.route("**/api/xpace/mobile/overview", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, profileName: "Alceu", metrics: { trialsThisWeek: 1, activeClients: 1, newClientsThisMonth: 1, newLeadsThisMonth: 1 }, notifications: [{ id: "notification-1", title: "Aula experimental agendada", detail: `Lead Teste · ${today}`, createdAt: new Date().toISOString() }] }) }));
+    await page.route("**/api/xpace/mobile/push", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, enabled: true, publicKey: "test-public-key" }) }));
     await page.route("**/api/xpace/agenda?*", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, groups: [{ id: "group-1", name: "Jazz Funk", schedules: [{ id: "schedule-1", weekday, startsAt: "19:00", endsAt: "20:00", roomName: "Sala 1", instructorName: "Professora", color: "#7435d9", capacity: 40 }], students: [{ id: "enrollment-1", studentName: "Aluno Teste", startsOn: "2020-01-01", endsOn: null }] }], trialAppointments: [{ id: "trial-1", leadName: "Lead Teste", classScheduleId: "schedule-1", scheduledOn: today, attendanceStatus: "AGENDADO" }] }) }));
     let attendanceBody;
     await page.route("**/api/xpace/agenda", async (route) => {
@@ -45,7 +46,9 @@ async function main() {
     if (attendanceBody?.action !== "UPDATE_TRIAL_ATTENDANCE" || attendanceBody.trialAttendance?.appointmentId !== "trial-1" || attendanceBody.trialAttendance?.classScheduleId !== "schedule-1" || attendanceBody.trialAttendance?.scheduledOn !== today || attendanceBody.trialAttendance?.attendanceStatus !== "COMPARECEU") {
       throw new Error(`Payload de presença inesperado: ${JSON.stringify(attendanceBody)}`);
     }
-    console.log("XPACE pocket smoke: dashboard, agenda, aluno, lead e chamada OK");
+    await page.getByRole("button", { name: /Notificações/ }).click();
+    await page.getByText("No iPhone, abra o app pela Tela de Início para ativar avisos.").waitFor();
+    console.log("XPACE pocket smoke: dashboard, agenda, chamada e orientação push OK");
   } finally {
     await browser.close();
   }
