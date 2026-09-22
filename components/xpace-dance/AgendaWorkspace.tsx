@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, DoorOpen, LayoutList, Plus, Save, Settings2, UsersRound } from "lucide-react";
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 import { naturalCompare } from "@/lib/xpace/natural-sort";
@@ -139,7 +139,7 @@ function addSchedulesToDraft(draft: ClassDraft, selection: ScheduleSelection, en
   };
 }
 
-function ScheduleBuilder({ value, onChange, endsAt, canAdd, onAdd, feedback }: { value: ScheduleSelection; onChange: (value: ScheduleSelection) => void; endsAt: string; canAdd: boolean; onAdd: () => void; feedback?: string }) {
+function ScheduleBuilder({ value, onChange, endsAt, canAdd, onAdd, feedback, editing = false, onApplyEdit, onCancelEdit }: { value: ScheduleSelection; onChange: (value: ScheduleSelection) => void; endsAt: string; canAdd: boolean; onAdd: () => void; feedback?: string; editing?: boolean; onApplyEdit?: () => void; onCancelEdit?: () => void }) {
   const orderedDays = [1, 2, 3, 4, 5, 6, 0];
   const selectedCount = value.weekdays.length;
   function toggleDay(day: number) {
@@ -160,8 +160,8 @@ function ScheduleBuilder({ value, onChange, endsAt, canAdd, onAdd, feedback }: {
       <label>DURAÇÃO (MIN.)<input type="number" min="15" max="720" step="5" value={value.durationMinutes} onChange={(event) => onChange({ ...value, durationMinutes: event.target.value })} required /></label>
       <p>TERMINA ÀS <strong>{endsAt || "—"}</strong></p>
     </div>
-    <p className="xd-agenda-slot-note">Ao adicionar, todos os dias marcados recebem o público, professor, sala, vagas e regras configurados acima. Depois altere o que precisar e adicione outro bloco.</p>
-    <div className="xd-schedule-builder-actions"><button type="button" className="xd-secondary" disabled={!canAdd || !selectedCount} onClick={onAdd}><Plus size={15} /> ADICIONAR DIAS E HORÁRIOS</button></div>
+    <p className="xd-agenda-slot-note">{editing ? "Você está editando um horário já adicionado. Altere os dados acima, mantenha somente um dia marcado e aplique a alteração." : "Ao adicionar, todos os dias marcados recebem o público, professor, sala, vagas e regras configurados acima. Depois altere o que precisar e adicione outro bloco."}</p>
+    <div className="xd-schedule-builder-actions">{editing ? <><button type="button" className="xd-secondary" disabled={!canAdd || selectedCount !== 1} onClick={onApplyEdit}><Save size={15} /> APLICAR ALTERAÇÕES AO HORÁRIO</button><button type="button" className="xd-secondary" onClick={onCancelEdit}>CANCELAR EDIÇÃO</button></> : <button type="button" className="xd-secondary" disabled={!canAdd || !selectedCount} onClick={onAdd}><Plus size={15} /> ADICIONAR DIAS E HORÁRIOS</button>}</div>
     {feedback ? <p className="xd-schedule-feedback" role="status">{feedback}</p> : null}
   </section>;
 }
@@ -170,6 +170,8 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
   const [creating, setCreating] = useState(false);
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleSelection>({ weekdays: [], startsAt: "19:00", durationMinutes: "60" });
   const [scheduleFeedback, setScheduleFeedback] = useState("");
+  const [editingScheduleIndex, setEditingScheduleIndex] = useState<number | null>(null);
+  const scheduleFieldsRef = useRef<HTMLDivElement>(null);
   const scheduleEnd = endTime(scheduleDraft.startsAt, Number(scheduleDraft.durationMinutes));
   const canAddSchedule = Boolean(scheduleEnd && classDraft.roomId && classDraft.instructorId);
   function addSchedule() {
@@ -183,13 +185,36 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
     setScheduleDraft((current) => ({ ...current, weekdays: [] }));
     setScheduleFeedback(`${result.added} HORÁRIO(S) ADICIONADO(S). AGORA CLIQUE EM SALVAR GRADE.`);
   }
+  function editSchedule(index: number) {
+    const schedule = classDraft.schedules[index];
+    if (!schedule) return;
+    setClassDraft({ ...classDraft, level: schedule.level, ageGroup: schedule.ageGroup, ageGroups: schedule.ageGroups, roomId: schedule.roomId, instructorId: schedule.instructorId, scheduleColor: schedule.color, capacity: schedule.capacity, settings: schedule.settings });
+    setScheduleDraft({ weekdays: [schedule.weekday], startsAt: schedule.startsAt, durationMinutes: String(minutesBetween(schedule.startsAt, schedule.endsAt)) });
+    setEditingScheduleIndex(index);
+    setScheduleFeedback("EDITANDO O HORÁRIO SELECIONADO. ALTERE OS DADOS ACIMA E CLIQUE EM APLICAR ALTERAÇÕES AO HORÁRIO.");
+    window.setTimeout(() => scheduleFieldsRef.current?.scrollIntoView({ block: "start" }), 0);
+  }
+  function cancelScheduleEdit() { setEditingScheduleIndex(null); setScheduleDraft({ weekdays: [], startsAt: "19:00", durationMinutes: "60" }); setScheduleFeedback(""); }
+  function applyScheduleEdit() {
+    if (editingScheduleIndex === null || !scheduleEnd || scheduleDraft.weekdays.length !== 1) { setScheduleFeedback("PARA EDITAR, MANTENHA EXATAMENTE UM DIA MARCADO E UMA DURAÇÃO VÁLIDA."); return; }
+    const current = classDraft.schedules[editingScheduleIndex];
+    if (!current) return;
+    const ageGroups = normalizeAgeGroups(classDraft.ageGroups);
+    const updated: ScheduleDraft = { ...current, weekday: scheduleDraft.weekdays[0], startsAt: scheduleDraft.startsAt, endsAt: scheduleEnd, roomId: classDraft.roomId, instructorId: classDraft.instructorId, level: classDraft.level, ageGroup: ageGroups[0] ?? "ADULTO", ageGroups, color: classDraft.scheduleColor, capacity: classDraft.capacity, settings: classDraft.settings };
+    const duplicated = classDraft.schedules.some((schedule, index) => index !== editingScheduleIndex && schedule.weekday === updated.weekday && schedule.startsAt === updated.startsAt && schedule.endsAt === updated.endsAt && schedule.roomId === updated.roomId && schedule.instructorId === updated.instructorId && schedule.level === updated.level && normalizeAgeGroups(schedule.ageGroups).join(",") === ageGroups.join(","));
+    if (duplicated) { setScheduleFeedback("JÁ EXISTE UM HORÁRIO IGUAL NESTA GRADE. AJUSTE O DIA, O HORÁRIO OU A CONFIGURAÇÃO."); return; }
+    setClassDraft({ ...classDraft, schedules: classDraft.schedules.map((schedule, index) => index === editingScheduleIndex ? updated : schedule).sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt)) });
+    setEditingScheduleIndex(null);
+    setScheduleDraft({ weekdays: [], startsAt: "19:00", durationMinutes: "60" });
+    setScheduleFeedback("HORÁRIO ATUALIZADO. AGORA CLIQUE EM SALVAR GRADE PARA GRAVAR A ALTERAÇÃO.");
+  }
 
   return <div className="xd-agenda-stack">
     <header className="xd-grade-list"><span><LayoutList size={18} /> GRADES CADASTRADAS</span><small>{groups.length} GRADE(S)</small><button type="button" className="xd-primary" onClick={() => { onNoticeClear(); setCreating(true); }}><Plus size={16} /> NOVA GRADE</button></header>
-    {creating ? <div className="xd-contract-overlay" role="presentation"><form noValidate className="xd-settings-dialog xd-modalities-picker xd-grade-create-dialog" onSubmit={(event) => { void onClass(event).then((saved) => { if (saved) setCreating(false); }); }} role="dialog" aria-modal="true" aria-labelledby="xd-new-grade-title">
+    {creating ? <div className="xd-contract-overlay" role="presentation"><form noValidate className="xd-settings-dialog xd-modalities-picker xd-grade-create-dialog" onSubmit={(event) => { void onClass(event).then((saved) => { if (saved) { cancelScheduleEdit(); setCreating(false); } }); }} role="dialog" aria-modal="true" aria-labelledby="xd-new-grade-title">
       <header><span><Plus size={20} /></span><h2 id="xd-new-grade-title">NOVA GRADE</h2><button type="button" onClick={() => { onNoticeClear(); setCreating(false); }} aria-label="Fechar">×</button></header>
       <div className="xd-agenda-two-columns" tabIndex={0} role="region" aria-label="Dados e configurações da grade"><div className="xd-agenda-form">
-        <div className="xd-agenda-fields">
+        <div className="xd-agenda-fields" ref={scheduleFieldsRef}>
           <label>USO DA GRADE<select value={classDraft.sourceType} onChange={(event) => setClassDraft({ ...classDraft, sourceType: event.target.value === "SERVICO" ? "SERVICO" : "CONTRATO" })}><option value="CONTRATO">CONTRATO</option><option value="SERVICO">SERVIÇO (EM BREVE)</option></select></label>
           <label>NOME DA TURMA<input value={classDraft.name} onChange={(event) => setClassDraft({ ...classDraft, name: event.target.value })} required placeholder="EX.: JAZZ INFANTIL" /></label>
           <label>MODALIDADE<select value={classDraft.modalityId} onChange={(event) => { const selected = modalities.find((item) => item.id === event.target.value); setClassDraft({ ...classDraft, modalityId: event.target.value, instructorId: selected?.instructorId || classDraft.instructorId }); }} required><option value="">SELECIONE UMA MODALIDADE</option>{modalities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
@@ -201,8 +226,8 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
           <label>VAGAS<input type="number" min="1" value={classDraft.capacity} onChange={(event) => setClassDraft({ ...classDraft, capacity: event.target.value })} /></label>
         </div>
         <GradeSettingsFields settings={classDraft.settings} onChange={(settings) => setClassDraft({ ...classDraft, settings })} capacity={classDraft.capacity ? Number(classDraft.capacity) : undefined} />
-        <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} feedback={scheduleFeedback} />
-        <WeeklySchedulePreview draft={classDraft} rooms={rooms} instructors={instructors} onRemove={(index) => setClassDraft({ ...classDraft, schedules: classDraft.schedules.filter((_, itemIndex) => itemIndex !== index) })} />
+        <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} feedback={scheduleFeedback} editing={editingScheduleIndex !== null} onApplyEdit={applyScheduleEdit} onCancelEdit={cancelScheduleEdit} />
+        <WeeklySchedulePreview draft={classDraft} rooms={rooms} instructors={instructors} onEdit={editSchedule} editingIndex={editingScheduleIndex} onRemove={(index) => { if (editingScheduleIndex === index) cancelScheduleEdit(); else if (editingScheduleIndex !== null && editingScheduleIndex > index) setEditingScheduleIndex(editingScheduleIndex - 1); setClassDraft({ ...classDraft, schedules: classDraft.schedules.filter((_, itemIndex) => itemIndex !== index) }); }} />
         {!modalities.length || !rooms.length || !instructors.length ? <p className="xd-agenda-empty">CADASTRE UMA MODALIDADE COM AGENDA, UM PROFESSOR E UMA SALA PARA CRIAR GRADES.</p> : null}
       </div></div>
       <footer><button type="button" className="xd-secondary" disabled={saving} onClick={() => { onNoticeClear(); setCreating(false); }}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving || !modalities.length || !rooms.length || !instructors.length || !classDraft.name || !classDraft.modalityId || !classDraft.schedules.length}><Save size={16} /> {saving ? "SALVANDO..." : "SALVAR GRADE"}</button></footer>
@@ -211,7 +236,7 @@ function Grades({ groups, modalities, instructors, rooms, students, classDraft, 
   </div>;
 }
 
-function WeeklySchedulePreview({ draft, rooms, instructors = [], onRemove }: { draft: ClassDraft; rooms: Workspace["rooms"]; instructors?: Workspace["instructors"]; onRemove: (index: number) => void }) {
+function WeeklySchedulePreview({ draft, rooms, instructors = [], onRemove, onEdit, editingIndex }: { draft: ClassDraft; rooms: Workspace["rooms"]; instructors?: Workspace["instructors"]; onRemove: (index: number) => void; onEdit?: (index: number) => void; editingIndex?: number | null }) {
   const orderedDays = [1, 2, 3, 4, 5, 6, 0];
   return <section className="xd-schedule-preview" aria-label="Horários cadastrados para esta grade">
     <header><strong>HORÁRIOS DESTA GRADE</strong><small>{draft.schedules.length ? `${draft.schedules.length} HORÁRIO(S) ADICIONADO(S)` : "CONFIGURE E ADICIONE UM BLOCO ABAIXO"}</small></header>
@@ -222,8 +247,8 @@ function WeeklySchedulePreview({ draft, rooms, instructors = [], onRemove }: { d
         {schedules.length ? schedules.map((schedule) => {
           const roomName = rooms.find((room) => room.id === schedule.roomId)?.name;
           const instructorName = instructors.find((instructor) => instructor.id === schedule.instructorId)?.fullName;
-          return <span key={`${schedule.weekday}-${schedule.startsAt}-${schedule.index}`} style={{ borderColor: schedule.color }}>
-            <button type="button" aria-label={`Remover horário ${schedule.startsAt}`} onClick={() => onRemove(schedule.index)}>×</button>
+          return <span key={`${schedule.weekday}-${schedule.startsAt}-${schedule.index}`} className={editingIndex === schedule.index ? "is-editing" : ""} style={{ borderColor: schedule.color }} role={onEdit ? "button" : undefined} tabIndex={onEdit ? 0 : undefined} title={onEdit ? "Clique para editar este horário" : undefined} aria-label={onEdit ? `Editar horário de ${weekday[schedule.weekday]} às ${schedule.startsAt}` : undefined} onClick={() => onEdit?.(schedule.index)} onKeyDown={(event) => { if (onEdit && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(schedule.index); } }}>
+            <button type="button" aria-label={`Remover horário ${schedule.startsAt}`} onClick={(event) => { event.stopPropagation(); onRemove(schedule.index); }}>×</button>
             <strong>{schedule.startsAt} – {schedule.endsAt}</strong>
             <small>{roomName || "SALA A DEFINIR"}</small>
             <small>{instructorName || "PROFESSOR A DEFINIR"}</small>
@@ -295,6 +320,8 @@ function GradeSettingsDialog({ group, modalities, instructors, rooms, saving, on
   });
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleSelection>({ weekdays: [], startsAt: "19:00", durationMinutes: "60" });
   const [scheduleFeedback, setScheduleFeedback] = useState("");
+  const [editingScheduleIndex, setEditingScheduleIndex] = useState<number | null>(null);
+  const scheduleFieldsRef = useRef<HTMLDivElement>(null);
   const scheduleEnd = endTime(scheduleDraft.startsAt, Number(scheduleDraft.durationMinutes));
   const canAddSchedule = Boolean(scheduleEnd && draft.roomId && draft.instructorId);
   function addSchedule() {
@@ -308,12 +335,35 @@ function GradeSettingsDialog({ group, modalities, instructors, rooms, saving, on
     setScheduleDraft((current) => ({ ...current, weekdays: [] }));
     setScheduleFeedback(`${result.added} HORÁRIO(S) ADICIONADO(S). AGORA CLIQUE EM SALVAR ALTERAÇÕES.`);
   }
+  function editSchedule(index: number) {
+    const schedule = draft.schedules[index];
+    if (!schedule) return;
+    setDraft({ ...draft, level: schedule.level, ageGroup: schedule.ageGroup, ageGroups: schedule.ageGroups, roomId: schedule.roomId, instructorId: schedule.instructorId, scheduleColor: schedule.color, capacity: schedule.capacity, settings: schedule.settings });
+    setScheduleDraft({ weekdays: [schedule.weekday], startsAt: schedule.startsAt, durationMinutes: String(minutesBetween(schedule.startsAt, schedule.endsAt)) });
+    setEditingScheduleIndex(index);
+    setScheduleFeedback("EDITANDO O HORÁRIO SELECIONADO. ALTERE OS DADOS ACIMA E CLIQUE EM APLICAR ALTERAÇÕES AO HORÁRIO.");
+    window.setTimeout(() => scheduleFieldsRef.current?.scrollIntoView({ block: "start" }), 0);
+  }
+  function cancelScheduleEdit() { setEditingScheduleIndex(null); setScheduleDraft({ weekdays: [], startsAt: "19:00", durationMinutes: "60" }); setScheduleFeedback(""); }
+  function applyScheduleEdit() {
+    if (editingScheduleIndex === null || !scheduleEnd || scheduleDraft.weekdays.length !== 1) { setScheduleFeedback("PARA EDITAR, MANTENHA EXATAMENTE UM DIA MARCADO E UMA DURAÇÃO VÁLIDA."); return; }
+    const current = draft.schedules[editingScheduleIndex];
+    if (!current) return;
+    const ageGroups = normalizeAgeGroups(draft.ageGroups);
+    const updated: ScheduleDraft = { ...current, weekday: scheduleDraft.weekdays[0], startsAt: scheduleDraft.startsAt, endsAt: scheduleEnd, roomId: draft.roomId, instructorId: draft.instructorId, level: draft.level, ageGroup: ageGroups[0] ?? "ADULTO", ageGroups, color: draft.scheduleColor, capacity: draft.capacity, settings: draft.settings };
+    const duplicated = draft.schedules.some((schedule, index) => index !== editingScheduleIndex && schedule.weekday === updated.weekday && schedule.startsAt === updated.startsAt && schedule.endsAt === updated.endsAt && schedule.roomId === updated.roomId && schedule.instructorId === updated.instructorId && schedule.level === updated.level && normalizeAgeGroups(schedule.ageGroups).join(",") === ageGroups.join(","));
+    if (duplicated) { setScheduleFeedback("JÁ EXISTE UM HORÁRIO IGUAL NESTA GRADE. AJUSTE O DIA, O HORÁRIO OU A CONFIGURAÇÃO."); return; }
+    setDraft({ ...draft, schedules: draft.schedules.map((schedule, index) => index === editingScheduleIndex ? updated : schedule).sort((left, right) => left.weekday - right.weekday || left.startsAt.localeCompare(right.startsAt)) });
+    setEditingScheduleIndex(null);
+    setScheduleDraft({ weekdays: [], startsAt: "19:00", durationMinutes: "60" });
+    setScheduleFeedback("HORÁRIO ATUALIZADO. AGORA CLIQUE EM SALVAR ALTERAÇÕES PARA GRAVAR A ALTERAÇÃO.");
+  }
   async function submit(event: FormEvent) { event.preventDefault(); if (await onSave(draft)) onClose(); }
 
   return <div className="xd-contract-overlay" role="presentation"><form className="xd-settings-dialog xd-grade-create-dialog xd-grade-edit-dialog" onSubmit={(event) => { void submit(event); }} role="dialog" aria-modal="true" aria-labelledby="xd-edit-grade-title">
     <header><span><Settings2 size={20} /></span><h2 id="xd-edit-grade-title">EDITAR GRADE</h2><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
     <div className="xd-agenda-two-columns" tabIndex={0} role="region" aria-label="Dados e configurações da grade"><div className="xd-agenda-form">
-      <div className="xd-agenda-fields">
+      <div className="xd-agenda-fields" ref={scheduleFieldsRef}>
         <label>USO DA GRADE<select value={draft.sourceType} onChange={(event) => setDraft({ ...draft, sourceType: event.target.value === "SERVICO" ? "SERVICO" : "CONTRATO" })}><option value="CONTRATO">CONTRATO</option><option value="SERVICO">SERVIÇO (EM BREVE)</option></select></label>
         <label>NOME DA TURMA<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
         <label>MODALIDADE<select value={draft.modalityId} onChange={(event) => setDraft({ ...draft, modalityId: event.target.value })} required><option value="">SELECIONE UMA MODALIDADE</option>{modalities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
@@ -325,8 +375,8 @@ function GradeSettingsDialog({ group, modalities, instructors, rooms, saving, on
         <label>VAGAS<input type="number" min="1" value={draft.capacity} onChange={(event) => setDraft({ ...draft, capacity: event.target.value })} /></label>
       </div>
       <GradeSettingsFields settings={draft.settings} onChange={(settings) => setDraft({ ...draft, settings })} capacity={draft.capacity ? Number(draft.capacity) : undefined} />
-      <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} feedback={scheduleFeedback} />
-      <WeeklySchedulePreview draft={draft} rooms={rooms} instructors={instructors} onRemove={(index) => setDraft({ ...draft, schedules: draft.schedules.filter((_, itemIndex) => itemIndex !== index) })} />
+      <ScheduleBuilder value={scheduleDraft} onChange={setScheduleDraft} endsAt={scheduleEnd} canAdd={canAddSchedule} onAdd={addSchedule} feedback={scheduleFeedback} editing={editingScheduleIndex !== null} onApplyEdit={applyScheduleEdit} onCancelEdit={cancelScheduleEdit} />
+      <WeeklySchedulePreview draft={draft} rooms={rooms} instructors={instructors} onEdit={editSchedule} editingIndex={editingScheduleIndex} onRemove={(index) => { if (editingScheduleIndex === index) cancelScheduleEdit(); else if (editingScheduleIndex !== null && editingScheduleIndex > index) setEditingScheduleIndex(editingScheduleIndex - 1); setDraft({ ...draft, schedules: draft.schedules.filter((_, itemIndex) => itemIndex !== index) }); }} />
       <section className="xd-grade-students"><header><div><small>ALUNOS VINCULADOS</small><h3>{group.students.length} ALUNO(S) NESTA AGENDA</h3></div></header>{group.students.length ? <div>{group.students.map((student) => <article key={student.id}><strong>{student.studentName}</strong><small>{student.mobile || "SEM CELULAR"}</small></article>)}</div> : <p>NENHUM ALUNO MATRICULADO NESTA GRADE.</p>}</section>
     </div></div>
     <footer><button type="button" className="xd-secondary" disabled={saving} onClick={onClose}>CANCELAR</button><button type="submit" className="xd-primary" disabled={saving || !draft.name || !draft.modalityId || !draft.schedules.length}><Save size={16} /> {saving ? "SALVANDO..." : "SALVAR ALTERAÇÕES"}</button></footer>
