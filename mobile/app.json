@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "XPACE",
+    "slug": "xpace",
+    "scheme": "xpace",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "supportsTablet": false },
+    "android": { "edgeToEdgeEnabled": true }
+  }
+}
