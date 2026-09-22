@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Clock3, Music2, Phone, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, MapPin, Music2, Phone, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type ClassLevel = "INICIANTE" | "INICIANTE_INTERMEDIARIO" | "INTERMEDIARIO" | "AVANCADO";
@@ -80,7 +80,7 @@ export default function TrialBookingPage() {
       <label><UserRound size={16} /> NOME COMPLETO<input value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} autoComplete="name" required /></label>
       <label><Phone size={16} /> TELEFONE / WHATSAPP<input value={form.mobile} onChange={(event) => setForm({ ...form, mobile: formatPhone(event.target.value) })} inputMode="tel" autoComplete="tel-national" placeholder="(47) 99999-9999" required /></label>
       <label><span className="xpace-public-booking-mail">@</span> E-MAIL<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" required /></label>
-      <label>COMO CONHECEU A XPACE?<select value={form.sourceId} onChange={(event) => setForm({ ...form, sourceId: event.target.value })} required><option value="">SELECIONE UMA OPÇÃO</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label>
+      <label><MapPin size={16} /> COMO CONHECEU A XPACE?<select value={form.sourceId} onChange={(event) => setForm({ ...form, sourceId: event.target.value })} required><option value="">SELECIONE UMA OPÇÃO</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label>
       <label className="xpace-public-booking-honeypot" aria-hidden="true">SITE<input value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} tabIndex={-1} autoComplete="off" /></label>
       {notice ? <p className="xpace-public-booking-notice" role="status">{notice}</p> : null}
       <button type="submit" disabled={sending || loading || !chosen}>{sending ? "AGENDANDO..." : "AGENDAR AULA EXPERIMENTAL"}</button>
