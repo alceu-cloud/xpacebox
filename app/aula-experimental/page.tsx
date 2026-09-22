@@ -86,7 +86,7 @@ export default function TrialBookingPage() {
       {notice ? <p className="xpace-public-booking-notice" role="status">{notice}</p> : null}
       <button type="submit" disabled={sending || loading || !chosen}>{sending ? "AGENDANDO..." : "AGENDAR AULA EXPERIMENTAL"}</button>
     </form>}
-    <footer>VOCÊ PODE REALIZAR ATÉ DUAS AULAS EXPERIMENTAIS. A TERCEIRA POSSUI TAXA.</footer>
+    <footer><strong>ATENÇÃO:</strong> VOCÊ PODE REALIZAR ATÉ DUAS AULAS EXPERIMENTAIS. A TERCEIRA POSSUI TAXA.</footer>
   </section></main>;
 }
 

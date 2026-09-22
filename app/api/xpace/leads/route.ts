@@ -13,7 +13,7 @@ const surveys = ["PENDENTE", "ENVIADA", "NAO_ENVIADA", "NAO_INFORMADO"] as const
 const welcomeDeliveries = ["NAO_CONFIGURADO", "PENDENTE", "ENVIADO", "FALHOU", "DISPENSADO"] as const;
 
 type Body = {
-  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON" | "MAP_HISTORICAL_APPOINTMENTS";
+  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON" | "MAP_HISTORICAL_APPOINTMENTS";
   lead?: Record<string, unknown>;
   appointment?: Record<string, unknown>;
   setting?: Record<string, unknown>;
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     const schedulesByGroup = new Map<string, Array<Record<string, unknown>>>();
     for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "", level: normalizeClassLevel(schedule.class_level) }]);
     return NextResponse.json({
-      success: true, canOverrideTrialLimit: isManager(access.profile.platform_role),
+      success: true, canOverrideTrialLimit: isManager(access.profile.platform_role), canDeleteLeads: isManager(access.profile.platform_role),
       leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name),
       attendants: sortNaturally(profiles ?? [], (profile) => profile.full_name), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name),
       groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: Boolean((group.settings as Record<string, unknown> | null)?.allowLeads), schedules: schedulesByGroup.get(group.id) ?? [] })),
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
     const access = await requireCompanyAccess(request, companySlug);
     if (body.action === "CREATE_LEAD") return createLead(access, body.lead);
     if (body.action === "UPDATE_LEAD") return updateLead(access, body.lead);
+    if (body.action === "DELETE_LEAD") return deleteLead(access, body.lead);
     if (body.action === "CREATE_APPOINTMENT") return createAppointment(access, body.appointment);
     if (body.action === "UPDATE_APPOINTMENT") return updateAppointment(access, body.appointment);
     if (body.action === "ADD_NOTE") return addNote(access, text(body.lead?.id), text(body.note));
@@ -103,6 +104,31 @@ async function updateLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   const stageChanged = current.pipeline_stage !== pipelineStage;
   await activity(access, id, null, stageChanged ? pipelineStage === "PERDIDO" ? "PERDIDO" : pipelineStage === "GANHO" ? "CONVERTIDO" : "ETAPA_ALTERADA" : changesContact ? "NOTA" : "ETAPA_ALTERADA", stageChanged ? `ETAPA ATUAL: ${pipelineStage}.` : changesContact ? "DADOS CADASTRAIS DO LEAD ATUALIZADOS." : `ETAPA ATUAL: ${pipelineStage}.`);
   return NextResponse.json({ success: true });
+}
+
+async function deleteLead(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
+  if (!isManager(access.profile.platform_role)) throw new AccessError("APENAS GERENTES E ADMINISTRADORES PODEM EXCLUIR LEADS.", 403);
+  const id = text(raw?.id);
+  if (!id) throw new RequestError("LEAD INVÁLIDO.", 400);
+  const { data: lead, error: leadError } = await access.admin
+    .from("xpace_leads")
+    .select("id,lead_number,converted_person_id,converted_contract_id")
+    .eq("id", id)
+    .eq("tenant_company_id", access.company.id)
+    .maybeSingle();
+  if (leadError) throw leadError;
+  if (!lead) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
+  if (lead.converted_person_id || lead.converted_contract_id) throw new RequestError("ESTE LEAD JÁ FOI CONVERTIDO EM ALUNO OU CONTRATO E NÃO PODE SER EXCLUÍDO.", 409);
+  const { data: deleted, error } = await access.admin
+    .from("xpace_leads")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_company_id", access.company.id)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!deleted) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
+  return NextResponse.json({ success: true, deletedLeadNumber: lead.lead_number });
 }
 
 async function mapHistoricalAppointments(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
