@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as BookingBody;
     if (text(body.website)) return NextResponse.json({ success: true, message: "SOLICITAÇÃO RECEBIDA." }, { status: 201 });
-    const fullName = text(body.fullName); const mobile = digits(body.mobile); const email = text(body.email).toLowerCase(); const sourceId = text(body.sourceId); const classGroupId = text(body.classGroupId); const classScheduleId = text(body.classScheduleId); const scheduledOn = text(body.scheduledOn);
+    const fullName = text(body.fullName); const mobile = phone(body.mobile); const email = text(body.email).toLowerCase(); const sourceId = text(body.sourceId); const classGroupId = text(body.classGroupId); const classScheduleId = text(body.classScheduleId); const scheduledOn = text(body.scheduledOn);
     if (fullName.length < 2 || fullName.length > 180 || mobile.length < 10 || mobile.length > 13 || !/^\S+@\S+\.\S+$/.test(email) || !sourceId || !classGroupId || !classScheduleId || !isDate(scheduledOn)) throw new PublicError("PREENCHA NOME, TELEFONE, E-MAIL, COMO CONHECEU A XPACE E O HORÁRIO DESEJADO.", 400);
     const today = brazilToday();
     if (scheduledOn < today || scheduledOn > addDays(today, bookingHorizonDays)) throw new PublicError("ESCOLHA UM HORÁRIO DISPONÍVEL NA AGENDA.", 400);
@@ -63,13 +63,16 @@ export async function POST(request: Request) {
     if (sourceError) throw sourceError;
     if (!source) throw new PublicError("SELECIONE UMA ORIGEM DE CONTATO VÁLIDA.", 400);
     const snapshot = await classSnapshot(admin, company.id, classGroupId, classScheduleId, scheduledOn);
-    const { data: existingLeads, error: leadLookupError } = await admin.from("xpace_leads").select("id,pipeline_stage,source_id").eq("tenant_company_id", company.id).eq("mobile", mobile).eq("email", email).order("created_at", { ascending: false }).limit(1);
+    const { data: existingLeads, error: leadLookupError } = await admin.from("xpace_leads").select("id,pipeline_stage,source_id").eq("tenant_company_id", company.id).eq("mobile", mobile).order("created_at", { ascending: false }).limit(25);
     if (leadLookupError) throw leadLookupError;
+    const existingLeadIds = (existingLeads ?? []).map((lead) => lead.id);
+    if (existingLeadIds.length) {
+      const { count: previousTrialCount, error: previousCountError } = await admin.from("xpace_lead_appointments").select("id", { count: "exact", head: true }).eq("tenant_company_id", company.id).in("lead_id", existingLeadIds).eq("booking_kind", "NOVO").neq("attendance_status", "CANCELADO");
+      if (previousCountError) throw previousCountError;
+      if ((previousTrialCount ?? 0) >= 2) throw new PublicError("ESTE TELEFONE JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. PARA UMA NOVA AULA, FALE COM A EQUIPE XPACE PARA RECEBER AS ORIENTAÇÕES.", 409);
+    }
     let leadId = existingLeads?.[0]?.id;
     if (leadId) {
-      const { data: previousAppointments, error: previousError } = await admin.from("xpace_lead_appointments").select("id").eq("tenant_company_id", company.id).eq("lead_id", leadId).eq("booking_kind", "NOVO").neq("attendance_status", "CANCELADO");
-      if (previousError) throw previousError;
-      if ((previousAppointments?.length ?? 0) >= 2) throw new PublicError("VOCÊ JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. A TERCEIRA AULA POSSUI TAXA E DEVE SER COMBINADA COM A EQUIPE XPACE.", 409);
       if (!existingLeads?.[0]?.source_id) {
         const { error: sourceUpdateError } = await admin.from("xpace_leads").update({ source_id: source.id, updated_at: new Date().toISOString() }).eq("id", leadId).eq("tenant_company_id", company.id);
         if (sourceUpdateError) throw sourceUpdateError;
@@ -111,9 +114,10 @@ function weekdayOf(iso: string) { return new Date(`${iso}T12:00:00Z`).getUTCDay(
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
 function text(value: unknown) { return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""; }
 function digits(value: unknown) { return text(value).replace(/\D/g, ""); }
+function phone(value: unknown) { return digits(value).replace(/^55(?=\d{10,11}$)/, ""); }
 function normalizeClassLevel(value: unknown) { return ["INICIANTE", "INICIANTE_INTERMEDIARIO", "INTERMEDIARIO", "AVANCADO"].includes(text(value)) ? text(value) : "INICIANTE"; }
 function normalizeAgeGroup(value: unknown) { return ["BABY", "KIDS", "TEENS", "ADULTO"].includes(text(value)) ? text(value) : "ADULTO"; }
 function normalizeAgeGroups(value: unknown, fallback: unknown) { const selected = Array.isArray(value) ? value.map((item) => normalizeAgeGroup(item)) : []; const normalized = ["BABY", "KIDS", "TEENS", "ADULTO"].filter((ageGroup) => selected.includes(ageGroup)); return normalized.length ? normalized : [normalizeAgeGroup(fallback)]; }
 function slotSettings(value: unknown, fallback: unknown) { const slot = value && typeof value === "object" ? value as Record<string, unknown> : {}; return Object.keys(slot).length ? slot : fallback && typeof fallback === "object" ? fallback as Record<string, unknown> : {}; }
-function handleError(error: unknown) { if (error instanceof PublicError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const message = (error as { message?: string })?.message ?? ""; if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTE HORÁRIO ACABOU DE SER PREENCHIDO. ESCOLHA OUTRO, POR FAVOR." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "VOCÊ JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. A TERCEIRA AULA POSSUI TAXA E DEVE SER COMBINADA COM A EQUIPE XPACE." }, { status: 409 }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "VOCÊ JÁ POSSUI ESTE AGENDAMENTO ATIVO." }, { status: 409 }); console.error("XPACE PUBLIC TRIAL BOOKING ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO. TENTE NOVAMENTE." }, { status: 500 }); }
+function handleError(error: unknown) { if (error instanceof PublicError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const message = (error as { message?: string })?.message ?? ""; if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTE HORÁRIO ACABOU DE SER PREENCHIDO. ESCOLHA OUTRO, POR FAVOR." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "ESTE TELEFONE JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. PARA UMA NOVA AULA, FALE COM A EQUIPE XPACE PARA RECEBER AS ORIENTAÇÕES." }, { status: 409 }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "VOCÊ JÁ POSSUI ESTE AGENDAMENTO ATIVO." }, { status: 409 }); console.error("XPACE PUBLIC TRIAL BOOKING ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO. TENTE NOVAMENTE." }, { status: 500 }); }
 class PublicError extends Error { constructor(message: string, public status: number) { super(message); } }

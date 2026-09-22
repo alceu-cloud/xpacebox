@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Clock3, MapPin, Music2, Phone, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, MapPin, Music2, PartyPopper, Phone, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type ClassLevel = "INICIANTE" | "INICIANTE_INTERMEDIARIO" | "INTERMEDIARIO" | "AVANCADO";
@@ -24,6 +24,7 @@ export default function TrialBookingPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState("");
+  const [confirmation, setConfirmation] = useState<Slot | null>(null);
 
   useEffect(() => { void loadSlots(); }, []);
   const ageGroupSlots = useMemo(() => selectedAgeGroup ? slots.filter((slot) => slot.ageGroups.includes(selectedAgeGroup)) : [], [selectedAgeGroup, slots]);
@@ -62,14 +63,14 @@ export default function TrialBookingPage() {
       const response = await fetch("/api/public/xpace/aula-experimental", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, classGroupId: chosen.classGroupId, classScheduleId: chosen.classScheduleId, scheduledOn: chosen.scheduledOn }) });
       const payload = await response.json() as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) throw new Error(payload.message || "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO.");
-      setNotice(payload.message || "AULA EXPERIMENTAL AGENDADA!"); setSelected(""); setSelectedWeekIndex(0); setSelectedLevel(""); setSelectedModality(""); setSelectedAgeGroup(""); setForm({ fullName: "", mobile: "", email: "", sourceId: "", website: "" }); await loadSlots();
+      setConfirmation(chosen); setNotice(""); setSelected(""); setSelectedWeekIndex(0); setSelectedLevel(""); setSelectedModality(""); setSelectedAgeGroup(""); setForm({ fullName: "", mobile: "", email: "", sourceId: "", website: "" }); await loadSlots();
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CONCLUIR O AGENDAMENTO."); }
     finally { setSending(false); }
   }
 
   return <main className="xpace-public-booking"><section className="xpace-public-booking-card">
-    <header><span><Music2 size={18} /> {schoolName}</span><h1>SUA AULA<br />COMEÇA AQUI.</h1><p>Escolha uma aula experimental e a nossa equipe confirma os detalhes com você.</p></header>
-    <form onSubmit={submit}>
+    <header><span><Music2 size={18} /> {schoolName}</span><h1>{confirmation ? <>É HORA DE<br />DANÇAR.</> : <>SUA AULA<br />COMEÇA AQUI.</>}</h1><p>{confirmation ? "Seu pedido foi recebido. A nossa equipe vai confirmar os detalhes com você." : "Escolha uma aula experimental e a nossa equipe confirma os detalhes com você."}</p></header>
+    {confirmation ? <section className="xpace-public-booking-success" role="status"><span><PartyPopper size={28} /></span><small>AGENDAMENTO RECEBIDO</small><h2>ESTÁ QUASE NA PISTA!</h2><p>Reservamos sua solicitação para a aula abaixo.</p><div><strong>{confirmation.className} · {confirmation.modality}</strong><small>{formatDate(confirmation.scheduledOn)} · {confirmation.startsAt}–{confirmation.endsAt} · Prof. {confirmation.instructorName}</small></div><p className="xpace-public-booking-success-note">A equipe XPACE falará com você para confirmar tudo direitinho.</p><button type="button" onClick={() => setConfirmation(null)}>AGENDAR PARA OUTRA PESSOA</button></section> : <form onSubmit={submit}>
       <section className="xpace-public-booking-steps" aria-label="Escolha da aula">
         <div><strong>1. PARA QUEM É A AULA?</strong><p>Escolha a faixa etária de quem vai experimentar.</p><nav>{loading ? <span>CARREGANDO HORÁRIOS...</span> : ageGroups.filter((ageGroup) => slots.some((slot) => slot.ageGroups.includes(ageGroup.value))).map((ageGroup) => <button key={ageGroup.value} type="button" className={selectedAgeGroup === ageGroup.value ? "is-selected" : ""} onClick={() => chooseAgeGroup(ageGroup.value)}>{ageGroup.label}</button>)}</nav></div>
         {selectedAgeGroup ? <div><strong>2. MODALIDADE</strong><p>Escolha o estilo que quer experimentar.</p><nav>{modalities.length ? modalities.map((modality) => <button key={modality} type="button" className={selectedModality === modality ? "is-selected" : ""} onClick={() => chooseModality(modality)}>{modality}</button>) : <span>NENHUMA MODALIDADE DISPONÍVEL PARA ESTA FAIXA.</span>}</nav></div> : null}
@@ -84,7 +85,7 @@ export default function TrialBookingPage() {
       <label className="xpace-public-booking-honeypot" aria-hidden="true">SITE<input value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} tabIndex={-1} autoComplete="off" /></label>
       {notice ? <p className="xpace-public-booking-notice" role="status">{notice}</p> : null}
       <button type="submit" disabled={sending || loading || !chosen}>{sending ? "AGENDANDO..." : "AGENDAR AULA EXPERIMENTAL"}</button>
-    </form>
+    </form>}
     <footer>VOCÊ PODE REALIZAR ATÉ DUAS AULAS EXPERIMENTAIS. A TERCEIRA POSSUI TAXA.</footer>
   </section></main>;
 }
