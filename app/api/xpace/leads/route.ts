@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 const stages = ["NOVO", "ATENDIMENTO", "AULA_EXPERIMENTAL", "NEGOCIACAO", "GANHO", "PERDIDO"] as const;
@@ -43,9 +44,9 @@ export async function GET(request: Request) {
     for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "", level: normalizeClassLevel(schedule.class_level) }]);
     return NextResponse.json({
       success: true,
-      leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sourcesResult.data ?? [], lossReasons: reasonsResult.data ?? [],
-      attendants: profiles ?? [], instructors: instructorsResult.data ?? [],
-      groups: (groupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: Boolean((group.settings as Record<string, unknown> | null)?.allowLeads), schedules: schedulesByGroup.get(group.id) ?? [] })),
+      leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name),
+      attendants: sortNaturally(profiles ?? [], (profile) => profile.full_name), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name),
+      groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: Boolean((group.settings as Record<string, unknown> | null)?.allowLeads), schedules: schedulesByGroup.get(group.id) ?? [] })),
     });
   } catch (error) { return handleError(error); }
 }

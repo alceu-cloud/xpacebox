@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 type RequestBody = { action?: "CREATE_ROOM" | "UPDATE_ROOM" | "SET_ROOM_ACTIVE"; room?: { id?: string; name?: string; coverageType?: string; capacity?: number | null; active?: boolean } };
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const { data, error } = await admin.from("xpace_rooms").select("id,name,coverage_type,capacity,active").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("name");
     if (error) throw error;
-    return NextResponse.json({ success: true, rooms: (data ?? []).map((room) => ({ id: room.id, name: room.name, coverageType: room.coverage_type, capacity: room.capacity, active: room.active })) });
+    return NextResponse.json({ success: true, rooms: sortNaturally(data ?? [], (room) => room.name).sort((left, right) => Number(right.active) - Number(left.active)).map((room) => ({ id: room.id, name: room.name, coverageType: room.coverage_type, capacity: room.capacity, active: room.active })) });
   } catch (error) { return handleError(error); }
 }
 

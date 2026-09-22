@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 const mappingTypes = ["AULA", "CHECK_IN", "PRESENÇA"] as const;
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     if (modalitiesResult.error) throw modalitiesResult.error;
     if (instructorsResult.error) throw instructorsResult.error;
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
-    return NextResponse.json({ success: true, modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, usesSchedule: modality.uses_schedule, requiresInstructor: modality.requires_instructor, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", wellhubMappings: modality.wellhub_mappings ?? [], totalpassMappings: modality.totalpass_mappings ?? [], active: modality.active, createdAt: modality.created_at })), instructors: (instructorsResult.data ?? []).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })) });
+    return NextResponse.json({ success: true, modalities: sortNaturally(modalitiesResult.data ?? [], (modality) => modality.name).sort((left, right) => Number(right.active) - Number(left.active)).map((modality) => ({ id: modality.id, name: modality.name, usesSchedule: modality.uses_schedule, requiresInstructor: modality.requires_instructor, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", wellhubMappings: modality.wellhub_mappings ?? [], totalpassMappings: modality.totalpass_mappings ?? [], active: modality.active, createdAt: modality.created_at })), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })) });
   } catch (error) { return handleError(error); }
 }
 

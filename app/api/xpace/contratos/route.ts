@@ -5,6 +5,7 @@ import { calculateDiscountedAmount, ensureContractCharges, todayIso } from "@/li
 import { ensureContractEnrollment } from "@/lib/xpace/enrollment";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { issuePixChargesForContract } from "@/lib/server/xpace-charge-issuance";
+import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 const intervals = ["DIARIO", "MENSAL", "SEMESTRAL", "ANUAL"] as const;
@@ -44,11 +45,11 @@ export async function GET(request: Request) {
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
     return NextResponse.json({
       success: true,
-      plans: (plansResult.data ?? []).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], modalityRules: plan.modality_rules ?? [], catalogSettings: plan.catalog_settings ?? {}, templateFileName: plan.contract_template_name ?? templateNameFromPath(plan.contract_template_path), active: plan.active, createdAt: plan.created_at })),
-      modalities: (modalitiesResult.data ?? []).map((modality) => ({ id: modality.id, name: modality.name, active: modality.active })),
-      services: (servicesResult.data ?? []).map((service) => ({ id: service.id, description: service.description, salePriceCents: service.sale_price_cents })),
-      classGroups: (classGroupsResult.data ?? []).map((group) => ({ id: group.id, name: group.name, modalityId: group.modality_id ?? "", schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5) })) })).filter((group) => group.schedules.length),
-      students: (studentsResult.data ?? []).map((student) => ({ id: student.id, personNumber: student.person_number, name: student.full_name, mobile: student.mobile ?? "" })),
+      plans: sortNaturally(plansResult.data ?? [], (plan) => plan.name).sort((left, right) => Number(right.active) - Number(left.active)).map((plan) => ({ id: plan.id, name: plan.name, description: plan.description ?? "", billingInterval: plan.billing_interval, durationMonths: plan.duration_months, amountCents: plan.amount_cents, renewsAutomatically: plan.renews_automatically, modalities: plan.modalities ?? [], modalityRules: plan.modality_rules ?? [], catalogSettings: plan.catalog_settings ?? {}, templateFileName: plan.contract_template_name ?? templateNameFromPath(plan.contract_template_path), active: plan.active, createdAt: plan.created_at })),
+      modalities: sortNaturally(modalitiesResult.data ?? [], (modality) => modality.name).map((modality) => ({ id: modality.id, name: modality.name, active: modality.active })),
+      services: sortNaturally(servicesResult.data ?? [], (service) => service.description).map((service) => ({ id: service.id, description: service.description, salePriceCents: service.sale_price_cents })),
+      classGroups: sortNaturally(classGroupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modalityId: group.modality_id ?? "", schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => ({ weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5) })) })).filter((group) => group.schedules.length),
+      students: sortNaturally(studentsResult.data ?? [], (student) => student.full_name).map((student) => ({ id: student.id, personNumber: student.person_number, name: student.full_name, mobile: student.mobile ?? "" })),
       contracts: (contractsResult.data ?? []).map((contract) => {
         const student = studentsById.get(contract.student_id);
         return { id: contract.id, contractNumber: contract.contract_number, studentId: contract.student_id, studentName: student?.full_name ?? "ALUNO INATIVO", studentMobile: student?.mobile ?? "", planId: contract.plan_id, planName: contract.plan_name_snapshot, billingInterval: contract.billing_interval_snapshot, durationMonths: contract.duration_months_snapshot, baseAmountCents: contract.base_amount_cents, amountCents: contract.amount_cents, benefitName: contract.benefit_name_snapshot ?? "", renewsAutomatically: contract.renews_automatically, startsOn: contract.starts_on, endsOn: contract.ends_on, status: contract.status, statusNote: contract.status_note ?? "", cancelEffectiveOn: contract.cancel_effective_on, createdAt: contract.created_at };

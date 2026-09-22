@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 type RequestBody = {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     const { admin, company } = await requireCompanyAccess(request, companySlug);
     const { data, error } = await admin.from("xpace_instructors").select("id,full_name,mobile,email,active").eq("tenant_company_id", company.id).order("active", { ascending: false }).order("full_name");
     if (error) throw error;
-    return NextResponse.json({ success: true, instructors: (data ?? []).map(toInstructor) });
+    return NextResponse.json({ success: true, instructors: sortNaturally(data ?? [], (instructor) => instructor.full_name).sort((left, right) => Number(right.active) - Number(left.active)).map(toInstructor) });
   } catch (error) { return handleError(error); }
 }
 
