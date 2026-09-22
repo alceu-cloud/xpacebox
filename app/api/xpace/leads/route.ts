@@ -13,11 +13,10 @@ const surveys = ["PENDENTE", "ENVIADA", "NAO_ENVIADA", "NAO_INFORMADO"] as const
 const welcomeDeliveries = ["NAO_CONFIGURADO", "PENDENTE", "ENVIADO", "FALHOU", "DISPENSADO"] as const;
 
 type Body = {
-  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON" | "MAP_HISTORICAL_APPOINTMENTS";
+  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ASSIGN_APPOINTMENT_SCHEDULE" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON";
   lead?: Record<string, unknown>;
   appointment?: Record<string, unknown>;
   setting?: Record<string, unknown>;
-  historical?: Record<string, unknown>;
   note?: string;
 };
 
@@ -60,10 +59,10 @@ export async function POST(request: Request) {
     if (body.action === "DELETE_LEAD") return deleteLead(access, body.lead);
     if (body.action === "CREATE_APPOINTMENT") return createAppointment(access, body.appointment);
     if (body.action === "UPDATE_APPOINTMENT") return updateAppointment(access, body.appointment);
+    if (body.action === "ASSIGN_APPOINTMENT_SCHEDULE") return assignAppointmentSchedule(access, body.appointment);
     if (body.action === "ADD_NOTE") return addNote(access, text(body.lead?.id), text(body.note));
     if (body.action === "SAVE_SOURCE") return saveSetting(access, "xpace_lead_sources", body.setting);
     if (body.action === "SAVE_LOSS_REASON") return saveSetting(access, "xpace_lead_loss_reasons", body.setting);
-    if (body.action === "MAP_HISTORICAL_APPOINTMENTS") return mapHistoricalAppointments(access, body.historical);
     throw new RequestError("AÇÃO DO CRM INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
 }
@@ -131,26 +130,24 @@ async function deleteLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   return NextResponse.json({ success: true, deletedLeadNumber: lead.lead_number });
 }
 
-async function mapHistoricalAppointments(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
+async function assignAppointmentSchedule(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
+  const id = text(raw?.id);
   const classGroupId = text(raw?.classGroupId);
-  const modalityName = nullableText(raw?.modalityName);
-  const instructorName = nullableText(raw?.instructorName);
-  if (!classGroupId || (!modalityName && !instructorName)) throw new RequestError("INFORME O HISTÓRICO E A TURMA QUE RECEBERÁ O VÍNCULO.", 400);
-  const { data: group, error: groupError } = await access.admin.from("xpace_class_groups").select("id,name").eq("id", classGroupId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle();
-  if (groupError) throw groupError;
-  if (!group) throw new RequestError("TURMA ATIVA NÃO ENCONTRADA.", 404);
-  const stamp = new Date().toISOString();
-  const pending = access.admin.from("xpace_lead_appointments").update({ class_group_id: group.id, updated_by: access.profile.id, updated_at: stamp }).eq("tenant_company_id", access.company.id).is("class_group_id", null);
-  const byModality = modalityName ? pending.eq("modality_name_snapshot", modalityName) : pending.is("modality_name_snapshot", null);
-  const request = instructorName ? byModality.eq("instructor_name_snapshot", instructorName) : byModality.is("instructor_name_snapshot", null);
-  const { data, error } = await request.select("id,lead_id");
+  const classScheduleId = text(raw?.classScheduleId);
+  if (!id || !classGroupId || !classScheduleId) throw new RequestError("SELECIONE A GRADE E O HORÁRIO DA AULA.", 400);
+  const [{ data: appointment, error: appointmentError }, { data: group, error: groupError }, { data: schedule, error: scheduleError }] = await Promise.all([
+    access.admin.from("xpace_lead_appointments").select("id,lead_id,scheduled_on").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_class_groups").select("id,name,instructor_id").eq("id", classGroupId).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle(),
+    access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,active").eq("id", classScheduleId).eq("tenant_company_id", access.company.id).maybeSingle(),
+  ]);
+  if (appointmentError || groupError || scheduleError) throw appointmentError ?? groupError ?? scheduleError;
+  if (!appointment) throw new RequestError("AGENDAMENTO NÃO ENCONTRADO.", 404);
+  if (!group || !schedule?.active || schedule.class_group_id !== group.id || new Date(`${appointment.scheduled_on}T12:00:00`).getDay() !== schedule.weekday) throw new RequestError("O HORÁRIO ESCOLHIDO NÃO PERTENCE À GRADE OU À DATA DA AULA.", 409);
+  const instructor = await resolveInstructor(access, schedule.instructor_id ?? group.instructor_id ?? null);
+  const { error } = await access.admin.from("xpace_lead_appointments").update({ class_group_id: group.id, class_schedule_id: schedule.id, starts_at: schedule.starts_at, ends_at: schedule.ends_at, actual_instructor_id: instructor?.id ?? null, actual_instructor_name_snapshot: instructor?.full_name ?? null, class_name_snapshot: group.name, updated_by: access.profile.id, updated_at: new Date().toISOString() }).eq("id", appointment.id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
-  const mapped = data ?? [];
-  if (mapped.length) {
-    const { error: activityError } = await access.admin.from("xpace_lead_activities").insert(mapped.map((appointment) => ({ tenant_company_id: access.company.id, lead_id: appointment.lead_id, appointment_id: appointment.id, activity_type: "AGENDAMENTO_ATUALIZADO", body: `HISTÓRICO VINCULADO À TURMA ${group.name}.`, payload: { classGroupId: group.id, source: "HISTORICO_EXCEL" }, created_by: access.profile.id })));
-    if (activityError) throw activityError;
-  }
-  return NextResponse.json({ success: true, mapped: mapped.length });
+  await activity(access, appointment.lead_id, appointment.id, "AGENDAMENTO_ATUALIZADO", `HORÁRIO VINCULADO MANUALMENTE: ${group.name} · ${schedule.starts_at.slice(0, 5)}–${schedule.ends_at.slice(0, 5)}.`, { classGroupId: group.id, classScheduleId: schedule.id, source: "HISTORICO_MANUAL" });
+  return NextResponse.json({ success: true });
 }
 
 async function createAppointment(access: Awaited<ReturnType<typeof requireCompanyAccess>>, raw?: Record<string, unknown>) {
