@@ -1,49 +1,31 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin, createSupabaseAuth } from "@/lib/server/supabase-admin";
 
-
-export async function GET() {
+export async function GET(request: Request) {
 
   try {
-
-
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-
-    const serviceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-
-
-    if (!supabaseUrl || !serviceKey) {
-
-      return NextResponse.json(
-        {
-          success:false,
-          message:"Configuração do Supabase ausente."
-        },
-        {
-          status:500
-        }
-      );
-
+    const authorization = request.headers.get("authorization");
+    if (!authorization?.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, message: "SESSÃO NÃO ENCONTRADA." }, { status: 401 });
     }
 
+    const token = authorization.slice("Bearer ".length).trim();
+    const auth = createSupabaseAuth();
+    const { data: userData, error: userError } = await auth.auth.getUser(token);
+    if (userError || !userData.user) {
+      return NextResponse.json({ success: false, message: "SESSÃO INVÁLIDA." }, { status: 401 });
+    }
 
-
-
-    const supabaseAdmin =
-      createClient(
-        supabaseUrl,
-        serviceKey,
-        {
-          auth:{
-            persistSession:false,
-            autoRefreshToken:false,
-          }
-        }
-      );
+    const supabaseAdmin = createSupabaseAdmin();
+    const { data: caller, error: callerError } = await supabaseAdmin
+      .from("profiles")
+      .select("platform_role, active")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (callerError) throw callerError;
+    if (!caller?.active || caller.platform_role !== "platform_owner") {
+      return NextResponse.json({ success: false, message: "SEM PERMISSÃO." }, { status: 403 });
+    }
 
 
 
@@ -113,20 +95,13 @@ export async function GET() {
 
 
 
-    console.log(
-      "EMAILS FILTRADOS:",
-      usuarios
-    );
-
-
-
     return NextResponse.json({
 
       success:true,
 
       usuarios,
 
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
 
 
 

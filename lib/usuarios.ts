@@ -245,9 +245,13 @@ export async function atualizarUsuario(
 
 export async function carregarUsuarioEmails(){
 
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("SESSÃO EXPIRADA");
+
   const response =
     await fetch(
-      "/api/usuarios/emails"
+      "/api/usuarios/emails",
+      { headers: { Authorization: `Bearer ${session.access_token}` } }
     );
 
 
