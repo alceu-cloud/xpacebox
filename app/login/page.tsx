@@ -45,7 +45,7 @@ export default function LoginPage() {
   async function redirecionarUsuario(userId: string) {
     const { data: perfil, error } = await supabase
       .from("profiles")
-      .select("platform_role")
+      .select("platform_role, active")
       .eq("id", userId)
       .single();
 
@@ -55,26 +55,38 @@ export default function LoginPage() {
       return;
     }
 
+    if (!perfil.active) {
+      setMensagem("Seu usuário está desativado. Fale com um administrador.");
+      setVerificando(false);
+      return;
+    }
+
     if (perfil.platform_role === "platform_owner") {
       router.replace("/");
       return;
     }
 
-    const { data: vinculo, error: erroVinculo } = await supabase
+    const { data: vinculos, error: erroVinculo } = await supabase
       .from("company_members")
       .select("company_id")
       .eq("profile_id", userId)
-      .single();
+      .eq("active", true);
 
-    if (erroVinculo || !vinculo) {
+    if (erroVinculo || !vinculos?.length) {
       alert("Usuario sem empresa vinculada.");
+      return;
+    }
+
+    if (vinculos.length > 1) {
+      router.replace("/");
       return;
     }
 
     const { data: empresa, error: erroEmpresa } = await supabase
       .from("companies")
       .select("slug")
-      .eq("id", vinculo.company_id)
+      .eq("id", vinculos[0].company_id)
+      .eq("active", true)
       .single();
 
     if (erroEmpresa || !empresa) {
@@ -82,7 +94,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace(`/empresa/${empresa.slug}`);
+    router.replace(empresa.slug === "xpace" ? "/xpace" : `/empresa/${empresa.slug}`);
   }
 
   async function entrar(event: FormEvent) {
