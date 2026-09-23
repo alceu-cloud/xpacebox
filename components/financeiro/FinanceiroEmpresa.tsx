@@ -608,7 +608,7 @@ function QuoteForm({ kind, editing, form, items, clients, representatives, payme
       {kind === "DIRECT" ? <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>ENDERECO<input value={form.address} onChange={(event) => updateForm("address", event.target.value)} style={inputStyle} /></label> : null}
       <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>OBSERVACOES<textarea value={form.observations} onChange={(event) => updateForm("observations", event.target.value)} style={{ ...inputStyle, minHeight: 84, resize: "vertical" }} /></label>
     </div>
-    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3><div style={itemActionsStyle}>{kind === "ENGINEERING" ? <SearchableSelect ariaLabel="PUXAR PRODUTO CADASTRADO" value={additionalFichaId} onChange={(fichaId) => { setAdditionalFichaId(""); if (fichaId) selectFicha(fichaId); }} disabled={!selectedClientId || !clientFichas.length} inputStyle={additionalItemSelectStyle} placeholder="+ PUXAR PRODUTO CADASTRADO" options={clientFichas.map((ficha: ProductFicha) => ({ value: ficha.id, label: `${ficha.ftNumber} · ${ficha.reference}` }))} /> : null}<button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ITEM MANUAL</button></div></div>
+    <div style={itemsHeadingStyle}><h3 style={sectionTitleStyle}>ITENS DO ORCAMENTO</h3><div style={itemActionsStyle}>{kind === "ENGINEERING" ? <div style={additionalItemSelectWrapStyle}><SearchableSelect ariaLabel="PUXAR PRODUTO CADASTRADO" value={additionalFichaId} onChange={(fichaId) => { setAdditionalFichaId(""); if (fichaId) selectFicha(fichaId); }} disabled={!selectedClientId || !clientFichas.length} inputStyle={additionalItemSelectStyle} placeholder="+ PUXAR PRODUTO CADASTRADO" options={clientFichas.map((ficha: ProductFicha) => ({ value: ficha.id, label: `${ficha.ftNumber} · ${ficha.reference}` }))} /></div> : null}<button type="button" onClick={addItem} style={secondaryButtonStyle}>+ ITEM MANUAL</button></div></div>
     {items.map((item: QuoteItem, index: number) => <div key={index} style={itemCardStyle}>
       <div style={itemCardHeaderStyle}><strong>ITEM {index + 1}</strong><button type="button" onClick={() => removeItem(index)} style={removeButtonStyle} title={`EXCLUIR ITEM ${index + 1}`} aria-label={`EXCLUIR ITEM ${index + 1}`}><Trash2 size={16} aria-hidden="true" /></button></div>
       <div style={itemGridStyle}>
@@ -848,7 +848,7 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
 const shellStyle = { display: "grid", gap: 22 };
 const panelStyle = { ...ui.section };
 const panelHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20 , flexWrap: "wrap" as const };
-const formPanelStyle = { ...panelStyle, background: "linear-gradient(135deg,rgba(0,180,90,.06),rgba(255,255,255,.96))", borderColor: "rgba(0,156,75,.30)" };
+const formPanelStyle = { ...panelStyle, padding: "clamp(20px, 2vw, 32px)", border: "1px solid rgba(0,156,75,.20)", borderRadius: "var(--xb-radius-card)", background: "linear-gradient(135deg,rgba(0,180,90,.06),rgba(255,255,255,.96))" };
 const formHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 , flexWrap: "wrap" as const };
 const eyebrowStyle = { color: "#6f32d2", fontSize: 12, fontWeight: 900, letterSpacing: 0 };
 const titleStyle = { margin: "8px 0 0", color: "#141827", fontWeight: 900 , ...ui.title };
@@ -890,9 +890,10 @@ const formGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-c
 const itemGridStyle = { display: "grid", gridTemplateColumns: "repeat(var(--xb-cols-4), minmax(0, 1fr))", gap: 12 , minWidth: 0 };
 const labelStyle = { display: "grid", gap: 7, color: "#344054", ...ui.label };
 const noticeStyle = { marginBottom: 18, padding: "12px 14px", borderRadius: 10, background: "rgba(111,50,210,.06)", color: "#667085", fontSize: 12, fontWeight: 800 };
-const itemsHeadingStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 14px" , flexWrap: "wrap" as const };
-const itemActionsStyle = { display: "flex", alignItems: "center", flexWrap: "wrap" as const, justifyContent: "flex-end", gap: 10 };
-const additionalItemSelectStyle = { ...inputStyle, width: "auto", minWidth: 260, color: "#6f32d2" };
+const itemsHeadingStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, margin: "28px 0 14px", flexWrap: "wrap" as const };
+const itemActionsStyle = { display: "flex", alignItems: "center", flexWrap: "wrap" as const, justifyContent: "flex-end", gap: 10, maxWidth: "100%" };
+const additionalItemSelectWrapStyle = { flex: "0 1 300px", width: 300, maxWidth: "100%", minWidth: 0 };
+const additionalItemSelectStyle = { ...inputStyle, width: "100%", minWidth: 0, color: "#6f32d2" };
 const itemCardStyle = { marginBottom: 12 , ...ui.frame };
 const itemCardHeaderStyle = { display: "flex", justifyContent: "space-between", marginBottom: 14, color: "#d60078", fontSize: 13, fontWeight: 900 , flexWrap: "wrap" as const };
 const removeButtonStyle = { border: "none", background: "transparent", color: "#ff3b25", fontSize: 11, fontWeight: 900, cursor: "pointer" };
