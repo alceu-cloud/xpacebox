@@ -13,6 +13,9 @@ type Group = { id: string; name: string; schedules: Schedule[]; students: Studen
 type Trial = { id: string; leadName: string; classScheduleId: string; scheduledOn: string; attendanceStatus: Attendance };
 type AgendaResponse = { success: true; groups: Group[]; trialAppointments: Trial[] };
 type OverviewResponse = { success: true; profileName: string; metrics: { trialsThisWeek: number; activeClients: number; newClientsThisMonth: number; newLeadsThisMonth: number }; notifications: Array<{ id: string; title: string; detail: string; createdAt: string }> };
+type MonthlyAppointment = { id: string; lead_id: string; scheduled_on: string; starts_at: string | null; class_name_snapshot: string | null; confirmation_status: string; attendance_status: string; enrollment_outcome: string; outcome_recorded_at: string | null };
+type MonthlyLead = { id: string; full_name: string; pipeline_stage: string; won_at: string | null };
+type MonthlyLeadsResponse = { success: true; monthFrom: string; leads: MonthlyLead[]; appointments: MonthlyAppointment[] };
 type ClassEvent = { group: Group; schedule: Schedule };
 type Tab = "DASHBOARD" | "AGENDA";
 
@@ -129,6 +132,10 @@ function Home({ userId }: { userId: string }) {
   const [agenda, setAgenda] = useState<AgendaResponse | null>(null);
   const [selectedClass, setSelectedClass] = useState<ClassEvent | null>(null);
   const [showWeekTrials, setShowWeekTrials] = useState(false);
+  const [showMonthlyLeads, setShowMonthlyLeads] = useState(false);
+  const [monthlyLeads, setMonthlyLeads] = useState<MonthlyLeadsResponse | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlyError, setMonthlyError] = useState("");
   const [selectedWeekTrial, setSelectedWeekTrial] = useState<Trial | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [lastSeenAt, setLastSeenAt] = useState("");
@@ -156,6 +163,13 @@ function Home({ userId }: { userId: string }) {
     } finally { setRefreshing(false); }
   }, [from, to]);
 
+  const loadMonthlyLeads = useCallback(async () => {
+    setMonthlyLoading(true); setMonthlyError("");
+    try { setMonthlyLeads(await api<MonthlyLeadsResponse>("/api/xpace/mobile/leads")); }
+    catch (cause) { setMonthlyError(cause instanceof Error ? cause.message : "Não foi possível carregar os leads do mês."); }
+    finally { setMonthlyLoading(false); }
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setLastSeenAt(window.localStorage.getItem(seenKey) || ""); }, [seenKey]);
   useEffect(() => {
@@ -178,7 +192,7 @@ function Home({ userId }: { userId: string }) {
   }
 
   function switchTab(next: Tab) {
-    setTab(next); setSelectedClass(null); setShowNotifications(false); setShowWeekTrials(false); setSelectedWeekTrial(null);
+    setTab(next); setSelectedClass(null); setShowNotifications(false); setShowWeekTrials(false); setShowMonthlyLeads(false); setSelectedWeekTrial(null);
   }
 
   function onTouchStart(event: TouchEvent<HTMLElement>) {
@@ -206,7 +220,7 @@ function Home({ userId }: { userId: string }) {
     const shouldRefresh = start.atTop && dy > 0 && dy > Math.abs(dx) * 1.4 && pullDistanceRef.current >= 62;
     pullDistanceRef.current = 0;
     setPullDistance(0);
-    if (shouldRefresh) { void load(); return; }
+    if (shouldRefresh) { void Promise.all([load(), ...(showMonthlyLeads ? [loadMonthlyLeads()] : [])]); return; }
     if (Math.abs(dx) > 90 && Math.abs(dx) > Math.abs(dy) * 1.5) switchTab(dx < 0 ? "AGENDA" : "DASHBOARD");
   }
 
@@ -237,11 +251,46 @@ function Home({ userId }: { userId: string }) {
 
   const showingPullFeedback = refreshing || pullDistance > 0;
   const pullLabel = refreshing ? "Atualizando..." : pullDistance >= 62 ? "Solte para atualizar" : "Puxe para atualizar";
-  return <main className="xp-pocket xp-home"><div className="xp-shell"><header className="xp-top"><div className="xp-top-row"><div className="xp-avatar" aria-hidden="true">{(overview?.profileName || "X").trim().slice(0, 1).toUpperCase()}</div><div className="xp-greeting"><span>BEM-VINDO À XPACE</span><strong>Olá, {firstName(overview?.profileName || "equipe")}!</strong></div><button type="button" className="xp-bell" aria-label={`Notificações${unseen ? `, ${unseen} novas` : ""}`} onClick={openNotifications}><Bell size={23} />{unseen > 0 ? <b>{unseen}</b> : null}</button></div><div className="xp-hero"><span>SEU UNIVERSO XPACE</span><strong>Tudo no seu ritmo.<br />Tudo em um só lugar.</strong><p>Acompanhe sua escola e cuide de cada aula.</p></div></header><div className="xp-content"><nav className="xp-tabs" aria-label="Seções do aplicativo"><button type="button" className={tab === "DASHBOARD" ? "is-active" : ""} aria-current={tab === "DASHBOARD" ? "page" : undefined} onClick={() => switchTab("DASHBOARD")}>Dashboard</button><button type="button" className={tab === "AGENDA" ? "is-active" : ""} aria-current={tab === "AGENDA" ? "page" : undefined} onClick={() => switchTab("AGENDA")}>Agenda</button></nav>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div> : null}<div className={`xp-pull-feedback${showingPullFeedback ? " is-visible" : ""}`} style={{ height: showingPullFeedback ? `${refreshing ? 42 : Math.min(42, pullDistance)}px` : 0 }} aria-live="polite"><RefreshCw size={16} className={refreshing ? "is-spinning" : ""} /><span>{pullLabel}</span></div><div className="xp-main" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>{showNotifications ? <Notifications items={overview?.notifications ?? []} onClose={() => setShowNotifications(false)} /> : tab === "DASHBOARD" ? showWeekTrials ? selectedWeekTrial ? <WeekTrialDetail trial={selectedWeekTrial} agenda={agenda} busyId={busyId} onBack={() => setSelectedWeekTrial(null)} onMark={markTrial} /> : <WeekTrials agenda={agenda} onBack={() => { setShowWeekTrials(false); setSelectedWeekTrial(null); }} onSelect={setSelectedWeekTrial} /> : <Dashboard metrics={overview?.metrics} onShowTrials={() => { setSelectedWeekTrial(null); setShowWeekTrials(true); }} /> : selectedClass ? <ClassDetail event={selectedClass} day={selectedDay} agenda={agenda} busyId={busyId} onBack={() => setSelectedClass(null)} onMark={markTrial} /> : <Agenda selectedDay={selectedDay} week={week} events={events} agenda={agenda} onSelectDay={(day) => { setSelectedDay(day); setSelectedClass(null); }} onSelectClass={setSelectedClass} />}</div><footer className="xp-bottom"><button type="button" onClick={() => void signOut()}><LogOut size={16} /> Sair</button></footer></div></div></main>;
+  return <main className="xp-pocket xp-home"><div className="xp-shell"><header className="xp-top"><div className="xp-top-row"><div className="xp-avatar" aria-hidden="true">{(overview?.profileName || "X").trim().slice(0, 1).toUpperCase()}</div><div className="xp-greeting"><span>BEM-VINDO À XPACE</span><strong>Olá, {firstName(overview?.profileName || "equipe")}!</strong></div><button type="button" className="xp-bell" aria-label={`Notificações${unseen ? `, ${unseen} novas` : ""}`} onClick={openNotifications}><Bell size={23} />{unseen > 0 ? <b>{unseen}</b> : null}</button></div><div className="xp-hero"><span>SEU UNIVERSO XPACE</span><strong>Tudo no seu ritmo.<br />Tudo em um só lugar.</strong><p>Acompanhe sua escola e cuide de cada aula.</p></div></header><div className="xp-content"><nav className="xp-tabs" aria-label="Seções do aplicativo"><button type="button" className={tab === "DASHBOARD" ? "is-active" : ""} aria-current={tab === "DASHBOARD" ? "page" : undefined} onClick={() => switchTab("DASHBOARD")}>Dashboard</button><button type="button" className={tab === "AGENDA" ? "is-active" : ""} aria-current={tab === "AGENDA" ? "page" : undefined} onClick={() => switchTab("AGENDA")}>Agenda</button></nav>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div> : null}<div className={`xp-pull-feedback${showingPullFeedback ? " is-visible" : ""}`} style={{ height: showingPullFeedback ? `${refreshing ? 42 : Math.min(42, pullDistance)}px` : 0 }} aria-live="polite"><RefreshCw size={16} className={refreshing ? "is-spinning" : ""} /><span>{pullLabel}</span></div><div className="xp-main" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>{showNotifications ? <Notifications items={overview?.notifications ?? []} onClose={() => setShowNotifications(false)} /> : tab === "DASHBOARD" ? showMonthlyLeads ? <MonthlyLeads data={monthlyLeads} loading={monthlyLoading} error={monthlyError} onBack={() => setShowMonthlyLeads(false)} onRetry={() => void loadMonthlyLeads()} /> : showWeekTrials ? selectedWeekTrial ? <WeekTrialDetail trial={selectedWeekTrial} agenda={agenda} busyId={busyId} onBack={() => setSelectedWeekTrial(null)} onMark={markTrial} /> : <WeekTrials agenda={agenda} onBack={() => { setShowWeekTrials(false); setSelectedWeekTrial(null); }} onSelect={setSelectedWeekTrial} /> : <Dashboard metrics={overview?.metrics} onShowTrials={() => { setSelectedWeekTrial(null); setShowWeekTrials(true); }} onShowMonthlyLeads={() => { setShowMonthlyLeads(true); void loadMonthlyLeads(); }} /> : selectedClass ? <ClassDetail event={selectedClass} day={selectedDay} agenda={agenda} busyId={busyId} onBack={() => setSelectedClass(null)} onMark={markTrial} /> : <Agenda selectedDay={selectedDay} week={week} events={events} agenda={agenda} onSelectDay={(day) => { setSelectedDay(day); setSelectedClass(null); }} onSelectClass={setSelectedClass} />}</div><footer className="xp-bottom"><button type="button" onClick={() => void signOut()}><LogOut size={16} /> Sair</button></footer></div></div></main>;
 }
 
-function Dashboard({ metrics, onShowTrials }: { metrics?: OverviewResponse["metrics"]; onShowTrials: () => void }) {
-  return <section><p className="xp-eyebrow">VISÃO GERAL</p><h1>Sua escola hoje</h1><p className="xp-subtitle">Indicadores atualizados com os registros do XPACE.</p><div className="xp-metrics"><Metric label="AULAS DA SEMANA" value={metrics?.trialsThisWeek} color="purple" detail="Toque para ver os leads" wide onClick={onShowTrials} /><Metric label="CLIENTES ATIVOS" value={metrics?.activeClients} color="green" /><Metric label="NOVOS CLIENTES" value={metrics?.newClientsThisMonth} color="pink" detail="Matrículas do mês" /><Metric label="NOVOS LEADS" value={metrics?.newLeadsThisMonth} color="orange" detail="Agendaram no mês" /><Metric label="A RECEBER HOJE" value="—" color="green" detail="Não integrado" /><Metric label="A PAGAR HOJE" value="—" color="red" detail="Não integrado" /><Metric label="VENDAS" value="—" color="purple" detail="Não integrado" wide /><Metric label="RECEITA" value="—" color="teal" detail="Não integrado" wide /></div><p className="xp-note">Os cartões financeiros serão ativados quando houver uma fonte consolidada no XPACE.</p></section>;
+function Dashboard({ metrics, onShowTrials, onShowMonthlyLeads }: { metrics?: OverviewResponse["metrics"]; onShowTrials: () => void; onShowMonthlyLeads: () => void }) {
+  return <section><p className="xp-eyebrow">VISÃO GERAL</p><h1>Sua escola hoje</h1><p className="xp-subtitle">Indicadores atualizados com os registros do XPACE.</p><div className="xp-metrics"><Metric label="AULAS DA SEMANA" value={metrics?.trialsThisWeek} color="purple" detail="Toque para ver os leads" wide onClick={onShowTrials} /><Metric label="CLIENTES ATIVOS" value={metrics?.activeClients} color="green" /><Metric label="NOVOS CLIENTES" value={metrics?.newClientsThisMonth} color="pink" detail="Matrículas do mês" /><Metric label="NOVOS LEADS" value={metrics?.newLeadsThisMonth} color="orange" detail="Toque para ver o mês" onClick={onShowMonthlyLeads} /><Metric label="A RECEBER HOJE" value="—" color="green" detail="Não integrado" /><Metric label="A PAGAR HOJE" value="—" color="red" detail="Não integrado" wide /><Metric label="VENDAS" value="—" color="purple" detail="Não integrado" wide /><Metric label="RECEITA" value="—" color="teal" detail="Não integrado" wide /></div><p className="xp-note">Os cartões financeiros serão ativados quando houver uma fonte consolidada no XPACE.</p></section>;
+}
+
+const confirmationLabels: Record<string, string> = { PENDENTE: "Pendente", CONFIRMADO: "Confirmada", NAO_CONFIRMADO: "Não confirmada", NAO_INFORMADO: "Não informada" };
+const attendanceLabels: Record<string, string> = { AGENDADO: "Aguardando", COMPARECEU: "Compareceu", FALTOU: "Faltou", NAO_INFORMADO: "Não informado" };
+
+function daysToEnrollment(appointments: MonthlyAppointment[]) {
+  const recorded = appointments.filter((appointment) => appointment.enrollment_outcome === "MATRICULOU" && appointment.outcome_recorded_at).sort((a, b) => a.outcome_recorded_at!.localeCompare(b.outcome_recorded_at!))[0];
+  if (!recorded?.outcome_recorded_at) return null;
+  const recordedDay = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(recorded.outcome_recorded_at));
+  const difference = Math.round((Date.parse(`${recordedDay}T12:00:00Z`) - Date.parse(`${recorded.scheduled_on}T12:00:00Z`)) / 86_400_000);
+  return difference >= 0 ? difference : null;
+}
+
+function MonthlyLeads({ data, loading, error, onBack, onRetry }: { data: MonthlyLeadsResponse | null; loading: boolean; error: string; onBack: () => void; onRetry: () => void }) {
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const byLead = new Map<string, MonthlyAppointment[]>();
+    for (const appointment of data.appointments) byLead.set(appointment.lead_id, [...(byLead.get(appointment.lead_id) ?? []), appointment]);
+    return data.leads.map((lead) => {
+      const appointments = (byLead.get(lead.id) ?? []).sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on) || (a.starts_at ?? "").localeCompare(b.starts_at ?? ""));
+      const thisMonth = appointments.filter((appointment) => appointment.scheduled_on.slice(0, 7) === data.monthFrom.slice(0, 7));
+      const matriculated = appointments.some((appointment) => appointment.enrollment_outcome === "MATRICULOU");
+      const won = lead.pipeline_stage === "GANHO";
+      return { lead, appointments, thisMonth, matriculated, won, mismatch: matriculated !== won, days: daysToEnrollment(appointments) };
+    }).sort((a, b) => (b.thisMonth[0]?.scheduled_on ?? "").localeCompare(a.thisMonth[0]?.scheduled_on ?? "") || a.lead.full_name.localeCompare(b.lead.full_name, "pt-BR"));
+  }, [data]);
+  const confirmed = rows.filter((row) => row.thisMonth.some((appointment) => appointment.confirmation_status === "CONFIRMADO")).length;
+  const attended = rows.filter((row) => row.thisMonth.some((appointment) => appointment.attendance_status === "COMPARECEU")).length;
+  const absent = rows.filter((row) => !row.thisMonth.some((appointment) => appointment.attendance_status === "COMPARECEU") && row.thisMonth.some((appointment) => appointment.attendance_status === "FALTOU")).length;
+  const matriculated = rows.filter((row) => row.matriculated).length;
+  const won = rows.filter((row) => row.won).length;
+  const mismatches = rows.filter((row) => row.mismatch).length;
+  const monthName = data ? dateFromIso(data.monthFrom).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }) : "mês atual";
+
+  return <section><button type="button" className="xp-back" onClick={onBack}><ChevronLeft size={16} /> Voltar ao painel</button><p className="xp-eyebrow">AULAS EXPERIMENTAIS</p><h1>Leads de {monthName}</h1><p className="xp-subtitle">Pessoas com aula agendada neste mês, contadas uma vez cada. Os resultados de matrícula e funil refletem a situação atual.</p>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={onRetry}>Tentar novamente</button></div> : null}{loading && !data ? <p className="xp-empty" aria-busy="true">Carregando os leads...</p> : data ? <><div className="xp-monthly-stats"><article className="xp-monthly-stat-primary"><small>TOTAL DE LEADS</small><strong>{rows.length}</strong><span>Agendaram no mês</span></article><article><small>CONFIRMARAM</small><strong>{confirmed}</strong></article><article><small>COMPARECERAM</small><strong>{attended}</strong></article><article><small>FALTARAM</small><strong>{absent}</strong><span>Sem presença em outra aula do mês</span></article><article><small>CONVERSÃO ATUAL</small><strong>{rows.length ? Math.round(matriculated / rows.length * 100) : 0}%</strong><span>{matriculated} marcaram “Matriculou”</span></article><article><small>GANHOS NO FUNIL</small><strong>{won}</strong><span>{mismatches ? `${mismatches} para conferir` : "Bate com matrículas"}</span></article></div>{mismatches ? <p className="xp-monthly-warning" role="status">{mismatches} lead{mismatches === 1 ? " está" : "s estão"} com “Matriculou” e “Ganho” diferentes. Confira os cartões abaixo.</p> : null}<div className="xp-monthly-list"><h2>Resumo por lead</h2>{rows.length ? rows.map((row) => <article className="xp-monthly-lead" key={row.lead.id}><div className="xp-monthly-lead-heading"><strong>{row.lead.full_name}</strong><span className={row.mismatch ? "is-warning" : row.matriculated ? "is-converted" : ""}>{row.mismatch ? "CONFERIR" : row.matriculated ? "MATRICULOU" : "EM ACOMPANHAMENTO"}</span></div>{row.appointments.slice(0, 2).map((appointment, index) => <p className="xp-monthly-lesson" key={appointment.id}><b>{index + 1}ª aula</b> · {new Date(`${appointment.scheduled_on}T12:00:00`).toLocaleDateString("pt-BR")} · {appointment.class_name_snapshot || "Aula experimental"}<br /><span>{confirmationLabels[appointment.confirmation_status] ?? appointment.confirmation_status} · {attendanceLabels[appointment.attendance_status] ?? appointment.attendance_status}</span></p>)}{row.appointments.length > 2 ? <small className="xp-monthly-more">+ {row.appointments.length - 2} outra{row.appointments.length - 2 === 1 ? " aula" : "s aulas"} no histórico</small> : null}<div className="xp-monthly-lead-footer"><span>Matrícula: <b>{row.matriculated ? "Sim" : "Não registrada"}</b></span><span>Funil: <b>{row.won ? "Ganho" : row.lead.pipeline_stage.replaceAll("_", " ")}</b></span>{row.days !== null ? <span>Aula → marcação: <b>{row.days} dia{row.days === 1 ? "" : "s"}</b></span> : null}</div></article>) : <p className="xp-empty">Nenhum agendamento registrado neste mês.</p>}</div><p className="xp-note">“Aula → marcação” usa a data em que “Matriculou” foi registrado no CRM, que pode ser diferente da data real da matrícula. Histórico anterior pode precisar de conferência.</p></> : null}</section>;
 }
 
 function WeekTrials({ agenda, onBack, onSelect }: { agenda: AgendaResponse | null; onBack: () => void; onSelect: (trial: Trial) => void }) {

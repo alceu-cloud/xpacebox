@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   try {
     const { admin, company, profile } = await requireCompanyAccess(request, "xpace");
     const period = periods();
-    const [trials, contracts, newContracts, newBookings, recentBookings] = await Promise.all([
+    const [trials, contracts, newContracts, recentBookings] = await Promise.all([
       admin.from("xpace_lead_appointments").select("id", { count: "exact", head: true })
         .eq("tenant_company_id", company.id).gte("scheduled_on", period.weekFrom).lt("scheduled_on", period.weekTo)
         .not("class_schedule_id", "is", null).neq("attendance_status", "CANCELADO"),
@@ -42,16 +42,22 @@ export async function GET(request: Request) {
         .eq("tenant_company_id", company.id).gte("starts_on", period.monthFrom)
         .lt("starts_on", period.nextMonth).in("status", ["ATIVO", "AGENDADO", "PAUSADO"])
         .limit(5000),
-      admin.from("xpace_lead_appointments").select("lead_id")
-        .eq("tenant_company_id", company.id).gte("scheduled_on", period.monthFrom)
-        .lt("scheduled_on", period.nextMonth).neq("attendance_status", "CANCELADO")
-        .limit(5000),
       admin.from("xpace_lead_appointments").select("id,lead_id,created_at,scheduled_on")
         .eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO")
         .order("created_at", { ascending: false }).limit(8),
     ]);
-    for (const result of [trials, contracts, newContracts, newBookings, recentBookings]) {
+    for (const result of [trials, contracts, newContracts, recentBookings]) {
       if (result.error) throw result.error;
+    }
+    const monthlyLeadIds = new Set<string>();
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await admin.from("xpace_lead_appointments").select("id,lead_id")
+        .eq("tenant_company_id", company.id).gte("scheduled_on", period.monthFrom)
+        .lt("scheduled_on", period.nextMonth).neq("attendance_status", "CANCELADO")
+        .order("scheduled_on").order("id").range(offset, offset + 499);
+      if (error) throw error;
+      for (const row of data ?? []) monthlyLeadIds.add(row.lead_id);
+      if (!data || data.length < 500) break;
     }
     const leadIds = [...new Set((recentBookings.data ?? []).map((item) => item.lead_id))];
     const names = new Map<string, string>();
@@ -68,7 +74,7 @@ export async function GET(request: Request) {
         trialsThisWeek: trials.count ?? 0,
         activeClients: new Set((contracts.data ?? []).map((row) => row.student_id)).size,
         newClientsThisMonth: new Set((newContracts.data ?? []).map((row) => row.student_id)).size,
-        newLeadsThisMonth: new Set((newBookings.data ?? []).map((row) => row.lead_id)).size,
+        newLeadsThisMonth: monthlyLeadIds.size,
       },
       notifications: (recentBookings.data ?? []).map((row) => ({
         id: row.id,

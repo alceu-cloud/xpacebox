@@ -95,11 +95,11 @@ async function updateLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   if (changesContact && email && !/^\S+@\S+\.\S+$/.test(email)) throw new RequestError("INFORME UM E-MAIL VÁLIDO.", 400);
   await Promise.all([validateSource(access, sourceId), validateLossReason(access, lossReasonId), validateAttendant(access, assignedTo)]);
   if (pipelineStage === "PERDIDO" && !lossReasonId && !lossNote) throw new RequestError("INFORME O MOTIVO OU UMA OBSERVAÇÃO PARA MARCAR O LEAD COMO PERDIDO.", 400);
-  const { data: current, error: currentError } = await access.admin.from("xpace_leads").select("id,pipeline_stage").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
+  const { data: current, error: currentError } = await access.admin.from("xpace_leads").select("id,pipeline_stage,won_at,lost_at").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
   const stamp = new Date().toISOString();
-  const patch = { pipeline_stage: pipelineStage, source_id: sourceId, assigned_to: assignedTo, loss_reason_id: lossReasonId, loss_note: lossNote || null, won_at: pipelineStage === "GANHO" ? stamp : null, lost_at: pipelineStage === "PERDIDO" ? stamp : null, updated_by: access.profile.id, updated_at: stamp, ...(changesContact ? { full_name: fullName, mobile: mobile || null, email: email || null } : {}) };
+  const patch = { pipeline_stage: pipelineStage, source_id: sourceId, assigned_to: assignedTo, loss_reason_id: lossReasonId, loss_note: lossNote || null, won_at: pipelineStage === "GANHO" ? current.pipeline_stage === "GANHO" ? current.won_at ?? stamp : stamp : null, lost_at: pipelineStage === "PERDIDO" ? current.pipeline_stage === "PERDIDO" ? current.lost_at ?? stamp : stamp : null, updated_by: access.profile.id, updated_at: stamp, ...(changesContact ? { full_name: fullName, mobile: mobile || null, email: email || null } : {}) };
   const { error } = await access.admin.from("xpace_leads").update(patch).eq("id", id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
   const stageChanged = current.pipeline_stage !== pipelineStage;
@@ -187,14 +187,17 @@ async function updateAppointment(access: Awaited<ReturnType<typeof requireCompan
   const actualInstructorId = nullableId(raw?.actualInstructorId);
   const note = text(raw?.note);
   if (!id) throw new RequestError("AGENDAMENTO INVÁLIDO.", 400);
-  const { data: current, error: currentError } = await access.admin.from("xpace_lead_appointments").select("id,lead_id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
+  const { data: current, error: currentError } = await access.admin.from("xpace_lead_appointments").select("id,lead_id,confirmation_status,attendance_status,enrollment_outcome,welcome_delivery_status,confirmed_at,attended_at,outcome_recorded_at,welcome_delivered_at").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("AGENDAMENTO NÃO ENCONTRADO.", 404);
   const actualInstructor = changesActualInstructor ? await resolveInstructor(access, actualInstructorId) : null;
   const stamp = new Date().toISOString();
-  const { error } = await access.admin.from("xpace_lead_appointments").update({ confirmation_status: confirmationStatus, attendance_status: attendanceStatus, enrollment_outcome: enrollmentOutcome, survey_status: surveyStatus, welcome_delivery_status: welcomeDeliveryStatus, note: note || null, confirmed_at: confirmationStatus === "CONFIRMADO" ? stamp : null, attended_at: attendanceStatus === "COMPARECEU" ? stamp : null, outcome_recorded_at: enrollmentOutcome !== "PENDENTE" ? stamp : null, welcome_delivered_at: welcomeDeliveryStatus === "ENVIADO" ? stamp : null, ...(changesActualInstructor ? { actual_instructor_id: actualInstructor?.id ?? null, actual_instructor_name_snapshot: actualInstructor?.full_name ?? null } : {}), updated_by: access.profile.id, updated_at: stamp }).eq("id", id).eq("tenant_company_id", access.company.id);
+  const { error } = await access.admin.from("xpace_lead_appointments").update({ confirmation_status: confirmationStatus, attendance_status: attendanceStatus, enrollment_outcome: enrollmentOutcome, survey_status: surveyStatus, welcome_delivery_status: welcomeDeliveryStatus, note: note || null, confirmed_at: confirmationStatus === "CONFIRMADO" ? current.confirmation_status === "CONFIRMADO" ? current.confirmed_at ?? stamp : stamp : null, attended_at: attendanceStatus === "COMPARECEU" ? current.attendance_status === "COMPARECEU" ? current.attended_at ?? stamp : stamp : null, outcome_recorded_at: enrollmentOutcome !== "PENDENTE" ? current.enrollment_outcome === enrollmentOutcome ? current.outcome_recorded_at ?? stamp : stamp : null, welcome_delivered_at: welcomeDeliveryStatus === "ENVIADO" ? current.welcome_delivery_status === "ENVIADO" ? current.welcome_delivered_at ?? stamp : stamp : null, ...(changesActualInstructor ? { actual_instructor_id: actualInstructor?.id ?? null, actual_instructor_name_snapshot: actualInstructor?.full_name ?? null } : {}), updated_by: access.profile.id, updated_at: stamp }).eq("id", id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
-  if (enrollmentOutcome === "MATRICULOU") await access.admin.from("xpace_leads").update({ pipeline_stage: "GANHO", won_at: stamp, updated_by: access.profile.id, updated_at: stamp }).eq("id", current.lead_id).eq("tenant_company_id", access.company.id);
+  if (enrollmentOutcome === "MATRICULOU") {
+    const { error: leadError } = await access.admin.from("xpace_leads").update({ pipeline_stage: "GANHO", won_at: stamp, lost_at: null, updated_by: access.profile.id, updated_at: stamp }).eq("id", current.lead_id).eq("tenant_company_id", access.company.id).neq("pipeline_stage", "GANHO");
+    if (leadError) throw leadError;
+  }
   await activity(access, current.lead_id, id, "AGENDAMENTO_ATUALIZADO", `CONFIRMAÇÃO: ${confirmationStatus} · PRESENÇA: ${attendanceStatus} · MATRÍCULA: ${enrollmentOutcome}.${changesActualInstructor ? ` PROFESSOR: ${actualInstructor?.full_name ?? "NÃO INFORMADO"}.` : ""}`);
   return NextResponse.json({ success: true });
 }

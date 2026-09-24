@@ -83,6 +83,27 @@
 .xp-week-trial-button small { color: var(--xp-muted); font-size: 12px; line-height: 1.35; }
 .xp-week-trial-button svg { flex: 0 0 auto; color: var(--xp-violet); }
 .xp-week-trials-screen .xp-empty { margin: 0; border-radius: 0; }
+.xp-monthly-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 18px 0 22px; }
+.xp-monthly-stats article { min-height: 94px; padding: 14px; border: 1px solid var(--xp-line); border-radius: 15px; background: #fff; }
+.xp-monthly-stats .xp-monthly-stat-primary { grid-column: 1 / -1; min-height: 110px; background: #f3e9fc; }
+.xp-monthly-stats small { display: block; color: var(--xp-muted); font-size: 10px; font-weight: 900; letter-spacing: .06em; }
+.xp-monthly-stats strong { display: block; margin-top: 9px; color: var(--xp-violet); font-size: 27px; font-variant-numeric: tabular-nums; line-height: 1; }
+.xp-monthly-stats .xp-monthly-stat-primary strong { font-size: 36px; }
+.xp-monthly-stats span { display: block; margin-top: 5px; color: var(--xp-muted); font-size: 11px; line-height: 1.35; }
+.xp-monthly-warning { margin: 0 0 20px; padding: 12px 14px; border-radius: 11px; background: #fff1e7; color: #934916; font-size: 12px; font-weight: 700; line-height: 1.4; }
+.xp-monthly-list h2 { margin: 0 0 10px; font-size: 16px; }
+.xp-monthly-lead { margin-bottom: 11px; padding: 15px; border: 1px solid var(--xp-line); border-radius: 15px; background: #fff; }
+.xp-monthly-lead-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 7px; margin-bottom: 10px; }
+.xp-monthly-lead-heading strong { flex: 1 1 170px; font-size: 16px; line-height: 1.3; }
+.xp-monthly-lead-heading span { padding: 4px 7px; border-radius: 7px; background: #f3eef7; color: var(--xp-muted); font-size: 9px; font-weight: 900; letter-spacing: .03em; }
+.xp-monthly-lead-heading span.is-converted { background: #e5f4ec; color: #1e7550; }
+.xp-monthly-lead-heading span.is-warning { background: #fff1e7; color: #934916; }
+.xp-monthly-lesson { margin: 7px 0; color: var(--xp-ink); font-size: 12px; line-height: 1.5; }
+.xp-monthly-lesson b { color: var(--xp-violet); }
+.xp-monthly-lesson span, .xp-monthly-more { color: var(--xp-muted); }
+.xp-monthly-more { display: block; margin: 4px 0 0; font-size: 11px; }
+.xp-monthly-lead-footer { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--xp-line); color: var(--xp-muted); font-size: 11px; }
+.xp-monthly-lead-footer b { color: var(--xp-ink); }
 .xp-bottom { display: flex; justify-content: flex-end; gap: 12px; padding: 10px 0 0; border-top: 1px solid var(--xp-line); }
 .xp-bottom button { display: flex; align-items: center; gap: 6px; min-height: 39px; padding: 0 8px; border: 0; background: transparent; color: var(--xp-violet); font-size: 12px; font-weight: 800; }
 .xp-bottom .is-spinning { animation: xp-spin .8s linear infinite; }
