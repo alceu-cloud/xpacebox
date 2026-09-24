@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import DanceWorkspace from "@/components/xpace-dance/DanceWorkspace";
 import { supabase } from "@/lib/supabase";
 
+type XpaceAccess = { success: true; canAccessCentral: boolean };
+
 export default function XpacePage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [canAccessCentral, setCanAccessCentral] = useState(false);
 
   useEffect(() => {
     async function checkAccess() {
@@ -18,15 +21,22 @@ export default function XpacePage() {
         return;
       }
       const response = await fetch("/api/empresas/xpace", { headers: { Authorization: `Bearer ${session.access_token}` } });
-      if (!response.ok) {
+      const payload = await response.json().catch(() => null) as XpaceAccess | null;
+      if (!response.ok || !payload?.success) {
         router.replace("/");
         return;
       }
+      setCanAccessCentral(payload.canAccessCentral === true);
       setAuthorized(true);
     }
     void checkAccess();
   }, [router]);
 
   if (!authorized) return <main className="xd-loading" aria-busy="true">CARREGANDO AMBIENTE</main>;
-  return <DanceWorkspace />;
+  async function exitXpace() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
+  return <DanceWorkspace canAccessCentral={canAccessCentral} onExit={exitXpace} />;
 }

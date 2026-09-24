@@ -17,8 +17,8 @@ function handleError(error: unknown) {
 
 export async function GET(request: Request) {
   try {
-    const { company } = await requireCompanyAccess(request, companyData.slug);
-    return NextResponse.json({ success: true, company: { id: company.id, name: company.name, slug: company.slug } });
+    const { company, profile } = await requireCompanyAccess(request, companyData.slug);
+    return NextResponse.json({ success: true, company: { id: company.id, name: company.name, slug: company.slug }, canAccessCentral: profile.platform_role === "platform_owner" });
   } catch (error) {
     return handleError(error);
   }
