@@ -132,8 +132,10 @@ function Home({ userId }: { userId: string }) {
   const [lastSeenAt, setLastSeenAt] = useState("");
   const [busyId, setBusyId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
   const [error, setError] = useState("");
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const touchStart = useRef<{ x: number; y: number; atTop: boolean } | null>(null);
+  const pullDistanceRef = useRef(0);
   const week = useMemo(() => weekDays(selectedDay), [selectedDay]);
   const from = week[0];
   const to = week[6];
@@ -178,7 +180,19 @@ function Home({ userId }: { userId: string }) {
   }
 
   function onTouchStart(event: TouchEvent<HTMLElement>) {
-    touchStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    touchStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY, atTop: window.scrollY <= 0 };
+  }
+
+  function onTouchMove(event: TouchEvent<HTMLElement>) {
+    const start = touchStart.current;
+    if (!start || !start.atTop || refreshing) return;
+    const dx = event.touches[0].clientX - start.x;
+    const dy = event.touches[0].clientY - start.y;
+    if (dy > 0 && dy > Math.abs(dx) * 1.4) {
+      const nextDistance = Math.min(76, Math.round(dy * 0.42));
+      pullDistanceRef.current = nextDistance;
+      setPullDistance(nextDistance);
+    }
   }
 
   function onTouchEnd(event: TouchEvent<HTMLElement>) {
@@ -187,6 +201,10 @@ function Home({ userId }: { userId: string }) {
     if (!start) return;
     const dx = event.changedTouches[0].clientX - start.x;
     const dy = event.changedTouches[0].clientY - start.y;
+    const shouldRefresh = start.atTop && dy > 0 && dy > Math.abs(dx) * 1.4 && pullDistanceRef.current >= 62;
+    pullDistanceRef.current = 0;
+    setPullDistance(0);
+    if (shouldRefresh) { void load(); return; }
     if (Math.abs(dx) > 90 && Math.abs(dx) > Math.abs(dy) * 1.5) switchTab(dx < 0 ? "AGENDA" : "DASHBOARD");
   }
 
@@ -215,15 +233,25 @@ function Home({ userId }: { userId: string }) {
     await supabase.auth.signOut();
   }
 
-  return <main className="xp-pocket xp-home"><div className="xp-shell"><header className="xp-top"><div className="xp-top-row"><div className="xp-avatar" aria-hidden="true">{(overview?.profileName || "X").trim().slice(0, 1).toUpperCase()}</div><div className="xp-greeting"><span>BEM-VINDO À XPACE</span><strong>Olá, {firstName(overview?.profileName || "equipe")}!</strong></div><button type="button" className="xp-bell" aria-label={`Notificações${unseen ? `, ${unseen} novas` : ""}`} onClick={openNotifications}><Bell size={23} />{unseen > 0 ? <b>{unseen}</b> : null}</button></div><div className="xp-hero"><span>SEU UNIVERSO XPACE</span><strong>Tudo no seu ritmo.<br />Tudo em um só lugar.</strong><p>Acompanhe sua escola e cuide de cada aula.</p></div></header><div className="xp-content"><nav className="xp-tabs" aria-label="Seções do aplicativo"><button type="button" className={tab === "DASHBOARD" ? "is-active" : ""} aria-current={tab === "DASHBOARD" ? "page" : undefined} onClick={() => switchTab("DASHBOARD")}>Dashboard</button><button type="button" className={tab === "AGENDA" ? "is-active" : ""} aria-current={tab === "AGENDA" ? "page" : undefined} onClick={() => switchTab("AGENDA")}>Agenda</button></nav>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div> : null}<div className="xp-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>{showNotifications ? <Notifications items={overview?.notifications ?? []} onClose={() => setShowNotifications(false)} /> : tab === "DASHBOARD" ? <Dashboard metrics={overview?.metrics} /> : selectedClass ? <ClassDetail event={selectedClass} day={selectedDay} agenda={agenda} busyId={busyId} onBack={() => setSelectedClass(null)} onMark={markTrial} /> : <Agenda selectedDay={selectedDay} week={week} events={events} agenda={agenda} onSelectDay={(day) => { setSelectedDay(day); setSelectedClass(null); }} onSelectClass={setSelectedClass} />}</div><footer className="xp-bottom"><button type="button" onClick={() => void load()} disabled={refreshing}><RefreshCw size={16} className={refreshing ? "is-spinning" : ""} /> Atualizar</button><button type="button" onClick={() => void signOut()}><LogOut size={16} /> Sair</button></footer></div></div></main>;
+  const showingPullFeedback = refreshing || pullDistance > 0;
+  const pullLabel = refreshing ? "Atualizando..." : pullDistance >= 62 ? "Solte para atualizar" : "Puxe para atualizar";
+  return <main className="xp-pocket xp-home"><div className="xp-shell"><header className="xp-top"><div className="xp-top-row"><div className="xp-avatar" aria-hidden="true">{(overview?.profileName || "X").trim().slice(0, 1).toUpperCase()}</div><div className="xp-greeting"><span>BEM-VINDO À XPACE</span><strong>Olá, {firstName(overview?.profileName || "equipe")}!</strong></div><button type="button" className="xp-bell" aria-label={`Notificações${unseen ? `, ${unseen} novas` : ""}`} onClick={openNotifications}><Bell size={23} />{unseen > 0 ? <b>{unseen}</b> : null}</button></div><div className="xp-hero"><span>SEU UNIVERSO XPACE</span><strong>Tudo no seu ritmo.<br />Tudo em um só lugar.</strong><p>Acompanhe sua escola e cuide de cada aula.</p></div></header><div className="xp-content"><nav className="xp-tabs" aria-label="Seções do aplicativo"><button type="button" className={tab === "DASHBOARD" ? "is-active" : ""} aria-current={tab === "DASHBOARD" ? "page" : undefined} onClick={() => switchTab("DASHBOARD")}>Dashboard</button><button type="button" className={tab === "AGENDA" ? "is-active" : ""} aria-current={tab === "AGENDA" ? "page" : undefined} onClick={() => switchTab("AGENDA")}>Agenda</button></nav>{error ? <div className="xp-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Tentar novamente</button></div> : null}<div className={`xp-pull-feedback${showingPullFeedback ? " is-visible" : ""}`} style={{ height: showingPullFeedback ? `${refreshing ? 42 : Math.min(42, pullDistance)}px` : 0 }} aria-live="polite"><RefreshCw size={16} className={refreshing ? "is-spinning" : ""} /><span>{pullLabel}</span></div><div className="xp-main" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>{showNotifications ? <Notifications items={overview?.notifications ?? []} onClose={() => setShowNotifications(false)} /> : tab === "DASHBOARD" ? <Dashboard metrics={overview?.metrics} agenda={agenda} /> : selectedClass ? <ClassDetail event={selectedClass} day={selectedDay} agenda={agenda} busyId={busyId} onBack={() => setSelectedClass(null)} onMark={markTrial} /> : <Agenda selectedDay={selectedDay} week={week} events={events} agenda={agenda} onSelectDay={(day) => { setSelectedDay(day); setSelectedClass(null); }} onSelectClass={setSelectedClass} />}</div><footer className="xp-bottom"><button type="button" onClick={() => void signOut()}><LogOut size={16} /> Sair</button></footer></div></div></main>;
 }
 
-function Dashboard({ metrics }: { metrics?: OverviewResponse["metrics"] }) {
-  return <section><p className="xp-eyebrow">VISÃO GERAL</p><h1>Sua escola hoje</h1><p className="xp-subtitle">Indicadores atualizados com os registros do XPACE.</p><div className="xp-metrics"><Metric label="EXPERIMENTAIS DA SEMANA" value={metrics?.trialsThisWeek} color="purple" wide /><Metric label="CLIENTES ATIVOS" value={metrics?.activeClients} color="green" /><Metric label="NOVOS CLIENTES" value={metrics?.newClientsThisMonth} color="pink" detail="Matrículas do mês" /><Metric label="NOVOS LEADS" value={metrics?.newLeadsThisMonth} color="orange" detail="Agendaram no mês" /><Metric label="A RECEBER HOJE" value="—" color="green" detail="Não integrado" /><Metric label="A PAGAR HOJE" value="—" color="red" detail="Não integrado" /><Metric label="VENDAS" value="—" color="purple" detail="Não integrado" wide /><Metric label="RECEITA" value="—" color="teal" detail="Não integrado" wide /></div><p className="xp-note">Os cartões financeiros serão ativados quando houver uma fonte consolidada no XPACE.</p></section>;
+function Dashboard({ metrics, agenda }: { metrics?: OverviewResponse["metrics"]; agenda: AgendaResponse | null }) {
+  const [showTrials, setShowTrials] = useState(false);
+  const trials = useMemo(() => (agenda?.trialAppointments ?? []).filter((trial) => trial.attendanceStatus !== "CANCELADO").map((trial) => {
+    const match = agenda?.groups.flatMap((group) => group.schedules.map((schedule) => ({ group, schedule }))).find((item) => item.schedule.id === trial.classScheduleId);
+    return { trial, groupName: match?.group.name || "AULA NÃO ENCONTRADA", roomName: match?.schedule.roomName || "Sala a definir", instructorName: match?.schedule.instructorName || "Professor a definir", startsAt: match?.schedule.startsAt || "" };
+  }).sort((left, right) => left.trial.scheduledOn.localeCompare(right.trial.scheduledOn) || left.startsAt.localeCompare(right.startsAt)), [agenda]);
+
+  return <section><p className="xp-eyebrow">VISÃO GERAL</p><h1>Sua escola hoje</h1><p className="xp-subtitle">Indicadores atualizados com os registros do XPACE.</p><div className="xp-metrics"><Metric label="AULAS DA SEMANA" value={metrics?.trialsThisWeek} color="purple" detail="Toque para ver os leads" wide onClick={() => setShowTrials((current) => !current)} expanded={showTrials} /><Metric label="CLIENTES ATIVOS" value={metrics?.activeClients} color="green" /><Metric label="NOVOS CLIENTES" value={metrics?.newClientsThisMonth} color="pink" detail="Matrículas do mês" /><Metric label="NOVOS LEADS" value={metrics?.newLeadsThisMonth} color="orange" detail="Agendaram no mês" /><Metric label="A RECEBER HOJE" value="—" color="green" detail="Não integrado" /><Metric label="A PAGAR HOJE" value="—" color="red" detail="Não integrado" /><Metric label="VENDAS" value="—" color="purple" detail="Não integrado" wide /><Metric label="RECEITA" value="—" color="teal" detail="Não integrado" wide /></div>{showTrials ? <section className="xp-week-trials" aria-label="Leads com aula experimental nesta semana"><div><strong>LEADS DAS AULAS DA SEMANA</strong><span>{trials.length} agendamento{trials.length === 1 ? "" : "s"}</span></div>{trials.length ? trials.map(({ trial, groupName, roomName, instructorName, startsAt }) => <article key={trial.id}><strong>{trial.leadName}</strong><span>Aula: {groupName} · {formatDate(trial.scheduledOn)}{startsAt ? ` · ${startsAt}` : ""}</span><span>Professor: {instructorName}</span><span>Sala: {roomName}</span></article>) : <p className="xp-empty">Nenhum lead agendado nesta semana.</p>}</section> : null}<p className="xp-note">Os cartões financeiros serão ativados quando houver uma fonte consolidada no XPACE.</p></section>;
 }
 
-function Metric({ label, value, color, detail, wide = false }: { label: string; value: number | string | undefined; color: string; detail?: string; wide?: boolean }) {
-  return <article className={`xp-metric xp-${color}${wide ? " xp-wide" : ""}`}><span>{label}</span><strong>{value ?? "—"}</strong>{detail ? <small>{detail}</small> : null}</article>;
+function Metric({ label, value, color, detail, wide = false, onClick, expanded = false }: { label: string; value: number | string | undefined; color: string; detail?: string; wide?: boolean; onClick?: () => void; expanded?: boolean }) {
+  const className = `xp-metric xp-${color}${wide ? " xp-wide" : ""}${onClick ? " xp-metric-button" : ""}`;
+  const content = <><span>{label}</span><strong>{value ?? "—"}</strong>{detail ? <small>{detail}</small> : null}</>;
+  return onClick ? <button type="button" className={className} onClick={onClick} aria-expanded={expanded} aria-label={`${label}: ${value ?? "sem dados"}. ${expanded ? "Ocultar" : "Ver"} leads`}>{content}</button> : <article className={className}>{content}</article>;
 }
 
 function Notifications({ items, onClose }: { items: OverviewResponse["notifications"]; onClose: () => void }) {
