@@ -25,6 +25,10 @@ export async function loadCrmOverview(slug: string): Promise<CrmOverview> {
   return payload.overview;
 }
 
+export async function loadUnplannedDawosClients(): Promise<{ profileId: string; scheduledClientIds: string[]; blockedClientIds: string[] }> {
+  return authorizedFetch("/api/crm/unplanned-clients", { cache: "no-store" });
+}
+
 export async function loadCrmOperationalLock(slug: string): Promise<CrmOperationalLock | null> {
   const payload = await authorizedFetch(`/api/crm/lock?slug=${encodeURIComponent(slug)}`);
   return payload.lock ?? null;

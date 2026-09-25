@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, ClipboardList, ContactRound, PackageCheck, TrendingUp } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronRight, ClipboardList, ContactRound, PackageCheck, TrendingUp, X } from "lucide-react";
 
 import {
   deactivateClient,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/clientes";
 import AmostrasEmpresa from "@/components/clientes/AmostrasEmpresa";
 import CrmEmpresa from "@/components/clientes/CrmEmpresa";
+import { loadUnplannedDawosClients } from "@/lib/crm";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
@@ -90,6 +91,11 @@ export default function ClientesEmpresa({
   const [showClientForm, setShowClientForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras" | null>(null);
   const [crmView, setCrmView] = useState<"agenda" | "carteira" | "pipeline">("agenda");
+  const [unplannedData, setUnplannedData] = useState<{ profileId: string; scheduledClientIds: string[]; blockedClientIds: string[] } | null>(null);
+  const [unplannedError, setUnplannedError] = useState("");
+  const [unplannedCheckVersion, setUnplannedCheckVersion] = useState(0);
+  const [showUnplannedAlert, setShowUnplannedAlert] = useState(false);
+  const [alertClientId, setAlertClientId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -101,6 +107,34 @@ export default function ClientesEmpresa({
   useEffect(() => {
     if (forceCrm) setActiveTab("crm");
   }, [forceCrm]);
+
+  const inCrm = activeTab === "crm";
+  useEffect(() => {
+    if (slug !== "dawos" || forceCrm || inCrm) return;
+    let active = true;
+    setUnplannedError("");
+    setUnplannedData(null);
+    void loadUnplannedDawosClients()
+      .then((result) => { if (active) setUnplannedData(result); })
+      .catch((cause: unknown) => { if (active) setUnplannedError(messageFrom(cause)); });
+    return () => { active = false; };
+  }, [slug, forceCrm, inCrm, unplannedCheckVersion]);
+
+  const unplannedClients = useMemo(() => {
+    if (!unplannedData) return [];
+    const scheduled = new Set(unplannedData.scheduledClientIds);
+    const blocked = new Set(unplannedData.blockedClientIds);
+    return clients.filter((client) => !scheduled.has(client.id) && !blocked.has(client.id))
+      .sort((first, second) => (first.tradeName || first.legalName).localeCompare(second.tradeName || second.legalName, "pt-BR"));
+  }, [clients, unplannedData]);
+
+  useEffect(() => {
+    if (slug !== "dawos" || loading || forceCrm || forcedClientId || inCrm || !unplannedData || !unplannedClients.length) return;
+    const seenKey = `dawos-unplanned-alert-${unplannedData.profileId}`;
+    if (window.sessionStorage.getItem(seenKey)) return;
+    window.sessionStorage.setItem(seenKey, "1");
+    setShowUnplannedAlert(true);
+  }, [slug, loading, forceCrm, forcedClientId, inCrm, unplannedData, unplannedClients.length]);
 
   useEffect(() => {
     let active = true;
@@ -314,8 +348,16 @@ export default function ClientesEmpresa({
     }
   }
 
+  function openUnplannedClient(clientId: string) {
+    setShowUnplannedAlert(false);
+    setAlertClientId(clientId);
+    setCrmView("carteira");
+    setActiveTab("crm");
+  }
+
   return (
     <section className="clients-module">
+      {showUnplannedAlert && unplannedClients.length ? <UnplannedClientsAlert clients={unplannedClients} onClose={() => setShowUnplannedAlert(false)} onOpenClient={openUnplannedClient} /> : null}
       {activeTab === "crm" ? (
         <SectionNavigation
           label="VISOES DO CRM"
@@ -354,6 +396,16 @@ export default function ClientesEmpresa({
         />
       )}
 
+      {slug === "dawos" && !forceCrm && activeTab !== "crm" && unplannedClients.length > 0 ? (
+        <div className="clients-unplanned-reminder" role="status">
+          <span><CalendarDays size={18} aria-hidden="true" /><strong>{unplannedClients.length} cliente{unplannedClients.length === 1 ? "" : "s"} sem próxima ação</strong></span>
+          <button type="button" onClick={() => setShowUnplannedAlert(true)}>Ver clientes <ChevronRight size={16} aria-hidden="true" /></button>
+        </div>
+      ) : null}
+      {slug === "dawos" && !forceCrm && activeTab !== "crm" && unplannedError ? (
+        <div className="clients-unplanned-retry" role="alert"><span>Não foi possível conferir quem está sem agenda.</span><button type="button" onClick={() => setUnplannedCheckVersion((value) => value + 1)}>Tentar novamente</button></div>
+      ) : null}
+
       {activeTab === "crm" && (
         <CrmEmpresa
           slug={slug}
@@ -362,7 +414,7 @@ export default function ClientesEmpresa({
           sellerCompanies={sellerCompanies}
           productFichas={productFichas}
           lostReasons={lostReasons}
-          forcedClientId={forcedClientId}
+          forcedClientId={forcedClientId || alertClientId}
           view={crmView}
           onViewChange={setCrmView}
         />
@@ -574,6 +626,24 @@ export default function ClientesEmpresa({
       </section>
     </section>
   );
+}
+
+function UnplannedClientsAlert({ clients, onClose, onOpenClient }: { clients: ClientRecord[]; onClose: () => void; onOpenClient: (clientId: string) => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => { if (dialog?.open) dialog.close(); };
+  }, []);
+
+  return <dialog ref={dialogRef} className="clients-unplanned-dialog" aria-labelledby="clients-unplanned-title" onClose={onClose} onCancel={onClose}>
+    <div className="clients-unplanned-dialog-top"><span>ATENÇÃO À CARTEIRA · DAWOS</span><button type="button" onClick={onClose} aria-label="Fechar aviso"><X size={19} aria-hidden="true" /></button></div>
+    <div className="clients-unplanned-dialog-intro"><span>{clients.length}</span><div><h2 id="clients-unplanned-title">cliente{clients.length === 1 ? "" : "s"} sem próxima ação</h2><p>Estão sem uma atividade pendente na agenda do CRM. Abra a carteira para programar o próximo contato.</p></div></div>
+    <div className="clients-unplanned-dialog-list" aria-label="Clientes sem próxima ação">{clients.map((client) => <button type="button" key={client.id} onClick={() => onOpenClient(client.id)}><span><strong>{client.tradeName || client.legalName}</strong><small>{client.clientCode} · {client.representativeName || "Sem responsável"}</small></span><ChevronRight size={18} aria-hidden="true" /></button>)}</div>
+    <p className="clients-unplanned-dialog-note">Tarefas atrasadas não entram aqui: continuam visíveis na agenda.</p>
+    <div className="clients-unplanned-dialog-actions"><button type="button" onClick={onClose}>Ver depois</button></div>
+  </dialog>;
 }
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {

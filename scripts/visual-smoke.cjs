@@ -32,7 +32,7 @@ const visualEngineeringFormulas=[
   ['tab-bc','TABULEIRO - BC','ACESSÓRIO','BC','L','C'],
 ].map(([id,description,category,wave,widthFormula,lengthFormula])=>({id,style:id.toUpperCase(),description,category,wave,widthFormula,lengthFormula}));
 
-async function setup(browser,viewport,role='platform_owner') {
+async function setup(browser,viewport,role='platform_owner',withUnplanned=false) {
   const context=await browser.newContext({viewport,deviceScaleFactor:1});
   // Test-only session and network fixtures. No authentication or data changes reach Supabase.
   if (role) await context.addInitScript(({key,user})=>localStorage.setItem(key,JSON.stringify({access_token:'test-only-token',refresh_token:'test-only-refresh',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,user})),{key:`sb-${project}-auth-token`,user});
@@ -52,6 +52,7 @@ async function setup(browser,viewport,role='platform_owner') {
     }
     if(url.pathname.startsWith('/api/')) {
       if(req.method()!=='GET'){writes.push(req.method()+' '+url.pathname);return send({success:false,message:'Test blocks writes'});}
+      if(url.pathname==='/api/crm/unplanned-clients')return send({success:true,profileId:user.id,scheduledClientIds:withUnplanned?[]:[client.id],blockedClientIds:[]});
       if(url.pathname==='/api/gerenciador')return send({success:true,settings:{engineeringFormulas:visualEngineeringFormulas},representatives:[rep]});
       if(url.pathname==='/api/clientes')return send({success:true,clients:[client]});
       if(url.pathname==='/api/clientes/opcoes')return send({success:true,options:{sellerCompanies:[company],representatives:[rep]}});
@@ -86,6 +87,20 @@ async function snapshot(page,name){
 (async()=>{
   const browser=await chromium.launch({headless:true,channel:'chrome'});
   try {
+    for(const [label,viewport] of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]) {
+      const {context,page,errors,writes}=await setup(browser,viewport,'platform_owner',true);
+      await page.goto(`${origin}/empresa/dawos`);
+      await page.locator('.xb-module-list').getByRole('button',{name:'CLIENTES',exact:true}).click();
+      await page.getByRole('dialog',{name:/cliente sem próxima ação/i}).waitFor();
+      await snapshot(page,`${label}-clients-unplanned-alert`);
+      await page.getByRole('dialog',{name:/cliente sem próxima ação/i}).getByRole('button',{name:/TESTE VISUAL/}).click();
+      await page.getByRole('button',{name:'CARTEIRA',exact:true}).waitFor();
+      await snapshot(page,`${label}-clients-unplanned-opened`);
+      assert.deepEqual(errors,[],`${label} unplanned alert errors`);
+      assert.deepEqual(writes,[],`${label} unplanned alert writes`);
+      await context.close();
+    }
+    if(process.env.TEST_SCOPE==='unplanned') return;
     for(const [label,viewport] of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}],['small-mobile',{width:320,height:740}],['tablet',{width:768,height:1024}]]) {
       const {page,context,errors,writes}=await setup(browser,viewport);
       await page.goto(`${origin}/empresa/dawos`);

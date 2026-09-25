@@ -1205,6 +1205,34 @@ button {
   color: #141827;
 }
 
+.clients-unplanned-reminder, .clients-unplanned-retry { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 18px; padding: 12px 16px; border: 1px solid #e8d7b9; border-radius: 11px; background: #fff9ef; color: #68491e; font-size: 12px; }
+.clients-unplanned-reminder > span { display: inline-flex; align-items: center; gap: 9px; }
+.clients-unplanned-reminder button, .clients-unplanned-retry button { display: inline-flex; align-items: center; gap: 3px; min-height: 38px; padding: 0 10px; border: 0; border-radius: 7px; background: #6f2ee4; color: #fff; font: inherit; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.clients-unplanned-reminder button:hover, .clients-unplanned-retry button:hover { background: #5c24c2; }
+.clients-unplanned-reminder button:focus-visible, .clients-unplanned-retry button:focus-visible, .clients-unplanned-dialog button:focus-visible { outline: 3px solid #b797f4; outline-offset: 2px; }
+.clients-unplanned-dialog { width: min(calc(100% - 28px), 600px); max-height: min(84dvh, 760px); padding: 0; overflow: hidden; border: 1px solid #e7dfef; border-radius: 16px; background: #fff; color: #141827; font: inherit; box-shadow: 0 28px 80px rgba(25, 19, 45, .22); }
+.clients-unplanned-dialog[open] { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+.clients-unplanned-dialog::backdrop { background: rgba(20, 24, 39, .46); backdrop-filter: blur(3px); }
+.clients-unplanned-dialog-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 0; }
+.clients-unplanned-dialog-top span { color: #775295; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.clients-unplanned-dialog-top button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 8px; background: #f6f2fa; color: #554762; cursor: pointer; }
+.clients-unplanned-dialog-intro { display: flex; align-items: center; gap: 17px; padding: 12px 20px 20px; }
+.clients-unplanned-dialog-intro > span { display: grid; flex: 0 0 70px; place-items: center; height: 70px; border-radius: 14px; background: #fff2dd; color: #9c6113; font-size: 31px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.clients-unplanned-dialog-intro h2 { margin: 0; color: #21192a; font-size: 21px; line-height: 1.2; text-wrap: balance; }
+.clients-unplanned-dialog-intro p { margin: 7px 0 0; color: #676074; font-size: 12px; line-height: 1.5; }
+.clients-unplanned-dialog-list { display: grid; align-content: start; gap: 7px; min-height: 0; padding: 4px 20px 12px; overflow-y: auto; }
+.clients-unplanned-dialog-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 62px; padding: 10px 12px; border: 1px solid #ece5f2; border-radius: 10px; background: #fbf9fd; color: #21192a; font: inherit; text-align: left; cursor: pointer; }
+.clients-unplanned-dialog-list button:hover { border-color: #b99ce9; background: #f6f0fd; }
+.clients-unplanned-dialog-list button:active { transform: scale(.99); }
+.clients-unplanned-dialog-list button > span { display: grid; min-width: 0; gap: 4px; }
+.clients-unplanned-dialog-list strong { overflow-wrap: anywhere; font-size: 13px; line-height: 1.25; }
+.clients-unplanned-dialog-list small { color: #777085; font-size: 10px; }
+.clients-unplanned-dialog-list svg { flex: 0 0 auto; color: #6f2ee4; }
+.clients-unplanned-dialog-note { margin: 0; padding: 9px 20px 12px; color: #777085; font-size: 10px; line-height: 1.4; }
+.clients-unplanned-dialog-actions { display: flex; justify-content: flex-end; padding: 13px 20px; border-top: 1px solid #eee8f3; }
+.clients-unplanned-dialog-actions button { min-height: 38px; padding: 0 15px; border: 1px solid #d9c9e8; border-radius: 8px; background: #fff; color: #5c31a7; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+@media (max-width: 560px) { .clients-unplanned-reminder, .clients-unplanned-retry { align-items: stretch; flex-direction: column; } .clients-unplanned-reminder button, .clients-unplanned-retry button { justify-content: center; } .clients-unplanned-dialog-intro { align-items: flex-start; gap: 12px; } .clients-unplanned-dialog-intro > span { flex-basis: 58px; height: 58px; font-size: 26px; } .clients-unplanned-dialog-intro h2 { font-size: 18px; } }
+
 .clients-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
