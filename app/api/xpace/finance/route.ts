@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { recurrenceFrequencies, shiftedFinanceDate, type RecurrenceFrequency } from "@/lib/xpace/finance-recurrence";
 
 type AccountRow = { id: string; description: string; account_type: string; bank_name: string | null; agency_number: string | null; account_number: string | null; active: boolean };
-type EntryRow = { id: string; direction: "PAGAR" | "RECEBER"; description: string; counterparty_name: string; competence_on: string; due_on: string; amount_cents: number; created_at: string };
+type EntryRow = { id: string; direction: "PAGAR" | "RECEBER"; description: string; counterparty_name: string; expense_category_id: string | null; competence_on: string; due_on: string; amount_cents: number; created_at: string };
+type CategoryRow = { id: string; name: string; active: boolean };
 type SettlementRow = { entry_id: string; amount_cents: number; settled_on: string };
 type ChargeRow = { id: string; contract_id: string; student_id: string; competence_on: string; due_on: string; amount_cents: number; paid_amount_cents: number; paid_at: string | null; status: string; provider_payment_id: string | null; provider_status: string | null };
-type FinancialItem = { id: string; source: "MANUAL" | "XPAY"; counterparty: string; description: string; competenceOn: string; dueOn: string; amountCents: number; paidAmountCents: number; paidOn: string | null; status: "ABERTO" | "ANDAMENTO" | "PARCIAL" | "PAGO" };
+type FinancialItem = { id: string; source: "MANUAL" | "XPAY"; counterparty: string; description: string; categoryName: string | null; competenceOn: string; dueOn: string; amountCents: number; paidAmountCents: number; paidOn: string | null; status: "ABERTO" | "ANDAMENTO" | "PARCIAL" | "PAGO" };
 
 const pageSize = 20;
 const accountTypes = ["CONTA_CORRENTE", "POUPANCA", "CAIXA", "CARTEIRA_DIGITAL", "OUTRA"];
@@ -50,7 +52,27 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const view = params.get("view") ?? "PAGAR";
     const canManage = ["platform_owner", "company_manager"].includes(profile.platform_role);
-    if (!["PAGAR", "RECEBER", "CONTAS"].includes(view)) throw new RequestError("Área financeira inválida.");
+    if (!["PAGAR", "RECEBER", "CONTAS", "CATEGORIAS", "CLIENTES"].includes(view)) throw new RequestError("Área financeira inválida.");
+
+    if (view === "CLIENTES") {
+      const search = clean(params.get("q"), 80);
+      let query = admin.from("xpace_people").select("id,full_name,person_number")
+        .eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true)
+        .order("full_name").limit(40);
+      if (search) query = query.ilike("full_name", `%${search}%`);
+      const { data, error } = await query;
+      if (error) throw error;
+      return NextResponse.json({ success: true, clients: (data ?? []).map((person) => ({ id: person.id, name: person.full_name, number: person.person_number })) });
+    }
+
+    const categories: CategoryRow[] = [];
+    if (view === "PAGAR" || view === "CATEGORIAS") {
+      const { data, error } = await admin.from("xpace_expense_categories").select("id,name,active")
+        .eq("tenant_company_id", company.id).order("name");
+      if (error) throw error;
+      categories.push(...(data ?? []));
+    }
+    if (view === "CATEGORIAS") return NextResponse.json({ success: true, canManage, categories });
 
     const accounts: AccountRow[] = [];
     for (let offset = 0; ; offset += 1000) {
@@ -76,7 +98,7 @@ export async function GET(request: Request) {
     const entries: EntryRow[] = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await admin.from("xpace_manual_financial_entries")
-        .select("id,direction,description,counterparty_name,competence_on,due_on,amount_cents,created_at")
+        .select("id,direction,description,counterparty_name,expense_category_id,competence_on,due_on,amount_cents,created_at")
         .eq("tenant_company_id", company.id).eq("direction", view)
         .order("due_on", { ascending: false }).order("id")
         .range(offset, offset + 999);
@@ -103,11 +125,13 @@ export async function GET(request: Request) {
       if (!current.last || settlement.settled_on > current.last) current.last = settlement.settled_on;
       byEntry.set(settlement.entry_id, current);
     }
+    const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
     const items: FinancialItem[] = entries.map((entry) => {
       const settlement = byEntry.get(entry.id) ?? { paid: 0, last: null };
       return {
         id: entry.id, source: "MANUAL", counterparty: entry.counterparty_name,
-        description: entry.description, competenceOn: entry.competence_on, dueOn: entry.due_on,
+        description: entry.description, categoryName: entry.expense_category_id ? categoryNames.get(entry.expense_category_id) ?? null : null,
+        competenceOn: entry.competence_on, dueOn: entry.due_on,
         amountCents: entry.amount_cents, paidAmountCents: settlement.paid, paidOn: settlement.last,
         status: settlement.paid >= entry.amount_cents ? "PAGO" : settlement.paid > 0 ? "PARCIAL" : "ABERTO",
       };
@@ -140,7 +164,7 @@ export async function GET(request: Request) {
       }
       for (const charge of charges) items.push({
         id: charge.id, source: "XPAY", counterparty: people.get(charge.student_id) ?? "Cliente XPACE",
-        description: plans.get(charge.contract_id) ?? "Parcela de contrato",
+        description: plans.get(charge.contract_id) ?? "Parcela de contrato", categoryName: null,
         competenceOn: charge.competence_on, dueOn: charge.due_on,
         amountCents: charge.amount_cents, paidAmountCents: charge.paid_amount_cents,
         paidOn: charge.paid_at ? saoPauloDate(charge.paid_at) : null,
@@ -175,7 +199,7 @@ export async function GET(request: Request) {
     }
     const requestedPage = Number(params.get("page") ?? 0);
     const page = Number.isSafeInteger(requestedPage) && requestedPage >= 0 ? requestedPage : 0;
-    return NextResponse.json({ success: true, canManage, metrics, items: filtered.slice(page * pageSize, (page + 1) * pageSize), totalRows: filtered.length, page, pageSize, accounts: accounts.filter((account) => account.active).map((account) => ({ id: account.id, description: account.description })) });
+    return NextResponse.json({ success: true, canManage, metrics, items: filtered.slice(page * pageSize, (page + 1) * pageSize), totalRows: filtered.length, page, pageSize, accounts: accounts.filter((account) => account.active).map((account) => ({ id: account.id, description: account.description })), categories: categories.filter((category) => category.active) });
   } catch (error) { return handleError(error); }
 }
 
@@ -185,6 +209,27 @@ export async function POST(request: Request) {
     requireManager(access.profile.platform_role);
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) throw new RequestError("Dados inválidos.");
+    if (body.action === "saveCategory") {
+      const id = clean(body.id, 50);
+      const name = clean(body.name, 100).replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+      const active = body.active !== false;
+      if (name.length < 2) throw new RequestError("Informe o nome da categoria.");
+      if (id) {
+        const { data, error } = await access.admin.from("xpace_expense_categories")
+          .update({ name, active, updated_by: access.profile.id, updated_at: new Date().toISOString() })
+          .eq("tenant_company_id", access.company.id).eq("id", id).select("id").maybeSingle();
+        if (error?.code === "23505") throw new RequestError("Esta categoria já existe.", 409);
+        if (error) throw error;
+        if (!data) throw new RequestError("Categoria não encontrada nesta empresa.", 404);
+        return NextResponse.json({ success: true, id: data.id });
+      }
+      const { data, error } = await access.admin.from("xpace_expense_categories")
+        .insert({ tenant_company_id: access.company.id, name, active, created_by: access.profile.id, updated_by: access.profile.id })
+        .select("id").single();
+      if (error?.code === "23505") throw new RequestError("Esta categoria já existe.", 409);
+      if (error) throw error;
+      return NextResponse.json({ success: true, id: data.id }, { status: 201 });
+    }
     if (body.action === "createAccount") {
       const description = clean(body.description, 120);
       const accountType = clean(body.accountType, 30);
@@ -211,17 +256,68 @@ export async function POST(request: Request) {
     if (body.action === "createEntry") {
       const direction = clean(body.direction, 10);
       const description = clean(body.description);
-      const counterpartyName = clean(body.counterpartyName);
+      let counterpartyName = clean(body.counterpartyName);
       const amountCents = Number(body.amountCents);
-      if (!["PAGAR", "RECEBER"].includes(direction) || description.length < 2 || counterpartyName.length < 2 || !isDate(body.competenceOn) || !isDate(body.dueOn) || !Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > 2_147_483_647) throw new RequestError("Revise descrição, pessoa, datas e valor.");
-      const { data, error } = await access.admin.from("xpace_manual_financial_entries").insert({
-        tenant_company_id: access.company.id, direction, description,
-        counterparty_name: counterpartyName, competence_on: body.competenceOn,
-        due_on: body.dueOn, amount_cents: amountCents, note: clean(body.note, 1000) || null,
-        created_by: access.user.id,
-      }).select("id").single();
+      const categoryId = clean(body.expenseCategoryId, 50);
+      const clientId = clean(body.clientId, 50);
+      const groupId = clean(body.recurrenceGroupId, 50);
+      const recurring = direction === "PAGAR" && body.recurring === true;
+      const frequency = recurring ? clean(body.recurrenceFrequency, 20) : "UNICA";
+      const count = recurring ? Number(body.recurrenceCount) : 1;
+      if (!["PAGAR", "RECEBER"].includes(direction) || description.length < 2 || !isDate(body.competenceOn) || !isDate(body.dueOn) || !Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > 2_147_483_647) throw new RequestError("Revise descrição, datas e valor.");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(groupId)) throw new RequestError("Identificador do cadastro inválido.");
+      if (!Number.isInteger(count) || count < 1 || count > 120 || (recurring && !recurrenceFrequencies.some((item) => item === frequency))) throw new RequestError("Escolha uma frequência e quantidade entre 1 e 120.");
+      if (direction === "PAGAR") {
+        if (counterpartyName.length < 2 || !categoryId) throw new RequestError("Informe favorecido e categoria de despesa.");
+        const { data: category, error } = await access.admin.from("xpace_expense_categories")
+          .select("id").eq("tenant_company_id", access.company.id).eq("id", categoryId).eq("active", true).maybeSingle();
+        if (error) throw error;
+        if (!category) throw new RequestError("Categoria de despesa inválida nesta empresa.", 400);
+      } else {
+        if (!clientId) throw new RequestError("Selecione um cliente cadastrado na XPACE.");
+        const { data: client, error } = await access.admin.from("xpace_people")
+          .select("id,full_name").eq("tenant_company_id", access.company.id).eq("id", clientId)
+          .eq("is_student", true).eq("active", true).maybeSingle();
+        if (error) throw error;
+        if (!client) throw new RequestError("Cliente não encontrado nesta empresa.", 400);
+        counterpartyName = client.full_name;
+      }
+      let rows;
+      try {
+        rows = Array.from({ length: count }, (_, index) => ({
+          tenant_company_id: access.company.id, direction, description,
+          counterparty_name: counterpartyName, expense_category_id: direction === "PAGAR" ? categoryId : null,
+          client_id: direction === "RECEBER" ? clientId : null,
+          competence_on: shiftedFinanceDate(body.competenceOn as string, frequency as RecurrenceFrequency, index),
+          due_on: shiftedFinanceDate(body.dueOn as string, frequency as RecurrenceFrequency, index),
+          amount_cents: amountCents, note: clean(body.note, 1000) || null,
+          recurrence_group_id: groupId, recurrence_sequence: index + 1,
+          recurrence_total: count, recurrence_frequency: frequency, created_by: access.user.id,
+        }));
+      } catch { throw new RequestError("O período da recorrência contém uma data inválida."); }
+      const { data: existing, error: existingError } = await access.admin.from("xpace_manual_financial_entries")
+        .select("id,direction,description,counterparty_name,expense_category_id,client_id,competence_on,due_on,amount_cents,note,recurrence_sequence,recurrence_total,recurrence_frequency")
+        .eq("tenant_company_id", access.company.id).eq("recurrence_group_id", groupId)
+        .order("recurrence_sequence");
+      if (existingError) throw existingError;
+      if (existing?.length) {
+        if (existing.length !== count || existing.some((entry, index) => {
+          const expected = rows[index];
+          return entry.direction !== expected.direction || entry.description !== expected.description
+            || entry.counterparty_name !== expected.counterparty_name
+            || entry.expense_category_id !== expected.expense_category_id || entry.client_id !== expected.client_id
+            || entry.competence_on !== expected.competence_on || entry.due_on !== expected.due_on
+            || entry.amount_cents !== expected.amount_cents || entry.note !== expected.note
+            || entry.recurrence_sequence !== expected.recurrence_sequence
+            || entry.recurrence_total !== expected.recurrence_total
+            || entry.recurrence_frequency !== expected.recurrence_frequency;
+        })) throw new RequestError("Este cadastro já foi processado com dados diferentes. Reabra o formulário para cadastrar outro.", 409);
+        return NextResponse.json({ success: true, id: existing[0].id, createdCount: count, alreadyCreated: true });
+      }
+      const { data, error } = await access.admin.from("xpace_manual_financial_entries").insert(rows).select("id");
+      if (error?.code === "23505") throw new RequestError("Este cadastro foi enviado mais de uma vez. Atualize a lista antes de tentar novamente.", 409);
       if (error) throw error;
-      return NextResponse.json({ success: true, id: data.id }, { status: 201 });
+      return NextResponse.json({ success: true, id: data?.[0]?.id, createdCount: count }, { status: 201 });
     }
     if (body.action === "settleEntry") {
       const entryId = clean(body.entryId, 50);

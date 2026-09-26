@@ -15,7 +15,7 @@ const surveys = ["PENDENTE", "ENVIADA", "NAO_ENVIADA", "NAO_INFORMADO"] as const
 const welcomeDeliveries = ["NAO_CONFIGURADO", "PENDENTE", "ENVIADO", "FALHOU", "DISPENSADO"] as const;
 
 type Body = {
-  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ASSIGN_APPOINTMENT_SCHEDULE" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON";
+  action?: "CREATE_LEAD" | "UPDATE_LEAD" | "DELETE_LEAD" | "CREATE_APPOINTMENT" | "UPDATE_APPOINTMENT" | "ASSIGN_APPOINTMENT_SCHEDULE" | "ADD_NOTE" | "SAVE_SOURCE" | "SAVE_LOSS_REASON" | "SAVE_WIN_REASON";
   lead?: Record<string, unknown>;
   appointment?: Record<string, unknown>;
   setting?: Record<string, unknown>;
@@ -25,18 +25,19 @@ type Body = {
 export async function GET(request: Request) {
   try {
     const access = await requireCompanyAccess(request, companySlug);
-    const [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult] = await Promise.all([
-      access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,converted_person_id,converted_contract_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("tenant_company_id", access.company.id).order("updated_at", { ascending: false }).limit(1000),
+    const [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, winReasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult] = await Promise.all([
+      access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,win_reason_id,converted_person_id,converted_contract_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("tenant_company_id", access.company.id).order("updated_at", { ascending: false }).limit(1000),
       access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,actual_instructor_id,actual_instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,trial_limit_override,trial_limit_override_by,trial_limit_override_at,created_at,updated_at").eq("tenant_company_id", access.company.id).order("scheduled_on", { ascending: false }).limit(1500),
       access.admin.from("xpace_lead_activities").select("id,lead_id,appointment_id,activity_type,body,payload,created_by,created_at").eq("tenant_company_id", access.company.id).order("created_at", { ascending: false }).limit(2000),
       access.admin.from("xpace_lead_sources").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_lead_loss_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
+      access.admin.from("xpace_lead_win_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_class_groups").select("id,name,modality,capacity,instructor_id,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("name"),
       access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
       access.admin.from("xpace_instructors").select("id,full_name,active").eq("tenant_company_id", access.company.id).order("full_name"),
       access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("active", true),
     ]);
-    for (const result of [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult]) if (result.error) throw result.error;
+    for (const result of [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, winReasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult]) if (result.error) throw result.error;
     const profileIds = [...new Set([access.profile.id, ...(membersResult.data ?? []).map((member) => member.profile_id)])];
     const { data: profiles, error: profilesError } = profileIds.length ? await access.admin.from("profiles").select("id,full_name").in("id", profileIds) : { data: [], error: null };
     if (profilesError) throw profilesError;
@@ -44,8 +45,8 @@ export async function GET(request: Request) {
     const schedulesByGroup = new Map<string, Array<Record<string, unknown>>>();
     for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "", level: normalizeClassLevel(schedule.class_level) }]);
     return NextResponse.json({
-      success: true, canOverrideTrialLimit: isManager(access.profile.platform_role), canDeleteLeads: isManager(access.profile.platform_role),
-      leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name),
+      success: true, canManage: isManager(access.profile.platform_role), canOverrideTrialLimit: isManager(access.profile.platform_role), canDeleteLeads: isManager(access.profile.platform_role),
+      leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name), winReasons: sortNaturally(winReasonsResult.data ?? [], (reason) => reason.name),
       attendants: sortNaturally(profiles ?? [], (profile) => profile.full_name), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name),
       groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: Boolean((group.settings as Record<string, unknown> | null)?.allowLeads), schedules: schedulesByGroup.get(group.id) ?? [] })),
     });
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
     if (body.action === "ADD_NOTE") return addNote(access, text(body.lead?.id), text(body.note));
     if (body.action === "SAVE_SOURCE") return saveSetting(access, "xpace_lead_sources", body.setting);
     if (body.action === "SAVE_LOSS_REASON") return saveSetting(access, "xpace_lead_loss_reasons", body.setting);
+    if (body.action === "SAVE_WIN_REASON") return saveSetting(access, "xpace_lead_win_reasons", body.setting);
     throw new RequestError("AÇÃO DO CRM INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
 }
@@ -84,6 +86,7 @@ async function updateLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   const sourceId = nullableId(raw?.sourceId);
   const assignedTo = nullableId(raw?.assignedTo);
   const lossReasonId = nullableId(raw?.lossReasonId);
+  const submittedWinReasonId = nullableId(raw?.winReasonId);
   const lossNote = text(raw?.lossNote);
   const changesContact = Boolean(raw && ("fullName" in raw || "mobile" in raw || "email" in raw));
   const fullName = text(raw?.fullName);
@@ -93,13 +96,14 @@ async function updateLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   if (changesContact && (fullName.length < 2 || fullName.length > 180)) throw new RequestError("INFORME O NOME COMPLETO DO LEAD.", 400);
   if (changesContact && mobile && (mobile.length < 10 || mobile.length > 13)) throw new RequestError("INFORME UM TELEFONE VÁLIDO.", 400);
   if (changesContact && email && !/^\S+@\S+\.\S+$/.test(email)) throw new RequestError("INFORME UM E-MAIL VÁLIDO.", 400);
-  await Promise.all([validateSource(access, sourceId), validateLossReason(access, lossReasonId), validateAttendant(access, assignedTo)]);
+  await Promise.all([validateSource(access, sourceId), validateLossReason(access, lossReasonId), ...(raw && "winReasonId" in raw ? [validateWinReason(access, submittedWinReasonId)] : []), validateAttendant(access, assignedTo)]);
   if (pipelineStage === "PERDIDO" && !lossReasonId && !lossNote) throw new RequestError("INFORME O MOTIVO OU UMA OBSERVAÇÃO PARA MARCAR O LEAD COMO PERDIDO.", 400);
-  const { data: current, error: currentError } = await access.admin.from("xpace_leads").select("id,pipeline_stage,won_at,lost_at").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
+  const { data: current, error: currentError } = await access.admin.from("xpace_leads").select("id,pipeline_stage,win_reason_id,won_at,lost_at").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
   const stamp = new Date().toISOString();
-  const patch = { pipeline_stage: pipelineStage, source_id: sourceId, assigned_to: assignedTo, loss_reason_id: lossReasonId, loss_note: lossNote || null, won_at: pipelineStage === "GANHO" ? current.pipeline_stage === "GANHO" ? current.won_at ?? stamp : stamp : null, lost_at: pipelineStage === "PERDIDO" ? current.pipeline_stage === "PERDIDO" ? current.lost_at ?? stamp : stamp : null, updated_by: access.profile.id, updated_at: stamp, ...(changesContact ? { full_name: fullName, mobile: mobile || null, email: email || null } : {}) };
+  const winReasonId = raw && "winReasonId" in raw ? submittedWinReasonId : current.win_reason_id;
+  const patch = { pipeline_stage: pipelineStage, source_id: sourceId, assigned_to: assignedTo, loss_reason_id: lossReasonId, loss_note: lossNote || null, win_reason_id: pipelineStage === "GANHO" ? winReasonId : null, won_at: pipelineStage === "GANHO" ? current.pipeline_stage === "GANHO" ? current.won_at ?? stamp : stamp : null, lost_at: pipelineStage === "PERDIDO" ? current.pipeline_stage === "PERDIDO" ? current.lost_at ?? stamp : stamp : null, updated_by: access.profile.id, updated_at: stamp, ...(changesContact ? { full_name: fullName, mobile: mobile || null, email: email || null } : {}) };
   const { error } = await access.admin.from("xpace_leads").update(patch).eq("id", id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
   const stageChanged = current.pipeline_stage !== pipelineStage;
@@ -211,7 +215,7 @@ async function addNote(access: Awaited<ReturnType<typeof requireCompanyAccess>>,
   return NextResponse.json({ success: true });
 }
 
-async function saveSetting(access: Awaited<ReturnType<typeof requireCompanyAccess>>, table: "xpace_lead_sources" | "xpace_lead_loss_reasons", raw?: Record<string, unknown>) {
+async function saveSetting(access: Awaited<ReturnType<typeof requireCompanyAccess>>, table: "xpace_lead_sources" | "xpace_lead_loss_reasons" | "xpace_lead_win_reasons", raw?: Record<string, unknown>) {
   if (!isManager(access.profile.platform_role)) throw new AccessError("APENAS GESTORES PODEM ALTERAR OS CADASTROS DO CRM.", 403);
   const id = text(raw?.id);
   const name = text(raw?.name).toLocaleUpperCase("pt-BR");
@@ -251,6 +255,7 @@ async function activity(access: Awaited<ReturnType<typeof requireCompanyAccess>>
 
 async function validateSource(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return; const { data, error } = await access.admin.from("xpace_lead_sources").select("id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("ORIGEM DO LEAD INVÁLIDA.", 400); }
 async function validateLossReason(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return; const { data, error } = await access.admin.from("xpace_lead_loss_reasons").select("id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("MOTIVO DE PERDA INVÁLIDO.", 400); }
+async function validateWinReason(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return; const { data, error } = await access.admin.from("xpace_lead_win_reasons").select("id").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("MOTIVO DE GANHO INVÁLIDO.", 400); }
 async function validateAttendant(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id || id === access.profile.id) return; const { data, error } = await access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("profile_id", id).eq("active", true).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("ATENDENTE INVÁLIDO.", 400); }
 async function resolveInstructor(access: Awaited<ReturnType<typeof requireCompanyAccess>>, id: string | null) { if (!id) return null; const { data, error } = await access.admin.from("xpace_instructors").select("id,full_name").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle(); if (error) throw error; if (!data) throw new RequestError("PROFESSOR INVÁLIDO.", 400); return data; }
 function normalizeLead(raw?: Record<string, unknown>) { const fullName = text(raw?.fullName); const mobile = phone(raw?.mobile); const email = text(raw?.email).toLowerCase(); const pipelineStage = enumValue(raw?.pipelineStage ?? "NOVO", stages, "ETAPA DO LEAD INVÁLIDA."); if (fullName.length < 2 || fullName.length > 180) throw new RequestError("INFORME O NOME COMPLETO DO LEAD.", 400); if (mobile && (mobile.length < 10 || mobile.length > 13)) throw new RequestError("INFORME UM TELEFONE VÁLIDO.", 400); if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new RequestError("INFORME UM E-MAIL VÁLIDO.", 400); return { fullName, mobile, email, pipelineStage, sourceId: nullableId(raw?.sourceId), sourceNote: text(raw?.sourceNote), assignedTo: nullableId(raw?.assignedTo) }; }

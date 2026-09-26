@@ -4,13 +4,15 @@ import { ArrowLeft, ArrowUpRight, Banknote, Check, ChevronLeft, ChevronRight, Ci
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { shiftedFinanceDate, type RecurrenceFrequency } from "@/lib/xpace/finance-recurrence";
 
 type View = "HUB" | "PAGAR" | "RECEBER" | "CONTAS";
 type DateBy = "VENCIMENTO" | "PAGAMENTO" | "COMPETENCIA";
 type StatusFilter = "TODOS" | "ABERTOS" | "FECHADOS";
-type FinanceItem = { id: string; source: "MANUAL" | "XPAY"; counterparty: string; description: string; competenceOn: string; dueOn: string; amountCents: number; paidAmountCents: number; paidOn: string | null; status: "ABERTO" | "ANDAMENTO" | "PARCIAL" | "PAGO" };
+type FinanceItem = { id: string; source: "MANUAL" | "XPAY"; counterparty: string; description: string; categoryName: string | null; competenceOn: string; dueOn: string; amountCents: number; paidAmountCents: number; paidOn: string | null; status: "ABERTO" | "ANDAMENTO" | "PARCIAL" | "PAGO" };
 type Account = { id: string; description: string; accountType: string; bankName: string | null; active: boolean; agencyNumber?: string | null; accountNumber?: string | null };
-type EntryResponse = { success: true; canManage: boolean; metrics: { total: number; paid: number; open: number; inProgress: number }; items: FinanceItem[]; totalRows: number; page: number; pageSize: number; accounts: Array<{ id: string; description: string }> };
+type ExpenseCategory = { id: string; name: string; active: boolean };
+type EntryResponse = { success: true; canManage: boolean; metrics: { total: number; paid: number; open: number; inProgress: number }; items: FinanceItem[]; totalRows: number; page: number; pageSize: number; accounts: Array<{ id: string; description: string }>; categories: ExpenseCategory[] };
 type AccountsResponse = { success: true; canManage: boolean; accounts: Account[] };
 type Filters = { q: string; dateBy: DateBy; from: string; to: string; status: StatusFilter };
 
@@ -44,6 +46,7 @@ export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
   const [accountData, setAccountData] = useState<AccountsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [modal, setModal] = useState<"ACCOUNT" | "ENTRY" | "SETTLE" | null>(null);
   const [selected, setSelected] = useState<FinanceItem | null>(null);
 
@@ -64,7 +67,7 @@ export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
   useEffect(() => { void load(view, applied, page); }, [view, applied, page, load]);
 
   function open(next: View) {
-    setView(next); setPage(0); setError(""); setEntries(null); setAccountData(null);
+    setView(next); setPage(0); setError(""); setSuccess(""); setEntries(null); setAccountData(null);
     const filters = initialFilters(); setDraft(filters); setApplied(filters);
   }
 
@@ -74,7 +77,10 @@ export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
   }
 
   async function save(body: Record<string, unknown>) {
-    await api<{ success: true }>("/api/xpace/finance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const result = await api<{ success: true; createdCount?: number }>("/api/xpace/finance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (body.action === "createEntry") setSuccess(result.createdCount && result.createdCount > 1 ? `${result.createdCount} contas cadastradas, incluindo a primeira.` : "Conta cadastrada com sucesso.");
+    else if (body.action === "saveCategory") setSuccess("Categoria salva com sucesso.");
+    else setSuccess(body.action === "createAccount" ? "Conta financeira cadastrada." : "Baixa registrada com sucesso.");
     setModal(null); setSelected(null);
     await load(view, applied, page);
   }
@@ -98,6 +104,7 @@ export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
       <button type="submit" className="xdf-apply">Aplicar filtros</button>
     </form>
     {error ? <div className="xdf-error" role="alert"><span>{error}</span><button type="button" onClick={() => void load(view, applied, page)}>Tentar novamente</button></div> : null}
+    {success ? <p className="xdf-success" role="status">{success}</p> : null}
     {view === "CONTAS" ? <div className="xdf-table-wrap"><div className="xdf-account-head"><span>DESCRIÇÃO</span><span>TIPO</span><span>BANCO</span></div>{accountData?.accounts.length ? accountData.accounts.map((account) => <div className="xdf-account-row" key={account.id}><strong>{account.description}</strong><span className="xdf-account-type">{accountType(account.accountType)}</span><span>{account.bankName || "—"}</span></div>) : <p className="xdf-empty">{loading ? "Carregando contas..." : error ? "" : "Nenhuma conta financeira cadastrada."}</p>}</div> : <>
       <div className={`xdf-metrics${receive ? " xdf-metrics--four" : ""}`}>
         {receive ? <Metric icon={<CircleDollarSign size={22} />} label="Valor" value={entries?.metrics.total} tone="neutral" /> : null}
@@ -105,11 +112,11 @@ export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
         <Metric icon={<Banknote size={22} />} label={receive ? "Valor em aberto" : "Total a pagar"} value={entries?.metrics.open} tone="orange" />
         {receive ? <Metric icon={<Clock3 size={22} />} label="Em andamento" value={entries?.metrics.inProgress} tone="blue" /> : null}
       </div>
-      <div className="xdf-table-wrap"><div className="xdf-table-scroll"><div className="xdf-entry-head"><span>{receive ? "CLIENTE" : "FAVORECIDO"}</span><span>DESCRIÇÃO</span><span>VENCIMENTO</span><span>{receive ? "RECEBIMENTO" : "PAGAMENTO"}</span><span>VALOR</span><span>{receive ? "RECEBIDO" : "PAGO"}</span><span>SITUAÇÃO</span><span>AÇÃO</span></div>{entries?.items.length ? entries.items.map((item) => <div className="xdf-entry-row" key={`${item.source}-${item.id}`}><strong title={item.counterparty} data-label={receive ? "CLIENTE" : "FAVORECIDO"}>{item.counterparty}</strong><span title={item.description} data-label="DESCRIÇÃO">{item.description}{item.source === "XPAY" ? <small>XPAY</small> : null}</span><span data-label="VENCIMENTO">{date(item.dueOn)}</span><span data-label={receive ? "RECEBIMENTO" : "PAGAMENTO"}>{date(item.paidOn)}</span><span data-label="VALOR">{money(item.amountCents)}</span><span data-label={receive ? "RECEBIDO" : "PAGO"}>{money(item.paidAmountCents)}</span><span data-label="SITUAÇÃO"><b className={`xdf-chip xdf-chip--${item.status.toLowerCase()}`}>{statusLabel(item.status, receive)}</b></span><span data-label="AÇÃO">{canManage && item.source === "MANUAL" && item.status !== "PAGO" ? <button type="button" className="xdf-row-action" onClick={() => { setSelected(item); setModal("SETTLE"); }}>{receive ? "Receber" : "Pagar"}</button> : "—"}</span></div>) : <p className="xdf-empty">{loading ? "Carregando lançamentos..." : error ? "" : "Nenhum lançamento neste filtro."}</p>}</div><footer className="xdf-pagination"><span>{entries?.totalRows ? `${page * (entries?.pageSize ?? 20) + 1}–${Math.min(entries.totalRows, (page + 1) * entries.pageSize)} de ${entries.totalRows}` : "0 lançamentos"}</span><div><button type="button" disabled={loading || page === 0} aria-label="Página anterior" onClick={() => setPage(page - 1)}><ChevronLeft size={18} /></button><span>Página {page + 1}</span><button type="button" disabled={loading || (page + 1) * (entries?.pageSize ?? 20) >= (entries?.totalRows ?? 0)} aria-label="Próxima página" onClick={() => setPage(page + 1)}><ChevronRight size={18} /></button></div></footer></div>
+      <div className="xdf-table-wrap"><div className="xdf-table-scroll"><div className="xdf-entry-head"><span>{receive ? "CLIENTE" : "FAVORECIDO"}</span><span>DESCRIÇÃO</span><span>VENCIMENTO</span><span>{receive ? "RECEBIMENTO" : "PAGAMENTO"}</span><span>VALOR</span><span>{receive ? "RECEBIDO" : "PAGO"}</span><span>SITUAÇÃO</span><span>AÇÃO</span></div>{entries?.items.length ? entries.items.map((item) => <div className="xdf-entry-row" key={`${item.source}-${item.id}`}><strong title={item.counterparty} data-label={receive ? "CLIENTE" : "FAVORECIDO"}>{item.counterparty}</strong><span title={item.description} data-label="DESCRIÇÃO">{item.description}{item.source === "XPAY" ? <small>XPAY</small> : item.categoryName ? <small>{item.categoryName}</small> : null}</span><span data-label="VENCIMENTO">{date(item.dueOn)}</span><span data-label={receive ? "RECEBIMENTO" : "PAGAMENTO"}>{date(item.paidOn)}</span><span data-label="VALOR">{money(item.amountCents)}</span><span data-label={receive ? "RECEBIDO" : "PAGO"}>{money(item.paidAmountCents)}</span><span data-label="SITUAÇÃO"><b className={`xdf-chip xdf-chip--${item.status.toLowerCase()}`}>{statusLabel(item.status, receive)}</b></span><span data-label="AÇÃO">{canManage && item.source === "MANUAL" && item.status !== "PAGO" ? <button type="button" className="xdf-row-action" onClick={() => { setSelected(item); setModal("SETTLE"); }}>{receive ? "Receber" : "Pagar"}</button> : "—"}</span></div>) : <p className="xdf-empty">{loading ? "Carregando lançamentos..." : error ? "" : "Nenhum lançamento neste filtro."}</p>}</div><footer className="xdf-pagination"><span>{entries?.totalRows ? `${page * (entries?.pageSize ?? 20) + 1}–${Math.min(entries.totalRows, (page + 1) * entries.pageSize)} de ${entries.totalRows}` : "0 lançamentos"}</span><div><button type="button" disabled={loading || page === 0} aria-label="Página anterior" onClick={() => setPage(page - 1)}><ChevronLeft size={18} /></button><span>Página {page + 1}</span><button type="button" disabled={loading || (page + 1) * (entries?.pageSize ?? 20) >= (entries?.totalRows ?? 0)} aria-label="Próxima página" onClick={() => setPage(page + 1)}><ChevronRight size={18} /></button></div></footer></div>
       {receive ? <p className="xdf-note"><CreditCard size={16} /> Cobranças XPay são somente leitura aqui. Cartão confirmado pelo Asaas entra em “Recebido”; repasse bancário não é considerado nesta tela.</p> : null}
     </>}
     {modal === "ACCOUNT" ? <AccountModal onClose={() => setModal(null)} onSave={save} /> : null}
-    {modal === "ENTRY" ? <EntryModal direction={view as "PAGAR" | "RECEBER"} onClose={() => setModal(null)} onSave={save} /> : null}
+    {modal === "ENTRY" ? <EntryModal direction={view as "PAGAR" | "RECEBER"} categories={entries?.categories ?? []} onClose={() => setModal(null)} onSave={save} /> : null}
     {modal === "SETTLE" && selected ? <SettlementModal item={selected} direction={view as "PAGAR" | "RECEBER"} accounts={entries?.accounts ?? []} onClose={() => { setModal(null); setSelected(null); }} onSave={save} /> : null}
   </section>;
 }
@@ -132,12 +139,77 @@ function AccountModal({ onClose, onSave }: { onClose: () => void; onSave: (body:
   return <Modal title="Nova conta financeira" icon={<Landmark size={23} />} onClose={onClose}><form onSubmit={submit} className="xdf-form"><div className="xdf-form-grid"><label><span>Descrição *</span><input autoFocus required minLength={2} maxLength={120} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Ex.: Banco da escola" /></label><label><span>Tipo *</span><select value={form.accountType} onChange={(event) => setForm({ ...form, accountType: event.target.value })}><option value="CONTA_CORRENTE">Conta corrente</option><option value="POUPANCA">Poupança</option><option value="CAIXA">Caixa</option><option value="CARTEIRA_DIGITAL">Carteira digital</option><option value="OUTRA">Outra</option></select></label><label className="xdf-span-2"><span>Banco</span><input value={form.bankName} onChange={(event) => setForm({ ...form, bankName: event.target.value })} placeholder="Escolha ou digite o banco" list="xdf-bank-options" /><datalist id="xdf-bank-options"><option value="Banco do Brasil" /><option value="Caixa Econômica Federal" /><option value="Itaú" /><option value="Bradesco" /><option value="Santander" /><option value="Inter" /><option value="Nubank" /><option value="Sicredi" /><option value="Sicoob" /></datalist></label><div className="xdf-inline"><label><span>Agência</span><input value={form.agencyNumber} onChange={(event) => setForm({ ...form, agencyNumber: event.target.value })} /></label><label><span>Dígito</span><input value={form.agencyDigit} onChange={(event) => setForm({ ...form, agencyDigit: event.target.value })} /></label></div><div className="xdf-inline"><label><span>Conta</span><input value={form.accountNumber} onChange={(event) => setForm({ ...form, accountNumber: event.target.value })} /></label><label><span>Dígito</span><input value={form.accountDigit} onChange={(event) => setForm({ ...form, accountDigit: event.target.value })} /></label></div><label className="xdf-check xdf-span-2"><input type="checkbox" checked={form.differentHolder} onChange={(event) => setForm({ ...form, differentHolder: event.target.checked })} /><span>O titular da conta é diferente da XPACE?</span></label>{form.differentHolder ? <><label><span>Nome do titular *</span><input required value={form.holderName} onChange={(event) => setForm({ ...form, holderName: event.target.value })} /></label><label><span>CPF ou CNPJ *</span><input required value={form.holderDocument} onChange={(event) => setForm({ ...form, holderDocument: event.target.value })} /></label></> : null}</div><p className="xdf-form-hint">Esta conta organiza lançamentos internos. Cadastrá-la não cria nem altera uma subconta Asaas.</p>{error ? <p className="xdf-form-error" role="alert">{error}</p> : null}<div className="xdf-form-actions"><button type="button" onClick={onClose}>Cancelar</button><button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar conta"}</button></div></form></Modal>;
 }
 
-function EntryModal({ direction, onClose, onSave }: { direction: "PAGAR" | "RECEBER"; onClose: () => void; onSave: (body: Record<string, unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ description: "", counterpartyName: "", competenceOn: today(), dueOn: today(), amount: "", note: "" });
+function EntryModal({ direction, categories, onClose, onSave }: { direction: "PAGAR" | "RECEBER"; categories: ExpenseCategory[]; onClose: () => void; onSave: (body: Record<string, unknown>) => Promise<void> }) {
+  const [groupId] = useState(() => crypto.randomUUID());
+  const [form, setForm] = useState({ description: "", counterpartyName: "", expenseCategoryId: "", clientId: "", competenceOn: today(), dueOn: today(), amount: "", note: "", recurring: false, recurrenceFrequency: "MENSAL" as RecurrenceFrequency, recurrenceCount: "12" });
+  const [clientSearch, setClientSearch] = useState("");
+  const [clients, setClients] = useState<Array<{ id: string; name: string; number: number }>>([]);
+  const [clientLoading, setClientLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  async function submit(event: React.FormEvent) { event.preventDefault(); setError(""); const amountCents = amountToCents(form.amount); if (amountCents <= 0) { setError("Informe um valor maior que zero."); return; } setSaving(true); try { await onSave({ action: "createEntry", direction, description: form.description, counterpartyName: form.counterpartyName, competenceOn: form.competenceOn, dueOn: form.dueOn, amountCents, note: form.note }); } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível salvar."); } finally { setSaving(false); } }
-  return <Modal title={direction === "PAGAR" ? "Nova conta a pagar" : "Nova conta a receber"} icon={<Banknote size={23} />} onClose={onClose}><form className="xdf-form" onSubmit={submit}><div className="xdf-form-grid"><label className="xdf-span-2"><span>Descrição *</span><input autoFocus required minLength={2} maxLength={180} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Ex.: Aluguel da sala" /></label><label className="xdf-span-2"><span>{direction === "PAGAR" ? "Favorecido *" : "Cliente *"}</span><input required minLength={2} maxLength={180} value={form.counterpartyName} onChange={(event) => setForm({ ...form, counterpartyName: event.target.value })} placeholder={direction === "PAGAR" ? "Quem vai receber" : "Quem vai pagar"} /></label><label><span>Competência *</span><input type="date" required value={form.competenceOn} onChange={(event) => setForm({ ...form, competenceOn: event.target.value })} /></label><label><span>Vencimento *</span><input type="date" required value={form.dueOn} onChange={(event) => setForm({ ...form, dueOn: event.target.value })} /></label><label><span>Valor (R$) *</span><input type="number" required min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} /></label><label><span>Observação</span><input value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} /></label></div><p className="xdf-form-hint">Lançamento manual: não emite cobrança no Asaas nem altera contratos existentes.</p>{error ? <p className="xdf-form-error" role="alert">{error}</p> : null}<div className="xdf-form-actions"><button type="button" onClick={onClose}>Cancelar</button><button type="submit" disabled={saving}>{saving ? "Salvando..." : "Cadastrar conta"}</button></div></form></Modal>;
+
+  useEffect(() => {
+    if (direction !== "RECEBER") return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setClientLoading(true);
+      void api<{ clients: Array<{ id: string; name: string; number: number }> }>(`/api/xpace/finance?${new URLSearchParams({ view: "CLIENTES", q: clientSearch })}`)
+        .then((result) => { if (!cancelled) { setClients(result.clients); setError(""); } })
+        .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "Não foi possível buscar os clientes."); })
+        .finally(() => { if (!cancelled) setClientLoading(false); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [clientSearch, direction]);
+
+  const count = Number(form.recurrenceCount);
+  let finalDue = "";
+  if (form.recurring && Number.isInteger(count) && count >= 1 && count <= 120) {
+    try { finalDue = shiftedFinanceDate(form.dueOn, form.recurrenceFrequency, count - 1); } catch { /* A validação do formulário mostrará a data inválida. */ }
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault(); setError("");
+    const amountCents = amountToCents(form.amount);
+    if (amountCents <= 0) { setError("Informe um valor maior que zero."); return; }
+    if (direction === "PAGAR" && !form.expenseCategoryId) { setError("Selecione uma categoria de despesa."); return; }
+    if (direction === "RECEBER" && !form.clientId) { setError("Selecione um cliente cadastrado."); return; }
+    if (form.recurring && (!finalDue || count < 1 || count > 120)) { setError("Revise a quantidade e a data final da recorrência."); return; }
+    setSaving(true);
+    try {
+      await onSave({ action: "createEntry", direction, description: form.description, counterpartyName: form.counterpartyName,
+        expenseCategoryId: form.expenseCategoryId, clientId: form.clientId, competenceOn: form.competenceOn,
+        dueOn: form.dueOn, amountCents, note: form.note, recurrenceGroupId: groupId,
+        recurring: direction === "PAGAR" && form.recurring, recurrenceFrequency: form.recurrenceFrequency,
+        recurrenceCount: count });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível salvar."); }
+    finally { setSaving(false); }
+  }
+
+  return <Modal title={direction === "PAGAR" ? "Nova conta a pagar" : "Nova conta a receber"} icon={<Banknote size={23} />} onClose={onClose}>
+    <form className="xdf-form" onSubmit={submit}>
+      <div className="xdf-form-grid">
+        <label className="xdf-span-2"><span>Descrição *</span><input autoFocus required minLength={2} maxLength={180} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder={direction === "PAGAR" ? "Ex.: Aluguel da sala" : "Ex.: Mensalidade avulsa"} /></label>
+        {direction === "PAGAR" ? <>
+          <label><span>Favorecido *</span><input required minLength={2} maxLength={180} value={form.counterpartyName} onChange={(event) => setForm({ ...form, counterpartyName: event.target.value })} placeholder="Quem vai receber" /></label>
+          <label><span>Categoria de despesa *</span><select required value={form.expenseCategoryId} onChange={(event) => setForm({ ...form, expenseCategoryId: event.target.value })}><option value="">Selecione a categoria</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+        </> : <>
+          <label><span>Pesquisar cliente</span><input type="search" value={clientSearch} onChange={(event) => { setClientSearch(event.target.value); setForm({ ...form, clientId: "" }); }} placeholder="Digite o nome do aluno" /></label>
+          <label><span>Cliente cadastrado *</span><select required value={form.clientId} onChange={(event) => setForm({ ...form, clientId: event.target.value })}><option value="">{clientLoading ? "Buscando..." : "Selecione na lista"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name} · #{client.number}</option>)}</select></label>
+        </>}
+        <label><span>Competência *</span><input type="date" required value={form.competenceOn} onChange={(event) => setForm({ ...form, competenceOn: event.target.value })} /></label>
+        <label><span>Vencimento *</span><input type="date" required value={form.dueOn} onChange={(event) => setForm({ ...form, dueOn: event.target.value })} /></label>
+        <label><span>Valor (R$) *</span><input type="number" required min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} /></label>
+        <label><span>Observação</span><input value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} /></label>
+        {direction === "PAGAR" ? <><label className="xdf-check xdf-span-2"><input type="checkbox" checked={form.recurring} onChange={(event) => setForm({ ...form, recurring: event.target.checked })} /><span>Esta conta é recorrente</span></label>{form.recurring ? <><label><span>Frequência *</span><select value={form.recurrenceFrequency} onChange={(event) => setForm({ ...form, recurrenceFrequency: event.target.value as RecurrenceFrequency })}><option value="DIARIA">Diária</option><option value="MENSAL">Mensal</option><option value="BIMESTRAL">Bimestral</option><option value="TRIMESTRAL">Trimestral</option><option value="SEMESTRAL">Semestral</option><option value="ANUAL">Anual</option></select></label><label><span>Quantidade de contas *</span><input type="number" required min="1" max="120" step="1" value={form.recurrenceCount} onChange={(event) => setForm({ ...form, recurrenceCount: event.target.value })} /></label></> : null}</> : null}
+      </div>
+      {form.recurring && direction === "PAGAR" ? <p className="xdf-recurrence-preview">{finalDue ? `Serão criadas ${count} contas, da primeira em ${date(form.dueOn)} até a última em ${date(finalDue)}.` : "Revise a data e a quantidade de contas."} A primeira já conta no total.</p> : null}
+      {direction === "PAGAR" && !categories.length ? <p className="xdf-form-error">Nenhuma categoria ativa. Cadastre uma em Configurações → Financeiro.</p> : null}
+      {direction === "RECEBER" && !clientLoading && !clients.length ? <p className="xdf-form-hint">Nenhum cliente encontrado. Cadastre o aluno em Clientes antes de lançar a conta.</p> : null}
+      <p className="xdf-form-hint">Lançamento manual: não emite cobrança no Asaas nem altera contratos existentes.</p>
+      {error ? <p className="xdf-form-error" role="alert">{error}</p> : null}
+      <div className="xdf-form-actions"><button type="button" onClick={onClose}>Cancelar</button><button type="submit" disabled={saving}>{saving ? "Salvando..." : form.recurring && direction === "PAGAR" ? `Cadastrar ${count || ""} contas` : "Cadastrar conta"}</button></div>
+    </form>
+  </Modal>;
 }
 
 function SettlementModal({ item, direction, accounts, onClose, onSave }: { item: FinanceItem; direction: "PAGAR" | "RECEBER"; accounts: Array<{ id: string; description: string }>; onClose: () => void; onSave: (body: Record<string, unknown>) => Promise<void> }) {
