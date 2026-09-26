@@ -16,6 +16,7 @@ import RoomsWorkspace from "@/components/xpace-dance/RoomsWorkspace";
 import ServicesWorkspace from "@/components/xpace-dance/ServicesWorkspace";
 import SettingsWorkspace from "@/components/xpace-dance/SettingsWorkspace";
 import StudentProfileWorkspace from "@/components/xpace-dance/StudentProfileWorkspace";
+import XpaceHomeOverview from "@/components/xpace-dance/XpaceHomeOverview";
 import { XPayAccount, XPayBenefits, XPayStore } from "@/components/xpace-dance/XPayWorkspace";
 
 const modules = [
@@ -85,6 +86,8 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
       </div>
     </section>
 
+    <XpaceHomeOverview />
+
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
       {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "CRM", "AGENDA", "FINANCEIRO", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "CRM" ? setScreen("CRM") : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
@@ -92,6 +95,6 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />
       </button>)}
     </section>
-    <BuildRevision />
+    <BuildRevision className="xd-home-revision" />
   </main>;
 }

@@ -255,6 +255,47 @@ body {
 .xd-tag-acrobacias { top: 221px; left: 177px; animation: xd-tag-float 4.7s ease-in-out infinite .8s reverse; }
 .xd-motion-trail { position: absolute; width: 265px; height: 60px; top: 112px; left: 70px; border-top: 2px solid rgba(130,199,255,.65); border-radius: 50%; transform: rotate(26deg); filter: drop-shadow(0 0 8px rgba(131,197,255,.8)); animation: xd-trail 5.5s ease-in-out infinite; }
 .xd-modules { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.xd-home-overview { display: grid; grid-template-columns: minmax(0, .9fr) minmax(340px, 1.1fr); align-items: stretch; gap: 14px; margin: 0 0 30px; }
+.xd-home-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.xd-home-stat { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 221px; padding: 23px; overflow: hidden; border: 1px solid rgba(89,55,129,.1); border-radius: 20px; box-shadow: 0 10px 28px rgba(64,39,88,.055); }
+.xd-home-stat::after { position: absolute; top: -55px; right: -52px; width: 150px; height: 150px; border: 1px solid currentColor; border-radius: 50%; content: ""; opacity: .13; }
+.xd-home-stat--active { background: #eaf7f2; color: #226e61; }
+.xd-home-stat--new { background: #faedf8; color: #a13785; }
+.xd-home-stat-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; background: rgba(255,255,255,.72); }
+.xd-home-stat > div { display: grid; gap: 4px; }
+.xd-home-stat-label { font-size: 10px; font-weight: 900; letter-spacing: .09em; }
+.xd-home-stat strong { color: #24182f; font-family: "Chillax", sans-serif; font-size: 42px; line-height: 1; font-variant-numeric: tabular-nums; }
+.xd-home-stat small { color: #665b6b; font-size: 11px; font-weight: 650; line-height: 1.35; text-transform: none; }
+.xd-home-notifications { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; min-height: 221px; padding: 18px 20px 11px; border: 1px solid rgba(89,55,129,.12); border-radius: 20px; background: rgba(255,255,255,.9); box-shadow: 0 10px 28px rgba(64,39,88,.055); }
+.xd-home-notifications > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.xd-home-notification-heading { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.xd-home-notification-heading > div { display: grid; gap: 3px; }
+.xd-home-notification-heading strong { color: #24182f; font-family: "Chillax", sans-serif; font-size: 15px; line-height: 1; }
+.xd-home-notification-heading small { color: #766c80; font-size: 10px; font-weight: 650; text-transform: none; }
+.xd-home-bell { position: relative; display: grid; flex: 0 0 39px; width: 39px; height: 39px; place-items: center; border-radius: 12px; background: #f1e7ff; color: #6f36c7; }
+.xd-home-bell b { position: absolute; top: -8px; right: -8px; display: grid; min-width: 21px; height: 21px; padding: 0 4px; place-items: center; border: 2px solid #fff; border-radius: 999px; background: #c42c93; color: #fff; font-size: 9px; font-variant-numeric: tabular-nums; }
+.xd-home-mark-read { min-height: 38px; padding: 0 11px; border: 0; border-radius: 10px; background: #f4ecfb; color: #6935aa; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; transition: background .18s ease, transform .18s ease; }
+.xd-home-mark-read:hover:not(:disabled) { background: #e8d8fa; }
+.xd-home-mark-read:active:not(:disabled) { transform: scale(.97); }
+.xd-home-mark-read:disabled { opacity: .48; cursor: default; }
+.xd-home-notification-list { display: grid; align-content: center; gap: 0; padding: 7px 0 2px; }
+.xd-home-notification { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 7px 0; }
+.xd-home-notification + .xd-home-notification { border-top: 1px solid rgba(89,55,129,.075); }
+.xd-home-notification-dot { flex: 0 0 7px; width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #c42c93; }
+.xd-home-notification-dot.is-read { background: #d1cbd6; }
+.xd-home-notification > div { display: grid; gap: 2px; min-width: 0; }
+.xd-home-notification strong { overflow: hidden; color: #24182f; font-size: 12px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.xd-home-notification span:last-child { color: #766c80; font-size: 10px; font-weight: 650; text-transform: none; }
+.xd-home-empty { align-self: center; margin: 14px 0; color: #766c80; font-size: 12px; text-transform: none; }
+.xd-home-error { display: flex; align-items: center; gap: 8px; padding: 8px 0; color: #9d2c51; font-size: 11px; text-transform: none; }
+.xd-home-error button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.xd-home-notifications > footer { display: flex; align-items: center; justify-content: space-between; min-height: 32px; border-top: 1px solid rgba(89,55,129,.08); color: #766c80; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.xd-home-notifications > footer > div { display: flex; gap: 2px; }
+.xd-home-notifications > footer button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 9px; background: transparent; color: #6935aa; cursor: pointer; }
+.xd-home-notifications > footer button:hover:not(:disabled) { background: #f4ecfb; }
+.xd-home-notifications > footer button:disabled { color: #c7becd; cursor: default; }
+.xd-home-mark-read:focus-visible, .xd-home-notifications button:focus-visible { outline: 2px solid #6935aa; outline-offset: 2px; }
+.xb-build-revision.xd-home-revision { position: static; display: block; width: max-content; margin: 24px 0 0 auto; }
 .xd-module { position: relative; display: grid; grid-template-columns: 35px minmax(0, 1fr) auto; align-items: center; min-height: 82px; gap: 10px; padding: 14px; overflow: hidden; border: 1px solid #e6ddea; border-radius: 18px; background: rgba(255,255,255,.86); box-shadow: 0 10px 28px rgba(64,39,88,.05); color: #24182f; font: inherit; text-align: left; cursor: pointer; transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease; }
 .xd-module::before { position: absolute; top: 0; right: 0; width: 76px; height: 76px; border-radius: 0 0 0 76px; background: var(--xd-glow); content: ""; opacity: .16; }
 .xd-module:hover { border-color: var(--xd-border); box-shadow: 0 18px 32px rgba(64,39,88,.12); transform: translateY(-3px); }
@@ -275,6 +316,8 @@ body {
 @keyframes xd-trail { 50% { transform: translate(16px, -9px) rotate(31deg); opacity: .58; } }
 @media (prefers-reduced-motion: reduce) { .xd-orbit-one, .xd-orbit-two, .xd-motion-core, .xd-motion-tag, .xd-motion-trail { animation: none; } .xd-module { transition: none; } }
 @media (max-width: 1280px) { .xd-modules { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 980px) { .xd-home-overview { grid-template-columns: 1fr; } .xd-home-stat { min-height: 180px; } }
+@media (max-width: 540px) { .xd-home-stats { gap: 9px; } .xd-home-stat { min-height: 174px; padding: 15px; } .xd-home-stat strong { font-size: 36px; } .xd-home-stat small { font-size: 10px; } .xd-home-notifications { padding: 16px 14px 9px; } .xd-home-mark-read { max-width: 120px; padding: 5px 8px; line-height: 1.2; } }
 .xd-loading { min-height: 100dvh; display: grid; place-items: center; background: #100d19; color: #fff; font: 800 12px "Poppins", sans-serif; letter-spacing: .12em; }
 
 .xd-community { display: grid; gap: 20px; padding: 14px 0 42px; }
