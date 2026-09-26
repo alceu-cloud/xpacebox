@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
-const PAGE_SIZE = 3;
+const PAGE_SIZE = 2;
 
 function saoPauloPeriod() {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());

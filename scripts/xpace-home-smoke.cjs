@@ -33,7 +33,7 @@ const notices = Array.from({ length: 4 }, (_, index) => ({ id: `booking-${index}
         if (url.pathname === '/api/xpace/home') {
           const page = Number(url.searchParams.get('page') || 0);
           const seenAt = url.searchParams.get('seenAt') || '';
-          return send({ success: true, metrics: { activeClients: 23, newClientsThisMonth: 5 }, notifications: { items: notices.slice(page * 3, page * 3 + 3), total: notices.length, unread: notices.filter((item) => !seenAt || item.createdAt > seenAt).length, latestCreatedAt: notices[0].createdAt, page, pageSize: 3 } });
+          return send({ success: true, metrics: { activeClients: 23, newClientsThisMonth: 5 }, notifications: { items: notices.slice(page * 2, page * 2 + 2), total: notices.length, unread: notices.filter((item) => !seenAt || item.createdAt > seenAt).length, latestCreatedAt: notices[0].createdAt, page, pageSize: 2 } });
         }
         if (url.pathname.startsWith('/api/')) return send({ success: true });
         if (url.origin !== origin) return route.abort();
@@ -46,9 +46,9 @@ const notices = Array.from({ length: 4 }, (_, index) => ({ id: `booking-${index}
       await page.getByText('Pessoas com contrato ativo hoje').waitFor();
       await page.locator('.xd-home-stat--active strong').getByText('23').waitFor();
       await page.locator('.xd-home-stat--new strong').getByText('5').waitFor();
-      assert.equal(await page.locator('.xd-home-notification').count(), 3);
+      assert.equal(await page.locator('.xd-home-notification').count(), 2);
       await page.getByRole('button', { name: 'Próximos avisos' }).click();
-      await page.getByText('Aluno 4').waitFor();
+      await page.getByText('Aluno 3').waitFor();
       await page.getByRole('button', { name: 'Marcar todas como lidas' }).click();
       assert.equal(await page.locator('.xd-home-bell b').count(), 0);
       assert.equal(await page.evaluate((id) => localStorage.getItem(`xpace_home_notifications_seen_${id}`), user.id), notices[0].createdAt);

@@ -74,8 +74,9 @@ export default function XpaceHomeOverview() {
 
   const notifications = overview?.notifications;
   const page = notifications?.page ?? 0;
+  const pageSize = notifications?.pageSize ?? 2;
   const total = notifications?.total ?? 0;
-  const first = total ? page * 3 + 1 : 0;
+  const first = total ? page * pageSize + 1 : 0;
   const last = Math.min(total, first + (notifications?.items.length ?? 0) - 1);
 
   return <section className="xd-home-overview" aria-label="Resumo da XPACE">
@@ -99,7 +100,7 @@ export default function XpaceHomeOverview() {
       {loading && !overview ? <p className="xd-home-empty">Carregando avisos...</p> : null}
       {!loading && !error && !total ? <p className="xd-home-empty">Nenhum agendamento para mostrar ainda.</p> : null}
       {notifications?.items.length ? <div className="xd-home-notification-list">{notifications.items.map((item) => <div className="xd-home-notification" key={item.id}><span className={`xd-home-notification-dot${seenAt && item.createdAt <= seenAt ? " is-read" : ""}`} aria-hidden="true" /><div><strong>{item.title}</strong><span>Aula experimental · {dateLabel(item.scheduledOn)}</span></div></div>)}</div> : null}
-      <footer><span>{total ? `${first}–${last} de ${total}` : "0 avisos"}</span><div><button type="button" aria-label="Avisos anteriores" disabled={loading || page === 0} onClick={() => void load(page - 1, seenAt)}><ChevronLeft size={17} /></button><button type="button" aria-label="Próximos avisos" disabled={loading || (page + 1) * 3 >= total} onClick={() => void load(page + 1, seenAt)}><ChevronRight size={17} /></button><button type="button" aria-label="Atualizar avisos" disabled={loading} onClick={() => void load(page, seenAt)}><RefreshCw size={15} /></button></div></footer>
+      <footer><span>{total ? `${first}–${last} de ${total}` : "0 avisos"}</span><div><button type="button" aria-label="Avisos anteriores" disabled={loading || page === 0} onClick={() => void load(page - 1, seenAt)}><ChevronLeft size={17} /></button><button type="button" aria-label="Próximos avisos" disabled={loading || (page + 1) * pageSize >= total} onClick={() => void load(page + 1, seenAt)}><ChevronRight size={17} /></button><button type="button" aria-label="Atualizar avisos" disabled={loading} onClick={() => void load(page, seenAt)}><RefreshCw size={15} /></button></div></footer>
     </article>
   </section>;
 }
