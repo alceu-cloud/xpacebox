@@ -11,6 +11,7 @@ import AgendaWorkspace from "@/components/xpace-dance/AgendaWorkspace";
 import AdministrativeWorkspace from "@/components/xpace-dance/AdministrativeWorkspace";
 import ModalitiesWorkspace from "@/components/xpace-dance/ModalitiesWorkspace";
 import InstructorsWorkspace from "@/components/xpace-dance/InstructorsWorkspace";
+import FinanceWorkspace from "@/components/xpace-dance/FinanceWorkspace";
 import LeadsWorkspace from "@/components/xpace-dance/LeadsWorkspace";
 import RoomsWorkspace from "@/components/xpace-dance/RoomsWorkspace";
 import ServicesWorkspace from "@/components/xpace-dance/ServicesWorkspace";
@@ -49,7 +50,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   if (screen === "PROFILE" && profileId) return <main className="xd-shell">{topbar}<StudentProfileWorkspace studentId={profileId} /></main>;
   if (screen === "CRM") return <main className="xd-shell">{topbar}<LeadsWorkspace /></main>;
   if (screen === "AGENDA") return <main className="xd-shell">{topbar}<AgendaWorkspace /></main>;
-  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<section className="xd-finance"><header><span>FINANCEIRO</span><h1>CONTROLE FINANCEIRO.</h1><p>Escolha uma área para começar a estruturar a operação da escola.</p></header><div>{["CAIXA", "CONTAS A PAGAR", "CONTAS A RECEBER", "CONTAS FINANCEIRAS", "XPACEPAY"].map((item, index) => <button key={item} type="button"><i>{String(index + 1).padStart(2, "0")}</i><strong>{item}</strong><small>EM PREPARAÇÃO</small></button>)}</div></section></main>;
+  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<FinanceWorkspace onBack={() => setScreen("HOME")} /></main>;
   if (screen === "STORE") return <main className="xd-shell">{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} /></main>;
   if (screen === "XPAY_BENEFITS") return <main className="xd-shell">{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></main>;
   if (screen === "XPAY_ACCOUNT") return <main className="xd-shell">{topbar}<XPayAccount onBack={() => setScreen("STORE")} /></main>;
