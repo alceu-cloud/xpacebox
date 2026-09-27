@@ -10,5 +10,6 @@ mobile/.expo/
 mobile/.expo-export-test*/
 .env*
 !mobile/.env.example
+!connector/.env.example
 supabase/.temp/*
 !supabase/.temp/cli-latest

@@ -1,0 +1,13 @@
+{
+  "name": "xpacebox-message-connector",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": { "start": "node --env-file=.env index.mjs" },
+  "engines": { "node": ">=20.6" },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "pino": "9.9.0",
+    "qrcode": "1.5.4"
+  }
+}

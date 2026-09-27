@@ -135,6 +135,13 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
   return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "" };
 }
 
+export async function getAsaasInvoiceUrl(account: AccountCredential, paymentId: string) {
+  const apiKey = decryptAccountToken(account);
+  const payment = await asaasRequest<AsaasPayment>(`/payments/${encodeURIComponent(paymentId)}`, apiKey, { method: "GET" });
+  if (payment.id !== paymentId || !payment.invoiceUrl?.startsWith("https://")) throw new XPayProviderError("O ASAAS NÃO RETORNOU UM LINK SEGURO PARA ESTA COBRANÇA.", 409);
+  return payment.invoiceUrl;
+}
+
 async function configureCustomerNotifications(apiKey: string, customerId: string, person: { email?: string; mobile?: string; whatsappOptIn?: boolean }) {
   const mobile = digits(person.mobile ?? "");
   const allowWhatsApp = Boolean(person.whatsappOptIn && mobile.length >= 10);

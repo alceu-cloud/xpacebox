@@ -19,6 +19,7 @@ import SettingsWorkspace from "@/components/xpace-dance/SettingsWorkspace";
 import StudentProfileWorkspace from "@/components/xpace-dance/StudentProfileWorkspace";
 import XpaceHomeOverview from "@/components/xpace-dance/XpaceHomeOverview";
 import DashboardWorkspace from "@/components/xpace-dance/DashboardWorkspace";
+import MessageConnectorWorkspace from "@/components/xpace-dance/MessageConnectorWorkspace";
 import { XPayAccount, XPayBenefits, XPayStore } from "@/components/xpace-dance/XPayWorkspace";
 
 const modules = [
@@ -36,12 +37,12 @@ const modules = [
 
 export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccessCentral: boolean; onExit: () => Promise<void> }) {
   const router = useRouter();
-  const [screen, setScreen] = useState<"HOME" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT">("HOME");
+  const [screen, setScreen] = useState<"HOME" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT" | "MESSAGE_CONNECTOR">("HOME");
   const [profileId, setProfileId] = useState("");
   useEffect(() => { window.scrollTo(0, 0); }, [screen]);
-  const activeModule = screen === "DASHBOARD" ? "DASHBOARD" : screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "LOJA" : null;
-  const returnScreen = screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVE" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "STORE" : "HOME";
-  const returnTitle = screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "Voltar ao Administrativo" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" ? "Voltar à Loja" : "Voltar ao Painel";
+  const activeModule = screen === "DASHBOARD" ? "DASHBOARD" : screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "LOJA" : null;
+  const returnScreen = screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVE" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "STORE" : "HOME";
+  const returnTitle = screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "Voltar ao Administrativo" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "Voltar à Loja" : "Voltar ao Painel";
 
   const topbar = <header className={`xd-topbar${screen === "DASHBOARD" ? " xd-topbar--dashboard" : ""}`}>
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
@@ -54,7 +55,8 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   if (screen === "CRM") return <main className="xd-shell">{topbar}<LeadsWorkspace /></main>;
   if (screen === "AGENDA") return <main className="xd-shell">{topbar}<AgendaWorkspace /></main>;
   if (screen === "FINANCE") return <main className="xd-shell">{topbar}<FinanceWorkspace /></main>;
-  if (screen === "STORE") return <main className="xd-shell">{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} /></main>;
+  if (screen === "STORE") return <main className="xd-shell">{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onOpenMessages={() => setScreen("MESSAGE_CONNECTOR")} /></main>;
+  if (screen === "MESSAGE_CONNECTOR") return <main className="xd-shell">{topbar}<MessageConnectorWorkspace onBack={() => setScreen("STORE")} /></main>;
   if (screen === "XPAY_BENEFITS") return <main className="xd-shell">{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></main>;
   if (screen === "XPAY_ACCOUNT") return <main className="xd-shell">{topbar}<XPayAccount onBack={() => setScreen("STORE")} /></main>;
   if (screen === "ADMINISTRATIVE") return <main className="xd-shell">{topbar}<AdministrativeWorkspace onOpenContracts={() => setScreen("CONTRACTS")} onOpenServices={() => setScreen("SERVICES")} onOpenModalities={() => setScreen("MODALITIES")} onOpenInstructors={() => setScreen("INSTRUCTORS")} onOpenRooms={() => setScreen("ROOMS")} /></main>;

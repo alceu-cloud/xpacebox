@@ -345,6 +345,19 @@ export async function sendQuoteEmail(quote: QuoteEmailInput) {
   return payload.id || "";
 }
 
+export async function sendXpaceLinkEmail(input: { companyId: string; recipientEmail: string; recipientName: string; kind: "ASSINATURA" | "COBRANCA"; url: string }) {
+  const connection = await emailConnectionForCompany(createSupabaseAdmin(), input.companyId);
+  const integration = emailIntegrationStatus(connection);
+  if (!integration.configured) throw new Error("CONFIGURE A CHAVE E O REMETENTE DO RESEND EM INTEGRAÇÕES PARA ENVIAR E-MAIL.");
+  const apiKey = decryptIntegrationCredential({ ciphertext: connection.api_key_ciphertext || "", iv: connection.api_key_iv || "", authTag: connection.api_key_auth_tag || "" });
+  const action = input.kind === "ASSINATURA" ? "assinar seu contrato" : "acessar sua cobrança";
+  const text = `Olá, ${input.recipientName}. Acesse o link para ${action} com a XPACE: ${input.url}`;
+  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: integration.sender, to: [input.recipientEmail], subject: input.kind === "ASSINATURA" ? "XPACE · Assinatura do contrato" : "XPACE · Link de pagamento", text, reply_to: integration.replyTo || undefined }) });
+  const payload = await response.json().catch(() => ({})) as { id?: string; message?: string };
+  if (!response.ok || !payload.id) throw new Error(payload.message || "O PROVEDOR DE E-MAIL NÃO CONFIRMOU O ENVIO.");
+  return payload.id;
+}
+
 export async function sendScheduledAgendaEmails() {
   const agendas = await collectRecipientAgendas();
   const scheduledFor = saoPauloDay(new Date());
