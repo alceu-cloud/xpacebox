@@ -49,11 +49,11 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   </header>;
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
-  if (screen === "DASHBOARD") return <main className="xd-shell">{topbar}<DashboardWorkspace onBack={() => setScreen("HOME")} /></main>;
+  if (screen === "DASHBOARD") return <main className="xd-shell">{topbar}<DashboardWorkspace /></main>;
   if (screen === "PROFILE" && profileId) return <main className="xd-shell">{topbar}<StudentProfileWorkspace studentId={profileId} /></main>;
   if (screen === "CRM") return <main className="xd-shell">{topbar}<LeadsWorkspace /></main>;
   if (screen === "AGENDA") return <main className="xd-shell">{topbar}<AgendaWorkspace /></main>;
-  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<FinanceWorkspace onBack={() => setScreen("HOME")} /></main>;
+  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<FinanceWorkspace /></main>;
   if (screen === "STORE") return <main className="xd-shell">{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} /></main>;
   if (screen === "XPAY_BENEFITS") return <main className="xd-shell">{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></main>;
   if (screen === "XPAY_ACCOUNT") return <main className="xd-shell">{topbar}<XPayAccount onBack={() => setScreen("STORE")} /></main>;

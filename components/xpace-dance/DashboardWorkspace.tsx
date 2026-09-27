@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BarChart3, Cake, CalendarDays, CircleAlert, ClipboardList, HeartPulse, PieChart, RefreshCw, UsersRound, WalletCards } from "lucide-react";
+import { BarChart3, Cake, CalendarDays, CircleAlert, ClipboardList, HeartPulse, PieChart, RefreshCw, UsersRound, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -32,7 +32,7 @@ function money(cents: number | null) { return cents === null ? "—" : new Intl.
 function number(value: number | null, suffix = "") { return value === null ? "—" : `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value)}${suffix}`; }
 function monthLabel(value: string) { return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }).format(new Date(`${value}-01T12:00:00Z`)).replace(".", "").toUpperCase(); }
 
-export default function DashboardWorkspace({ onBack }: { onBack: () => void }) {
+export default function DashboardWorkspace() {
   const current = today();
   const [section, setSection] = useState<Section>("CRM");
   const [fromDraft, setFromDraft] = useState(`${current.slice(0, 4)}-01-01`);
@@ -66,7 +66,7 @@ export default function DashboardWorkspace({ onBack }: { onBack: () => void }) {
   }
 
   return <section className="xdd-workspace">
-    <header className="xdd-heading"><button className="xdd-back" type="button" onClick={onBack} aria-label="Voltar ao painel"><ArrowLeft size={18} /></button><div><span>VISÃO ESTRATÉGICA · XPACE</span><h1>Dashboard<span>.</span></h1><p>Do primeiro agendamento à vida ativa na escola.</p></div><button className="xdd-refresh" type="button" disabled={loading} onClick={() => void load(section, period.from, period.to)}><RefreshCw size={16} /> Atualizar</button></header>
+    <header className="xdd-heading"><div><span>VISÃO ESTRATÉGICA · XPACE</span><h1>Dashboard<span>.</span></h1><p>Do primeiro agendamento à vida ativa na escola.</p></div><button className="xdd-refresh" type="button" disabled={loading} onClick={() => void load(section, period.from, period.to)}><RefreshCw size={16} /> Atualizar</button></header>
 
     <form className="xdd-period" onSubmit={applyPeriod}><div><CalendarDays size={18} /><span>PERÍODO DE ANÁLISE</span></div><label>DE <input aria-label="Data inicial" type="date" required value={fromDraft} onChange={(event) => setFromDraft(event.target.value)} /></label><label>ATÉ <input aria-label="Data final" type="date" required value={toDraft} onChange={(event) => setToDraft(event.target.value)} /></label><button type="submit">APLICAR</button><small>Os quadros “próximos” e os saldos atuais usam a data de hoje.</small></form>
 

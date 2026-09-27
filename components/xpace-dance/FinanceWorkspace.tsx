@@ -37,7 +37,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
-export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
+export default function FinanceWorkspace() {
   const [view, setView] = useState<View>("HUB");
   const [draft, setDraft] = useState<Filters>(initialFilters);
   const [applied, setApplied] = useState<Filters>(initialFilters);
@@ -90,7 +90,7 @@ export default function FinanceWorkspace({ onBack }: { onBack: () => void }) {
     <button type="button" onClick={() => open("RECEBER")}><span className="xdf-hub-icon xdf-hub-icon--green"><CircleDollarSign size={24} /></span><strong>CONTAS A RECEBER</strong><small>Cobranças XPay e contas manuais</small><ArrowUpRight size={19} /></button>
     <button type="button" onClick={() => open("CONTAS")}><span className="xdf-hub-icon xdf-hub-icon--blue"><Landmark size={24} /></span><strong>CONTAS FINANCEIRAS</strong><small>Banco, caixa e carteiras</small><ArrowUpRight size={19} /></button>
     <div className="xdf-hub-soon"><span className="xdf-hub-icon"><WalletCards size={24} /></span><strong>CAIXA E XPAY</strong><small>Outras visões seguem em preparação.</small></div>
-  </div><button type="button" className="xdf-back" onClick={onBack}><ArrowLeft size={17} /> Voltar à XPACE</button></section>;
+  </div></section>;
 
   const receive = view === "RECEBER";
   const data = view === "CONTAS" ? accountData : entries;

@@ -45,6 +45,9 @@ const fixtures = {
       await page.goto(`${origin}/xpace`);
       await page.locator('.xd-modules').getByRole('button', { name: /DASHBOARD/ }).click();
       await page.waitForFunction(() => scrollY === 0);
+      const dashboardReturn = page.locator('.xd-topbar').getByRole('button', { name: /DASHBOARD/ });
+      await dashboardReturn.waitFor({ state: 'visible' });
+      assert.equal(await page.locator('.xdd-back').count(), 0, `${label} has redundant dashboard back button`);
       await page.screenshot({ path: path.join(output, `${label}-top.png`) });
       for (const section of ['CRM', 'GERENCIAL', 'OPERACIONAL', 'CLIENTES', 'FINANCEIRO']) {
         await page.locator('.xdd-tabs').getByRole('button', { name: section, exact: true }).click();
@@ -59,6 +62,13 @@ const fixtures = {
       await page.getByRole('button', { name: 'APLICAR' }).click();
       await page.locator('.xdd-loading').waitFor({ state: 'hidden' });
       assert.ok(calls.some((call) => call.includes('from=2026-03-01')), `${label} date filter was not sent`);
+      await dashboardReturn.click();
+      await page.locator('.xd-modules').waitFor({ state: 'visible' });
+      await page.locator('.xd-modules').getByRole('button', { name: /FINANCEIRO/ }).click();
+      await page.locator('.xdf-hub').waitFor({ state: 'visible' });
+      assert.equal(await page.getByRole('button', { name: 'Voltar à XPACE' }).count(), 0, `${label} has redundant finance back button`);
+      await page.locator('.xd-topbar').getByRole('button', { name: /FINANCEIRO/ }).click();
+      await page.locator('.xd-modules').waitFor({ state: 'visible' });
       assert.deepEqual(errors, [], `${label} page errors`);
       await context.close();
     }
