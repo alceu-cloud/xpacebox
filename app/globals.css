@@ -4151,6 +4151,8 @@ input[type="email"] { text-transform: none !important; }
 .xpace-public-booking-card form > label > input, .xpace-public-booking-card form > label > select { grid-column: 1 / -1; width: 100%; min-height: 48px; padding: 0 13px; border: 1px solid #ded4e6; border-radius: 13px; outline: 0; background: #fff; color: #261834; font: inherit; font-size: 14px; font-weight: 700; }
 .xpace-public-booking-card form > label > input:focus, .xpace-public-booking-card form > label > select:focus { border-color: #8f4cd0; box-shadow: 0 0 0 4px rgba(137,69,203,.12); }
 .xpace-public-booking-card form > label > svg, .xpace-public-booking-mail { color: #8b43c4; }
+.xpace-public-booking-card form > .xpace-public-booking-consent { display: flex; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid #ded4e6; border-radius: 13px; background: #fcfaff; color: #513766; font-size: 12px; font-weight: 650; letter-spacing: 0; line-height: 1.45; text-transform: none; cursor: pointer; }
+.xpace-public-booking-card form > .xpace-public-booking-consent > input { flex: 0 0 18px; width: 18px; height: 18px; margin: 1px 0 0; accent-color: #7b35b4; }
 .xpace-public-booking-mail { display: grid; width: 18px; height: 18px; place-items: center; font-size: 16px; font-weight: 900; }
 .xpace-public-booking-card .xpace-public-booking-slot { margin-top: 4px; }
 .xd-agenda-slot-note { margin: 0; padding: 11px 13px; border: 1px solid #e3d3ef; border-radius: 12px; background: #fbf6ff; color: #70418f; font-size: 10px; font-weight: 750; line-height: 1.45; text-transform: none; }

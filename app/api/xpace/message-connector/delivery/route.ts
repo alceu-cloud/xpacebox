@@ -33,6 +33,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, status: "SENT" }, { headers });
     }
     if (!person.whatsapp_opt_in) return fail("O CLIENTE NÃO AUTORIZOU MENSAGENS PELO WHATSAPP.", 409);
+    if (kind === "COBRANCA" && charge?.id) {
+      const { data: automatic, error: automaticError } = await access.admin.from("xpace_message_outbox")
+        .select("id,status").eq("tenant_company_id", access.company.id).eq("charge_id", charge.id)
+        .eq("kind", "COBRANCA_PIX_AUTOMATICA").in("status", ["QUEUED", "SENDING", "SENT", "UNKNOWN"])
+        .limit(1).maybeSingle();
+      if (automaticError) throw automaticError;
+      if (automatic) return fail("ESTE LINK JÁ TEM ENVIO AUTOMÁTICO PROGRAMADO OU REALIZADO. CONFIRA A FILA ANTES DE REENVIAR.", 409);
+    }
     const digits = (person.mobile ?? "").replace(/\D/g, "");
     const phone = digits.startsWith("55") ? digits : `55${digits}`;
     if (phone.length < 12 || phone.length > 15) return fail("CADASTRE UM CELULAR VÁLIDO PARA O CLIENTE.", 409);

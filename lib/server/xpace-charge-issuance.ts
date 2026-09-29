@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createAsaasPixCharge, xPayEnvironment } from "@/lib/server/xpay-asaas";
+import { createAsaasPixCharge, getAsaasInvoiceUrl, xPayEnvironment } from "@/lib/server/xpay-asaas";
+import { queuePixMessage } from "@/lib/server/xpace-automatic-messages";
 
 type Charge = { id: string; contract_id: string; student_id: string; amount_cents: number; due_on: string };
 type Account = {
@@ -14,7 +15,7 @@ type Account = {
   provider_access_token_auth_tag: string | null;
 };
 type Student = { id: string; full_name: string; cpf: string | null; email: string | null; mobile: string | null; whatsapp_opt_in: boolean };
-type Contract = { id: string; plan_name_snapshot: string; payment_method: string | null };
+type Contract = { id: string; plan_name_snapshot: string; payment_method: string | null; first_due_on: string };
 
 export async function issuePendingPixCharges(admin: SupabaseClient, companyId: string, contractId?: string) {
   const result = { issued: 0, failed: 0, skipped: 0 };
@@ -53,7 +54,7 @@ export async function issuePendingPixCharges(admin: SupabaseClient, companyId: s
   const contractIds = [...new Set(charges.map((charge) => charge.contract_id))];
   const studentIds = [...new Set(charges.map((charge) => charge.student_id))];
   const [{ data: contracts, error: contractsError }, { data: students, error: studentsError }] = await Promise.all([
-    admin.from("xpace_student_contracts").select("id,plan_name_snapshot,payment_method").eq("tenant_company_id", companyId).in("id", contractIds),
+    admin.from("xpace_student_contracts").select("id,plan_name_snapshot,payment_method,first_due_on").eq("tenant_company_id", companyId).in("id", contractIds),
     admin.from("xpace_people").select("id,full_name,cpf,email,mobile,whatsapp_opt_in").eq("tenant_company_id", companyId).in("id", studentIds),
   ]);
   if (contractsError) throw contractsError;
@@ -87,9 +88,15 @@ export async function issuePendingPixCharges(admin: SupabaseClient, companyId: s
         description: `XPACE · ${contract.plan_name_snapshot}`,
         externalReference: charge.id,
       });
-      const { error: updateError } = await admin.from("xpace_contract_charges").update({ provider_payment_id: payment.providerPaymentId, provider_status: payment.providerStatus, pix_copy_paste: payment.pixCopyPaste || null, pix_qr_code_url: payment.pixQrCodeUrl || null, issued_at: new Date().toISOString(), provider_error: null, provider_issue_lease_token: null, provider_issue_lease_until: null, updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", companyId).eq("provider_issue_lease_token", leaseToken);
+      const { error: updateError } = await admin.from("xpace_contract_charges").update({ provider_payment_id: payment.providerPaymentId, provider_status: payment.providerStatus, pix_copy_paste: payment.pixCopyPaste || null, pix_qr_code_url: payment.pixQrCodeUrl || null, school_whatsapp_ready: payment.schoolWhatsappReady, issued_at: new Date().toISOString(), provider_error: null, provider_issue_lease_token: null, provider_issue_lease_until: null, updated_at: new Date().toISOString() }).eq("id", charge.id).eq("tenant_company_id", companyId).eq("provider_issue_lease_token", leaseToken);
       if (updateError) throw updateError;
       result.issued += 1;
+      if (payment.schoolWhatsappReady && student.whatsapp_opt_in) {
+        try {
+          const invoiceUrl = payment.invoiceUrl || await getAsaasInvoiceUrl(account as Account, payment.providerPaymentId);
+          await queuePixMessage(admin, { companyId, chargeId: charge.id, studentId: student.id, name: student.full_name, mobile: student.mobile ?? "", amountCents: charge.amount_cents, dueOn: charge.due_on, invoiceUrl, firstPayment: charge.due_on === contract.first_due_on });
+        } catch (error) { console.error("XPACE PIX MESSAGE QUEUE ERROR", { chargeId: charge.id, error }); }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 500) : "NÃO FOI POSSÍVEL GERAR O PIX.";
       await saveIssueError(admin, companyId, charge.id, message, leaseToken);
@@ -101,6 +108,42 @@ export async function issuePendingPixCharges(admin: SupabaseClient, companyId: s
 
 export function issuePixChargesForContract(admin: SupabaseClient, companyId: string, contractId: string) {
   return issuePendingPixCharges(admin, companyId, contractId);
+}
+
+// Recovers a failed outbox insert without recreating or changing an Asaas charge.
+export async function queueReadyPixMessages(admin: SupabaseClient, companyId: string) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const { data: charges, error: chargeError } = await admin.from("xpace_contract_charges")
+    .select("id,contract_id,student_id,amount_cents,due_on,provider_payment_id")
+    .eq("tenant_company_id", companyId).eq("status", "ABERTO").eq("school_whatsapp_ready", true)
+    .not("provider_payment_id", "is", null).gte("due_on", today).order("due_on").limit(500);
+  if (chargeError) throw chargeError;
+  if (!charges?.length) return { queued: 0, failed: 0 };
+  const ids = charges.map((charge) => charge.id);
+  const [{ data: existing, error: existingError }, { data: account, error: accountError }, { data: students, error: studentsError }, { data: contracts, error: contractsError }] = await Promise.all([
+    admin.from("xpace_message_outbox").select("charge_id").eq("tenant_company_id", companyId).eq("kind", "COBRANCA_PIX_AUTOMATICA").in("charge_id", ids),
+    admin.from("xpace_payment_accounts").select("provider_environment,provider_access_token_ciphertext,provider_access_token_iv,provider_access_token_auth_tag").eq("tenant_company_id", companyId).eq("account_status", "ATIVA").is("closed_at", null).maybeSingle(),
+    admin.from("xpace_people").select("id,full_name,mobile,whatsapp_opt_in").eq("tenant_company_id", companyId).in("id", [...new Set(charges.map((charge) => charge.student_id))]),
+    admin.from("xpace_student_contracts").select("id,first_due_on,payment_method").eq("tenant_company_id", companyId).in("id", [...new Set(charges.map((charge) => charge.contract_id))]),
+  ]);
+  if (existingError || accountError || studentsError || contractsError) throw existingError ?? accountError ?? studentsError ?? contractsError;
+  if (!account || account.provider_environment !== xPayEnvironment()) return { queued: 0, failed: 0 };
+  const queuedIds = new Set((existing ?? []).map((message) => message.charge_id));
+  const studentsById = new Map((students ?? []).map((student) => [student.id, student]));
+  const contractsById = new Map((contracts ?? []).map((contract) => [contract.id, contract]));
+  const result = { queued: 0, failed: 0 };
+  for (const charge of charges) {
+    if (queuedIds.has(charge.id)) continue;
+    const student = studentsById.get(charge.student_id);
+    const contract = contractsById.get(charge.contract_id);
+    if (!student?.whatsapp_opt_in || contract?.payment_method !== "PIX" || !charge.provider_payment_id) continue;
+    try {
+      const invoiceUrl = await getAsaasInvoiceUrl(account, charge.provider_payment_id);
+      await queuePixMessage(admin, { companyId, chargeId: charge.id, studentId: student.id, name: student.full_name, mobile: student.mobile ?? "", amountCents: charge.amount_cents, dueOn: charge.due_on, invoiceUrl, firstPayment: charge.due_on === contract.first_due_on });
+      result.queued += 1;
+    } catch (error) { result.failed += 1; console.error("XPACE PIX MESSAGE RECOVERY ERROR", { chargeId: charge.id, error }); }
+  }
+  return result;
 }
 
 async function saveIssueError(admin: SupabaseClient, companyId: string, chargeId: string, message: string, leaseToken?: string) {

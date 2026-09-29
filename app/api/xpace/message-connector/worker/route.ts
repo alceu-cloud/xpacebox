@@ -42,10 +42,35 @@ export async function POST(request: Request) {
         .eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
         .eq("status", "SENDING").lt("claimed_at", staleBefore);
       const { data: queued, error: queueError } = await admin.from("xpace_message_outbox")
-        .select("id").eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
-        .eq("status", "QUEUED").order("created_at", { ascending: true }).limit(1).maybeSingle();
+        .select("id,kind,appointment_id,appointment_scheduled_on,appointment_starts_at,charge_id,expires_at").eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
+        .eq("status", "QUEUED").lte("scheduled_at", now).order("scheduled_at", { ascending: true }).limit(1).maybeSingle();
       if (queueError) throw queueError;
       if (!queued) return NextResponse.json({ success: true, message: null }, { headers });
+      let cancelReason = queued.expires_at && queued.expires_at <= now ? "PRAZO DA MENSAGEM EXPIRADO." : "";
+      if (!cancelReason && queued.appointment_id) {
+        const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments")
+          .select("id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in")
+          .eq("id", queued.appointment_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
+        if (appointmentError) throw appointmentError;
+        if (!appointment || !appointment.whatsapp_opt_in || appointment.attendance_status === "CANCELADO" || appointment.confirmation_status === "NAO_CONFIRMADO" || appointment.scheduled_on !== queued.appointment_scheduled_on || appointment.starts_at?.slice(0, 5) !== queued.appointment_starts_at?.slice(0, 5)) cancelReason = "AGENDAMENTO ALTERADO, CANCELADO OU SEM AUTORIZAÇÃO.";
+      }
+      if (!cancelReason && queued.kind === "COBRANCA_PIX_AUTOMATICA") {
+        const { data: charge, error: chargeError } = await admin.from("xpace_contract_charges")
+          .select("id,status,student_id,provider_payment_id")
+          .eq("id", queued.charge_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
+        if (chargeError) throw chargeError;
+        const { data: student, error: studentError } = charge ? await admin.from("xpace_people")
+          .select("whatsapp_opt_in").eq("id", charge.student_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle() : { data: null, error: null };
+        if (studentError) throw studentError;
+        if (!charge || charge.status !== "ABERTO" || !charge.provider_payment_id || !student?.whatsapp_opt_in) cancelReason = "COBRANÇA NÃO ESTÁ ABERTA OU SEM AUTORIZAÇÃO DE WHATSAPP.";
+      }
+      if (cancelReason) {
+        const { error: cancelError } = await admin.from("xpace_message_outbox")
+          .update({ status: "CANCELLED", error_message: cancelReason, updated_at: now })
+          .eq("id", queued.id).eq("tenant_company_id", connector.tenant_company_id).eq("status", "QUEUED");
+        if (cancelError) throw cancelError;
+        return NextResponse.json({ success: true, message: null }, { headers });
+      }
       const { data: message, error } = await admin.from("xpace_message_outbox")
         .update({ status: "SENDING", claimed_at: now, updated_at: now })
         .eq("id", queued.id).eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
@@ -58,9 +83,19 @@ export async function POST(request: Request) {
       const { data, error } = await admin.from("xpace_message_outbox")
         .update({ status: body.success ? "SENT" : "UNKNOWN", provider_message_id: body.providerMessageId?.slice(0, 200) || null, error_message: body.success ? null : (body.error ?? "ENVIO NÃO CONFIRMADO. VERIFIQUE O WHATSAPP.").slice(0, 400), sent_at: body.success ? now : null, updated_at: now })
         .eq("id", body.messageId).eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
-        .eq("status", "SENDING").select("id").maybeSingle();
+        .eq("status", "SENDING").select("id,kind,appointment_id,lead_id").maybeSingle();
       if (error) throw error;
       if (!data) return fail("MENSAGEM NÃO ESTÁ EM ENVIO.", 409);
+      if (data.kind === "VIDEO_BOAS_VINDAS" && data.appointment_id) {
+        const { error: videoError } = await admin.from("xpace_lead_appointments")
+          .update({ welcome_delivery_status: body.success ? "ENVIADO" : "FALHOU", welcome_delivered_at: body.success ? now : null })
+          .eq("id", data.appointment_id).eq("tenant_company_id", connector.tenant_company_id);
+        if (videoError) console.error("XPACE VIDEO STATUS ERROR", videoError);
+        if (body.success && data.lead_id) {
+          const { error: activityError } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: connector.tenant_company_id, lead_id: data.lead_id, appointment_id: data.appointment_id, activity_type: "VIDEO_ENVIADO", body: "VÍDEO DE BOAS-VINDAS ENVIADO PELO CONECTOR WHATSAPP.", payload: { messageId: data.id } });
+          if (activityError) console.error("XPACE VIDEO ACTIVITY ERROR", activityError);
+        }
+      }
       return NextResponse.json({ success: true }, { headers });
     }
     return fail("AÇÃO INVÁLIDA.", 400);

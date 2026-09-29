@@ -2,13 +2,14 @@ import { after, NextResponse } from "next/server";
 
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
+import { queueTrialMessages } from "@/lib/server/xpace-automatic-messages";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 const bookingHorizonDays = 35;
 export const maxDuration = 30;
 
-type BookingBody = { fullName?: unknown; mobile?: unknown; email?: unknown; sourceId?: unknown; classGroupId?: unknown; classScheduleId?: unknown; scheduledOn?: unknown; website?: unknown };
+type BookingBody = { fullName?: unknown; mobile?: unknown; email?: unknown; sourceId?: unknown; classGroupId?: unknown; classScheduleId?: unknown; scheduledOn?: unknown; whatsappOptIn?: unknown; website?: unknown };
 
 export async function GET() {
   try {
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as BookingBody;
     if (text(body.website)) return NextResponse.json({ success: true, message: "SOLICITAÇÃO RECEBIDA." }, { status: 201 });
-    const fullName = text(body.fullName); const mobile = phone(body.mobile); const email = text(body.email).toLowerCase(); const sourceId = text(body.sourceId); const classGroupId = text(body.classGroupId); const classScheduleId = text(body.classScheduleId); const scheduledOn = text(body.scheduledOn);
+    const fullName = text(body.fullName); const mobile = phone(body.mobile); const email = text(body.email).toLowerCase(); const sourceId = text(body.sourceId); const classGroupId = text(body.classGroupId); const classScheduleId = text(body.classScheduleId); const scheduledOn = text(body.scheduledOn); const whatsappOptIn = body.whatsappOptIn === true;
     if (fullName.length < 2 || fullName.length > 180 || mobile.length < 10 || mobile.length > 13 || !/^\S+@\S+\.\S+$/.test(email) || !sourceId || !classGroupId || !classScheduleId || !isDate(scheduledOn)) throw new PublicError("PREENCHA NOME, TELEFONE, E-MAIL, COMO CONHECEU A XPACE E O HORÁRIO DESEJADO.", 400);
     const today = brazilToday();
     if (scheduledOn < today || scheduledOn > addDays(today, bookingHorizonDays)) throw new PublicError("ESCOLHA UM HORÁRIO DISPONÍVEL NA AGENDA.", 400);
@@ -85,10 +86,14 @@ export async function POST(request: Request) {
       leadId = newLead.id;
       await addActivity(admin, company.id, leadId, null, "LEAD_CRIADO", "LEAD CRIADO PELO AGENDAMENTO PÚBLICO.");
     }
-    const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments").insert({ tenant_company_id: company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: "NOVO", modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: snapshot.welcomeVideoUrl ? "PENDENTE" : "NAO_CONFIGURADO" }).select("id").single();
+    const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments").insert({ tenant_company_id: company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: "NOVO", modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, whatsapp_opt_in: whatsappOptIn, whatsapp_opt_in_at: whatsappOptIn ? new Date().toISOString() : null, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: !snapshot.welcomeVideoUrl ? "NAO_CONFIGURADO" : whatsappOptIn ? "PENDENTE" : "DISPENSADO" }).select("id").single();
     if (appointmentError) throw appointmentError;
     await addActivity(admin, company.id, leadId, appointment.id, "AGENDAMENTO_CRIADO", `AGENDAMENTO PÚBLICO: ${snapshot.className} em ${scheduledOn}.`);
-    if (snapshot.welcomeVideoUrl) await addActivity(admin, company.id, leadId, appointment.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
+    if (snapshot.welcomeVideoUrl && whatsappOptIn) await addActivity(admin, company.id, leadId, appointment.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
+    if (whatsappOptIn) {
+      try { await queueTrialMessages(admin, { companyId: company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className, instructor: snapshot.instructor, videoUrl: snapshot.welcomeVideoUrl }); }
+      catch (error) { console.error("XPACE TRIAL MESSAGE QUEUE ERROR", { appointmentId: appointment.id, error }); }
+    }
     after(() => sendNewAppointmentPush(company.id, appointment.id, scheduledOn));
     return NextResponse.json({ success: true, message: "AULA EXPERIMENTAL AGENDADA! A EQUIPE XPACE CONFIRMARÁ OS DETALHES COM VOCÊ." }, { status: 201 });
   } catch (error) { return handleError(error); }

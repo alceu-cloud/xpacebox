@@ -122,8 +122,9 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
   if (!customerId) throw new XPayProviderError("O ASAAS NÃO RETORNOU O CLIENTE DA COBRANÇA.", 502);
   // Billing must remain available even if the provider rejects a notification
   // preference. The next charge retries this configuration automatically.
-  await configureCustomerNotifications(apiKey, customerId, input.person).catch((error) => {
+  const schoolWhatsappReady = await configureCustomerNotifications(apiKey, customerId).then(() => true).catch((error) => {
     console.error("XPACE ASAAS NOTIFICATION CONFIG ERROR", { customerId, error });
+    return false;
   });
   // The provider can accept the payment and fail only when the QR is requested.
   // Reconcile by our immutable local charge id before issuing another payment.
@@ -132,7 +133,7 @@ export async function createAsaasPixCharge(account: AccountCredential, input: { 
     ?? await asaasRequest<AsaasPayment>("/payments", apiKey, { method: "POST", body: JSON.stringify({ customer: customerId, billingType: "PIX", value: input.valueCents / 100, dueDate: input.dueOn, description: input.description.slice(0, 500), externalReference: input.externalReference }) });
   if (!payment.id) throw new XPayProviderError("O ASAAS NÃO RETORNOU A COBRANÇA PIX.", 502);
   const pix = await asaasRequest<AsaasPix>(`/payments/${encodeURIComponent(payment.id)}/pixQrCode`, apiKey, { method: "GET" });
-  return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "" };
+  return { providerPaymentId: payment.id, providerStatus: payment.status ?? "PENDING", invoiceUrl: payment.invoiceUrl ?? "", pixCopyPaste: pix.payload ?? "", pixQrCodeUrl: pix.encodedImage ?? "", schoolWhatsappReady };
 }
 
 export async function getAsaasInvoiceUrl(account: AccountCredential, paymentId: string) {
@@ -142,25 +143,25 @@ export async function getAsaasInvoiceUrl(account: AccountCredential, paymentId: 
   return payment.invoiceUrl;
 }
 
-async function configureCustomerNotifications(apiKey: string, customerId: string, person: { email?: string; mobile?: string; whatsappOptIn?: boolean }) {
-  const mobile = digits(person.mobile ?? "");
-  const allowWhatsApp = Boolean(person.whatsappOptIn && mobile.length >= 10);
-  const allowEmail = Boolean(person.email?.trim());
-  if (!allowEmail && !allowWhatsApp) return;
+async function configureCustomerNotifications(apiKey: string, customerId: string) {
   const result = await asaasRequest<{ data?: AsaasNotification[] }>(`/customers/${encodeURIComponent(customerId)}/notifications`, apiKey, { method: "GET" });
-  const notifications = (result.data ?? []).filter((notification) => ["PAYMENT_CREATED", "PAYMENT_DUEDATE_WARNING", "PAYMENT_OVERDUE", "PAYMENT_RECEIVED"].includes(notification.event ?? "") && notification.id);
+  if (!Array.isArray(result.data) || !result.data.length) throw new XPayProviderError("NÃO FOI POSSÍVEL CONFERIR AS NOTIFICAÇÕES DO ASAAS.", 502);
+  const notifications = (result.data ?? []).filter((notification) => notification.id && notification.whatsappEnabledForCustomer);
   await Promise.all(notifications.map((notification) => asaasRequest(`/notifications/${encodeURIComponent(notification.id!)}`, apiKey, {
     method: "PUT",
     body: JSON.stringify({
       enabled: notification.enabled !== false,
       emailEnabledForProvider: Boolean(notification.emailEnabledForProvider),
       smsEnabledForProvider: Boolean(notification.smsEnabledForProvider),
-      emailEnabledForCustomer: allowEmail,
-      smsEnabledForCustomer: false,
-      phoneCallEnabledForCustomer: false,
-      whatsappEnabledForCustomer: allowWhatsApp,
+      emailEnabledForCustomer: Boolean(notification.emailEnabledForCustomer),
+      smsEnabledForCustomer: Boolean(notification.smsEnabledForCustomer),
+      phoneCallEnabledForCustomer: Boolean(notification.phoneCallEnabledForCustomer),
+      whatsappEnabledForCustomer: false,
     }),
   })));
+  const verified = await asaasRequest<{ data?: AsaasNotification[] }>(`/customers/${encodeURIComponent(customerId)}/notifications`, apiKey, { method: "GET" });
+  if (!Array.isArray(verified.data) || !verified.data.length) throw new XPayProviderError("NÃO FOI POSSÍVEL VERIFICAR A DESATIVAÇÃO DO WHATSAPP ASAAS.", 502);
+  if ((verified.data ?? []).some((notification) => notification.whatsappEnabledForCustomer)) throw new XPayProviderError("O ASAAS AINDA ESTÁ COM WHATSAPP ATIVO PARA ESTE CLIENTE.", 409);
 }
 
 export async function cancelAsaasCharge(account: AccountCredential, paymentId: string) {
