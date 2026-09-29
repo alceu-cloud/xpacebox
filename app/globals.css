@@ -219,6 +219,9 @@ body {
 
 .xd-shell { min-height: 100dvh; padding: 0 clamp(18px, 5vw, 76px) 70px; overflow: hidden; background: radial-gradient(circle at 88% 8%, rgba(232,76,183,.14), transparent 20%), radial-gradient(circle at 12% 34%, rgba(118,71,226,.12), transparent 25%), #f9f7fb; color: #191324; }
 .xd-topbar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 74px; }
+.xd-connector-alert { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 12px 14px; border: 1px solid #db7779; border-radius: 12px; background: #fff0f0; color: #8e1e2b; font-size: 12px; line-height: 1.4; }
+.xd-connector-alert strong { display: block; font-weight: 900; }
+.xd-connector-alert svg { flex: 0 0 auto; }
 .xd-topbar::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 999px; background: linear-gradient(90deg, #5c28b5 0%, #ca3db0 38%, #72c9f8 72%, #8d4fe1 100%); box-shadow: 0 1px 8px rgba(130,67,210,.24); content: ""; }
 .xd-brand { display: inline-flex; align-items: center; gap: 16px; color: #17111f; }
 .xd-brand-logo { display: block; width: 210px; height: auto; }
@@ -4195,6 +4198,9 @@ input[type="email"] { text-transform: none !important; }
 
 .xd-historical-pending { align-self: center; color: #b4232d; font-size: 9px; font-weight: 900; letter-spacing: .04em; }
 .xd-lead-appointments > article.is-historical-unlinked { border-color: #e5484d; background: #fff7f7; }
+.xd-lead-consent { margin: 4px 0 -8px; padding: 8px 10px; border-radius: 9px; font-size: 10px; font-weight: 900; letter-spacing: .02em; }
+.xd-lead-consent.is-authorized { background: #e6f6e9; color: #145a2a; }
+.xd-lead-consent.is-not-authorized { background: #fff0e0; color: #8a4600; }
 .xd-appointment-schedule-link { display: grid; gap: 8px; padding: 12px; border: 1px solid #f1b7bd; border-radius: 11px; background: #fff1f2; }
 .xd-appointment-schedule-link > strong { color: #a61b26; font-size: 10px; font-weight: 950; letter-spacing: .06em; }
 .xd-appointment-schedule-link > p { margin: 0; color: #8d3d45; font-size: 9px; font-weight: 700; line-height: 1.4; text-transform: none; }

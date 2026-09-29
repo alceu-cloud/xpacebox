@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, CalendarDays, ClipboardList, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, ClipboardList, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -21,6 +21,7 @@ import XpaceHomeOverview from "@/components/xpace-dance/XpaceHomeOverview";
 import DashboardWorkspace from "@/components/xpace-dance/DashboardWorkspace";
 import MessageConnectorWorkspace from "@/components/xpace-dance/MessageConnectorWorkspace";
 import { XPayAccount, XPayBenefits, XPayStore } from "@/components/xpace-dance/XPayWorkspace";
+import { supabase } from "@/lib/supabase";
 
 const modules = [
   { icon: UsersRound, title: "CLIENTES", description: "Alunos e responsáveis", accent: "lilac" },
@@ -39,15 +40,36 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   const router = useRouter();
   const [screen, setScreen] = useState<"HOME" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT" | "MESSAGE_CONNECTOR">("HOME");
   const [profileId, setProfileId] = useState("");
+  const [connectorHealth, setConnectorHealth] = useState<{ configured: boolean; status: string; lastSeenAt: string | null } | null>(null);
   useEffect(() => { window.scrollTo(0, 0); }, [screen]);
+  useEffect(() => {
+    let active = true;
+    async function checkConnector() {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session?.access_token) return;
+        const response = await fetch("/api/xpace/message-connector/status", { headers: { Authorization: `Bearer ${data.session.access_token}` }, cache: "no-store" });
+        const payload = await response.json() as { success?: boolean; configured?: boolean; status?: string; lastSeenAt?: string | null };
+        if (!response.ok || !payload.success) throw new Error("STATUS INDISPONÍVEL");
+        if (active) setConnectorHealth({ configured: Boolean(payload.configured), status: payload.status ?? "OFFLINE", lastSeenAt: payload.lastSeenAt ?? null });
+      } catch {
+        if (active) setConnectorHealth((previous) => previous?.configured ? { ...previous, status: "UNKNOWN" } : null);
+      }
+    }
+    void checkConnector();
+    const timer = window.setInterval(() => { void checkConnector(); }, 20_000);
+    document.addEventListener("visibilitychange", checkConnector);
+    return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", checkConnector); };
+  }, []);
   const activeModule = screen === "DASHBOARD" ? "DASHBOARD" : screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "LOJA" : null;
   const returnScreen = screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVE" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "STORE" : "HOME";
   const returnTitle = screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "Voltar ao Administrativo" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "Voltar à Loja" : "Voltar ao Painel";
 
-  const topbar = <header className={`xd-topbar${screen === "DASHBOARD" ? " xd-topbar--dashboard" : ""}`}>
+  const topbar = <><header className={`xd-topbar${screen === "DASHBOARD" ? " xd-topbar--dashboard" : ""}`}>
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
     {activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(returnScreen)} title={returnTitle}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}
-  </header>;
+  </header>{connectorHealth?.configured && connectorHealth.status !== "CONNECTED" ? <div className="xd-connector-alert" role="alert"><AlertTriangle size={18} aria-hidden="true" /><span><strong>WHATSAPP DESCONECTADO OU SEM CONFIRMAÇÃO DE CONEXÃO.</strong> As mensagens automáticas podem ficar na fila. Avise um gerente para conferir o Integrador na Loja.</span></div> : null}</>;
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
   if (screen === "DASHBOARD") return <main className="xd-shell">{topbar}<DashboardWorkspace /></main>;
