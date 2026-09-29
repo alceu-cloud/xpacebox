@@ -35,9 +35,9 @@ function monthLabel(value: string) { return new Intl.DateTimeFormat("pt-BR", { m
 export default function DashboardWorkspace() {
   const current = today();
   const [section, setSection] = useState<Section>("CRM");
-  const [fromDraft, setFromDraft] = useState(`${current.slice(0, 4)}-01-01`);
-  const [toDraft, setToDraft] = useState(current);
-  const [period, setPeriod] = useState({ from: `${current.slice(0, 4)}-01-01`, to: current });
+  const [fromDraft, setFromDraft] = useState(`${current.slice(0, 7)}-01`);
+  const [toDraft, setToDraft] = useState(() => new Date(Date.UTC(Number(current.slice(0, 4)), Number(current.slice(5, 7)), 0)).toISOString().slice(0, 10));
+  const [period, setPeriod] = useState({ from: `${current.slice(0, 7)}-01`, to: new Date(Date.UTC(Number(current.slice(0, 4)), Number(current.slice(5, 7)), 0)).toISOString().slice(0, 10) });
   const [payload, setPayload] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

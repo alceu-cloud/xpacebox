@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { queueSatisfactionAfterAttendance } from "@/lib/server/xpace-automatic-messages";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 
@@ -11,7 +12,6 @@ const bookingKinds = ["NOVO", "REAGENDAMENTO", "RECUPERACAO"] as const;
 const confirmations = ["PENDENTE", "CONFIRMADO", "NAO_CONFIRMADO", "NAO_INFORMADO"] as const;
 const attendances = ["AGENDADO", "COMPARECEU", "FALTOU", "CANCELADO", "NAO_INFORMADO"] as const;
 const enrollments = ["PENDENTE", "MATRICULOU", "NAO_MATRICULOU", "NAO_INFORMADO"] as const;
-const surveys = ["PENDENTE", "ENVIADA", "NAO_ENVIADA", "NAO_INFORMADO"] as const;
 const welcomeDeliveries = ["NAO_CONFIGURADO", "PENDENTE", "ENVIADO", "FALHOU", "DISPENSADO"] as const;
 
 type Body = {
@@ -26,8 +26,8 @@ export async function GET(request: Request) {
   try {
     const access = await requireCompanyAccess(request, companySlug);
     const [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, winReasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult] = await Promise.all([
-      access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,win_reason_id,converted_person_id,converted_contract_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("tenant_company_id", access.company.id).order("updated_at", { ascending: false }).limit(1000),
-      access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,actual_instructor_id,actual_instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,whatsapp_opt_in,whatsapp_opt_in_at,trial_limit_override,trial_limit_override_by,trial_limit_override_at,created_at,updated_at").eq("tenant_company_id", access.company.id).order("scheduled_on", { ascending: false }).limit(1500),
+      access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,win_reason_id,converted_person_id,converted_contract_id,linked_student_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("tenant_company_id", access.company.id).order("updated_at", { ascending: false }).limit(1000),
+      access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,actual_instructor_id,actual_instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,survey_opt_in,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,whatsapp_opt_in,whatsapp_opt_in_at,trial_limit_override,trial_limit_override_by,trial_limit_override_at,created_at,updated_at").eq("tenant_company_id", access.company.id).order("scheduled_on", { ascending: false }).limit(1500),
       access.admin.from("xpace_lead_activities").select("id,lead_id,appointment_id,activity_type,body,payload,created_by,created_at").eq("tenant_company_id", access.company.id).order("created_at", { ascending: false }).limit(2000),
       access.admin.from("xpace_lead_sources").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_lead_loss_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
@@ -57,16 +57,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as Body;
     const access = await requireCompanyAccess(request, companySlug);
-    if (body.action === "CREATE_LEAD") return createLead(access, body.lead);
-    if (body.action === "UPDATE_LEAD") return updateLead(access, body.lead);
-    if (body.action === "DELETE_LEAD") return deleteLead(access, body.lead);
-    if (body.action === "CREATE_APPOINTMENT") return createAppointment(access, body.appointment);
-    if (body.action === "UPDATE_APPOINTMENT") return updateAppointment(access, body.appointment);
-    if (body.action === "ASSIGN_APPOINTMENT_SCHEDULE") return assignAppointmentSchedule(access, body.appointment);
-    if (body.action === "ADD_NOTE") return addNote(access, text(body.lead?.id), text(body.note));
-    if (body.action === "SAVE_SOURCE") return saveSetting(access, "xpace_lead_sources", body.setting);
-    if (body.action === "SAVE_LOSS_REASON") return saveSetting(access, "xpace_lead_loss_reasons", body.setting);
-    if (body.action === "SAVE_WIN_REASON") return saveSetting(access, "xpace_lead_win_reasons", body.setting);
+    if (body.action === "CREATE_LEAD") return await createLead(access, body.lead);
+    if (body.action === "UPDATE_LEAD") return await updateLead(access, body.lead);
+    if (body.action === "DELETE_LEAD") return await deleteLead(access, body.lead);
+    if (body.action === "CREATE_APPOINTMENT") return await createAppointment(access, body.appointment);
+    if (body.action === "UPDATE_APPOINTMENT") return await updateAppointment(access, body.appointment);
+    if (body.action === "ASSIGN_APPOINTMENT_SCHEDULE") return await assignAppointmentSchedule(access, body.appointment);
+    if (body.action === "ADD_NOTE") return await addNote(access, text(body.lead?.id), text(body.note));
+    if (body.action === "SAVE_SOURCE") return await saveSetting(access, "xpace_lead_sources", body.setting);
+    if (body.action === "SAVE_LOSS_REASON") return await saveSetting(access, "xpace_lead_loss_reasons", body.setting);
+    if (body.action === "SAVE_WIN_REASON") return await saveSetting(access, "xpace_lead_win_reasons", body.setting);
     throw new RequestError("AÇÃO DO CRM INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
 }
@@ -124,6 +124,14 @@ async function deleteLead(access: Awaited<ReturnType<typeof requireCompanyAccess
   if (leadError) throw leadError;
   if (!lead) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
   if (lead.converted_person_id || lead.converted_contract_id) throw new RequestError("ESTE LEAD JÁ FOI CONVERTIDO EM ALUNO OU CONTRATO E NÃO PODE SER EXCLUÍDO.", 409);
+  const { error: cancelError } = await access.admin.from("xpace_message_outbox")
+    .update({ status: "CANCELLED", error_message: "LEAD EXCLUÍDO.", updated_at: new Date().toISOString() })
+    .eq("tenant_company_id", access.company.id).eq("lead_id", id).eq("status", "QUEUED");
+  if (cancelError) throw cancelError;
+  const { count: sendingCount, error: sendingError } = await access.admin.from("xpace_message_outbox")
+    .select("id", { count: "exact", head: true }).eq("tenant_company_id", access.company.id).eq("lead_id", id).eq("status", "SENDING");
+  if (sendingError) throw sendingError;
+  if (sendingCount) throw new RequestError("HÁ UMA MENSAGEM DESTE LEAD SENDO PROCESSADA. AGUARDE O RESULTADO ANTES DE EXCLUIR.", 409);
   const { data: deleted, error } = await access.admin
     .from("xpace_leads")
     .delete()
@@ -184,24 +192,28 @@ async function updateAppointment(access: Awaited<ReturnType<typeof requireCompan
   const confirmationStatus = enumValue(raw?.confirmationStatus, confirmations, "CONFIRMAÇÃO INVÁLIDA.");
   const attendanceStatus = enumValue(raw?.attendanceStatus, attendances, "STATUS DE PRESENÇA INVÁLIDO.");
   const enrollmentOutcome = enumValue(raw?.enrollmentOutcome, enrollments, "RESULTADO DE MATRÍCULA INVÁLIDO.");
-  const surveyStatus = enumValue(raw?.surveyStatus, surveys, "STATUS DA PESQUISA INVÁLIDO.");
   const welcomeDeliveryStatus = enumValue(raw?.welcomeDeliveryStatus, welcomeDeliveries, "STATUS DO VÍDEO INVÁLIDO.");
   const changesActualInstructor = Boolean(raw && "actualInstructorId" in raw);
   const actualInstructorId = nullableId(raw?.actualInstructorId);
   const note = text(raw?.note);
   if (!id) throw new RequestError("AGENDAMENTO INVÁLIDO.", 400);
-  const { data: current, error: currentError } = await access.admin.from("xpace_lead_appointments").select("id,lead_id,confirmation_status,attendance_status,enrollment_outcome,welcome_delivery_status,confirmed_at,attended_at,outcome_recorded_at,welcome_delivered_at").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
+  const { data: current, error: currentError } = await access.admin.from("xpace_lead_appointments").select("id,lead_id,confirmation_status,attendance_status,enrollment_outcome,survey_status,survey_opt_in,welcome_delivery_status,confirmed_at,attended_at,outcome_recorded_at,welcome_delivered_at").eq("id", id).eq("tenant_company_id", access.company.id).maybeSingle();
   if (currentError) throw currentError;
   if (!current) throw new RequestError("AGENDAMENTO NÃO ENCONTRADO.", 404);
+  const surveyOptIn = typeof raw?.surveyOptIn === "boolean" ? raw.surveyOptIn : current.survey_opt_in;
   const actualInstructor = changesActualInstructor ? await resolveInstructor(access, actualInstructorId) : null;
   const stamp = new Date().toISOString();
-  const { error } = await access.admin.from("xpace_lead_appointments").update({ confirmation_status: confirmationStatus, attendance_status: attendanceStatus, enrollment_outcome: enrollmentOutcome, survey_status: surveyStatus, welcome_delivery_status: welcomeDeliveryStatus, note: note || null, confirmed_at: confirmationStatus === "CONFIRMADO" ? current.confirmation_status === "CONFIRMADO" ? current.confirmed_at ?? stamp : stamp : null, attended_at: attendanceStatus === "COMPARECEU" ? current.attendance_status === "COMPARECEU" ? current.attended_at ?? stamp : stamp : null, outcome_recorded_at: enrollmentOutcome !== "PENDENTE" ? current.enrollment_outcome === enrollmentOutcome ? current.outcome_recorded_at ?? stamp : stamp : null, welcome_delivered_at: welcomeDeliveryStatus === "ENVIADO" ? current.welcome_delivery_status === "ENVIADO" ? current.welcome_delivered_at ?? stamp : stamp : null, ...(changesActualInstructor ? { actual_instructor_id: actualInstructor?.id ?? null, actual_instructor_name_snapshot: actualInstructor?.full_name ?? null } : {}), updated_by: access.profile.id, updated_at: stamp }).eq("id", id).eq("tenant_company_id", access.company.id);
+  const { error } = await access.admin.from("xpace_lead_appointments").update({ confirmation_status: confirmationStatus, attendance_status: attendanceStatus, enrollment_outcome: enrollmentOutcome, survey_opt_in: surveyOptIn, welcome_delivery_status: welcomeDeliveryStatus, note: note || null, confirmed_at: confirmationStatus === "CONFIRMADO" ? current.confirmation_status === "CONFIRMADO" ? current.confirmed_at ?? stamp : stamp : null, attended_at: attendanceStatus === "COMPARECEU" ? current.attendance_status === "COMPARECEU" ? current.attended_at ?? stamp : stamp : null, outcome_recorded_at: enrollmentOutcome !== "PENDENTE" ? current.enrollment_outcome === enrollmentOutcome ? current.outcome_recorded_at ?? stamp : stamp : null, welcome_delivered_at: welcomeDeliveryStatus === "ENVIADO" ? current.welcome_delivery_status === "ENVIADO" ? current.welcome_delivered_at ?? stamp : stamp : null, ...(changesActualInstructor ? { actual_instructor_id: actualInstructor?.id ?? null, actual_instructor_name_snapshot: actualInstructor?.full_name ?? null } : {}), updated_by: access.profile.id, updated_at: stamp }).eq("id", id).eq("tenant_company_id", access.company.id);
   if (error) throw error;
   if (enrollmentOutcome === "MATRICULOU") {
     const { error: leadError } = await access.admin.from("xpace_leads").update({ pipeline_stage: "GANHO", won_at: stamp, lost_at: null, updated_by: access.profile.id, updated_at: stamp }).eq("id", current.lead_id).eq("tenant_company_id", access.company.id).neq("pipeline_stage", "GANHO");
     if (leadError) throw leadError;
   }
-  await activity(access, current.lead_id, id, "AGENDAMENTO_ATUALIZADO", `CONFIRMAÇÃO: ${confirmationStatus} · PRESENÇA: ${attendanceStatus} · MATRÍCULA: ${enrollmentOutcome}.${changesActualInstructor ? ` PROFESSOR: ${actualInstructor?.full_name ?? "NÃO INFORMADO"}.` : ""}`);
+  await activity(access, current.lead_id, id, "AGENDAMENTO_ATUALIZADO", `CONFIRMAÇÃO: ${confirmationStatus} · PRESENÇA: ${attendanceStatus} · MATRÍCULA: ${enrollmentOutcome}.${surveyOptIn !== current.survey_opt_in ? ` AUTORIZAÇÃO DA PESQUISA: ${surveyOptIn ? "REGISTRADA" : "REVOGADA"} POR ${access.profile.full_name}.` : ""}${changesActualInstructor ? ` PROFESSOR: ${actualInstructor?.full_name ?? "NÃO INFORMADO"}.` : ""}`);
+  if (attendanceStatus === "COMPARECEU" && (current.attendance_status !== "COMPARECEU" || (surveyOptIn && !current.survey_opt_in))) {
+    try { await queueSatisfactionAfterAttendance(access.admin, access.company.id, id); }
+    catch (queueError) { console.error("XPACE SATISFACTION QUEUE ERROR", { appointmentId: id, queueError }); }
+  }
   return NextResponse.json({ success: true });
 }
 
@@ -267,5 +279,5 @@ function nullableId(value: unknown) { const id = text(value); return id || null;
 function nullableText(value: unknown) { const normalized = text(value); return normalized || null; }
 function isDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00`)); }
 function isManager(role: string) { return role === "platform_owner" || role === "company_manager"; }
-function handleError(error: unknown) { if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const message = (error as { message?: string })?.message ?? ""; if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTA TURMA JÁ ATINGIU O LIMITE DE VAGAS NESTA DATA." }, { status: 409 }); if (message.includes("XPACE_GRADE_NAO_ACEITA_LEADS")) return NextResponse.json({ success: false, message: "ESTA TURMA NÃO ACEITA AULA EXPERIMENTAL." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "ESTE TELEFONE JÁ UTILIZOU AS DUAS EXPERIMENTAIS. A TERCEIRA AULA EXIGE TAXA; SOMENTE GERENTE OU ADMINISTRADOR PODE LIBERAR A EXCEÇÃO." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_OVERRIDE_AUDIT_REQUIRED")) return NextResponse.json({ success: false, message: "A LIBERAÇÃO COM TAXA PRECISA REGISTRAR QUEM AUTORIZOU A EXCEÇÃO." }, { status: 409 }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "JÁ EXISTE UM AGENDAMENTO ATIVO DESTE LEAD NESTA TURMA E DATA." }, { status: 409 }); console.error("XPACE LEADS ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR O CRM." }, { status: 500 }); }
+function handleError(error: unknown) { if (error instanceof AccessError || error instanceof RequestError) return NextResponse.json({ success: false, message: error.message }, { status: error.status }); const message = (error as { message?: string })?.message ?? ""; if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTA TURMA JÁ ATINGIU O LIMITE DE VAGAS NESTA DATA." }, { status: 409 }); if (message.includes("XPACE_GRADE_NAO_ACEITA_LEADS")) return NextResponse.json({ success: false, message: "ESTA TURMA NÃO ACEITA AULA EXPERIMENTAL." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "ESTE TELEFONE JÁ UTILIZOU AS DUAS EXPERIMENTAIS. A TERCEIRA AULA EXIGE TAXA; SOMENTE GERENTE OU ADMINISTRADOR PODE LIBERAR A EXCEÇÃO." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_OVERRIDE_AUDIT_REQUIRED")) return NextResponse.json({ success: false, message: "A LIBERAÇÃO COM TAXA PRECISA REGISTRAR QUEM AUTORIZOU A EXCEÇÃO." }, { status: 409 }); if ((error as { code?: string })?.code === "23505") return NextResponse.json({ success: false, message: "JÁ EXISTE UM AGENDAMENTO ATIVO DESTE LEAD NESTA TURMA E DATA." }, { status: 409 }); if (message.includes("XPACE_TRIAL_MODALITY_ALREADY_USED")) return NextResponse.json({ success: false, message: "ESTE TELEFONE JÁ AGENDOU UMA EXPERIMENTAL NESTA MODALIDADE. ESCOLHA UMA MODALIDADE DIFERENTE OU FALE COM A ESCOLA." }, { status: 409 }); console.error("XPACE LEADS ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR O CRM." }, { status: 500 }); }
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }

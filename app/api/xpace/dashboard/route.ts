@@ -39,8 +39,8 @@ function dateParts(request: Request) {
   const today = dateInSaoPaulo(new Date().toISOString());
   const params = new URL(request.url).searchParams;
   const section = params.get("section") ?? "CRM";
-  const from = params.get("from") ?? `${today.slice(0, 4)}-01-01`;
-  const to = params.get("to") ?? today;
+  const from = params.get("from") ?? `${today.slice(0, 7)}-01`;
+  const to = params.get("to") ?? new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0)).toISOString().slice(0, 10);
   if (!sections.some((item) => item === section)) throw new Error("Categoria inválida.");
   if (!validDay(from) || !validDay(to) || from > to || Number(to.slice(0, 4)) - Number(from.slice(0, 4)) > 5) throw new Error("Escolha um período válido de até cinco anos.");
   return { section, from, to, today };

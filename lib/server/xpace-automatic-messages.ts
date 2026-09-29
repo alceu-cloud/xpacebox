@@ -61,7 +61,7 @@ export async function queueTrialMessages(admin: SupabaseClient, input: {
     destination_phone: destinationPhone,
   };
   const rows = [
-    ...(input.videoUrl ? [{ ...common, kind: "VIDEO_BOAS_VINDAS", scheduled_at: new Date(now).toISOString(), expires_at: new Date(classAt).toISOString(), body: `💜 Oi, *${firstName}*! Sua aula experimental na *XPACE* foi agendada!\n\n💃 *Aula:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n👩‍🏫 *Professor(a):* ${instructor}\n\n🎬 *Seu vídeo de boas-vindas:* ${input.videoUrl}\nAssista antes da aula para já entrar no clima. Esperamos você! ✨` }] : []),
+    ...(input.videoUrl ? [{ ...common, kind: "VIDEO_BOAS_VINDAS", scheduled_at: new Date(now).toISOString(), expires_at: new Date(classAt).toISOString(), body: `💜 Oi, *${firstName}*! Sua aula experimental na *XPACE* foi agendada!\n\n💃 *Aula:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n👩‍🏫 *Professor(a):* ${instructor}\n\n🎬 Preparamos um vídeo de boas-vindas para você. Assista antes da aula para já entrar no clima! ✨` }] : []),
     ...(eveAt > now ? [{ ...common, kind: "LEMBRETE_VESPERA", scheduled_at: new Date(eveAt).toISOString(), expires_at: new Date(dayAt > eveAt ? dayAt : classAt).toISOString(), body: `💜 Oi, *${firstName}*! Passando para lembrar: sua aula experimental de *${input.className}* na XPACE é *amanhã*, ${dateLabel(input.scheduledOn)}, às *${input.startsAt}*.\n\nEstamos te esperando! ✨` }] : []),
     ...(dayAt > now ? [{ ...common, kind: "CONFIRMACAO_DIA", scheduled_at: new Date(dayAt).toISOString(), expires_at: new Date(classAt).toISOString(), body: `💜 Oi, *${firstName}*! Sua aula experimental na XPACE é *hoje às ${input.startsAt}*.\n\nVocê vem? Responda *SIM* ou *NÃO* por aqui para nossa equipe acompanhar. 💃` }] : []),
   ];
@@ -95,6 +95,58 @@ export async function queuePixMessage(admin: SupabaseClient, input: {
     expires_at: new Date(Date.parse(`${input.dueOn}T23:59:59${zoneOffset}`)).toISOString(),
   });
   if (error && error.code !== "23505") throw error;
+}
+
+export async function queueTrialSatisfactionMessage(admin: SupabaseClient, input: {
+  companyId: string; leadId: string; appointmentId: string; name: string; mobile: string;
+  scheduledOn: string; startsAt: string; endsAt: string | null; className: string;
+}) {
+  const destinationPhone = whatsappPhone(input.mobile);
+  if (!destinationPhone) return false;
+  const { data: connector, error: connectorError } = await admin.from("xpace_message_connectors")
+    .select("id").eq("tenant_company_id", input.companyId).maybeSingle();
+  if (connectorError) throw connectorError;
+  if (!connector) return false;
+  const firstName = personName(input.name).split(/\s+/)[0] || "pessoal";
+  const endTime = input.endsAt?.slice(0, 5) || input.startsAt;
+  const classEnd = Date.parse(`${input.scheduledOn}T${endTime}:00${zoneOffset}`);
+  const scheduledAt = Math.max(Date.now(), Number.isFinite(classEnd) ? classEnd : Date.now());
+  const body = `💜 Oi, *${firstName}*! Foi muito bom ter você na aula de *${input.className}* da XPACE! 💃\n\nQueremos ouvir você: de *0 a 10*, que nota daria para sua experiência?\n\nSe quiser, conte também o que mais gostou ou o que podemos melhorar. É só responder por aqui — sua opinião ajuda a escola a ficar cada vez melhor. ✨`;
+  const { error } = await admin.from("xpace_message_outbox").insert({
+    tenant_company_id: input.companyId, connector_id: connector.id, lead_id: input.leadId,
+    appointment_id: input.appointmentId, appointment_scheduled_on: input.scheduledOn,
+    appointment_starts_at: input.startsAt, kind: "PESQUISA_SATISFACAO", contact_name: input.name,
+    destination_phone: destinationPhone, body, scheduled_at: new Date(scheduledAt).toISOString(),
+    expires_at: new Date(scheduledAt + 48 * 60 * 60_000).toISOString(),
+  });
+  if (error && error.code !== "23505") throw error;
+  return true;
+}
+
+export async function queueSatisfactionAfterAttendance(admin: SupabaseClient, companyId: string, appointmentId: string) {
+  const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments")
+    .select("id,lead_id,scheduled_on,starts_at,ends_at,class_name_snapshot,attendance_status,survey_status,survey_opt_in,whatsapp_opt_in")
+    .eq("id", appointmentId).eq("tenant_company_id", companyId).maybeSingle();
+  if (appointmentError) throw appointmentError;
+  if (!appointment || appointment.attendance_status !== "COMPARECEU" || appointment.survey_status === "ENVIADA") return false;
+  const markNotSent = async () => {
+    const { error } = await admin.from("xpace_lead_appointments").update({ survey_status: "NAO_ENVIADA" })
+      .eq("id", appointmentId).eq("tenant_company_id", companyId).neq("survey_status", "ENVIADA");
+    if (error) throw error;
+    return false;
+  };
+  if (!appointment.survey_opt_in) return markNotSent();
+  const { data: lead, error: leadError } = await admin.from("xpace_leads")
+    .select("full_name,mobile").eq("id", appointment.lead_id).eq("tenant_company_id", companyId).maybeSingle();
+  if (leadError) throw leadError;
+  if (!lead?.mobile || !appointment.starts_at) return markNotSent();
+  const queued = await queueTrialSatisfactionMessage(admin, {
+    companyId, leadId: appointment.lead_id, appointmentId: appointment.id,
+    name: lead.full_name, mobile: lead.mobile, scheduledOn: appointment.scheduled_on,
+    startsAt: appointment.starts_at.slice(0, 5), endsAt: appointment.ends_at,
+    className: appointment.class_name_snapshot || "aula experimental",
+  });
+  return queued || await markNotSent();
 }
 
 function dateLabel(iso: string) { return iso.split("-").reverse().join("/"); }

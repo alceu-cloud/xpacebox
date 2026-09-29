@@ -1,15 +1,18 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { queueSatisfactionAfterAttendance, queueTrialInstructorMessage, queueTrialMessages } from "@/lib/server/xpace-automatic-messages";
+import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
 type Body = {
-  action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS" | "UPDATE_CLASS" | "DELETE_GRADE" | "UPDATE_TRIAL_ATTENDANCE";
+  action?: "CREATE_CLASS" | "ENROLL_STUDENT" | "CREATE_RENTAL" | "UPDATE_GRADE_SETTINGS" | "UPDATE_CLASS" | "DELETE_GRADE" | "UPDATE_TRIAL_ATTENDANCE" | "CREATE_TRIAL_IN_CLASS";
   group?: { id?: string; name?: string; modalityId?: string; level?: string; ageGroup?: string; ageGroups?: unknown; roomId?: string; instructorId?: string; color?: string; scheduleColor?: string; capacity?: number; sourceType?: string; settings?: unknown; weekdays?: number[]; startsAt?: string; endsAt?: string; schedules?: Array<{ id?: string; weekday?: number; startsAt?: string; endsAt?: string; roomId?: string; instructorId?: string; level?: string; ageGroup?: string; ageGroups?: unknown; color?: string; capacity?: number | string; settings?: unknown }> };
   enrollment?: { classGroupId?: string; studentId?: string; startsOn?: string };
   rental?: { roomName?: string; renterName?: string; startsAt?: string; endsAt?: string; amountCents?: number; note?: string };
   trialAttendance?: { appointmentId?: string; classScheduleId?: string; scheduledOn?: string; attendanceStatus?: string };
+  trial?: { classGroupId?: string; classScheduleId?: string; scheduledOn?: string; studentId?: string; fullName?: string; mobile?: string; email?: string; whatsappOptIn?: boolean };
 };
 
 export async function GET(request: Request) {
@@ -20,13 +23,13 @@ export async function GET(request: Request) {
       admin.from("xpace_class_groups").select("id,name,modality,modality_id,class_level,instructor_id,color,capacity,source_type,settings,active").eq("tenant_company_id", company.id).eq("active", true).order("name"),
       admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,room_id,instructor_id,class_level,age_group,age_groups,color,capacity,settings,active").eq("tenant_company_id", company.id).eq("active", true).order("weekday").order("starts_at"),
       admin.from("xpace_class_enrollments").select("id,class_group_id,student_id,starts_on,ends_on,status").eq("tenant_company_id", company.id).eq("status", "ATIVA"),
-      admin.from("xpace_people").select("id,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(500),
+      admin.from("xpace_people").select("id,full_name,mobile").eq("tenant_company_id", company.id).eq("is_student", true).eq("active", true).order("full_name").limit(2000),
       admin.from("xpace_room_rentals").select("id,room_name,renter_name,starts_at,ends_at,amount_cents,status,note").eq("tenant_company_id", company.id).neq("status", "CANCELADA").order("starts_at").limit(200),
       admin.from("xpace_modalities").select("id,name,instructor_id,requires_instructor").eq("tenant_company_id", company.id).eq("active", true).eq("uses_schedule", true).order("name"),
       admin.from("xpace_instructors").select("id,full_name").eq("tenant_company_id", company.id).eq("active", true).order("full_name"),
       admin.from("xpace_rooms").select("id,name,capacity").eq("tenant_company_id", company.id).eq("active", true).order("name"),
       admin.from("xpace_lead_appointments").select("id,lead_id,class_schedule_id,scheduled_on,attendance_status").eq("tenant_company_id", company.id).gte("scheduled_on", range.from).lte("scheduled_on", range.to).not("class_schedule_id", "is", null),
-      admin.from("xpace_leads").select("id,full_name,mobile").eq("tenant_company_id", company.id).order("full_name").limit(2000),
+      admin.from("xpace_leads").select("id,full_name,mobile,linked_student_id").eq("tenant_company_id", company.id).order("full_name").limit(2000),
     ]);
     for (const result of [groupsResult, schedulesResult, enrollmentsResult, studentsResult, rentalsResult, modalitiesResult, instructorsResult, roomsResult, appointmentsResult, leadsResult]) if (result.error) throw result.error;
     const studentsById = new Map((studentsResult.data ?? []).map((student) => [student.id, student]));
@@ -40,7 +43,7 @@ export async function GET(request: Request) {
     }
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
     const leadsById = new Map((leadsResult.data ?? []).map((lead) => [lead.id, lead]));
-    return NextResponse.json({ success: true, groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", level: normalizeClassLevel(group.class_level), instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: "#7435D9", capacity: group.capacity, sourceType: group.source_type, settings: group.settings ?? {}, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => { const ageGroups = normalizeAgeGroups(schedule.age_groups, schedule.age_group); return { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "", roomId: schedule.room_id ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", level: normalizeClassLevel(schedule.class_level ?? group.class_level), ageGroup: ageGroups[0] ?? "ADULTO", ageGroups, color: normalizeColor(schedule.color), capacity: schedule.capacity ?? group.capacity, settings: schedule.settings ?? group.settings ?? {} }; }), students: enrollmentsByGroup.get(group.id) ?? [] })), trialAppointments: (appointmentsResult.data ?? []).flatMap((appointment) => { const lead = leadsById.get(appointment.lead_id); return lead ? [{ id: appointment.id, leadId: lead.id, leadName: lead.full_name, leadMobile: lead.mobile ?? "", classScheduleId: appointment.class_schedule_id, scheduledOn: appointment.scheduled_on, attendanceStatus: appointment.attendance_status }] : []; }), modalities: sortNaturally(modalitiesResult.data ?? [], (modality) => modality.name).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })), rooms: sortNaturally(roomsResult.data ?? [], (room) => room.name).map((room) => ({ id: room.id, name: room.name, capacity: room.capacity })), students: sortNaturally(studentsResult.data ?? [], (student) => student.full_name).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
+    return NextResponse.json({ success: true, groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", modalityId: group.modality_id ?? "", level: normalizeClassLevel(group.class_level), instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", color: "#7435D9", capacity: group.capacity, sourceType: group.source_type, settings: group.settings ?? {}, active: group.active, schedules: (schedulesResult.data ?? []).filter((schedule) => schedule.class_group_id === group.id).map((schedule) => { const ageGroups = normalizeAgeGroups(schedule.age_groups, schedule.age_group); return { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), roomName: schedule.room_name ?? "", roomId: schedule.room_id ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", level: normalizeClassLevel(schedule.class_level ?? group.class_level), ageGroup: ageGroups[0] ?? "ADULTO", ageGroups, color: normalizeColor(schedule.color), capacity: schedule.capacity ?? group.capacity, settings: schedule.settings ?? group.settings ?? {} }; }), students: enrollmentsByGroup.get(group.id) ?? [] })), trialAppointments: (appointmentsResult.data ?? []).flatMap((appointment) => { const lead = leadsById.get(appointment.lead_id); return lead ? [{ id: appointment.id, leadId: lead.id, leadName: lead.full_name, leadMobile: lead.mobile ?? "", existingClient: Boolean(lead.linked_student_id), classScheduleId: appointment.class_schedule_id, scheduledOn: appointment.scheduled_on, attendanceStatus: appointment.attendance_status }] : []; }), modalities: sortNaturally(modalitiesResult.data ?? [], (modality) => modality.name).map((modality) => ({ id: modality.id, name: modality.name, instructorId: modality.instructor_id ?? "", instructorName: modality.instructor_id ? instructorNames.get(modality.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", requiresInstructor: modality.requires_instructor })), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name).map((instructor) => ({ id: instructor.id, fullName: instructor.full_name })), rooms: sortNaturally(roomsResult.data ?? [], (room) => room.name).map((room) => ({ id: room.id, name: room.name, capacity: room.capacity })), students: sortNaturally(studentsResult.data ?? [], (student) => student.full_name).map((student) => ({ id: student.id, name: student.full_name, mobile: student.mobile ?? "" })), rentals: (rentalsResult.data ?? []).map((rental) => ({ id: rental.id, roomName: rental.room_name, renterName: rental.renter_name, startsAt: rental.starts_at, endsAt: rental.ends_at, amountCents: rental.amount_cents, status: rental.status, note: rental.note ?? "" })) });
   } catch (error) { return handleError(error); }
 }
 
@@ -52,17 +55,85 @@ export async function POST(request: Request) {
     if (body.action === "ENROLL_STUDENT") return await enrollStudent(access, body.enrollment);
     if (body.action === "CREATE_RENTAL") return await createRental(access, body.rental);
     if (body.action === "UPDATE_TRIAL_ATTENDANCE") return await updateTrialAttendance(access, body.trialAttendance);
+    if (body.action === "CREATE_TRIAL_IN_CLASS") return await createTrialInClass(access, body.trial);
     throw new RequestError("AÇÃO DA AGENDA INVÁLIDA.", 400);
   } catch (error) { return handleError(error); }
+}
+
+async function createTrialInClass(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["trial"]) {
+  const classGroupId = clean(input?.classGroupId);
+  const classScheduleId = clean(input?.classScheduleId);
+  const scheduledOn = clean(input?.scheduledOn);
+  const studentId = clean(input?.studentId);
+  if (!classGroupId || !classScheduleId || !isDate(scheduledOn) || scheduledOn < today()) throw new RequestError("ESCOLHA UMA AULA DE HOJE OU DE UMA DATA FUTURA.", 400);
+  const [{ data: group, error: groupError }, { data: schedule, error: scheduleError }, studentResult] = await Promise.all([
+    access.admin.from("xpace_class_groups").select("id,name,modality,settings,active").eq("id", classGroupId).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,settings,active").eq("id", classScheduleId).eq("tenant_company_id", access.company.id).maybeSingle(),
+    studentId ? access.admin.from("xpace_people").select("id,full_name,mobile,email").eq("id", studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle() : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (groupError || scheduleError || studentResult.error) throw groupError ?? scheduleError ?? studentResult.error;
+  if (!group?.active || !schedule?.active || schedule.class_group_id !== group.id || new Date(`${scheduledOn}T12:00:00Z`).getUTCDay() !== schedule.weekday) throw new RequestError("ESTA AULA NÃO ESTÁ DISPONÍVEL NA DATA ESCOLHIDA.", 409);
+  const settings = schedule.settings && Object.keys(schedule.settings).length ? schedule.settings : group.settings;
+  if (!Boolean((settings as Record<string, unknown> | null)?.allowLeads)) throw new RequestError("ESTE HORÁRIO NÃO ACEITA AULAS EXPERIMENTAIS.", 409);
+  if (studentId && !studentResult.data) throw new RequestError("CLIENTE NÃO ENCONTRADO NESTA EMPRESA.", 404);
+  const fullName = studentResult.data?.full_name ?? clean(input?.fullName);
+  const mobile = (studentResult.data?.mobile ?? clean(input?.mobile)).replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  const email = (studentResult.data?.email ?? clean(input?.email)).toLowerCase();
+  if (fullName.length < 2 || fullName.length > 180 || !/^\d{10,11}$/.test(mobile) || (email && !/^\S+@\S+\.\S+$/.test(email))) throw new RequestError("CONFIRA NOME, CELULAR E E-MAIL. CLIENTES SEM CELULAR DEVEM SER ATUALIZADOS NO CADASTRO.", 400);
+  const { data: instructor, error: instructorError } = schedule.instructor_id ? await access.admin.from("xpace_instructors").select("id,full_name").eq("id", schedule.instructor_id).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle() : { data: null, error: null };
+  if (instructorError) throw instructorError;
+  const lookup = access.admin.from("xpace_leads").select("id,pipeline_stage").eq("tenant_company_id", access.company.id);
+  const { data: existing, error: lookupError } = studentId
+    ? await lookup.eq("linked_student_id", studentId).not("pipeline_stage", "in", "(GANHO,PERDIDO)").order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : await lookup.eq("mobile", mobile).not("pipeline_stage", "in", "(GANHO,PERDIDO)").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (lookupError) throw lookupError;
+  let leadId = existing?.id;
+  let createdLead = false;
+  if (!leadId) {
+    const { data: lead, error: leadError } = await access.admin.from("xpace_leads").insert({ tenant_company_id: access.company.id, full_name: fullName, mobile, email: email || null, linked_student_id: studentId || null, pipeline_stage: "AULA_EXPERIMENTAL", assigned_to: access.profile.id, created_by: access.profile.id, updated_by: access.profile.id }).select("id").single();
+    if (leadError) throw leadError;
+    leadId = lead.id;
+    createdLead = true;
+  }
+  const video = (settings as Record<string, unknown> | null)?.leadWelcomeVideoUrl;
+  const videoUrl = typeof video === "string" && /^https?:\/\//i.test(video) ? video : "";
+  const whatsappOptIn = input?.whatsappOptIn === true;
+  const stamp = new Date().toISOString();
+  const { data: appointment, error: appointmentError } = await access.admin.from("xpace_lead_appointments").insert({ tenant_company_id: access.company.id, lead_id: leadId, class_group_id: group.id, class_schedule_id: schedule.id, scheduled_on: scheduledOn, starts_at: schedule.starts_at, ends_at: schedule.ends_at, booking_kind: "NOVO", assigned_to: access.profile.id, attendant_name_snapshot: access.profile.full_name, modality_name_snapshot: group.modality, instructor_name_snapshot: instructor?.full_name ?? null, actual_instructor_id: instructor?.id ?? null, actual_instructor_name_snapshot: instructor?.full_name ?? null, class_name_snapshot: group.name, whatsapp_opt_in: whatsappOptIn, survey_opt_in: whatsappOptIn, whatsapp_opt_in_at: whatsappOptIn ? stamp : null, welcome_video_url: videoUrl || null, welcome_delivery_status: !videoUrl ? "NAO_CONFIGURADO" : whatsappOptIn ? "PENDENTE" : "DISPENSADO", created_by: access.profile.id, updated_by: access.profile.id }).select("id").single();
+  if (appointmentError) {
+    if (createdLead) await access.admin.from("xpace_leads").delete().eq("id", leadId).eq("tenant_company_id", access.company.id);
+    throw appointmentError;
+  }
+  if (existing && ["NOVO", "ATENDIMENTO"].includes(existing.pipeline_stage)) await access.admin.from("xpace_leads").update({ pipeline_stage: "AULA_EXPERIMENTAL", updated_at: stamp }).eq("id", leadId).eq("tenant_company_id", access.company.id);
+  const { error: activityError } = await access.admin.from("xpace_lead_activities").insert({ tenant_company_id: access.company.id, lead_id: leadId, appointment_id: appointment.id, activity_type: "AGENDAMENTO_CRIADO", body: `EXPERIMENTAL ADICIONADA NA AGENDA: ${group.name} EM ${scheduledOn}.${studentId ? " CLIENTE JÁ CADASTRADO." : ""}`, payload: { source: "AGENDA", existingStudentId: studentId || null }, created_by: access.profile.id });
+  if (activityError) console.error("XPACE DIRECT TRIAL ACTIVITY ERROR", activityError);
+  if (whatsappOptIn) {
+    try { await queueTrialMessages(access.admin, { companyId: access.company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), className: group.name, instructor: instructor?.full_name ?? "PROFESSOR", videoUrl }); }
+    catch (error) { console.error("XPACE DIRECT TRIAL QUEUE ERROR", error); }
+  }
+  if (instructor?.id) {
+    try { await queueTrialInstructorMessage(access.admin, { companyId: access.company.id, leadId, appointmentId: appointment.id, instructorId: instructor.id, studentName: fullName, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), className: group.name }); }
+    catch (error) { console.error("XPACE DIRECT TEACHER MESSAGE ERROR", error); }
+  }
+  after(() => sendNewAppointmentPush(access.company.id, appointment.id, scheduledOn));
+  return NextResponse.json({ success: true, appointmentId: appointment.id, leadId }, { status: 201 });
 }
 
 async function updateTrialAttendance(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["trialAttendance"]) {
   const appointmentId = clean(input?.appointmentId); const classScheduleId = clean(input?.classScheduleId); const scheduledOn = clean(input?.scheduledOn); const attendanceStatus = clean(input?.attendanceStatus);
   if (!appointmentId || !classScheduleId || !isDate(scheduledOn) || !["COMPARECEU", "FALTOU"].includes(attendanceStatus)) throw new RequestError("CHAMADA DA EXPERIMENTAL INVÁLIDA.", 400);
+  const { data: previous, error: previousError } = await access.admin.from("xpace_lead_appointments")
+    .select("attendance_status").eq("id", appointmentId).eq("tenant_company_id", access.company.id).eq("class_schedule_id", classScheduleId).eq("scheduled_on", scheduledOn).maybeSingle();
+  if (previousError) throw previousError;
+  if (!previous) throw new RequestError("A EXPERIMENTAL NÃO PERTENCE A ESTA AULA OU DATA.", 409);
   const stamp = new Date().toISOString();
   const { data, error } = await access.admin.from("xpace_lead_appointments").update({ attendance_status: attendanceStatus, attended_at: attendanceStatus === "COMPARECEU" ? stamp : null, updated_by: access.profile.id, updated_at: stamp }).eq("id", appointmentId).eq("tenant_company_id", access.company.id).eq("class_schedule_id", classScheduleId).eq("scheduled_on", scheduledOn).select("id,attendance_status,enrollment_outcome").maybeSingle();
   if (error) throw error;
   if (!data) throw new RequestError("A EXPERIMENTAL NÃO PERTENCE A ESTA AULA OU DATA.", 409);
+  if (attendanceStatus === "COMPARECEU" && previous.attendance_status !== "COMPARECEU") {
+    try { await queueSatisfactionAfterAttendance(access.admin, access.company.id, appointmentId); }
+    catch (queueError) { console.error("XPACE SATISFACTION QUEUE ERROR", { appointmentId, queueError }); }
+  }
   return NextResponse.json({ success: true, appointmentId: data.id, attendanceStatus: data.attendance_status, enrollmentOutcome: data.enrollment_outcome });
 }
 
@@ -286,4 +357,4 @@ function today() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/
 class RequestError extends Error { constructor(message: string, public status: number) { super(message); } }
 function weekdayLabel(value: number) { return ["DOMINGO", "SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO"][value] ?? "DIA SELECIONADO"; }
 function timeToMinutes(value: string) { const [hours, minutes] = value.slice(0, 5).split(":").map(Number); return hours * 60 + minutes; }
-function handleError(error: unknown) { const typedError = error as { status?: unknown; code?: unknown; message?: unknown }; const status = typeof typedError.status === "number" ? typedError.status : undefined; const message = typeof typedError.message === "string" ? typedError.message : ""; if (error instanceof AccessError || error instanceof RequestError || (status !== undefined && status >= 400 && status < 500 && message)) return NextResponse.json({ success: false, message }, { status: status ?? 400 }); const code = typeof typedError.code === "string" ? typedError.code : ""; if (code === "23505") return NextResponse.json({ success: false, message: "ESTE ALUNO JÁ ESTÁ MATRICULADO NESTA GRADE DE HORÁRIOS." }, { status: 409 }); if (code === "23P01") return NextResponse.json({ success: false, message: "CONFLITO DE HORÁRIO: A SALA OU O PROFESSOR JÁ ESTÁ OCUPADO NESTE INTERVALO.", }, { status: 409 }); if (message.includes("XPACE_GRADE_SEM_VAGAS")) return NextResponse.json({ success: false, message: "ESTA GRADE JÁ ATINGIU O LIMITE DE VAGAS.", }, { status: 409 }); if (message.includes("XPACE_GRADE_RESTRITA_POR_GENERO")) return NextResponse.json({ success: false, message: "ESTA GRADE POSSUI RESTRIÇÃO DE GÊNERO.", }, { status: 409 }); console.error("XPACE AGENDA ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR A AGENDA." }, { status: 500 }); }
+function handleError(error: unknown) { const typedError = error as { status?: unknown; code?: unknown; message?: unknown }; const status = typeof typedError.status === "number" ? typedError.status : undefined; const message = typeof typedError.message === "string" ? typedError.message : ""; if (error instanceof AccessError || error instanceof RequestError || (status !== undefined && status >= 400 && status < 500 && message)) return NextResponse.json({ success: false, message }, { status: status ?? 400 }); const code = typeof typedError.code === "string" ? typedError.code : ""; if (code === "23505") return NextResponse.json({ success: false, message: "ESTE ALUNO JÁ ESTÁ MATRICULADO NESTA GRADE DE HORÁRIOS." }, { status: 409 }); if (code === "23P01") return NextResponse.json({ success: false, message: "CONFLITO DE HORÁRIO: A SALA OU O PROFESSOR JÁ ESTÁ OCUPADO NESTE INTERVALO.", }, { status: 409 }); if (message.includes("XPACE_GRADE_SEM_VAGAS")) return NextResponse.json({ success: false, message: "ESTA GRADE JÁ ATINGIU O LIMITE DE VAGAS.", }, { status: 409 }); if (message.includes("XPACE_GRADE_RESTRITA_POR_GENERO")) return NextResponse.json({ success: false, message: "ESTA GRADE POSSUI RESTRIÇÃO DE GÊNERO.", }, { status: 409 }); if (message.includes("XPACE_TRIAL_MODALITY_ALREADY_USED")) return NextResponse.json({ success: false, message: "ESTE TELEFONE JÁ AGENDOU UMA EXPERIMENTAL NESTA MODALIDADE. ESCOLHA UMA MODALIDADE DIFERENTE OU FALE COM A ESCOLA." }, { status: 409 }); if (message.includes("XPACE_TRIAL_LIMIT_REQUIRES_FEE")) return NextResponse.json({ success: false, message: "ESTE TELEFONE JÁ UTILIZOU AS DUAS EXPERIMENTAIS. FALE COM A ESCOLA PARA UMA EXCEÇÃO AUTORIZADA." }, { status: 409 }); if (message.includes("XPACE_LEAD_SLOT_UNAVAILABLE")) return NextResponse.json({ success: false, message: "ESTA AULA JÁ ATINGIU O LIMITE DE VAGAS." }, { status: 409 }); console.error("XPACE AGENDA ERROR", error); return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL ATUALIZAR A AGENDA." }, { status: 500 }); }
