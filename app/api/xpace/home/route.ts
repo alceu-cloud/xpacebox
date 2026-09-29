@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const requestedPage = Number(params.get("page") ?? 0);
     const page = Number.isSafeInteger(requestedPage) && requestedPage >= 0 ? Math.min(requestedPage, 1000) : 0;
     const seenAt = params.get("seenAt") ?? "";
-    const validSeenAt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(seenAt) && !Number.isNaN(Date.parse(seenAt)) ? seenAt : "";
+    const validSeenAt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(seenAt) && !Number.isNaN(Date.parse(seenAt)) ? seenAt : "";
     const bucket = params.get("bucket") === "READ" ? "READ" : "UNREAD";
     if (params.get("notificationsOnly") === "1") {
       const notifications = await loadNotifications(admin, company.id, page, validSeenAt, bucket);
