@@ -19,9 +19,9 @@ function fakeAdmin(resolve) {
   return { calls, from(table) {
     const call = { table, operation: 'select', filters: [] };
     const chain = {};
-    for (const method of ['select','insert','update','delete','eq','neq','in','lt','lte','order','limit','single','maybeSingle']) chain[method] = (...args) => {
+    for (const method of ['select','insert','update','delete','eq','neq','in','lt','lte','gte','not','order','limit','single','maybeSingle']) chain[method] = (...args) => {
       if (['insert','update','delete'].includes(method)) {call.operation=method;call.value=args[0];}
-      if (['eq','neq','in','lt','lte'].includes(method)) call.filters.push([method,...args]);
+      if (['eq','neq','in','lt','lte','gte','not'].includes(method)) call.filters.push([method,...args]);
       return chain;
     };
     chain.then = (yes, no) => { calls.push(call); return Promise.resolve(resolve(call)).then(yes,no); };
@@ -40,20 +40,32 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
   assert.ok(!rows[0].body.includes('https://'),'Video caption must not contain URL');
   assert.equal(rows[1].scheduled_at,'2099-10-19T21:30:00.000Z');
   assert.equal(rows[2].scheduled_at,'2099-10-20T19:00:00.000Z');
-  const appointment={id:'appointment',lead_id:'lead',scheduled_on:input.scheduledOn,starts_at:'19:00:00',ends_at:'20:00:00',class_name_snapshot:'Jazz',attendance_status:'COMPARECEU',survey_status:'PENDENTE',whatsapp_opt_in:true,survey_opt_in:true};
-  // Survey-specific permission is sufficient; it must not retroactively enable reminders.
-  for (const [changes, shouldQueue] of [[{},true],[{survey_opt_in:false},false],[{whatsapp_opt_in:false},true],[{attendance_status:'FALTOU'},false],[{survey_status:'ENVIADA'},false]]) {
+  const appointment={id:'appointment',lead_id:'lead',scheduled_on:input.scheduledOn,starts_at:'19:00:00',ends_at:'20:00:00',class_name_snapshot:'Jazz',attendance_status:'COMPARECEU',attended_at:'2099-10-20T22:10:00.000Z',survey_status:'PENDENTE',whatsapp_opt_in:true,survey_opt_in:true};
+  // One WhatsApp choice; legacy school release is distinct from customer consent.
+  for (const [changes, shouldQueue] of [[{},true],[{survey_opt_in:false},true],[{whatsapp_opt_in:false},false],[{whatsapp_opt_in:false,whatsapp_legacy_allowed_at:'2026-09-29T22:25:22Z'},true],[{attended_at:null},false],[{attendance_status:'FALTOU'},false],[{survey_status:'ENVIADA'},false]]) {
     const surveyAdmin=fakeAdmin(call=>({data:call.table==='xpace_lead_appointments'?{...appointment,...changes}:call.table==='xpace_leads'?{full_name:input.name,mobile:input.mobile}:{id:'connector'},error:null}));
     await automatic.queueSatisfactionAfterAttendance(surveyAdmin,'company','appointment');
     const sent=surveyAdmin.calls.find(call=>call.operation==='insert');
     assert.equal(Boolean(sent),shouldQueue);
     if(sent){
       assert.equal(sent.value.kind,'PESQUISA_SATISFACAO');
-      assert.equal(sent.value.scheduled_at,'2099-10-20T23:00:00.000Z');
+      assert.equal(sent.value.scheduled_at,'2099-10-21T00:10:00.000Z');
       assert.ok(sent.value.body.includes('https://docs.google.com/forms/d/e/1FAIpQLSckZd92-4fACszd3ONn2VIcVyUpfSf5QyTp1jasYJh13-yGmA/viewform?usp=dialog'));
       assert.ok(!sent.value.body.includes('É só responder por aqui'));
     }
     for(const call of surveyAdmin.calls) assert.ok(call.filters.some(f=>f[1]==='tenant_company_id'&&f[2]==='company')||call.value?.tenant_company_id==='company','Every operation scoped to company');
+  }
+  for(const status of ['QUEUED','SENDING','SENT','UNKNOWN','CANCELLED']) {
+    const duplicateAdmin=fakeAdmin(call=>{
+      if(call.operation==='insert')return {data:null,error:{code:'23505'}};
+      if(call.table==='xpace_message_connectors')return {data:{id:'connector'},error:null};
+      return {data:{id:'existing',status},error:null};
+    });
+    const queued=await automatic.queueTrialSatisfactionMessage(duplicateAdmin,{...input,endsAt:'20:00',attendedAt:appointment.attended_at});
+    assert.equal(queued,['QUEUED','SENDING','SENT'].includes(status),'Duplicate state '+status);
+    assert.equal(duplicateAdmin.calls.filter(c=>c.operation==='insert').length,1);
+    assert.equal(duplicateAdmin.calls.some(c=>c.table==='xpace_message_outbox'&&c.operation==='update'),status==='QUEUED');
+    assert.equal(duplicateAdmin.calls.some(c=>c.value?.survey_status==='ENVIADA'),status==='SENT');
   }
   for (const video of [input.videoUrl,'https://example.test/video.mp4']) {
     const workerAdmin=fakeAdmin(call=>{
@@ -67,6 +79,40 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
     if(video===input.videoUrl){assert.equal(result.body.message.mediaUrl,video);assert.ok(!result.body.message.body.includes('https://'));}
     else {assert.equal(result.body.message,null);assert.ok(workerAdmin.calls.some(call=>call.value?.status==='CANCELLED'));}
   }
+  // Dispatch must honor today's permission, not the permission when a link was queued.
+  for(const kind of ['VIDEO_BOAS_VINDAS','LEMBRETE_VESPERA','CONFIRMACAO_DIA','PESQUISA_SATISFACAO','ASSINATURA','COBRANCA']) {
+    const workerAdmin=fakeAdmin(call=>{
+      if(call.table==='xpace_message_connectors')return {data:{id:'connector',tenant_company_id:'company'},error:null};
+      if(call.table==='xpace_lead_appointments')return {data:{...appointment,whatsapp_opt_in:false,whatsapp_legacy_allowed_at:null,class_schedule_id:'schedule',confirmation_status:'PENDENTE'},error:null};
+      if(call.table==='xpace_people')return {data:{whatsapp_opt_in:false,mobile:input.mobile},error:null};
+      if(call.operation==='update')return {data:null,error:null};
+      return {data:{id:'message',kind,appointment_id:['ASSINATURA','COBRANCA'].includes(kind)?null:'appointment',student_id:'student',appointment_scheduled_on:input.scheduledOn,appointment_starts_at:input.startsAt,destination_phone:automatic.whatsappPhone(input.mobile)},error:null};
+    });
+    const worker=moduleFrom('app/api/xpace/message-connector/worker/route.ts',{'next/server':{NextResponse:{json:(body,options)=>({body,options})}},'@/lib/server/supabase-admin':{createSupabaseAdmin:()=>workerAdmin},'@/lib/server/xpace-automatic-messages':automatic});
+    const result=await worker.POST({headers:{get:()=> 'Bearer '+ 'x'.repeat(45)},json:async()=>({action:'CLAIM'})});
+    assert.equal(result.body.message,null);
+    assert.ok(workerAdmin.calls.some(c=>c.value?.status==='CANCELLED'),kind+' must be blocked');
+    assert.ok(!workerAdmin.calls.some(c=>c.value?.status==='SENDING'));
+  }
+  const legacyWorkerAdmin=fakeAdmin(call=>{
+    if(call.table==='xpace_message_connectors')return {data:{id:'connector',tenant_company_id:'company'},error:null};
+    if(call.table==='xpace_lead_appointments')return {data:{...appointment,whatsapp_opt_in:false,whatsapp_legacy_allowed_at:'2026-09-29T22:25:22Z',confirmation_status:'PENDENTE'},error:null};
+    if(call.operation==='update')return {data:call.value.status==='SENDING'?{id:'message',destination_phone:automatic.whatsappPhone(input.mobile),body:'Pesquisa autorizada pela escola'}:null,error:null};
+    return {data:{id:'message',kind:'PESQUISA_SATISFACAO',appointment_id:'appointment',appointment_scheduled_on:input.scheduledOn,appointment_starts_at:input.startsAt},error:null};
+  });
+  const legacyWorker=moduleFrom('app/api/xpace/message-connector/worker/route.ts',{'next/server':{NextResponse:{json:(body,options)=>({body,options})}},'@/lib/server/supabase-admin':{createSupabaseAdmin:()=>legacyWorkerAdmin},'@/lib/server/xpace-automatic-messages':automatic});
+  const legacyResult=await legacyWorker.POST({headers:{get:()=> 'Bearer '+ 'x'.repeat(45)},json:async()=>({action:'CLAIM'})});
+  assert.equal(legacyResult.body.message.id,'message');
+  for(const action of ['RESULT','RECEIPT']) {
+    const workerAdmin=fakeAdmin(call=>{
+      if(call.table==='xpace_message_connectors')return {data:{id:'connector',tenant_company_id:'company'},error:null};
+      return {data:{id:'message',kind:'PESQUISA_SATISFACAO',appointment_id:'appointment',status:'UNKNOWN',delivered_at:null,read_at:null},error:null};
+    });
+    const worker=moduleFrom('app/api/xpace/message-connector/worker/route.ts',{'next/server':{NextResponse:{json:(body,options)=>({body,options})}},'@/lib/server/supabase-admin':{createSupabaseAdmin:()=>workerAdmin},'@/lib/server/xpace-automatic-messages':automatic});
+    const result=await worker.POST({headers:{get:()=> 'Bearer '+ 'x'.repeat(45)},json:async()=>({action,messageId:'message',success:true,providerMessageId:'provider',receiptStatus:'DELIVERED'})});
+    assert.equal(result.body.success,true);
+    assert.ok(workerAdmin.calls.some(c=>c.table==='xpace_lead_appointments'&&c.value?.survey_status==='ENVIADA'));
+  }
   const AccessError=class extends Error {constructor(message,status){super(message);this.status=status;}};
   for(const [role,sending,expected]of [['company_manager',0,200],['company_manager',1,409],['company_user',0,403]]) {
     const apiAdmin=fakeAdmin(call=>({data:call.table==='xpace_leads'?{id:'lead',lead_number:1}:null,count:sending,error:null}));
@@ -77,6 +123,32 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
     for(const call of apiAdmin.calls)assert.ok(call.filters.some(f=>f[1]==='tenant_company_id'&&f[2]==='company'));
     assert.ok(!apiAdmin.calls.some(call=>call.table==='xpace_message_outbox'&&call.operation==='update'),'API must not cancel queue before atomic database delete');
   }
+  for(const kind of ['ASSINATURA','COBRANCA']) {
+    const deliveryAdmin=fakeAdmin(()=>({data:null,error:null}));
+    const delivery=moduleFrom('app/api/xpace/message-connector/delivery/route.ts',{
+      'next/server':{NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},
+      '@/lib/server/company-access':{AccessError,requireCompanyAccess:async()=>({admin:deliveryAdmin,company:{id:'company'}})},
+      '@/lib/server/daily-agenda-email':{sendXpaceLinkEmail:()=>{throw new Error('Must not send email');}},
+      '@/lib/server/xpace-sale-links':{saleLinks:async()=>({sale:{id:'sale'},person:{id:'student',whatsapp_opt_in:false},links:{ASSINATURA:'https://example.test/sign',COBRANCA:'https://example.test/pay'}}),xpaceLinkMessage:()=>{throw new Error('Must not build message');}}
+    });
+    const result=await delivery.POST({json:async()=>({saleId:'sale',kind,channel:'WHATSAPP'})});
+    assert.equal(result.status,409);assert.equal(deliveryAdmin.calls.length,0,'No enqueue when manual permission refused');
+  }
+  const agendaAdmin=fakeAdmin(call=>{
+    let data=[];
+    if(call.table==='xpace_lead_appointments')data=[{...appointment,class_schedule_id:'archived',class_group_id:'group',instructor_name_snapshot:'PROFESSORA LIZBETH',actual_instructor_name_snapshot:null}];
+    if(call.table==='xpace_leads')data=[{id:'lead',full_name:'JULIA CORREA',mobile:input.mobile}];
+    if(call.table==='xpace_class_schedules'&&call.filters.some(f=>f[0]==='in'))data=[{id:'archived',room_name:'SALA HISTÓRICA'}];
+    return {data,error:null};
+  });
+  const agendaApi=moduleFrom('app/api/xpace/agenda/route.ts',{'next/server':{after:()=>{},NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},'@/lib/server/company-access':{AccessError,requireCompanyAccess:async()=>({admin:agendaAdmin,company:{id:'company'},profile:{id:'user'}})},'@/lib/server/xpace-automatic-messages':automatic,'@/lib/server/xpace-web-push':{sendNewAppointmentPush:()=>{}},'@/lib/xpace/natural-sort':{sortNaturally:items=>items}});
+  const agendaResult=await agendaApi.GET({url:'https://example.test/api/xpace/agenda?from=2099-10-20&to=2099-10-20'});
+  assert.equal(agendaResult.status,200);
+  const trial=agendaResult.body.trialAppointments[0];
+  assert.equal(trial.className,'Jazz');assert.equal(trial.instructorName,'PROFESSORA LIZBETH');
+  assert.equal(trial.startsAt,'19:00');assert.equal(trial.roomName,'SALA HISTÓRICA');
+  assert.equal(agendaResult.body.groups.length,0,'Archived schedules do not reappear as active calendar classes');
+  for(const call of agendaAdmin.calls)assert.ok(call.filters.some(f=>f[1]==='tenant_company_id'&&f[2]==='company'));
   const racedAdmin=fakeAdmin(call=>call.operation==='delete'?{error:{message:'XPACE_LEAD_MESSAGE_SENDING'}}:{data:call.table==='xpace_leads'?{id:'lead',lead_number:1}:null,count:0,error:null});
   const racedApi=moduleFrom('app/api/xpace/leads/route.ts',{'next/server':{after:()=>{},NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},'@/lib/server/company-access':{AccessError,requireCompanyAccess:async()=>({admin:racedAdmin,company:{id:'company'},profile:{id:'user',platform_role:'company_manager'}})},'@/lib/server/xpace-automatic-messages':automatic,'@/lib/server/xpace-web-push':{sendNewAppointmentPush:()=>{}},'@/lib/xpace/natural-sort':{sortNaturally:()=>[]}});
   const racedResult=await racedApi.POST({json:async()=>({action:'DELETE_LEAD',lead:{id:'lead'}})});

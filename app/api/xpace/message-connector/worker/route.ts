@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         .eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
         .eq("status", "SENDING").lt("claimed_at", staleBefore);
       const { data: queued, error: queueError } = await admin.from("xpace_message_outbox")
-        .select("id,kind,appointment_id,appointment_scheduled_on,appointment_starts_at,instructor_id,destination_phone,charge_id,expires_at").eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
+        .select("id,kind,appointment_id,appointment_scheduled_on,appointment_starts_at,instructor_id,student_id,destination_phone,charge_id,expires_at").eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
         .eq("status", "QUEUED").lte("scheduled_at", now).order("scheduled_at", { ascending: true }).limit(1).maybeSingle();
       if (queueError) throw queueError;
       if (!queued) return NextResponse.json({ success: true, message: null }, { headers });
@@ -51,11 +51,11 @@ export async function POST(request: Request) {
       let mediaUrl: string | null = null;
       if (!cancelReason && queued.appointment_id) {
         const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments")
-          .select("id,class_schedule_id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in,survey_opt_in,welcome_video_url")
+          .select("id,class_schedule_id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in,whatsapp_legacy_allowed_at,welcome_video_url")
           .eq("id", queued.appointment_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
         if (appointmentError) throw appointmentError;
-        if (!appointment || (!["AVISO_PROFESSOR", "PESQUISA_SATISFACAO"].includes(queued.kind) && !appointment.whatsapp_opt_in) || appointment.attendance_status === "CANCELADO" || (queued.kind !== "PESQUISA_SATISFACAO" && appointment.confirmation_status === "NAO_CONFIRMADO") || appointment.scheduled_on !== queued.appointment_scheduled_on || appointment.starts_at?.slice(0, 5) !== queued.appointment_starts_at?.slice(0, 5)) cancelReason = "AGENDAMENTO ALTERADO, CANCELADO OU SEM AUTORIZAÇÃO.";
-        if (!cancelReason && queued.kind === "PESQUISA_SATISFACAO" && (!appointment!.survey_opt_in || appointment!.attendance_status !== "COMPARECEU")) cancelReason = "PESQUISA SEM AUTORIZAÇÃO OU PRESENÇA NÃO CONFIRMADA.";
+        if (!appointment || (queued.kind !== "AVISO_PROFESSOR" && !appointment.whatsapp_opt_in && !appointment.whatsapp_legacy_allowed_at) || appointment.attendance_status === "CANCELADO" || (queued.kind !== "PESQUISA_SATISFACAO" && appointment.confirmation_status === "NAO_CONFIRMADO") || appointment.scheduled_on !== queued.appointment_scheduled_on || appointment.starts_at?.slice(0, 5) !== queued.appointment_starts_at?.slice(0, 5)) cancelReason = "AGENDAMENTO ALTERADO, CANCELADO OU SEM AUTORIZAÇÃO.";
+        if (!cancelReason && queued.kind === "PESQUISA_SATISFACAO" && appointment!.attendance_status !== "COMPARECEU") cancelReason = "PESQUISA SEM AUTORIZAÇÃO OU PRESENÇA NÃO CONFIRMADA.";
         if (!cancelReason && queued.kind === "VIDEO_BOAS_VINDAS") {
           mediaUrl = cloudinaryVideoUrl(appointment!.welcome_video_url);
           if (!mediaUrl) cancelReason = "VÍDEO NÃO ESTÁ EM FORMATO DE MÍDIA COMPATÍVEL PARA ENVIO.";
@@ -68,6 +68,16 @@ export async function POST(request: Request) {
           if (instructorError || scheduleError) throw instructorError ?? scheduleError;
           if (!instructor?.active || whatsappPhone(instructor.mobile ?? "") !== queued.destination_phone || schedule?.instructor_id !== queued.instructor_id) cancelReason = "PROFESSOR OU CELULAR DO HORÁRIO FOI ALTERADO.";
         }
+      }
+      if (!cancelReason && ["VIDEO_BOAS_VINDAS", "LEMBRETE_VESPERA", "CONFIRMACAO_DIA", "AVISO_PROFESSOR", "PESQUISA_SATISFACAO"].includes(queued.kind) && !queued.appointment_id) {
+        cancelReason = "AGENDAMENTO NÃO ENCONTRADO; ENVIO BLOQUEADO.";
+      }
+      // Recheck consent at dispatch, including links queued before permission was withdrawn.
+      if (!cancelReason && ["ASSINATURA", "COBRANCA", "COBRANCA_PIX_AUTOMATICA"].includes(queued.kind)) {
+        const { data: recipient, error: recipientError } = await admin.from("xpace_people")
+          .select("whatsapp_opt_in,mobile").eq("id", queued.student_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
+        if (recipientError) throw recipientError;
+        if (!recipient?.whatsapp_opt_in || whatsappPhone(recipient.mobile ?? "") !== queued.destination_phone) cancelReason = "WHATSAPP NÃO AUTORIZADO OU CONTATO ALTERADO.";
       }
       if (!cancelReason && queued.kind === "COBRANCA_PIX_AUTOMATICA") {
         const { data: charge, error: chargeError } = await admin.from("xpace_contract_charges")
@@ -84,6 +94,12 @@ export async function POST(request: Request) {
           .update({ status: "CANCELLED", error_message: cancelReason, updated_at: now })
           .eq("id", queued.id).eq("tenant_company_id", connector.tenant_company_id).eq("status", "QUEUED");
         if (cancelError) throw cancelError;
+        if (queued.kind === "PESQUISA_SATISFACAO" && queued.appointment_id) {
+          const { error: surveyError } = await admin.from("xpace_lead_appointments")
+            .update({ survey_status: "NAO_ENVIADA" }).eq("id", queued.appointment_id)
+            .eq("tenant_company_id", connector.tenant_company_id).neq("survey_status", "ENVIADA");
+          if (surveyError) throw surveyError;
+        }
         return NextResponse.json({ success: true, message: null }, { headers });
       }
       const { data: message, error } = await admin.from("xpace_message_outbox")
@@ -115,6 +131,12 @@ export async function POST(request: Request) {
           .update({ welcome_delivery_status: "ENVIADO", welcome_delivered_at: deliveredAt })
           .eq("id", message.appointment_id).eq("tenant_company_id", connector.tenant_company_id);
         if (videoError) console.error("XPACE VIDEO RECEIPT ERROR", videoError);
+      }
+      if (message.kind === "PESQUISA_SATISFACAO" && message.appointment_id) {
+        const { error: surveyError } = await admin.from("xpace_lead_appointments")
+          .update({ survey_status: "ENVIADA", updated_at: now })
+          .eq("id", message.appointment_id).eq("tenant_company_id", connector.tenant_company_id);
+        if (surveyError) throw surveyError;
       }
       return NextResponse.json({ success: true, recorded: true }, { headers });
     }

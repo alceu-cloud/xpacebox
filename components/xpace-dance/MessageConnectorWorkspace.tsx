@@ -66,7 +66,7 @@ export default function MessageConnectorWorkspace({ onBack }: { onBack: () => vo
     trialGroups.set(message.appointment_id, group);
   }
   const visibleTrialGroups = [...trialGroups.entries()].filter(([, group]) => filter === "TODOS" || group.some((message) => message.status === filter));
-  const otherMessages = messages.filter((item) => !item.appointment_id && (filter === "TODOS" || item.status === filter));
+  const otherMessages = messages.filter((item) => !item.appointment_id && ["ASSINATURA", "COBRANCA", "COBRANCA_PIX_AUTOMATICA", "TESTE"].includes(item.kind) && (filter === "TODOS" || item.status === filter));
   const sent = data?.messages.filter((item) => item.status === "SENT").length ?? 0;
   const pending = data?.messages.filter((item) => ["QUEUED", "SENDING"].includes(item.status)).length ?? 0;
   return <section className="xd-msg-workspace">

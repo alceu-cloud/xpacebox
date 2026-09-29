@@ -99,7 +99,7 @@ export async function queuePixMessage(admin: SupabaseClient, input: {
 
 export async function queueTrialSatisfactionMessage(admin: SupabaseClient, input: {
   companyId: string; leadId: string; appointmentId: string; name: string; mobile: string;
-  scheduledOn: string; startsAt: string; endsAt: string | null; className: string;
+  scheduledOn: string; startsAt: string; endsAt: string | null; className: string; attendedAt: string;
 }) {
   const destinationPhone = whatsappPhone(input.mobile);
   if (!destinationPhone) return false;
@@ -108,9 +108,9 @@ export async function queueTrialSatisfactionMessage(admin: SupabaseClient, input
   if (connectorError) throw connectorError;
   if (!connector) return false;
   const firstName = personName(input.name).split(/\s+/)[0] || "pessoal";
-  const endTime = input.endsAt?.slice(0, 5) || input.startsAt;
-  const classEnd = Date.parse(`${input.scheduledOn}T${endTime}:00${zoneOffset}`);
-  const scheduledAt = Math.max(Date.now(), Number.isFinite(classEnd) ? classEnd : Date.now());
+  const attendedAt = Date.parse(input.attendedAt);
+  if (!Number.isFinite(attendedAt)) return false;
+  const scheduledAt = Math.max(Date.now(), attendedAt + 2 * 60 * 60_000);
   const surveyUrl = "https://docs.google.com/forms/d/e/1FAIpQLSckZd92-4fACszd3ONn2VIcVyUpfSf5QyTp1jasYJh13-yGmA/viewform?usp=dialog";
   const body = `💜 Oi, *${firstName}*! Foi muito bom ter você na aula de *${input.className}* da XPACE! 💃\n\nComo foi sua experiência? Conte para a gente nesta pesquisa de satisfação:\n\n📝 ${surveyUrl}\n\nSua opinião ajuda a cuidar de cada detalhe e deixar nossas aulas ainda melhores. Obrigado por dançar com a gente! ✨\n*Equipe XPACE*`;
   const { error } = await admin.from("xpace_message_outbox").insert({
@@ -120,13 +120,32 @@ export async function queueTrialSatisfactionMessage(admin: SupabaseClient, input
     destination_phone: destinationPhone, body, scheduled_at: new Date(scheduledAt).toISOString(),
     expires_at: new Date(scheduledAt + 48 * 60 * 60_000).toISOString(),
   });
-  if (error && error.code !== "23505") throw error;
+  if (error?.code === "23505") {
+    const { data: existing, error: lookupError } = await admin.from("xpace_message_outbox")
+      .select("id,status").eq("tenant_company_id", input.companyId)
+      .eq("appointment_id", input.appointmentId).eq("kind", "PESQUISA_SATISFACAO").maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!existing || !["QUEUED", "SENDING", "SENT"].includes(existing.status)) return false;
+    if (existing.status === "QUEUED") {
+      const { error: updateError } = await admin.from("xpace_message_outbox")
+        .update({ scheduled_at: new Date(scheduledAt).toISOString(), expires_at: new Date(scheduledAt + 48 * 60 * 60_000).toISOString() })
+        .eq("id", existing.id).eq("tenant_company_id", input.companyId).eq("status", "QUEUED");
+      if (updateError) throw updateError;
+    }
+    if (existing.status === "SENT") {
+      const { error: sentError } = await admin.from("xpace_lead_appointments")
+        .update({ survey_status: "ENVIADA" }).eq("id", input.appointmentId).eq("tenant_company_id", input.companyId);
+      if (sentError) throw sentError;
+    }
+    return true;
+  }
+  if (error) throw error;
   return true;
 }
 
 export async function queueSatisfactionAfterAttendance(admin: SupabaseClient, companyId: string, appointmentId: string) {
   const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments")
-    .select("id,lead_id,scheduled_on,starts_at,ends_at,class_name_snapshot,attendance_status,survey_status,survey_opt_in,whatsapp_opt_in")
+    .select("id,lead_id,scheduled_on,starts_at,ends_at,class_name_snapshot,attendance_status,attended_at,survey_status,whatsapp_opt_in,whatsapp_legacy_allowed_at")
     .eq("id", appointmentId).eq("tenant_company_id", companyId).maybeSingle();
   if (appointmentError) throw appointmentError;
   if (!appointment || appointment.attendance_status !== "COMPARECEU" || appointment.survey_status === "ENVIADA") return false;
@@ -136,18 +155,22 @@ export async function queueSatisfactionAfterAttendance(admin: SupabaseClient, co
     if (error) throw error;
     return false;
   };
-  if (!appointment.survey_opt_in) return markNotSent();
+  if (!appointment.whatsapp_opt_in && !appointment.whatsapp_legacy_allowed_at) return markNotSent();
   const { data: lead, error: leadError } = await admin.from("xpace_leads")
     .select("full_name,mobile").eq("id", appointment.lead_id).eq("tenant_company_id", companyId).maybeSingle();
   if (leadError) throw leadError;
-  if (!lead?.mobile || !appointment.starts_at) return markNotSent();
+  if (!lead?.mobile || !appointment.starts_at || !appointment.attended_at) return markNotSent();
   const queued = await queueTrialSatisfactionMessage(admin, {
     companyId, leadId: appointment.lead_id, appointmentId: appointment.id,
     name: lead.full_name, mobile: lead.mobile, scheduledOn: appointment.scheduled_on,
     startsAt: appointment.starts_at.slice(0, 5), endsAt: appointment.ends_at,
-    className: appointment.class_name_snapshot || "aula experimental",
+    className: appointment.class_name_snapshot || "aula experimental", attendedAt: appointment.attended_at,
   });
-  return queued || await markNotSent();
+  if (!queued) return markNotSent();
+  const { error: pendingError } = await admin.from("xpace_lead_appointments")
+    .update({ survey_status: "PENDENTE" }).eq("id", appointmentId).eq("tenant_company_id", companyId).neq("survey_status", "ENVIADA");
+  if (pendingError) throw pendingError;
+  return true;
 }
 
 function dateLabel(iso: string) { return iso.split("-").reverse().join("/"); }

@@ -29,6 +29,15 @@ Gerar uma nova chave na Loja invalida a anterior. O botão Desconectar solicita 
 
 ## Segurança e dados
 
+### Pesquisa automática e liberação dos agendamentos antigos (29/09/2026)
+
+- A autorização no agendamento inclui vídeo, lembretes e pesquisa da aula. Não há mais uma segunda caixa de autorização no resultado do lead. Agendamentos novos sem autorização ficam destacados no CRM; o conector bloqueia mensagens para o aluno, inclusive links manuais. O aviso operacional ao professor é independente da autorização do aluno.
+- Por solicitação do operador, os agendamentos XPACE já existentes antes de `2026-09-29T22:25:22.138042Z` receberam `whatsapp_legacy_allowed_at`. Essa é uma liberação operacional da escola, **não um consentimento declarado pelo cliente**; `whatsapp_opt_in` e suas datas originais foram preservados. Novos registros têm a liberação nula. Essa exceção não autoriza cobranças, não cria envios retroativos e não deve ser usada para contrariar pedidos de interrupção.
+- Ao mudar a presença para **Compareceu**, CRM, agenda e app programam a pesquisa para **duas horas após registrar a presença**, não após o fim previsto da aula. A fila tem unicidade por agendamento/tipo, expiração em 48 horas e valida a presença e a permissão novamente antes de enviar. Uma tentativa ambígua não é repetida automaticamente.
+- O CRM mostra **Pesquisa enviada: Sim/Não**, sem edição manual. “Sim” é gravado pelo resultado confirmado do conector ou por recibo de entrega/leitura; não significa que o formulário foi respondido. O computador precisa permanecer ligado e conectado para consumir a fila.
+- Horários arquivados não voltam à grade ativa: o app usa os nomes de aula/professor e horários preservados no agendamento, complementando a sala pelo horário arquivado da mesma empresa.
+- A tabela de envios avulsos fica apenas para assinatura, pagamento, Pix e teste. Avisos de aula aparecem agrupados; avisos antigos sem agendamento (lead excluído) continuam no banco como histórico, sem duplicar a tela.
+
 - A chave fica como hash no banco e só a versão original é exibida na geração. Rotação revoga o acesso anterior à API.
 - As APIs da Loja exigem login e acesso à XPACE; configurar o conector e ver a fila exige gerente ou administrador. O serviço do computador usa uma chave independente, limitada à empresa do conector.
 - Os links são buscados novamente no servidor, associados à venda da XPACE. O navegador não pode fornecer URL arbitrária para envio automático.
