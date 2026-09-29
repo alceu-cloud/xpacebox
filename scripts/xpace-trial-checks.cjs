@@ -9,6 +9,7 @@ function moduleFrom(file, imports = {}) {
   vm.runInNewContext(source, { exports, require: name => {
     if (name === 'server-only') return {};
     if (name in imports) return imports[name];
+    if (name === '@/lib/xpace/trial-schedule') return require('../lib/xpace/trial-schedule.ts');
     if (name === 'node:crypto') return require(name);
     throw new Error('Unexpected import: ' + name);
   }, Date, Intl, URL, console });

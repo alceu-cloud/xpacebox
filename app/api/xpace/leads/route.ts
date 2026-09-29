@@ -4,6 +4,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { queueSatisfactionAfterAttendance } from "@/lib/server/xpace-automatic-messages";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
+import { scheduleAllowsTrial, trialScheduleSettings } from "@/lib/xpace/trial-schedule";
 
 const companySlug = "xpace";
 export const maxDuration = 30;
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
       access.admin.from("xpace_lead_loss_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_lead_win_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_class_groups").select("id,name,modality,capacity,instructor_id,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("name"),
-      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
+      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
       access.admin.from("xpace_instructors").select("id,full_name,active").eq("tenant_company_id", access.company.id).order("full_name"),
       access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("active", true),
     ]);
@@ -43,12 +44,17 @@ export async function GET(request: Request) {
     if (profilesError) throw profilesError;
     const instructorNames = new Map((instructorsResult.data ?? []).map((instructor) => [instructor.id, instructor.full_name]));
     const schedulesByGroup = new Map<string, Array<Record<string, unknown>>>();
-    for (const schedule of schedulesResult.data ?? []) schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: schedule.instructor_id ?? "", instructorName: schedule.instructor_id ? instructorNames.get(schedule.instructor_id) ?? "" : "", level: normalizeClassLevel(schedule.class_level) }]);
+    const groupById = new Map((groupsResult.data ?? []).map((group) => [group.id, group]));
+    for (const schedule of schedulesResult.data ?? []) {
+      const group = groupById.get(schedule.class_group_id);
+      const instructorId = schedule.instructor_id ?? group?.instructor_id;
+      schedulesByGroup.set(schedule.class_group_id, [...(schedulesByGroup.get(schedule.class_group_id) ?? []), { id: schedule.id, weekday: schedule.weekday, startsAt: schedule.starts_at?.slice(0, 5) ?? "", endsAt: schedule.ends_at?.slice(0, 5) ?? "", roomName: schedule.room_name ?? "", instructorId: instructorId ?? "", instructorName: instructorId ? instructorNames.get(instructorId) ?? "" : "", level: normalizeClassLevel(schedule.class_level), allowsLeads: scheduleAllowsTrial(schedule.settings, group?.settings) }]);
+    }
     return NextResponse.json({
       success: true, canManage: isManager(access.profile.platform_role), canOverrideTrialLimit: isManager(access.profile.platform_role), canDeleteLeads: isManager(access.profile.platform_role),
       leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name), winReasons: sortNaturally(winReasonsResult.data ?? [], (reason) => reason.name),
       attendants: sortNaturally(profiles ?? [], (profile) => profile.full_name), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name),
-      groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: Boolean((group.settings as Record<string, unknown> | null)?.allowLeads), schedules: schedulesByGroup.get(group.id) ?? [] })),
+      groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: (schedulesByGroup.get(group.id) ?? []).some((schedule) => schedule.allowsLeads === true), schedules: schedulesByGroup.get(group.id) ?? [] })),
     });
   } catch (error) { return handleError(error); }
 }
@@ -243,16 +249,17 @@ async function saveSetting(access: Awaited<ReturnType<typeof requireCompanyAcces
 async function classSnapshot(access: Awaited<ReturnType<typeof requireCompanyAccess>>, groupId: string, scheduleId: string, scheduledOn: string) {
   const [{ data: group, error: groupError }, { data: schedule, error: scheduleError }] = await Promise.all([
     access.admin.from("xpace_class_groups").select("id,name,modality,instructor_id,settings,active").eq("id", groupId).eq("tenant_company_id", access.company.id).maybeSingle(),
-    access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,active").eq("id", scheduleId).eq("tenant_company_id", access.company.id).maybeSingle(),
+    access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,settings,active").eq("id", scheduleId).eq("tenant_company_id", access.company.id).maybeSingle(),
   ]);
   if (groupError || scheduleError) throw groupError ?? scheduleError;
   if (!group?.active || !schedule?.active || schedule.class_group_id !== group.id) throw new RequestError("A TURMA OU O HORÁRIO NÃO ESTÃO DISPONÍVEIS.", 409);
-  if (!Boolean((group.settings as Record<string, unknown> | null)?.allowLeads)) throw new RequestError("ESTA TURMA NÃO ESTÁ LIBERADA PARA AULA EXPERIMENTAL.", 409);
+  const settings = trialScheduleSettings(schedule.settings, group.settings);
+  if (!scheduleAllowsTrial(schedule.settings, group.settings)) throw new RequestError("ESTE HORÁRIO NÃO ESTÁ LIBERADO PARA AULA EXPERIMENTAL.", 409);
   if (new Date(`${scheduledOn}T12:00:00`).getDay() !== schedule.weekday) throw new RequestError("A DATA NÃO CORRESPONDE AO HORÁRIO DA TURMA.", 400);
   const instructorId = schedule.instructor_id ?? group.instructor_id;
   const { data: instructor, error: instructorError } = instructorId ? await access.admin.from("xpace_instructors").select("id,full_name").eq("id", instructorId).eq("tenant_company_id", access.company.id).maybeSingle() : { data: null, error: null };
   if (instructorError) throw instructorError;
-  const url = (group.settings as Record<string, unknown> | null)?.leadWelcomeVideoUrl;
+  const url = settings.leadWelcomeVideoUrl;
   return { className: group.name, modality: group.modality ?? "SEM MODALIDADE", instructorId: instructor?.id ?? "", instructor: instructor?.full_name ?? "PROFESSOR A DEFINIR", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof url === "string" && /^https?:\/\//i.test(url) ? url : "" };
 }
 
