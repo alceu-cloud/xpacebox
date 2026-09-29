@@ -43,7 +43,7 @@ export async function queueTrialMessages(admin: SupabaseClient, input: {
 
 export async function queuePixMessage(admin: SupabaseClient, input: {
   companyId: string; chargeId: string; studentId: string; name: string; mobile: string;
-  amountCents: number; dueOn: string; invoiceUrl: string; firstPayment: boolean;
+  amountCents: number; dueOn: string; invoiceUrl: string; pixCopyPaste: string; firstPayment: boolean;
 }) {
   const destinationPhone = whatsappPhone(input.mobile);
   if (!destinationPhone || !input.invoiceUrl.startsWith("https://")) return;
@@ -56,7 +56,9 @@ export async function queuePixMessage(admin: SupabaseClient, input: {
   const scheduledAt = input.firstPayment ? now : Math.max(now, dueAt);
   const firstName = input.name.trim().split(/\s+/)[0] || "pessoal";
   const amount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(input.amountCents / 100);
-  const body = `Oi, ${firstName}! ${input.firstPayment ? "Seu primeiro pagamento" : "Sua mensalidade"} XPACE de ${amount} vence em ${dateLabel(input.dueOn)}. Confira o Pix e o código copia e cola neste link seguro do Asaas: ${input.invoiceUrl} Se já pagou, desconsidere esta mensagem.`;
+  const pixCode = input.pixCopyPaste.trim();
+  const copyPaste = pixCode && pixCode.length <= 900 ? `\nCódigo Pix copia e cola:\n${pixCode}` : "";
+  const body = `Oi, ${firstName}! ${input.firstPayment ? "Seu primeiro pagamento" : "Sua mensalidade"} XPACE de ${amount} vence em ${dateLabel(input.dueOn)}. Abra o link seguro do Asaas para ver o QR Code: ${input.invoiceUrl}${copyPaste}\nSe já pagou, desconsidere esta mensagem.`;
   const { error } = await admin.from("xpace_message_outbox").insert({
     tenant_company_id: input.companyId, connector_id: connector.id, student_id: input.studentId,
     charge_id: input.chargeId, kind: "COBRANCA_PIX_AUTOMATICA", contact_name: input.name,

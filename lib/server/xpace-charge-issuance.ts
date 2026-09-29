@@ -94,7 +94,7 @@ export async function issuePendingPixCharges(admin: SupabaseClient, companyId: s
       if (payment.schoolWhatsappReady && student.whatsapp_opt_in) {
         try {
           const invoiceUrl = payment.invoiceUrl || await getAsaasInvoiceUrl(account as Account, payment.providerPaymentId);
-          await queuePixMessage(admin, { companyId, chargeId: charge.id, studentId: student.id, name: student.full_name, mobile: student.mobile ?? "", amountCents: charge.amount_cents, dueOn: charge.due_on, invoiceUrl, firstPayment: charge.due_on === contract.first_due_on });
+          await queuePixMessage(admin, { companyId, chargeId: charge.id, studentId: student.id, name: student.full_name, mobile: student.mobile ?? "", amountCents: charge.amount_cents, dueOn: charge.due_on, invoiceUrl, pixCopyPaste: payment.pixCopyPaste, firstPayment: charge.due_on === contract.first_due_on });
         } catch (error) { console.error("XPACE PIX MESSAGE QUEUE ERROR", { chargeId: charge.id, error }); }
       }
     } catch (error) {
@@ -114,7 +114,7 @@ export function issuePixChargesForContract(admin: SupabaseClient, companyId: str
 export async function queueReadyPixMessages(admin: SupabaseClient, companyId: string) {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   const { data: charges, error: chargeError } = await admin.from("xpace_contract_charges")
-    .select("id,contract_id,student_id,amount_cents,due_on,provider_payment_id")
+    .select("id,contract_id,student_id,amount_cents,due_on,provider_payment_id,pix_copy_paste")
     .eq("tenant_company_id", companyId).eq("status", "ABERTO").eq("school_whatsapp_ready", true)
     .not("provider_payment_id", "is", null).gte("due_on", today).order("due_on").limit(500);
   if (chargeError) throw chargeError;
@@ -139,7 +139,7 @@ export async function queueReadyPixMessages(admin: SupabaseClient, companyId: st
     if (!student?.whatsapp_opt_in || contract?.payment_method !== "PIX" || !charge.provider_payment_id) continue;
     try {
       const invoiceUrl = await getAsaasInvoiceUrl(account, charge.provider_payment_id);
-      await queuePixMessage(admin, { companyId, chargeId: charge.id, studentId: student.id, name: student.full_name, mobile: student.mobile ?? "", amountCents: charge.amount_cents, dueOn: charge.due_on, invoiceUrl, firstPayment: charge.due_on === contract.first_due_on });
+      await queuePixMessage(admin, { companyId, chargeId: charge.id, studentId: student.id, name: student.full_name, mobile: student.mobile ?? "", amountCents: charge.amount_cents, dueOn: charge.due_on, invoiceUrl, pixCopyPaste: charge.pix_copy_paste ?? "", firstPayment: charge.due_on === contract.first_due_on });
       result.queued += 1;
     } catch (error) { result.failed += 1; console.error("XPACE PIX MESSAGE RECOVERY ERROR", { chargeId: charge.id, error }); }
   }
