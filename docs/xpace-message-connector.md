@@ -5,10 +5,10 @@ O XPACEBOX agora tem, na **Loja → Integrador de mensagens**, telas de pontuaç
 ## Antes de usar
 
 - **É uma conexão não oficial do WhatsApp, via biblioteca Baileys.** Os [termos da WhatsApp Business App](https://www.whatsapp.com/legal/WhatsApp-Terms-for-WhatsApp-Business-App) restringem aplicativos que interagem sem consentimento prévio por escrito. Isso pode levar à suspensão do número; Meta Verified não equivale a essa autorização. A pontuação mostrada na Loja mede apenas conexão e erros do XPACEBOX; não é o indicador oficial do WhatsApp.
-- O conector só envia depois de um usuário autorizado escolher **WhatsApp da escola**. É necessário que o cliente tenha autorizado contato por WhatsApp no cadastro.
+- Links avulsos de assinatura e cobrança só entram na fila depois que um usuário escolhe **WhatsApp da escola**. Avisos de aula e mensalidades Pix autorizadas podem entrar automaticamente na fila. A autorização da aula experimental não autoriza mensagens financeiras; a venda pergunta isso separadamente.
 - As notificações já configuradas no Asaas e na Autentique continuam intactas. Teste com seu próprio cadastro e confira se não há duplicidade antes de enviar a clientes.
-- A tela mostra **enviado ao WhatsApp**, não entregue/lido. Uma tentativa incerta fica em **Verificar** e nunca é reenviada automaticamente.
-- Não foi feito pareamento nem teste com o número real. Isso exige acesso ao computador e celular da escola.
+- A tela mostra **processado pelo conector** quando a biblioteca retorna um identificador; isso não comprova aceite pelo servidor, entrega nem leitura. Uma tentativa incerta fica em **Verificar** e nunca é reenviada automaticamente.
+- O pareamento foi realizado, mas o primeiro vídeo de teste não apareceu nem para o destinatário nem na conversa enviada do celular da escola. Não considere o envio validado até investigar os registros do computador e confirmar uma entrega ponta a ponta.
 
 ## Instalação no computador da escola
 
@@ -18,6 +18,10 @@ O XPACEBOX agora tem, na **Loja → Integrador de mensagens**, telas de pontuaç
 4. Copie `connector/.env.example` para `connector/.env` nesse computador. Preencha `XPACEBOX_URL=https://xpacebox.com.br` e `XPACEBOX_CONNECTOR_TOKEN` com a chave. Não compartilhe a chave e nunca a salve no Git.
 5. Rode `npm start` na pasta `connector`. A página da Loja mostrará o QR. No celular, abra WhatsApp → Dispositivos conectados → Conectar dispositivo e leia o código.
 6. Faça uma venda de teste em seu próprio cadastro. Confira a cobrança e o contrato; envie um link pelo conector; verifique o WhatsApp e a fila da Loja.
+
+### Diagnóstico de mensagem ausente
+
+O conector atualizado registra no PowerShell o identificador da mensagem e as confirmações posteriores que receber da biblioteca: **aceita pelo servidor**, **entregue**, **lida** ou **erro**. Esses registros não exibem telefone nem conteúdo. Depois de atualizar a pasta `connector` no computador da escola, reinicie o processo sem apagar o `.env` nem as credenciais em `%LOCALAPPDATA%`. Faça **um único teste controlado** com um número autorizado e confira o resultado no PowerShell, no celular da escola e no destinatário. Ausência de confirmação não autoriza reenvio automático: uma mensagem ainda pode chegar depois.
 
 O conector faz conexões **de saída** por HTTPS com o XPACEBOX. Não é necessário abrir porta no roteador nem instalar túnel. Para manter o processo após reinício do Windows, configure uma tarefa de inicialização sob o usuário da escola **somente depois de validar o teste manual**. As credenciais do dispositivo ficam no perfil local do Windows em `%LOCALAPPDATA%\XpaceBox\message-connector`, fora do repositório. Faça cópia segura se precisar recuperar o pareamento. A rotina de autenticação em arquivos da Baileys é adequada ao protótipo, mas a própria biblioteca não a recomenda para produção de maior escala.
 

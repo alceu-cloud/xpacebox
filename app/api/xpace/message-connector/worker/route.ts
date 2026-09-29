@@ -101,7 +101,7 @@ export async function POST(request: Request) {
           .eq("id", data.appointment_id).eq("tenant_company_id", connector.tenant_company_id);
         if (videoError) console.error("XPACE VIDEO STATUS ERROR", videoError);
         if (body.success && data.lead_id) {
-          const { error: activityError } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: connector.tenant_company_id, lead_id: data.lead_id, appointment_id: data.appointment_id, activity_type: "VIDEO_ENVIADO", body: "VÍDEO DE BOAS-VINDAS ENVIADO PELO CONECTOR WHATSAPP.", payload: { messageId: data.id } });
+          const { error: activityError } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: connector.tenant_company_id, lead_id: data.lead_id, appointment_id: data.appointment_id, activity_type: "VIDEO_ENVIADO", body: "VÍDEO PROCESSADO PELO CONECTOR; ENTREGA NO WHATSAPP AINDA NÃO CONFIRMADA.", payload: { messageId: data.id } });
           if (activityError) console.error("XPACE VIDEO ACTIVITY ERROR", activityError);
         }
       }

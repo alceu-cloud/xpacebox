@@ -50,6 +50,15 @@ async function connect() {
   const { version } = await fetchLatestBaileysVersion();
   socket = makeWASocket({ auth: state, version, logger, printQRInTerminal: false, browser: ["XPACEBOX", "Desktop", "1.0.0"], markOnlineOnConnect: false, syncFullHistory: false });
   socket.ev.on("creds.update", saveCreds);
+  socket.ev.on("messages.update", (updates) => {
+    const labels = { 0: "ERRO", 2: "ACEITA PELO SERVIDOR", 3: "ENTREGUE", 4: "LIDA" };
+    for (const { key, update } of updates) {
+      if (!key?.fromMe || !key.id || typeof update.status !== "number" || !labels[update.status]) continue;
+      const code = update.messageStubParameters?.[0];
+      const errorCode = update.status === 0 && typeof code === "string" && /^\d{3}$/.test(code) ? ` (código ${code})` : "";
+      console.log(`WhatsApp: mensagem ${key.id}: ${labels[update.status]}${errorCode}.`);
+    }
+  });
   socket.ev.on("connection.update", async ({ connection, qr, lastDisconnect }) => {
     try {
       if (qr) {
@@ -91,7 +100,7 @@ setInterval(async () => {
           const result = await socket.sendMessage(`${message.destination_phone}@s.whatsapp.net`, { text: message.body });
           if (!result?.key?.id) throw new Error("WhatsApp não confirmou o envio.");
           await api({ action: "RESULT", messageId: message.id, success: true, providerMessageId: result.key.id });
-          console.log(`Mensagem ${message.id}: enviada ao WhatsApp.`);
+          console.log(`Mensagem ${message.id}: processada pela biblioteca como ${result.key.id}; aguarde confirmação de entrega.`);
         } catch (error) {
           await api({ action: "RESULT", messageId: message.id, success: false, error: error instanceof Error ? error.message : "Envio não confirmado" }).catch(reportError);
           reportError(error);
