@@ -19,6 +19,42 @@ let connected = false;
 let shuttingDown = false;
 let lastQr = "";
 let phone = "";
+const pauseSends = process.env.XPACEBOX_PAUSE_SEND === "1";
+const sendLimit = Math.max(0, Number.parseInt(process.env.XPACEBOX_SEND_LIMIT || "0", 10) || 0);
+let sendAttempts = 0;
+const trackedMessages = new Map();
+const earlyReceipts = new Map();
+const acceptanceWaiters = new Map();
+const receiptLabels = { 0: "ERRO", 2: "ACEITA PELO SERVIDOR", 3: "ENTREGUE", 4: "LIDA" };
+
+function logReceipt(messageId, status, code) {
+  const label = receiptLabels[status];
+  if (!label) return;
+  const suffix = status === 0 && typeof code === "string" && /^\d{3}$/.test(code) ? ` (código ${code})` : "";
+  console.log(`WhatsApp: envio monitorado ${messageId}: ${label}${suffix}.`);
+}
+
+async function destinationJid(destinationPhone) {
+  if (!/^55\d{10,11}$/.test(destinationPhone ?? "")) throw new Error("DESTINO INVÁLIDO.");
+  const contacts = await socket.onWhatsApp(`${destinationPhone}@s.whatsapp.net`);
+  const match = contacts?.length === 1 ? contacts[0] : null;
+  if (!match?.exists) throw new Error("DESTINO NÃO LOCALIZADO NO WHATSAPP.");
+  if (typeof match.lid !== "string" || !/^\d+@lid$/.test(match.lid)) throw new Error("IDENTIFICADOR DO DESTINO INDISPONÍVEL.");
+  return match.lid;
+}
+
+function waitForServerAcceptance(providerMessageId) {
+  const previous = earlyReceipts.get(providerMessageId);
+  if (previous?.status === 0) return Promise.reject(new Error("WHATSAPP REJEITOU O ENVIO."));
+  if (previous?.status >= 2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      acceptanceWaiters.delete(providerMessageId);
+      reject(new Error("SEM CONFIRMAÇÃO DO SERVIDOR EM 30 SEGUNDOS."));
+    }, 30_000);
+    acceptanceWaiters.set(providerMessageId, { resolve, reject, timer });
+  });
+}
 
 async function api(body) {
   const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
@@ -51,12 +87,20 @@ async function connect() {
   socket = makeWASocket({ auth: state, version, logger, printQRInTerminal: false, browser: ["XPACEBOX", "Desktop", "1.0.0"], markOnlineOnConnect: false, syncFullHistory: false });
   socket.ev.on("creds.update", saveCreds);
   socket.ev.on("messages.update", (updates) => {
-    const labels = { 0: "ERRO", 2: "ACEITA PELO SERVIDOR", 3: "ENTREGUE", 4: "LIDA" };
     for (const { key, update } of updates) {
-      if (!key?.fromMe || !key.id || typeof update.status !== "number" || !labels[update.status]) continue;
+      if (!key?.fromMe || !key.id || typeof update.status !== "number" || !receiptLabels[update.status]) continue;
       const code = update.messageStubParameters?.[0];
-      const errorCode = update.status === 0 && typeof code === "string" && /^\d{3}$/.test(code) ? ` (código ${code})` : "";
-      console.log(`WhatsApp: mensagem ${key.id}: ${labels[update.status]}${errorCode}.`);
+      const messageId = trackedMessages.get(key.id);
+      if (messageId) logReceipt(messageId, update.status, code);
+      earlyReceipts.set(key.id, { status: update.status, code });
+      if (earlyReceipts.size > 200) earlyReceipts.delete(earlyReceipts.keys().next().value);
+      const waiter = acceptanceWaiters.get(key.id);
+      if (waiter && (update.status === 0 || update.status >= 2)) {
+        clearTimeout(waiter.timer);
+        acceptanceWaiters.delete(key.id);
+        if (update.status === 0) waiter.reject(new Error("WHATSAPP REJEITOU O ENVIO."));
+        else waiter.resolve();
+      }
     }
   });
   socket.ev.on("connection.update", async ({ connection, qr, lastDisconnect }) => {
@@ -93,16 +137,22 @@ setInterval(async () => {
   processing = true;
   try {
     await heartbeat(connected ? "CONNECTED" : lastQr ? "WAITING_QR" : "OFFLINE");
-    if (connected && socket && !shuttingDown) {
+    if (connected && socket && !shuttingDown && !pauseSends && (!sendLimit || sendAttempts < sendLimit)) {
       const { message } = await api({ action: "CLAIM" });
       if (message) {
+        sendAttempts += 1;
+        let providerMessageId;
         try {
-          const result = await socket.sendMessage(`${message.destination_phone}@s.whatsapp.net`, { text: message.body });
+          const jid = await destinationJid(message.destination_phone);
+          const result = await socket.sendMessage(jid, { text: message.body });
           if (!result?.key?.id) throw new Error("WhatsApp não confirmou o envio.");
+          providerMessageId = result.key.id;
+          trackedMessages.set(result.key.id, message.id);
+          await waitForServerAcceptance(result.key.id);
           await api({ action: "RESULT", messageId: message.id, success: true, providerMessageId: result.key.id });
-          console.log(`Mensagem ${message.id}: processada pela biblioteca como ${result.key.id}; aguarde confirmação de entrega.`);
+          console.log(`Mensagem ${message.id}: aceita pelo servidor; aguarde confirmação de entrega.`);
         } catch (error) {
-          await api({ action: "RESULT", messageId: message.id, success: false, error: error instanceof Error ? error.message : "Envio não confirmado" }).catch(reportError);
+          await api({ action: "RESULT", messageId: message.id, success: false, providerMessageId, error: error instanceof Error ? error.message : "Envio não confirmado" }).catch(reportError);
           reportError(error);
         }
       }
