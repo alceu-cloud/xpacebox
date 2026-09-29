@@ -12,15 +12,23 @@ export async function GET(request: Request) {
     requireManager(access.profile.platform_role);
     const { data: connector, error } = await access.admin.from("xpace_message_connectors").select("id,status,phone,qr_data_url,qr_updated_at,last_seen_at,last_error,disconnect_requested,created_at").eq("tenant_company_id", access.company.id).maybeSingle();
     if (error) throw error;
-    const { data: messages, error: messagesError } = await access.admin.from("xpace_message_outbox").select("id,kind,contact_name,destination_phone,status,error_message,created_at,scheduled_at,sent_at").eq("tenant_company_id", access.company.id).order("created_at", { ascending: false }).limit(100);
+    const { data: messages, error: messagesError } = await access.admin.from("xpace_message_outbox").select("id,kind,lead_id,appointment_id,appointment_scheduled_on,appointment_starts_at,contact_name,destination_phone,status,error_message,created_at,scheduled_at,sent_at,delivered_at,read_at").eq("tenant_company_id", access.company.id).order("created_at", { ascending: false }).limit(200);
     if (messagesError) throw messagesError;
+    const leadIds = [...new Set((messages ?? []).map((item) => item.lead_id).filter((id): id is string => Boolean(id)))];
+    const leadContacts = new Map<string, { name: string; phone: string }>();
+    if (leadIds.length) {
+      const { data: leads, error: leadsError } = await access.admin.from("xpace_leads").select("id,full_name,mobile")
+        .eq("tenant_company_id", access.company.id).in("id", leadIds);
+      if (leadsError) throw leadsError;
+      for (const lead of leads ?? []) leadContacts.set(lead.id, { name: lead.full_name, phone: lead.mobile ?? "" });
+    }
     const online = Boolean(connector?.last_seen_at && Date.now() - Date.parse(connector.last_seen_at) < 60_000);
     const qrFresh = Boolean(online && connector?.qr_updated_at && Date.now() - Date.parse(connector.qr_updated_at) < 60_000);
     const recent = (messages ?? []).filter((item) => Date.now() - Date.parse(item.created_at) < 7 * 86_400_000);
     const failures = recent.filter((item) => ["FAILED", "UNKNOWN"].includes(item.status)).length;
     const oldQueue = recent.filter((item) => item.status === "QUEUED" && Date.now() - Date.parse(item.scheduled_at) > 86_400_000).length;
     const score = connector ? Math.max(0, 100 - (online && connector.status === "CONNECTED" ? 0 : 25) - failures * 15 - oldQueue * 5) : null;
-    return NextResponse.json({ success: true, connector: connector ? { configured: true, status: online ? connector.status : "OFFLINE", phone: connector.phone ?? "", qrDataUrl: qrFresh ? connector.qr_data_url ?? "" : "", lastSeenAt: connector.last_seen_at, lastError: connector.last_error ?? "", disconnectRequested: connector.disconnect_requested } : { configured: false, status: "NOT_CONFIGURED", phone: "", qrDataUrl: "", lastSeenAt: null, lastError: "", disconnectRequested: false }, messages: messages ?? [], score, scoreDetails: { failures, oldQueue, windowDays: 7 } }, { headers: noStore });
+    return NextResponse.json({ success: true, connector: connector ? { configured: true, status: online ? connector.status : "OFFLINE", phone: connector.phone ?? "", qrDataUrl: qrFresh ? connector.qr_data_url ?? "" : "", lastSeenAt: connector.last_seen_at, lastError: connector.last_error ?? "", disconnectRequested: connector.disconnect_requested } : { configured: false, status: "NOT_CONFIGURED", phone: "", qrDataUrl: "", lastSeenAt: null, lastError: "", disconnectRequested: false }, messages: (messages ?? []).map((item) => ({ ...item, student_name: item.lead_id ? leadContacts.get(item.lead_id)?.name ?? "" : "", student_phone: item.lead_id ? leadContacts.get(item.lead_id)?.phone ?? "" : "" })), score, scoreDetails: { failures, oldQueue, windowDays: 7 } }, { headers: noStore });
   } catch (error) { return handleError(error); }
 }
 

@@ -92,8 +92,12 @@ async function connect() {
       const code = update.messageStubParameters?.[0];
       const messageId = trackedMessages.get(key.id);
       if (messageId) logReceipt(messageId, update.status, code);
-      earlyReceipts.set(key.id, { status: update.status, code });
+      const previous = earlyReceipts.get(key.id);
+      if (!previous || update.status > previous.status) earlyReceipts.set(key.id, { status: update.status, code });
       if (earlyReceipts.size > 200) earlyReceipts.delete(earlyReceipts.keys().next().value);
+      if (update.status >= 3) {
+        void api({ action: "RECEIPT", providerMessageId: key.id, receiptStatus: update.status >= 4 ? "READ" : "DELIVERED" }).catch(reportError);
+      }
       const waiter = acceptanceWaiters.get(key.id);
       if (waiter && (update.status === 0 || update.status >= 2)) {
         clearTimeout(waiter.timer);
@@ -144,12 +148,20 @@ setInterval(async () => {
         let providerMessageId;
         try {
           const jid = await destinationJid(message.destination_phone);
-          const result = await socket.sendMessage(jid, { text: message.body });
+          const content = message.mediaUrl
+            ? { video: { url: message.mediaUrl }, caption: message.body }
+            : { text: message.body };
+          const result = await socket.sendMessage(jid, content);
           if (!result?.key?.id) throw new Error("WhatsApp não confirmou o envio.");
           providerMessageId = result.key.id;
           trackedMessages.set(result.key.id, message.id);
+          if (trackedMessages.size > 200) trackedMessages.delete(trackedMessages.keys().next().value);
           await waitForServerAcceptance(result.key.id);
           await api({ action: "RESULT", messageId: message.id, success: true, providerMessageId: result.key.id });
+          const receipt = earlyReceipts.get(result.key.id);
+          if (receipt?.status >= 3) {
+            await api({ action: "RECEIPT", providerMessageId: result.key.id, receiptStatus: receipt.status >= 4 ? "READ" : "DELIVERED" }).catch(reportError);
+          }
           console.log(`Mensagem ${message.id}: aceita pelo servidor; aguarde confirmação de entrega.`);
         } catch (error) {
           await api({ action: "RESULT", messageId: message.id, success: false, providerMessageId, error: error instanceof Error ? error.message : "Envio não confirmado" }).catch(reportError);

@@ -6,7 +6,7 @@ import { whatsappPhone } from "@/lib/server/xpace-automatic-messages";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "no-store" };
-type WorkerBody = { action?: string; status?: string; phone?: string; qrDataUrl?: string; error?: string; messageId?: string; success?: boolean; providerMessageId?: string };
+type WorkerBody = { action?: string; status?: string; phone?: string; qrDataUrl?: string; error?: string; messageId?: string; success?: boolean; providerMessageId?: string; receiptStatus?: "DELIVERED" | "READ" };
 
 export async function POST(request: Request) {
   const rawToken = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
@@ -48,12 +48,14 @@ export async function POST(request: Request) {
       if (queueError) throw queueError;
       if (!queued) return NextResponse.json({ success: true, message: null }, { headers });
       let cancelReason = queued.expires_at && queued.expires_at <= now ? "PRAZO DA MENSAGEM EXPIRADO." : "";
+      let mediaUrl: string | null = null;
       if (!cancelReason && queued.appointment_id) {
         const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments")
-          .select("id,class_schedule_id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in")
+          .select("id,class_schedule_id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in,welcome_video_url")
           .eq("id", queued.appointment_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
         if (appointmentError) throw appointmentError;
         if (!appointment || (queued.kind !== "AVISO_PROFESSOR" && !appointment.whatsapp_opt_in) || appointment.attendance_status === "CANCELADO" || appointment.confirmation_status === "NAO_CONFIRMADO" || appointment.scheduled_on !== queued.appointment_scheduled_on || appointment.starts_at?.slice(0, 5) !== queued.appointment_starts_at?.slice(0, 5)) cancelReason = "AGENDAMENTO ALTERADO, CANCELADO OU SEM AUTORIZAÇÃO.";
+        if (!cancelReason && queued.kind === "VIDEO_BOAS_VINDAS") mediaUrl = cloudinaryVideoUrl(appointment!.welcome_video_url);
         if (!cancelReason && queued.kind === "AVISO_PROFESSOR") {
           const [{ data: instructor, error: instructorError }, { data: schedule, error: scheduleError }] = await Promise.all([
             admin.from("xpace_instructors").select("id,mobile,active").eq("id", queued.instructor_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle(),
@@ -85,7 +87,31 @@ export async function POST(request: Request) {
         .eq("id", queued.id).eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
         .eq("status", "QUEUED").select("id,destination_phone,body").maybeSingle();
       if (error) throw error;
-      return NextResponse.json({ success: true, message }, { headers });
+      return NextResponse.json({ success: true, message: message ? { ...message, mediaUrl } : null }, { headers });
+    }
+    if (body.action === "RECEIPT") {
+      const providerMessageId = body.providerMessageId?.trim();
+      if (!providerMessageId || providerMessageId.length > 200 || !["DELIVERED", "READ"].includes(body.receiptStatus ?? "")) return fail("RECIBO INVÁLIDO.", 400);
+      const { data: message, error: lookupError } = await admin.from("xpace_message_outbox")
+        .select("id,kind,appointment_id,status,delivered_at,read_at")
+        .eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
+        .eq("provider_message_id", providerMessageId).in("status", ["SENT", "UNKNOWN"])
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!message) return NextResponse.json({ success: true, recorded: false }, { headers });
+      const deliveredAt = message.delivered_at ?? now;
+      const readAt = body.receiptStatus === "READ" ? (message.read_at ?? now) : message.read_at;
+      const { error: receiptError } = await admin.from("xpace_message_outbox").update({
+        delivered_at: deliveredAt, read_at: readAt, status: "SENT", error_message: null, updated_at: now,
+      }).eq("id", message.id).eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id);
+      if (receiptError) throw receiptError;
+      if (message.kind === "VIDEO_BOAS_VINDAS" && message.appointment_id) {
+        const { error: videoError } = await admin.from("xpace_lead_appointments")
+          .update({ welcome_delivery_status: "ENVIADO", welcome_delivered_at: deliveredAt })
+          .eq("id", message.appointment_id).eq("tenant_company_id", connector.tenant_company_id);
+        if (videoError) console.error("XPACE VIDEO RECEIPT ERROR", videoError);
+      }
+      return NextResponse.json({ success: true, recorded: true }, { headers });
     }
     if (body.action === "RESULT") {
       if (!body.messageId || typeof body.success !== "boolean") return fail("RESULTADO INVÁLIDO.", 400);
@@ -97,7 +123,7 @@ export async function POST(request: Request) {
       if (!data) return fail("MENSAGEM NÃO ESTÁ EM ENVIO.", 409);
       if (data.kind === "VIDEO_BOAS_VINDAS" && data.appointment_id) {
         const { error: videoError } = await admin.from("xpace_lead_appointments")
-          .update({ welcome_delivery_status: body.success ? "ENVIADO" : "FALHOU", welcome_delivered_at: body.success ? now : null })
+          .update({ welcome_delivery_status: body.success ? "ENVIADO" : "FALHOU", welcome_delivered_at: null })
           .eq("id", data.appointment_id).eq("tenant_company_id", connector.tenant_company_id);
         if (videoError) console.error("XPACE VIDEO STATUS ERROR", videoError);
         if (body.success && data.lead_id) {
@@ -119,3 +145,16 @@ export async function POST(request: Request) {
 }
 
 function fail(message: string, status: number) { return NextResponse.json({ success: false, message }, { status, headers }); }
+
+function cloudinaryVideoUrl(value: unknown) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.hostname !== "res.cloudinary.com" || url.username || url.password) return null;
+    if (!/^\/[^/]+\/video\/upload\/.+\.(mp4|mov)$/i.test(url.pathname)) return null;
+    if (/\.mov$/i.test(url.pathname)) {
+      url.pathname = url.pathname.replace("/video/upload/", "/video/upload/vc_h264:baseline:3.1/").replace(/\.mov$/i, ".mp4");
+    }
+    return url.toString();
+  } catch { return null; }
+}

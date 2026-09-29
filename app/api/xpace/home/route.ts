@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 
@@ -31,6 +32,11 @@ export async function GET(request: Request) {
     const page = Number.isSafeInteger(requestedPage) && requestedPage >= 0 ? Math.min(requestedPage, 1000) : 0;
     const seenAt = params.get("seenAt") ?? "";
     const validSeenAt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(seenAt) && !Number.isNaN(Date.parse(seenAt)) ? seenAt : "";
+    const bucket = params.get("bucket") === "READ" ? "READ" : "UNREAD";
+    if (params.get("notificationsOnly") === "1") {
+      const notifications = await loadNotifications(admin, company.id, page, validSeenAt, bucket);
+      return NextResponse.json({ success: true, notifications }, { headers: { "Cache-Control": "no-store" } });
+    }
     const period = saoPauloPeriod();
     const monthFrom = saoPauloMidnight(period.monthFrom);
     const nextMonth = saoPauloMidnight(period.nextMonth);
@@ -70,22 +76,39 @@ export async function GET(request: Request) {
       }
     }
 
+    const notifications = await loadNotifications(admin, company.id, page, validSeenAt, bucket);
+
+    return NextResponse.json({
+      success: true,
+      metrics: { activeClients: activeStudents.size, newClientsThisMonth: newStudents.size },
+      notifications,
+    }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    if (error instanceof AccessError) return NextResponse.json({ success: false, message: error.message }, { status: error.status });
+    console.error("XPACE HOME ERROR", error);
+    return NextResponse.json({ success: false, message: "Não foi possível carregar o resumo da XPACE." }, { status: 500 });
+  }
+}
+
+async function loadNotifications(admin: SupabaseClient, companyId: string, page: number, validSeenAt: string, bucket: "UNREAD" | "READ") {
     const bookings = admin.from("xpace_lead_appointments")
       .select("id,lead_id,created_at,scheduled_on", { count: "exact" })
-      .eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO")
+      .eq("tenant_company_id", companyId).neq("attendance_status", "CANCELADO")
       .is("legacy_week_label", null)
       .order("created_at", { ascending: false }).order("id", { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    if (bucket === "READ") bookings.lte("created_at", validSeenAt || "1900-01-01T00:00:00Z");
+    else if (validSeenAt) bookings.gt("created_at", validSeenAt);
     const unread = admin.from("xpace_lead_appointments")
       .select("id", { count: "exact", head: true })
-      .eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO")
+      .eq("tenant_company_id", companyId).neq("attendance_status", "CANCELADO")
       .is("legacy_week_label", null);
     if (validSeenAt) unread.gt("created_at", validSeenAt);
     const [bookingResult, unreadResult, latestResult] = await Promise.all([
       bookings,
       unread,
       admin.from("xpace_lead_appointments").select("created_at")
-        .eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO")
+        .eq("tenant_company_id", companyId).neq("attendance_status", "CANCELADO")
         .is("legacy_week_label", null)
         .order("created_at", { ascending: false }).limit(1),
     ]);
@@ -95,15 +118,12 @@ export async function GET(request: Request) {
     const leadNames = new Map<string, string>();
     if (leadIds.length) {
       const { data, error } = await admin.from("xpace_leads").select("id,full_name")
-        .eq("tenant_company_id", company.id).in("id", leadIds);
+        .eq("tenant_company_id", companyId).in("id", leadIds);
       if (error) throw error;
       for (const lead of data ?? []) leadNames.set(lead.id, lead.full_name);
     }
 
-    return NextResponse.json({
-      success: true,
-      metrics: { activeClients: activeStudents.size, newClientsThisMonth: newStudents.size },
-      notifications: {
+    return {
         items: (bookingResult.data ?? []).map((booking) => ({
           id: booking.id,
           title: leadNames.get(booking.lead_id) ?? "Lead",
@@ -115,11 +135,5 @@ export async function GET(request: Request) {
         latestCreatedAt: latestResult.data?.[0]?.created_at ?? null,
         page,
         pageSize: PAGE_SIZE,
-      },
-    });
-  } catch (error) {
-    if (error instanceof AccessError) return NextResponse.json({ success: false, message: error.message }, { status: error.status });
-    console.error("XPACE HOME ERROR", error);
-    return NextResponse.json({ success: false, message: "Não foi possível carregar o resumo da XPACE." }, { status: 500 });
-  }
+      };
 }

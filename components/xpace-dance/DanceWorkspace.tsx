@@ -20,6 +20,7 @@ import StudentProfileWorkspace from "@/components/xpace-dance/StudentProfileWork
 import XpaceHomeOverview from "@/components/xpace-dance/XpaceHomeOverview";
 import DashboardWorkspace from "@/components/xpace-dance/DashboardWorkspace";
 import MessageConnectorWorkspace from "@/components/xpace-dance/MessageConnectorWorkspace";
+import NewLeadSoundToggle from "@/components/xpace-dance/NewLeadSoundToggle";
 import { XPayAccount, XPayBenefits, XPayStore } from "@/components/xpace-dance/XPayWorkspace";
 import { supabase } from "@/lib/supabase";
 
@@ -68,7 +69,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
 
   const topbar = <><header className={`xd-topbar${screen === "DASHBOARD" ? " xd-topbar--dashboard" : ""}`}>
     <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
-    {activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(returnScreen)} title={returnTitle}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}
+    <div className="xd-topbar-tools"><NewLeadSoundToggle />{activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(returnScreen)} title={returnTitle}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}</div>
   </header>{connectorHealth?.configured && connectorHealth.status !== "CONNECTED" ? <div className="xd-connector-alert" role="alert"><AlertTriangle size={18} aria-hidden="true" /><span><strong>WHATSAPP DESCONECTADO OU SEM CONFIRMAÇÃO DE CONEXÃO.</strong> As mensagens automáticas podem ficar na fila. Avise um gerente para conferir o Integrador na Loja.</span></div> : null}</>;
 
   if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
