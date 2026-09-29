@@ -20,7 +20,7 @@ type PlanModalityInput = { modalityId?: string; sessionsPerWeek?: number; access
 type RequestBody = {
   action?: "CREATE_PLAN" | "CREATE_CONTRACT" | "GENERATE_PIX" | "UPDATE_PLAN" | "SET_PLAN_ACTIVE" | "SET_CONTRACT_STATUS" | "DELETE_PLAN";
   plan?: { id?: string; name?: string; description?: string; billingInterval?: string; durationMonths?: number; amountCents?: number; active?: boolean; renewsAutomatically?: boolean; modalities?: string[]; modalityRules?: PlanModalityInput[]; catalogSettings?: Record<string, unknown> };
-  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; classGroupIds?: string[]; saleOn?: string; startsOn?: string; firstDueOn?: string; amountCents?: number; discountType?: string; discountValue?: number; enrollmentFeeEnabled?: boolean; paymentMethod?: string; renewsAutomatically?: boolean; status?: string; statusNote?: string; effectiveOn?: string };
+  contract?: { id?: string; studentId?: string; planId?: string; classGroupId?: string; classGroupIds?: string[]; saleOn?: string; startsOn?: string; firstDueOn?: string; amountCents?: number; discountType?: string; discountValue?: number; enrollmentFeeEnabled?: boolean; paymentMethod?: string; financialWhatsappConsent?: string; renewsAutomatically?: boolean; status?: string; statusNote?: string; effectiveOn?: string };
 };
 
 export async function GET(request: Request) {
@@ -115,9 +115,10 @@ async function createPlan(access: Awaited<ReturnType<typeof requireCompanyAccess
 async function createContract(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: RequestBody["contract"]) {
   const contract = normalizeContract(input);
   if (!contract.studentId || !contract.planId || !contract.classGroupIds.length || !isDate(contract.saleOn) || !isDate(contract.firstDueOn)) throw new RequestError("SELECIONE O ALUNO, O PLANO, AS GRADES E AS DATAS DA VENDA.", 400);
+  if (!contract.financialWhatsappConsent) throw new RequestError("CONFIRME SE O ALUNO AUTORIZOU MENSAGENS SOBRE CONTRATO E PAGAMENTOS PELO WHATSAPP DA ESCOLA.", 400);
   if (contract.paymentMethod === "CARTAO") throw new RequestError("O CARTÃO AINDA NÃO ESTÁ LIBERADO: FALTA A TOKENIZAÇÃO SEGURA COM O ASAAS. USE PIX NO SANDBOX POR ENQUANTO.", 409);
   const [{ data: student, error: studentError }, { data: plan, error: planError }, { data: activeBenefit, error: benefitError }] = await Promise.all([
-    access.admin.from("xpace_people").select("id,birth_date").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
+    access.admin.from("xpace_people").select("id,birth_date,mobile,whatsapp_opt_in").eq("id", contract.studentId).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).maybeSingle(),
     access.admin.from("xpace_membership_plans").select("id,name,billing_interval,duration_months,amount_cents,renews_automatically,modality_rules,catalog_settings,active").eq("id", contract.planId).eq("tenant_company_id", access.company.id).maybeSingle(),
     access.admin.from("xpace_person_benefits").select("benefit_profile_id").eq("tenant_company_id", access.company.id).eq("person_id", contract.studentId).eq("status", "ATIVO").maybeSingle(),
   ]);
@@ -125,6 +126,7 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   if (planError) throw planError;
   if (benefitError) throw benefitError;
   if (!student) throw new RequestError("ALUNO NAO ENCONTRADO NA COMUNIDADE.", 404);
+  if (contract.financialWhatsappConsent === "AUTORIZADO" && !/^\d{10,11}$/.test((student.mobile ?? "").replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, ""))) throw new RequestError("CADASTRE UM CELULAR VÁLIDO COM DDD ANTES DE AUTORIZAR WHATSAPP.", 400);
   if (!plan?.active) throw new RequestError("ESCOLHA UM PLANO ATIVO.", 400);
   validateSaleRestrictions(plan.catalog_settings, student.birth_date);
   const { data: classGroups, error: classGroupError } = await access.admin.from("xpace_class_groups").select("id,name,modality_id").eq("tenant_company_id", access.company.id).eq("active", true).in("id", contract.classGroupIds);
@@ -166,6 +168,14 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
   const { data: existing, error: conflictError } = await access.admin.from("xpace_student_contracts").select("id,starts_on,ends_on,renews_automatically").eq("tenant_company_id", access.company.id).eq("student_id", student.id).eq("plan_id", plan.id).in("status", ["AGUARDANDO_ASSINATURA", "AGENDADO", "ATIVO", "PAUSADO"]);
   if (conflictError) throw conflictError;
   if ((existing ?? []).some((item) => item.renews_automatically || (item.starts_on <= endsOn && item.ends_on >= startsOn))) throw new RequestError("ESTE ALUNO JÁ POSSUI UM CONTRATO EM VIGOR PARA ESTE PLANO.", 409);
+  const allowWhatsapp = contract.financialWhatsappConsent === "AUTORIZADO";
+  if (student.whatsapp_opt_in !== allowWhatsapp) {
+    const { data: updatedStudent, error: consentError } = await access.admin.from("xpace_people")
+      .update({ whatsapp_opt_in: allowWhatsapp, whatsapp_opt_in_at: allowWhatsapp ? new Date().toISOString() : null })
+      .eq("id", student.id).eq("tenant_company_id", access.company.id).eq("is_student", true).eq("active", true).select("id").maybeSingle();
+    if (consentError) throw consentError;
+    if (!updatedStudent) throw new RequestError("NÃO FOI POSSÍVEL ATUALIZAR A AUTORIZAÇÃO DO ALUNO.", 409);
+  }
   const snapshot = benefitProfile && !manualDiscount
     ? { benefit_profile_id: benefitProfile.id, benefit_name_snapshot: benefitProfile.name, discount_type_snapshot: benefitProfile.discount_type, discount_value_snapshot: benefitProfile.discount_value }
     : manualDiscount
@@ -181,6 +191,8 @@ async function createContract(access: Awaited<ReturnType<typeof requireCompanyAc
     await access.admin.from("xpace_student_contracts").delete().eq("id", saved.id).eq("tenant_company_id", access.company.id);
     throw saleError;
   }
+  const { error: consentActivityError } = await access.admin.from("xpace_person_activities").insert({ tenant_company_id: access.company.id, person_id: student.id, activity_type: "SISTEMA", subject: "AUTORIZAÇÃO DE WHATSAPP NA VENDA", content: allowWhatsapp ? "EQUIPE REGISTROU CONFIRMAÇÃO DO ALUNO PARA MENSAGENS SOBRE CONTRATO E PAGAMENTOS PELO WHATSAPP DA ESCOLA." : "EQUIPE REGISTROU QUE O ALUNO NÃO AUTORIZOU MENSAGENS SOBRE CONTRATO E PAGAMENTOS PELO WHATSAPP DA ESCOLA.", created_by: access.user.id });
+  if (consentActivityError) console.error("XPACE SALE CONSENT ACTIVITY ERROR", { saleId: sale.id, error: consentActivityError });
   const { error: groupsError } = await access.admin.from("xpace_contract_class_groups").insert((classGroups ?? []).map((group) => ({ tenant_company_id: access.company.id, contract_id: saved.id, class_group_id: group.id, modality_id: group.modality_id })));
   if (groupsError) throw groupsError;
   const { error: eventError } = await access.admin.from("xpace_contract_events").insert({ tenant_company_id: access.company.id, contract_id: saved.id, event_type: "CRIADO", next_status: status, created_by: access.user.id });
@@ -336,7 +348,7 @@ function normalizeContract(value?: RequestBody["contract"]) {
   const legacyGroupId = value?.classGroupId?.trim() ?? "";
   const classGroupIds = [...new Set((Array.isArray(value?.classGroupIds) ? value.classGroupIds : [legacyGroupId]).map((id) => id?.trim()).filter((id): id is string => Boolean(id)))];
   const saleOn = value?.saleOn?.trim() || value?.startsOn?.trim() || "";
-  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupIds, saleOn, firstDueOn: value?.firstDueOn?.trim() || saleOn, amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), discountType: value?.discountType === "PERCENTUAL" || value?.discountType === "FIXO" ? value.discountType : "", discountValue: Number(value?.discountValue ?? 0), enrollmentFeeEnabled: value?.enrollmentFeeEnabled, paymentMethod: value?.paymentMethod === "PIX" || value?.paymentMethod === "CARTAO" ? value.paymentMethod : "", renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "", effectiveOn: value?.effectiveOn?.trim() ?? "" };
+  return { id: value?.id?.trim() ?? "", studentId: value?.studentId?.trim() ?? "", planId: value?.planId?.trim() ?? "", classGroupIds, saleOn, firstDueOn: value?.firstDueOn?.trim() || saleOn, amountCents: value?.amountCents === undefined ? undefined : Number(value.amountCents), discountType: value?.discountType === "PERCENTUAL" || value?.discountType === "FIXO" ? value.discountType : "", discountValue: Number(value?.discountValue ?? 0), enrollmentFeeEnabled: value?.enrollmentFeeEnabled, paymentMethod: value?.paymentMethod === "PIX" || value?.paymentMethod === "CARTAO" ? value.paymentMethod : "", financialWhatsappConsent: value?.financialWhatsappConsent === "AUTORIZADO" || value?.financialWhatsappConsent === "NAO_AUTORIZADO" ? value.financialWhatsappConsent : "", renewsAutomatically: value?.renewsAutomatically, status: value?.status as ContractStatus, statusNote: value?.statusNote?.trim() ?? "", effectiveOn: value?.effectiveOn?.trim() ?? "" };
 }
 
 async function generatePix(access: Awaited<ReturnType<typeof requireCompanyAccess>>, contractId?: string) {

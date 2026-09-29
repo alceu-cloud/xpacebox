@@ -2,7 +2,7 @@ import { after, NextResponse } from "next/server";
 
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
-import { queueTrialMessages } from "@/lib/server/xpace-automatic-messages";
+import { queueTrialInstructorMessage, queueTrialMessages } from "@/lib/server/xpace-automatic-messages";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 
 const companySlug = "xpace";
@@ -94,6 +94,10 @@ export async function POST(request: Request) {
       try { await queueTrialMessages(admin, { companyId: company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className, instructor: snapshot.instructor, videoUrl: snapshot.welcomeVideoUrl }); }
       catch (error) { console.error("XPACE TRIAL MESSAGE QUEUE ERROR", { appointmentId: appointment.id, error }); }
     }
+    try {
+      const teacherNotice = await queueTrialInstructorMessage(admin, { companyId: company.id, leadId, appointmentId: appointment.id, instructorId: snapshot.instructorId, studentName: fullName, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className });
+      if (teacherNotice !== "QUEUED") await addActivity(admin, company.id, leadId, appointment.id, "NOTA", teacherNotice === "NO_CONTACT" ? "AVISO AO PROFESSOR NÃO PROGRAMADO: CADASTRE UM CELULAR VÁLIDO NO PERFIL DO PROFESSOR." : teacherNotice === "NO_CONNECTOR" ? "AVISO AO PROFESSOR NÃO PROGRAMADO: CONECTOR DE MENSAGENS INDISPONÍVEL." : "AVISO AO PROFESSOR NÃO PROGRAMADO: HORÁRIO SEM PROFESSOR RESPONSÁVEL.");
+    } catch (error) { console.error("XPACE TEACHER MESSAGE QUEUE ERROR", { appointmentId: appointment.id, error }); }
     after(() => sendNewAppointmentPush(company.id, appointment.id, scheduledOn));
     return NextResponse.json({ success: true, message: "AULA EXPERIMENTAL AGENDADA! A EQUIPE XPACE CONFIRMARÁ OS DETALHES COM VOCÊ." }, { status: 201 });
   } catch (error) { return handleError(error); }

@@ -22,6 +22,8 @@ type SalePlan = { id: string; name: string; description: string; billingInterval
 type SaleClassGroup = { id: string; name: string; modalityId: string; schedules: Array<{ weekday: number; startsAt: string; endsAt: string }> };
 type SaleModality = { id: string; name: string };
 type SaleService = { id: string; description: string; salePriceCents: number };
+type SaleInput = { planId: string; classGroupIds: string[]; saleOn: string; firstDueOn: string; discountType: "PERCENTUAL" | "FIXO"; discountValue: number; enrollmentFeeEnabled: boolean; paymentMethod: "PIX" | "CARTAO" };
+type FinancialWhatsappConsent = "AUTORIZADO" | "NAO_AUTORIZADO";
 
 export default function StudentProfileWorkspace({ studentId }: { studentId: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -34,6 +36,7 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
   const [benefitProfileId, setBenefitProfileId] = useState("");
   const [benefitNote, setBenefitNote] = useState("");
   const [saleOpen, setSaleOpen] = useState(false);
+  const [pendingSale, setPendingSale] = useState<SaleInput | null>(null);
   const [deliverySaleId, setDeliverySaleId] = useState("");
   const [deliveryAfterSale, setDeliveryAfterSale] = useState(false);
   const [detailContract, setDetailContract] = useState<Profile["contracts"][number] | null>(null);
@@ -184,11 +187,12 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
     finally { setSaving(false); }
   }
 
-  async function createSale(input: { planId: string; classGroupIds: string[]; saleOn: string; firstDueOn: string; discountType: "PERCENTUAL" | "FIXO"; discountValue: number; enrollmentFeeEnabled: boolean; paymentMethod: "PIX" | "CARTAO" }) {
+  async function createSale(input: SaleInput & { financialWhatsappConsent: FinancialWhatsappConsent }) {
     setSaving(true); setNotice("");
     try {
       const payload = await request<{ pendingSignature?: boolean; saleId?: string }>("/api/xpace/contratos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "CREATE_CONTRACT", contract: { studentId, ...input } }) });
       setSaleOpen(false);
+      setPendingSale(null);
       if (payload.saleId) { setDeliveryAfterSale(true); setDeliverySaleId(payload.saleId); }
       if (payload.pendingSignature && payload.saleId) {
         try {
@@ -270,7 +274,8 @@ export default function StudentProfileWorkspace({ studentId }: { studentId: stri
     {tab === "FINANCEIRO" ? <Finance charges={profile.charges} contracts={profile.contracts} saving={saving} onGeneratePix={generatePix} /> : null}
     {editing ? <StudentEdit profile={profile} saving={saving} onClose={() => setEditing(false)} onSaved={async () => { setEditing(false); await loadProfile(); setNotice("CADASTRO ATUALIZADO."); }} request={request} /> : null}
     {benefitOpen ? <BenefitDialog profiles={profile.benefitProfiles} current={activeBenefit} selected={benefitProfileId} note={benefitNote} saving={saving} onSelect={setBenefitProfileId} onNote={setBenefitNote} onClose={() => setBenefitOpen(false)} onSubmit={saveBenefit} onEnd={endBenefit} onCreate={createBenefitProfile} /> : null}
-    {saleOpen ? <SaleDialog plans={salePlans} classGroups={saleClassGroups} modalities={saleModalities} services={saleServices} preset={salePreset} saving={saving} onClose={() => setSaleOpen(false)} onSubmit={createSale} /> : null}
+    {saleOpen ? <SaleDialog plans={salePlans} classGroups={saleClassGroups} modalities={saleModalities} services={saleServices} preset={salePreset} saving={saving} onClose={() => { setSaleOpen(false); setPendingSale(null); }} onSubmit={async (input) => setPendingSale(input)} /> : null}
+    {pendingSale ? <FinancialWhatsappConsentDialog studentName={profile.student.name} studentMobile={profile.student.mobile} currentConsent={profile.student.whatsappOptIn} saving={saving} onClose={() => setPendingSale(null)} onConfirm={(financialWhatsappConsent) => void createSale({ ...pendingSale, financialWhatsappConsent })} /> : null}
     {detailContract ? <ContractDetailsDialog contract={detailContract} saving={saving} onClose={() => setDetailContract(null)} onSend={(resend) => detailContract.sale && void sendForSignature(detailContract.sale.id, resend)} onStatus={updateContractStatus} /> : null}
     {deliverySaleId ? <SaleDeliveryDialog saleId={deliverySaleId} afterSale={deliveryAfterSale} onClose={() => setDeliverySaleId("")} /> : null}
   </section>;
@@ -357,7 +362,26 @@ function Finance({ charges, contracts, saving, onGeneratePix }: { charges: Profi
     {pixCharge ? <div className="xd-profile-overlay" role="presentation" onMouseDown={() => setPixCharge(null)}><section className="xd-profile-dialog xd-pix-dialog" role="dialog" aria-modal="true" aria-label="Cobrança PIX" onMouseDown={(event) => event.stopPropagation()}><header><span>COBRANÇA PIX · SANDBOX</span><button type="button" onClick={() => setPixCharge(null)} aria-label="Fechar">×</button></header><h2>{currency(pixCharge.amountCents)}</h2><p>Vencimento em {date(pixCharge.dueOn)}. No Sandbox do Asaas, confirme o pagamento pelo painel deles para testar o retorno.</p>{qrImage ? <img className="xd-pix-qr" src={qrImage} alt="QR Code PIX" /> : null}<label>PIX COPIA E COLA<textarea readOnly value={pixCharge.pixCopyPaste} /></label><footer><small>{pixCharge.providerStatus || "AGUARDANDO PAGAMENTO"}</small><button type="button" className="xd-primary" onClick={() => void copyPix()}>{copied ? "CÓDIGO COPIADO" : "COPIAR PIX"}</button></footer></section></div> : null}
   </div>;
 }
-function SaleDialog({ plans, classGroups, modalities, services, preset, saving, onClose, onSubmit }: { plans: SalePlan[]; classGroups: SaleClassGroup[]; modalities: SaleModality[]; services: SaleService[]; preset: { planId?: string; startsOn?: string }; saving: boolean; onClose: () => void; onSubmit: (input: { planId: string; classGroupIds: string[]; saleOn: string; firstDueOn: string; discountType: "PERCENTUAL" | "FIXO"; discountValue: number; enrollmentFeeEnabled: boolean; paymentMethod: "PIX" | "CARTAO" }) => Promise<void> }) {
+function FinancialWhatsappConsentDialog({ studentName, studentMobile, currentConsent, saving, onClose, onConfirm }: { studentName: string; studentMobile: string; currentConsent: boolean; saving: boolean; onClose: () => void; onConfirm: (consent: FinancialWhatsappConsent) => void }) {
+  const [choice, setChoice] = useState<FinancialWhatsappConsent | "">("");
+  const validMobile = /^\d{10,11}$/.test(studentMobile.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, ""));
+  return <div className="xd-profile-overlay xd-financial-consent-overlay" role="presentation">
+    <section className="xd-profile-dialog xd-financial-consent-dialog" role="dialog" aria-modal="true" aria-labelledby="xd-financial-consent-title">
+      <header><span><MessageCircle size={17} /> WHATSAPP DA ESCOLA</span><button type="button" onClick={onClose} aria-label="Voltar para a venda">×</button></header>
+      <h2 id="xd-financial-consent-title">CONFIRME COM O ALUNO.</h2>
+      <p><strong>{studentName}</strong> autorizou receber pelo WhatsApp da escola mensagens sobre o contrato e os pagamentos? A autorização para lembretes da aula experimental não vale para isso.</p>
+      <p className="xd-financial-consent-current">Cadastro atual: {currentConsent ? "WhatsApp automático autorizado" : "sem autorização para WhatsApp automático"}.</p>
+      <div className="xd-financial-consent-options" role="group" aria-label="Autorização de WhatsApp para contrato e pagamentos">
+        <label><input type="radio" name="financial-whatsapp-consent" checked={choice === "AUTORIZADO"} disabled={!validMobile} onChange={() => setChoice("AUTORIZADO")} /> Sim, confirmou a autorização</label>
+        <label><input type="radio" name="financial-whatsapp-consent" checked={choice === "NAO_AUTORIZADO"} onChange={() => setChoice("NAO_AUTORIZADO")} /> Não autorizou; concluir sem WhatsApp da escola</label>
+      </div>
+      {!validMobile ? <p className="xd-feedback" role="status">Para autorizar o envio, cadastre antes um celular válido com DDD.</p> : null}
+      <small>Esta resposta ficará registrada no cadastro do aluno. A venda pode ser concluída sem autorização.</small>
+      <footer><button type="button" className="xd-secondary" onClick={onClose} disabled={saving}>VOLTAR À VENDA</button><button type="button" className="xd-primary" disabled={saving || !choice} onClick={() => choice && onConfirm(choice)}>{saving ? "REGISTRANDO..." : "CONFIRMAR E CONCLUIR VENDA"}</button></footer>
+    </section>
+  </div>;
+}
+function SaleDialog({ plans, classGroups, modalities, services, preset, saving, onClose, onSubmit }: { plans: SalePlan[]; classGroups: SaleClassGroup[]; modalities: SaleModality[]; services: SaleService[]; preset: { planId?: string; startsOn?: string }; saving: boolean; onClose: () => void; onSubmit: (input: SaleInput) => Promise<void> }) {
   const [planId, setPlanId] = useState(preset.planId || ""); const [classGroupIds, setClassGroupIds] = useState<string[]>([]);
   const [saleOn, setSaleOn] = useState(preset.startsOn || localToday()); const [firstDueOn, setFirstDueOn] = useState(preset.startsOn || localToday());
   const [discountType, setDiscountType] = useState<"PERCENTUAL" | "FIXO">("FIXO"); const [discount, setDiscount] = useState("");

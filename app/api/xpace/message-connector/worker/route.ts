@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { whatsappPhone } from "@/lib/server/xpace-automatic-messages";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "no-store" };
@@ -42,17 +43,25 @@ export async function POST(request: Request) {
         .eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
         .eq("status", "SENDING").lt("claimed_at", staleBefore);
       const { data: queued, error: queueError } = await admin.from("xpace_message_outbox")
-        .select("id,kind,appointment_id,appointment_scheduled_on,appointment_starts_at,charge_id,expires_at").eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
+        .select("id,kind,appointment_id,appointment_scheduled_on,appointment_starts_at,instructor_id,destination_phone,charge_id,expires_at").eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
         .eq("status", "QUEUED").lte("scheduled_at", now).order("scheduled_at", { ascending: true }).limit(1).maybeSingle();
       if (queueError) throw queueError;
       if (!queued) return NextResponse.json({ success: true, message: null }, { headers });
       let cancelReason = queued.expires_at && queued.expires_at <= now ? "PRAZO DA MENSAGEM EXPIRADO." : "";
       if (!cancelReason && queued.appointment_id) {
         const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments")
-          .select("id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in")
+          .select("id,class_schedule_id,scheduled_on,starts_at,attendance_status,confirmation_status,whatsapp_opt_in")
           .eq("id", queued.appointment_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
         if (appointmentError) throw appointmentError;
-        if (!appointment || !appointment.whatsapp_opt_in || appointment.attendance_status === "CANCELADO" || appointment.confirmation_status === "NAO_CONFIRMADO" || appointment.scheduled_on !== queued.appointment_scheduled_on || appointment.starts_at?.slice(0, 5) !== queued.appointment_starts_at?.slice(0, 5)) cancelReason = "AGENDAMENTO ALTERADO, CANCELADO OU SEM AUTORIZAÇÃO.";
+        if (!appointment || (queued.kind !== "AVISO_PROFESSOR" && !appointment.whatsapp_opt_in) || appointment.attendance_status === "CANCELADO" || appointment.confirmation_status === "NAO_CONFIRMADO" || appointment.scheduled_on !== queued.appointment_scheduled_on || appointment.starts_at?.slice(0, 5) !== queued.appointment_starts_at?.slice(0, 5)) cancelReason = "AGENDAMENTO ALTERADO, CANCELADO OU SEM AUTORIZAÇÃO.";
+        if (!cancelReason && queued.kind === "AVISO_PROFESSOR") {
+          const [{ data: instructor, error: instructorError }, { data: schedule, error: scheduleError }] = await Promise.all([
+            admin.from("xpace_instructors").select("id,mobile,active").eq("id", queued.instructor_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle(),
+            admin.from("xpace_class_schedules").select("instructor_id").eq("id", appointment!.class_schedule_id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle(),
+          ]);
+          if (instructorError || scheduleError) throw instructorError ?? scheduleError;
+          if (!instructor?.active || whatsappPhone(instructor.mobile ?? "") !== queued.destination_phone || schedule?.instructor_id !== queued.instructor_id) cancelReason = "PROFESSOR OU CELULAR DO HORÁRIO FOI ALTERADO.";
+        }
       }
       if (!cancelReason && queued.kind === "COBRANCA_PIX_AUTOMATICA") {
         const { data: charge, error: chargeError } = await admin.from("xpace_contract_charges")
@@ -95,6 +104,10 @@ export async function POST(request: Request) {
           const { error: activityError } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: connector.tenant_company_id, lead_id: data.lead_id, appointment_id: data.appointment_id, activity_type: "VIDEO_ENVIADO", body: "VÍDEO DE BOAS-VINDAS ENVIADO PELO CONECTOR WHATSAPP.", payload: { messageId: data.id } });
           if (activityError) console.error("XPACE VIDEO ACTIVITY ERROR", activityError);
         }
+      }
+      if (body.success && data.kind === "AVISO_PROFESSOR" && data.appointment_id && data.lead_id) {
+        const { error: activityError } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: connector.tenant_company_id, lead_id: data.lead_id, appointment_id: data.appointment_id, activity_type: "NOTA", body: "AVISO DA AULA AO PROFESSOR ACEITO PELO WHATSAPP; ENTREGA E LEITURA NÃO CONFIRMADAS.", payload: { messageId: data.id } });
+        if (activityError) console.error("XPACE TEACHER NOTICE ACTIVITY ERROR", activityError);
       }
       return NextResponse.json({ success: true }, { headers });
     }

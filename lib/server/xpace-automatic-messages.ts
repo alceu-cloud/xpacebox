@@ -10,6 +10,33 @@ export function whatsappPhone(value: string) {
   return /^\d{10,11}$/.test(local) ? `55${local}` : "";
 }
 
+export async function queueTrialInstructorMessage(admin: SupabaseClient, input: {
+  companyId: string; leadId: string; appointmentId: string; instructorId: string;
+  studentName: string; scheduledOn: string; startsAt: string; className: string;
+}) {
+  if (!input.instructorId) return "NO_INSTRUCTOR" as const;
+  const [{ data: instructor, error: instructorError }, { data: connector, error: connectorError }] = await Promise.all([
+    admin.from("xpace_instructors").select("id,full_name,mobile,active").eq("id", input.instructorId).eq("tenant_company_id", input.companyId).maybeSingle(),
+    admin.from("xpace_message_connectors").select("id").eq("tenant_company_id", input.companyId).maybeSingle(),
+  ]);
+  if (instructorError || connectorError) throw instructorError ?? connectorError;
+  if (!instructor?.active || !whatsappPhone(instructor.mobile ?? "")) return "NO_CONTACT" as const;
+  if (!connector) return "NO_CONNECTOR" as const;
+  const firstName = instructor.full_name.trim().split(/\s+/)[0] || "professor";
+  const { error } = await admin.from("xpace_message_outbox").insert({
+    tenant_company_id: input.companyId, connector_id: connector.id,
+    lead_id: input.leadId, appointment_id: input.appointmentId, instructor_id: instructor.id,
+    appointment_scheduled_on: input.scheduledOn, appointment_starts_at: input.startsAt,
+    kind: "AVISO_PROFESSOR", contact_name: instructor.full_name,
+    destination_phone: whatsappPhone(instructor.mobile ?? ""),
+    body: `Olá, prof. ${firstName}! Você terá uma aula experimental com ${input.studentName} em ${dateLabel(input.scheduledOn)}, às ${input.startsAt}, na turma ${input.className}. Equipe XPACE.`,
+    scheduled_at: new Date().toISOString(),
+    expires_at: new Date(`${input.scheduledOn}T${input.startsAt}:00${zoneOffset}`).toISOString(),
+  });
+  if (error && error.code !== "23505") throw error;
+  return "QUEUED" as const;
+}
+
 export async function queueTrialMessages(admin: SupabaseClient, input: {
   companyId: string; leadId: string; appointmentId: string; name: string; mobile: string;
   scheduledOn: string; startsAt: string; className: string; instructor: string; videoUrl: string;
