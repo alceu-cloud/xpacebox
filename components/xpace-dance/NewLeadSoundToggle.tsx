@@ -1,11 +1,23 @@
 "use client";
 
 import { Volume2, VolumeX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 
 type LeadSignal = { success?: boolean; latest?: { id: string; createdAt: string } | null };
+type SoundMode = "OFF" | "ACTIVE" | "NEEDS_GESTURE";
+
+let sharedAudioContext: AudioContext | null = null;
+let latestLeadKey: string | null = null;
+let signalOwner: string | null = null;
+
+function audioContext() {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") sharedAudioContext = new AudioContext();
+  return sharedAudioContext;
+}
+
+function preferenceKey(userId: string) { return `xpace_lead_sound_enabled_${userId}`; }
 
 function playCoinChime(context: AudioContext) {
   const start = context.currentTime;
@@ -24,17 +36,44 @@ function playCoinChime(context: AudioContext) {
 }
 
 export default function NewLeadSoundToggle() {
-  const [enabled, setEnabled] = useState(false);
+  const [mode, setMode] = useState<SoundMode>("OFF");
+  const [userId, setUserId] = useState("");
   const [notice, setNotice] = useState("");
-  const audioRef = useRef<AudioContext | null>(null);
-  const latestRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    let mounted = true;
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted || !session) return;
+      const id = session.user.id;
+      if (signalOwner !== id) { signalOwner = id; latestLeadKey = null; }
+      setUserId(id);
+      if (window.localStorage.getItem(preferenceKey(id)) === "1") {
+        setMode(audioContext().state === "running" ? "ACTIVE" : "NEEDS_GESTURE");
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "NEEDS_GESTURE") return;
+    let mounted = true;
+    function reactivate() {
+      void audioContext().resume().then(() => {
+        if (mounted && sharedAudioContext?.state === "running") { setMode("ACTIVE"); setNotice(""); }
+      }).catch(() => { if (mounted) setNotice("O navegador bloqueou o som. Toque para reativar."); });
+    }
+    document.addEventListener("pointerdown", reactivate);
+    document.addEventListener("keydown", reactivate);
+    return () => { mounted = false; document.removeEventListener("pointerdown", reactivate); document.removeEventListener("keydown", reactivate); };
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "ACTIVE" || !userId) return;
     let active = true;
     let inFlight = false;
     async function check() {
       if (!active || inFlight || document.visibilityState !== "visible") return;
+      if (sharedAudioContext?.state !== "running") { setMode("NEEDS_GESTURE"); return; }
       inFlight = true;
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -46,10 +85,10 @@ export default function NewLeadSoundToggle() {
         if (!response.ok || !payload.success) throw new Error("Consulta indisponível");
         const key = payload.latest ? `${payload.latest.createdAt}:${payload.latest.id}` : "";
         if (!active) return;
-        if (latestRef.current !== null && key && key !== latestRef.current && audioRef.current?.state === "running") {
-          playCoinChime(audioRef.current);
+        if (latestLeadKey !== null && key && key !== latestLeadKey && sharedAudioContext?.state === "running") {
+          playCoinChime(sharedAudioContext);
         }
-        latestRef.current = key;
+        latestLeadKey = key;
         setNotice("");
       } catch {
         if (active) setNotice("Não foi possível acompanhar novos leads agora.");
@@ -59,24 +98,32 @@ export default function NewLeadSoundToggle() {
     const timer = window.setInterval(() => { void check(); }, 15_000);
     document.addEventListener("visibilitychange", check);
     return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", check); };
-  }, [enabled]);
-
-  useEffect(() => () => { void audioRef.current?.close(); }, []);
+  }, [mode, userId]);
 
   async function toggle() {
-    if (enabled) { setEnabled(false); latestRef.current = null; return; }
+    if (!userId) return;
+    if (mode === "ACTIVE") {
+      window.localStorage.removeItem(preferenceKey(userId));
+      latestLeadKey = null;
+      setMode("OFF");
+      void sharedAudioContext?.suspend();
+      return;
+    }
     try {
-      audioRef.current ??= new AudioContext();
-      await audioRef.current.resume();
-      if (audioRef.current.state !== "running") throw new Error("SOM BLOQUEADO");
-      latestRef.current = null;
-      setEnabled(true);
+      window.localStorage.setItem(preferenceKey(userId), "1");
+      const context = audioContext();
+      await context.resume();
+      if (context.state !== "running") throw new Error("SOM BLOQUEADO");
+      if (mode === "OFF") latestLeadKey = null;
+      setMode("ACTIVE");
       setNotice("");
-    } catch { setNotice("O navegador bloqueou o som. Toque novamente para ativar."); }
+    } catch { setMode("NEEDS_GESTURE"); setNotice("O navegador bloqueou o som. Toque para reativar."); }
   }
 
-  return <button type="button" className={`xd-lead-sound-toggle${enabled ? " is-active" : ""}`} onClick={() => void toggle()} title={notice || (enabled ? "Silenciar novos leads" : "Ativar som para novos leads")} aria-label={enabled ? "Silenciar som de novos leads" : "Ativar som de novos leads"} aria-pressed={enabled}>
-    {enabled ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
-    <span>{enabled ? "SOM DE LEADS ATIVO" : "ATIVAR SOM DE LEADS"}</span>
+  const active = mode === "ACTIVE";
+  const label = active ? "SOM DE LEADS ATIVO" : mode === "NEEDS_GESTURE" ? "TOQUE PARA REATIVAR SOM" : "ATIVAR SOM DE LEADS";
+  return <button type="button" className={`xd-lead-sound-toggle${active ? " is-active" : ""}`} onClick={() => void toggle()} disabled={!userId} title={notice || label} aria-label={active ? "Silenciar som de novos leads" : label} aria-pressed={active}>
+    {active ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
+    <span>{label}</span>
   </button>;
 }

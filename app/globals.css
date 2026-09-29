@@ -223,6 +223,7 @@ body {
 .xd-lead-sound-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 11px; border: 1px solid #dac9e9; border-radius: 999px; background: #fff; color: #715789; font: inherit; font-size: 9px; font-weight: 850; white-space: nowrap; cursor: pointer; }
 .xd-lead-sound-toggle.is-active { border-color: #d4b1ea; background: #f2e6fb; color: #63218f; }
 .xd-lead-sound-toggle:hover { border-color: #9c65c9; }
+.xd-lead-sound-toggle:disabled { opacity: .55; cursor: wait; }
 .xd-lead-sound-toggle:focus-visible { outline: 2px solid #6935aa; outline-offset: 2px; }
 .xd-connector-alert { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 12px 14px; border: 1px solid #db7779; border-radius: 12px; background: #fff0f0; color: #8e1e2b; font-size: 12px; line-height: 1.4; }
 .xd-connector-alert strong { display: block; font-weight: 900; }
