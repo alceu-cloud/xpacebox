@@ -48,7 +48,11 @@ export default function NewLeadSoundToggle() {
       if (signalOwner !== id) { signalOwner = id; latestLeadKey = null; }
       setUserId(id);
       if (window.localStorage.getItem(preferenceKey(id)) === "1") {
-        setMode(audioContext().state === "running" ? "ACTIVE" : "NEEDS_GESTURE");
+        const context = audioContext();
+        setMode(context.state === "running" ? "ACTIVE" : "NEEDS_GESTURE");
+        // Some browsers allow an already-authorized origin to resume on reload.
+        // If they don't, preserve the preference and wait for a real gesture.
+        void context.resume().then(() => { if (mounted && context.state === "running") setMode("ACTIVE"); }).catch(() => {});
       }
     });
     return () => { mounted = false; };
@@ -57,7 +61,10 @@ export default function NewLeadSoundToggle() {
   useEffect(() => {
     if (mode !== "NEEDS_GESTURE") return;
     let mounted = true;
-    function reactivate() {
+    function reactivate(event: Event) {
+      // The button has its own handler. Resuming on pointerdown here would make
+      // its subsequent click see ACTIVE and immediately switch the sound off.
+      if (event.target instanceof Element && event.target.closest(".xd-lead-sound-toggle")) return;
       void audioContext().resume().then(() => {
         if (mounted && sharedAudioContext?.state === "running") { setMode("ACTIVE"); setNotice(""); }
       }).catch(() => { if (mounted) setNotice("O navegador bloqueou o som. Toque para reativar."); });
@@ -121,9 +128,10 @@ export default function NewLeadSoundToggle() {
   }
 
   const active = mode === "ACTIVE";
-  const label = active ? "SOM DE LEADS ATIVO" : mode === "NEEDS_GESTURE" ? "TOQUE PARA REATIVAR SOM" : "ATIVAR SOM DE LEADS";
-  return <button type="button" className={`xd-lead-sound-toggle${active ? " is-active" : ""}`} onClick={() => void toggle()} disabled={!userId} title={notice || label} aria-label={active ? "Silenciar som de novos leads" : label} aria-pressed={active}>
-    {active ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
+  const enabled = mode !== "OFF";
+  const label = active ? "SOM DE LEADS ATIVO" : mode === "NEEDS_GESTURE" ? "SOM LIGADO · CLIQUE NA TELA" : "ATIVAR SOM DE LEADS";
+  return <button type="button" className={`xd-lead-sound-toggle${active ? " is-active" : mode === "NEEDS_GESTURE" ? " is-waiting" : ""}`} onClick={() => void toggle()} disabled={!userId} title={notice || (mode === "NEEDS_GESTURE" ? "Sua preferência está salva. Clique aqui ou em outro ponto da tela para o navegador liberar o áudio." : label)} aria-label={active ? "Silenciar som de novos leads" : label} aria-pressed={enabled}>
+    {enabled ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
     <span>{label}</span>
   </button>;
 }

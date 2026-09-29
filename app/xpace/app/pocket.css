@@ -82,6 +82,11 @@
 .xp-week-trial-button strong { color: var(--xp-ink); font-size: 16px; line-height: 1.3; }
 .xp-week-trial-button small { color: var(--xp-muted); font-size: 12px; line-height: 1.35; }
 .xp-week-trial-button svg { flex: 0 0 auto; color: var(--xp-violet); }
+.xp-week-trial-button.is-present, .xp-week-trial-button.is-present:active { border-color: #9fd1b0; background: #e8f7ed; }
+.xp-week-trial-button.is-absent, .xp-week-trial-button.is-absent:active { border-color: #e1a3a8; background: #fff0f0; }
+.xp-week-trial-status { display: flex; align-items: center; gap: 4px; color: var(--xp-muted); font-size: 11px; font-style: normal; font-weight: 700; }
+.xp-week-trial-button.is-present .xp-week-trial-status, .xp-week-trial-button.is-present svg { color: #21663d; }
+.xp-week-trial-button.is-absent .xp-week-trial-status, .xp-week-trial-button.is-absent svg { color: #9b2932; }
 .xp-week-trials-screen .xp-empty { margin: 0; border-radius: 0; }
 .xp-monthly-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 18px 0 22px; }
 .xp-monthly-stats article { min-height: 94px; padding: 14px; border: 1px solid var(--xp-line); border-radius: 15px; background: #fff; }

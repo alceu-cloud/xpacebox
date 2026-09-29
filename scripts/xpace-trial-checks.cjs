@@ -47,7 +47,12 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
     await automatic.queueSatisfactionAfterAttendance(surveyAdmin,'company','appointment');
     const sent=surveyAdmin.calls.find(call=>call.operation==='insert');
     assert.equal(Boolean(sent),shouldQueue);
-    if(sent){assert.equal(sent.value.kind,'PESQUISA_SATISFACAO');assert.equal(sent.value.scheduled_at,'2099-10-20T23:00:00.000Z');}
+    if(sent){
+      assert.equal(sent.value.kind,'PESQUISA_SATISFACAO');
+      assert.equal(sent.value.scheduled_at,'2099-10-20T23:00:00.000Z');
+      assert.ok(sent.value.body.includes('https://docs.google.com/forms/d/e/1FAIpQLSckZd92-4fACszd3ONn2VIcVyUpfSf5QyTp1jasYJh13-yGmA/viewform?usp=dialog'));
+      assert.ok(!sent.value.body.includes('É só responder por aqui'));
+    }
     for(const call of surveyAdmin.calls) assert.ok(call.filters.some(f=>f[1]==='tenant_company_id'&&f[2]==='company')||call.value?.tenant_company_id==='company','Every operation scoped to company');
   }
   for (const video of [input.videoUrl,'https://example.test/video.mp4']) {
@@ -70,6 +75,12 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
     assert.equal(result.status,expected);
     assert.equal(apiAdmin.calls.some(call=>call.operation==='delete'),expected===200);
     for(const call of apiAdmin.calls)assert.ok(call.filters.some(f=>f[1]==='tenant_company_id'&&f[2]==='company'));
+    assert.ok(!apiAdmin.calls.some(call=>call.table==='xpace_message_outbox'&&call.operation==='update'),'API must not cancel queue before atomic database delete');
   }
+  const racedAdmin=fakeAdmin(call=>call.operation==='delete'?{error:{message:'XPACE_LEAD_MESSAGE_SENDING'}}:{data:call.table==='xpace_leads'?{id:'lead',lead_number:1}:null,count:0,error:null});
+  const racedApi=moduleFrom('app/api/xpace/leads/route.ts',{'next/server':{after:()=>{},NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},'@/lib/server/company-access':{AccessError,requireCompanyAccess:async()=>({admin:racedAdmin,company:{id:'company'},profile:{id:'user',platform_role:'company_manager'}})},'@/lib/server/xpace-automatic-messages':automatic,'@/lib/server/xpace-web-push':{sendNewAppointmentPush:()=>{}},'@/lib/xpace/natural-sort':{sortNaturally:()=>[]}});
+  const racedResult=await racedApi.POST({json:async()=>({action:'DELETE_LEAD',lead:{id:'lead'}})});
+  assert.equal(racedResult.status,409);
+  assert.ok(racedResult.body.message.includes('AGUARDE O RESULTADO'));
   console.log('PASS: captions, reminder times, consent, attendance, company isolation, media validation, legacy captions, lead delete roles and active-send guard');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -111,7 +111,8 @@ export async function queueTrialSatisfactionMessage(admin: SupabaseClient, input
   const endTime = input.endsAt?.slice(0, 5) || input.startsAt;
   const classEnd = Date.parse(`${input.scheduledOn}T${endTime}:00${zoneOffset}`);
   const scheduledAt = Math.max(Date.now(), Number.isFinite(classEnd) ? classEnd : Date.now());
-  const body = `💜 Oi, *${firstName}*! Foi muito bom ter você na aula de *${input.className}* da XPACE! 💃\n\nQueremos ouvir você: de *0 a 10*, que nota daria para sua experiência?\n\nSe quiser, conte também o que mais gostou ou o que podemos melhorar. É só responder por aqui — sua opinião ajuda a escola a ficar cada vez melhor. ✨`;
+  const surveyUrl = "https://docs.google.com/forms/d/e/1FAIpQLSckZd92-4fACszd3ONn2VIcVyUpfSf5QyTp1jasYJh13-yGmA/viewform?usp=dialog";
+  const body = `💜 Oi, *${firstName}*! Foi muito bom ter você na aula de *${input.className}* da XPACE! 💃\n\nComo foi sua experiência? Conte para a gente nesta pesquisa de satisfação:\n\n📝 ${surveyUrl}\n\nSua opinião ajuda a cuidar de cada detalhe e deixar nossas aulas ainda melhores. Obrigado por dançar com a gente! ✨\n*Equipe XPACE*`;
   const { error } = await admin.from("xpace_message_outbox").insert({
     tenant_company_id: input.companyId, connector_id: connector.id, lead_id: input.leadId,
     appointment_id: input.appointmentId, appointment_scheduled_on: input.scheduledOn,
