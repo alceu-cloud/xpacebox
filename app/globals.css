@@ -3846,6 +3846,14 @@ button {
 .xd-msg-tabs { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid #e4d8e9 }
 .xd-msg-tabs button { min-height:48px;border:0;border-bottom:3px solid transparent;background:transparent;color:#73657d;font-size:11px;font-weight:900;cursor:pointer }.xd-msg-tabs button.is-active { border-bottom-color:#8e38c5;color:#63228f }
 .xd-msg-panel { display:grid;gap:20px;padding:24px;border:1px solid #e9e0ed;border-radius:15px;background:#fff }
+.xd-zapi-settings form { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px }
+.xd-zapi-settings label { display:grid;gap:8px;color:#5f526b;font-size:12px }
+.xd-zapi-settings input:not([type=checkbox]) { width:100%;min-width:0;padding:12px;border:1px solid #d9c6e5;border-radius:9px;background:white;color:#2d1744 }
+.xd-zapi-settings button { width:max-content;max-width:100%;padding:10px 14px;border:1px solid #d9c6e5;border-radius:9px;color:#62278d;background:white;cursor:pointer }
+.xd-zapi-settings button:disabled { opacity:.5;cursor:default }
+.xd-zapi-settings .xd-primary { color:white;background:linear-gradient(100deg,#9c35da,#fa3b60) }
+.xd-zapi-settings p { color:#746880;font-size:13px;line-height:1.55;text-transform:none }
+@media(max-width:800px) { .xd-zapi-settings form { grid-template-columns:1fr } }
 .xd-msg-intro { margin:0;color:#64576e;font-size:14px;line-height:1.5;text-transform:none }
 .xd-msg-health { display:grid;grid-template-columns:170px 1fr;align-items:center;gap:27px;padding:24px;border:1px solid #e5d8eb;border-radius:13px;background:#fcf9fe }
 .xd-msg-gauge { display:grid;place-content:center;align-content:center;width:150px;height:150px;border:11px solid #a944bd;border-left-color:#e6d3eb;border-radius:50%;text-align:center }
