@@ -6,7 +6,7 @@
 .xpr-panel > header p { max-width: 900px; margin: 8px 0 0; color: #685d74; font-size: 12px; line-height: 1.55; text-transform: none; }
 .xpr-table-scroll { max-width: 100%; overflow-x: auto; margin-top: 18px; border: 1px solid #e9e1ef; border-radius: 12px; }
 .xpr-table { width: 100%; border-collapse: collapse; color: #40304c; font-size: 12px; text-transform: none; }
-.xpr-table th, .xpr-table td { padding: 13px 14px; border-bottom: 1px solid #ece5f1; text-align: left; vertical-align: middle; }
+.xpr-table th, .xpr-table td { padding: 13px 14px; border-bottom: 1px solid #ece5f1; text-align: center; vertical-align: middle; }
 .xpr-table thead th { background: #f8f4fc; color: #604a72; font-size: 10px; font-weight: 850; white-space: normal; min-width: 92px; }
 .xpr-table tbody th { min-width: 145px; max-width: 255px; font-weight: 750; }
 .xpr-table tbody tr:last-child > * { border-bottom: 0; }
@@ -21,8 +21,11 @@
 .xpr-notes { padding: 15px 19px; border-left: 3px solid #a37ac7; border-radius: 0 11px 11px 0; background: #faf7fd; }
 .xpr-notes p { margin: 0; color: #655471; font-size: 12px; line-height: 1.65; text-transform: none; }.xpr-notes p + p { margin-top: 8px; }
 .xpr-chart-scroll { max-width: 100%; overflow-x: auto; }
+.xpr-chart-scroll:focus-visible { outline: 2px solid #7134b2; outline-offset: 3px; }
+.xpr-chart-hint { display: block; margin-top: 8px; color: #716378; font-size: 10px; line-height: 1.5; text-transform: none; }
 .xpr-chart { display: block; width: 100%; min-width: 550px; height: auto; max-height: 300px; }
 .xpr-chart text { fill: #665b72; font-family: inherit; font-size: 11px; text-transform: none; }
+.xpr-chart text.xpr-bar-value { fill: var(--xpr-label-ink, #40304c); font-family: Arial, sans-serif; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
 .xpr-legend { display: flex; flex-wrap: wrap; gap: 9px 20px; margin: 9px 0 17px; color: #5e506a; font-size: 11px; text-transform: none; }
 .xpr-legend > span { display: inline-flex; align-items: center; gap: 7px; }.xpr-legend i { width: 10px; height: 10px; border-radius: 3px; }
 .xpr-empty { margin: 22px 0; padding: 20px; color: #796c85; font-size: 13px; line-height: 1.6; text-transform: none; background: #faf8fc; border-radius: 12px; }

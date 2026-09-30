@@ -103,21 +103,35 @@ type ChartSeries = { label: string; color: string; values: Array<number | null>;
 function Chart({ labels, series, unit = "count" }: { labels: string[]; series: ChartSeries[]; unit?: "count" | "percent" | "money" }) {
   const hasValues = series.some((s) => s.values.some((v) => v !== null));
   if (!labels.length || !hasValues) return <p className="xpr-empty">Sem informação suficiente nesta seleção. Ausência de dados não significa resultado zero.</p>;
-  const width = Math.max(660, labels.length * 52); const chartHeight = 145; const step = (width - 75) / labels.length;
+  const valueLabel = (value: number) => unit === "money" ? money(value) : fmt(value, unit === "percent" ? "%" : "");
+  const bars = series.filter((s) => !s.line);
+  const labelWidth = Math.max(20, ...bars.flatMap((s) => s.values.filter((v) => v !== null).map((v) => valueLabel(v!).length * 7)));
+  const barWidth = labelWidth + 12;
+  const width = Math.max(660, 75 + labels.length * Math.max(52, bars.length * barWidth + 22));
+  const chartHeight = 145; const step = (width - 75) / labels.length;
   const maximum = Math.max(unit === "percent" ? 100 : 1, ...series.flatMap((s) => s.values.map((v) => v ?? 0)));
   const y = (v: number) => 175 - v / maximum * chartHeight;
-  const bars = series.filter((s) => !s.line); const barWidth = Math.min(19, (step - 12) / Math.max(1, bars.length));
   const describe = series.map((s) => `${s.label}: ${s.values.map((v, i) => `${labels[i]} ${v === null ? "sem dados" : unit === "money" ? money(v) : fmt(v, unit === "percent" ? "%" : "")}`).join(", ")}`).join(". ");
-  return <><div className="xpr-chart-scroll"><svg viewBox={`0 0 ${width} 222`} role="img" aria-label={describe} className="xpr-chart" style={{ minWidth: width }}>
+  return <><div className="xpr-chart-scroll" tabIndex={0} aria-label="Gráfico com rolagem horizontal"><svg viewBox={`0 0 ${width} 222`} role="img" aria-label={describe} className="xpr-chart" style={{ minWidth: width }}>
     {[0, .5, 1].map((fraction) => <g key={fraction}><line x1="55" x2={width - 10} y1={y(maximum * fraction)} y2={y(maximum * fraction)} stroke="#e8dfef" /><text x="48" y={y(maximum * fraction) + 4} textAnchor="end">{unit === "money" ? fmt(Math.round(maximum * fraction / 100)) : fmt(Math.round(maximum * fraction), unit === "percent" ? "%" : "")}</text></g>)}
-    {bars.map((s, si) => s.values.map((v, i) => v === null ? null : <rect key={`${s.label}:${i}`} x={55 + step * (i + .5) + (si - bars.length / 2) * barWidth} y={y(v)} width={Math.max(1, barWidth - 2)} height={Math.max(0, 175 - y(v))} rx="3" fill={s.color}><title>{labels[i]} · {s.label}: {unit === "money" ? money(v) : fmt(v, unit === "percent" ? "%" : "")}</title></rect>))}
+    {bars.map((s, si) => s.values.map((v, i) => {
+      if (v === null) return null;
+      const x = 55 + step * (i + .5) + (si - bars.length / 2) * barWidth;
+      const height = Math.max(0, 175 - y(v)); const inside = height >= 26;
+      // White is readable on the dark series; amber needs dark text for sufficient contrast.
+      const ink = inside ? s.color === amber ? "#352145" : "#ffffff" : "#40304c";
+      return <g key={`${s.label}:${i}`} className="xpr-bar" data-value={v}>
+        <rect x={x} y={y(v)} width={barWidth - 4} height={height} rx="3" fill={s.color}><title>{labels[i]} · {s.label}: {valueLabel(v)}</title></rect>
+        <text className="xpr-bar-value" x={x + (barWidth - 4) / 2} y={inside ? y(v) + 17 : y(v) - 7} textAnchor="middle" style={{ "--xpr-label-ink": ink } as React.CSSProperties} data-placement={inside ? "inside" : "above"}>{valueLabel(v)}</text>
+      </g>;
+    }))}
     {series.filter((s) => s.line).map((s) => {
       const runs: string[][] = [[]];
       s.values.forEach((v, i) => { if (v === null) { if (runs.at(-1)!.length) runs.push([]); } else runs.at(-1)!.push(`${55 + step * (i + .5)},${y(v)}`); });
       return <g key={s.label}>{runs.filter((r) => r.length > 1).map((r, i) => <polyline key={i} points={r.join(" ")} fill="none" stroke={s.color} strokeWidth="2.5" />)}{s.values.map((v, i) => v === null ? null : <circle key={i} cx={55 + step * (i + .5)} cy={y(v)} r="3" fill={s.color}><title>{labels[i]} · {s.label}: {fmt(v)}</title></circle>)}</g>;
     })}
     {labels.map((label, i) => <text key={`${label}:${i}`} x={55 + step * (i + .5)} y="201" textAnchor="middle">{label}</text>)}
-  </svg></div><div className="xpr-legend">{series.map((s) => <span key={s.label}><i style={{ background: s.color }} />{s.label}</span>)}{unit === "money" ? <span>Eixo em R$</span> : null}</div></>;
+  </svg></div><small className="xpr-chart-hint">Se o gráfico não couber inteiro, deslize horizontalmente para ver os demais meses ou semanas.</small><div className="xpr-legend">{series.map((s) => <span key={s.label}><i style={{ background: s.color }} />{s.label}</span>)}{unit === "money" ? <span>Eixo em R$</span> : null}</div></>;
 }
 type Summary = Omit<TrialReport, "records">;
 function Attendance({ report: r, onDetail }: { report: Summary; onDetail: (s: DetailSelection) => void }) {

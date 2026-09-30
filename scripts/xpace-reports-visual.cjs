@@ -13,6 +13,20 @@ const rows=Array.from({length:70},(_,i)=>({id:String(i),leadId:'lead-'+i,personI
 const schedule={id:'enabled',weekday:2,startsAt:'19:00',endsAt:'20:00',roomName:'SALA 2',instructorId:'teacher',instructorName:'PROFESSORA DO HORÁRIO',level:'INICIANTE',allowsLeads:true};
 async function snapshot(page,name){
   await page.evaluate(()=>document.fonts.ready);
+  const layout=await page.evaluate(()=>({
+    uncentered:[...document.querySelectorAll('.xpr-table th,.xpr-table td')].filter(cell=>getComputedStyle(cell).textAlign!=='center').length,
+    badLabels:[...document.querySelectorAll('.xpr-bar')].flatMap(bar=>{
+      const rect=bar.querySelector('rect'),text=bar.querySelector('.xpr-bar-value');
+      if(!text||!text.textContent.trim())return ['missing value'];
+      const r=rect.getBBox(),t=text.getBBox();
+      if(Math.abs((r.x+r.width/2)-(t.x+t.width/2))>1)return ['not centered'];
+      if(text.dataset.placement==='inside'&&(t.x<r.x-1||t.x+t.width>r.x+r.width+1||t.y<r.y-1||t.y+t.height>r.y+r.height+1))return ['inside label clipped'];
+      if(text.dataset.placement==='above'&&t.y+t.height>=r.y)return ['small bar label overlaps bar'];
+      return [];
+    }),
+  }));
+  assert.equal(layout.uncentered,0,name+' table labels and values must be centered');
+  assert.deepEqual(layout.badLabels,[],name+' chart values must fit and align with bars');
   await page.screenshot({path:path.join(out,name+'.png'),fullPage:true});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),name+' overflow');
 }
@@ -80,6 +94,7 @@ async function snapshot(page,name){
       await page.getByLabel('DE',{exact:true}).fill('2026-09-01');await page.getByLabel('ATÉ',{exact:true}).fill('2026-09-30');
       await page.getByRole('button',{name:'APLICAR',exact:true}).click();await page.locator('.xpr-context').waitFor();
       assert.ok(calls.some(c=>c.includes('from=2026-09-01')&&c.includes('to=2026-09-30')));
+      await snapshot(page,label+'-month-values');
       failReports=true;await page.getByRole('button',{name:'Atualizar relatórios'}).click();await page.getByRole('alert').getByText('Fixture: relatórios indisponíveis',{exact:false}).waitFor();
       failReports=false;emptyReports=true;await page.getByRole('button',{name:'Tentar novamente'}).click();await page.locator('.xpr-context').waitFor();await snapshot(page,label+'-empty');
       await page.locator('.xd-active-module--return').click();await page.locator('.xd-modules').getByRole('button',{name:/CRM Relacionamento/}).click();
