@@ -40,11 +40,13 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
   }
   const inactiveAutomations = new Set<string>();
   if (slug === "dawos") {
-    const [deliveries, samples] = await Promise.all([
+    const [deliveries, samples, activeAttempts] = await Promise.all([
       manager ? rows(admin.from("sample_overdue_email_deliveries").select("id,sample_id,control_stage,scheduled_for,status,created_at,updated_at,error_message").eq("tenant_company_id", companyId).order("scheduled_for", { ascending: false }).order("id")) : Promise.resolve([]),
       rows(admin.from("client_samples").select("id,sample_number,responsible_profile_id,status,closed_at,client:clients(tenant_company_id,trade_name,legal_name)").eq("tenant_company_id", companyId).order("id")),
+      manager ? rows(admin.from("sample_overdue_email_attempts").select("delivery_id").eq("tenant_company_id", companyId).in("status", ["PROCESSING", "UNKNOWN"]).order("delivery_id")) : Promise.resolve([]),
     ]);
     const sampleById = new Map(samples.map(s => [s.id, s]));
+    const lockedDeliveries = new Set(activeAttempts.map(a => a.delivery_id));
     for (const row of automationRows) if (row.automation === "sample-request-email") {
       const sample = sampleById.get(row.scope_key);
       if (!sample || sample.closed_at || !["REQUESTED", "IN_PRODUCTION"].includes(sample.status)) inactiveAutomations.add(row.id);
@@ -57,10 +59,10 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
       const sample = sampleById.get(row.sample_id);
       const stage = sample?.status === "READY" ? "ENTREGA" : sample?.status === "SENT" ? "APROVACAO" : "PRODUCAO";
       if (!sample || sample.closed_at || ["APPROVED", "REJECTED", "CANCELLED"].includes(sample.status) || row.control_stage !== stage) continue;
-      if (row.status === "FAILED" || (row.status === "PENDING" && Date.parse(row.created_at) < Date.now() - 30 * 60000)) {
+      if (row.status === "FAILED" || (row.status === "PENDING" && (lockedDeliveries.has(row.id) || Date.parse(row.created_at) < Date.now() - 30 * 60000))) {
         const client = sample.client?.tenant_company_id === companyId ? sample.client.trade_name || sample.client.legal_name : "";
         const stageLabel = { PRODUCAO: "produção", ENTREGA: "entrega", APROVACAO: "aprovação" }[row.control_stage as "PRODUCAO" | "ENTREGA" | "APROVACAO"];
-        add(issues, { id: `sample-email:${row.id}`, category: "EMAIL", title: `E-mail da amostra AM-${String(sample.sample_number).padStart(6, "0")} não enviado`, detail: `${client ? `${client} · ` : ""}Aviso de atraso na ${stageLabel} em ${dateLabel(row.scheduled_for)}. A amostra continua cadastrada; o problema foi no e-mail de cobrança.`, createdAt: row.updated_at, target: "EMAIL", diagnosis: { ...emailFailureDiagnosis(row.error_message, row.status === "PENDING"), steps: [...emailFailureDiagnosis(row.error_message, row.status === "PENDING").steps, "A rotina verifica amostras todos os dias a partir das 8h, horário de Brasília. Este aviso não será repetido automaticamente no mesmo dia; um novo envio bem-sucedido ou a conclusão da etapa retira a pendência."], secondaryTarget: "SAMPLES", secondaryLabel: "Ver controle de amostras" } });
+        add(issues, { id: `sample-email:${row.id}`, category: "EMAIL", title: `E-mail da amostra AM-${String(sample.sample_number).padStart(6, "0")} não enviado`, detail: `${client ? `${client} · ` : ""}Aviso de atraso na ${stageLabel} em ${dateLabel(row.scheduled_for)}. A amostra continua cadastrada; o problema foi no e-mail de cobrança.`, createdAt: row.updated_at, target: "EMAIL", canRetrySampleEmail: row.status === "FAILED" && !lockedDeliveries.has(row.id), diagnosis: { ...emailFailureDiagnosis(row.error_message, row.status === "PENDING"), steps: [...emailFailureDiagnosis(row.error_message, row.status === "PENDING").steps, lockedDeliveries.has(row.id) ? "Há uma tentativa em andamento ou sem confirmação. Confira o ID/status no Resend com o suporte antes de qualquer novo envio." : "Use Tentar novamente nesta pendência para reenviar apenas este aviso. A pendência só some quando o provedor aceitar e o sucesso for salvo."], secondaryTarget: "SAMPLES", secondaryLabel: "Ver controle de amostras" } });
       }
     }
   }

@@ -15,6 +15,13 @@ Produção: PPCP e suporte, consultor em cópia. Entrega e aprovação: somente 
 consultor. Sem e-mail do responsável essas duas etapas não são enviadas.
 Falhas não são reenviadas em massa, nem apagadas pelo histórico de prazos.
 SENT no registro significa aceito pelo provedor, não prova leitura pelo usuário.
+Na pendência de e-mail da amostra, um gerente autorizado pode usar **Tentar novamente**
+para reenviar somente aquele aviso. A tentativa é reservada atomicamente no banco,
+tem chave de idempotência no Resend e guarda destinatários, horário, código de erro
+ou ID do provedor. O erro original permanece no histórico. Resposta incerta ou
+tentativa interrompida bloqueia novo envio até conferência no Resend, evitando
+duplicatas. Após aceite salvo, a pendência desaparece; é preciso confirmar o
+recebimento separadamente. O teste de Integrações não reenvia avisos antigos.
 
 Credenciais anteriores à chave dedicada são lidas também com a chave Baldussi
 antiga já configurada, mantendo a autenticação AES-GCM. Se ambas falharem, é
