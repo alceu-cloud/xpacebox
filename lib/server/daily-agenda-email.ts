@@ -292,6 +292,104 @@ export async function sendScheduledSampleOverdueEmails() {
   return results;
 }
 
+class SampleEmailUncertainError extends Error {
+  constructor() { super("RESPOSTA INDETERMINADA DO PROVEDOR. CONFIRA O RESEND ANTES DE UMA NOVA TENTATIVA."); }
+}
+
+class SampleEmailRejectedError extends Error {
+  constructor(public code: string, message: string) { super(message); }
+}
+
+// This path is intentionally separate from the daily cron: one failed delivery
+// is claimed atomically and the provider sees one idempotency key per attempt.
+export async function retrySampleOverdueEmail(input: { companyId: string; deliveryId: string; actorId: string }) {
+  const admin = createSupabaseAdmin();
+  const { data: delivery, error: deliveryError } = await admin.from("sample_overdue_email_deliveries")
+    .select("id,sample_id,control_stage,scheduled_for,recipient_email,overdue_days,status")
+    .eq("id", input.deliveryId).eq("tenant_company_id", input.companyId).maybeSingle();
+  if (deliveryError) throw deliveryError;
+  if (!delivery || delivery.status !== "FAILED") throw new Error("ESTE AVISO NÃO ESTÁ DISPONÍVEL PARA REENVIO.");
+  const { data: latest, error: latestError } = await admin.from("sample_overdue_email_deliveries")
+    .select("id").eq("sample_id", delivery.sample_id).eq("tenant_company_id", input.companyId)
+    .eq("control_stage", delivery.control_stage).order("scheduled_for", { ascending: false }).limit(1).maybeSingle();
+  if (latestError) throw latestError;
+  if (latest?.id !== delivery.id) throw new Error("EXISTE UM AVISO MAIS RECENTE PARA ESTA ETAPA. ATUALIZE A PÁGINA.");
+
+  const { data: sample, error: sampleError } = await admin.from("client_samples")
+    .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,production_due_date,customer_delivery_date,approval_due_date,original_production_due_date,original_customer_delivery_date,original_approval_due_date,product_description,quantity,notes,status,closed_at")
+    .eq("id", delivery.sample_id).eq("tenant_company_id", input.companyId).maybeSingle();
+  if (sampleError) throw sampleError;
+  if (!sample || sample.closed_at || sampleOverdueControl(sample).stage !== delivery.control_stage)
+    throw new Error("A ETAPA DA AMOSTRA MUDOU. ATUALIZE A PÁGINA.");
+  const [clientResult, consultantResult] = await Promise.all([
+    admin.from("clients").select("id,trade_name,legal_name").eq("id", sample.client_id).eq("tenant_company_id", input.companyId).maybeSingle(),
+    sample.responsible_profile_id
+      ? admin.from("profiles").select("email").eq("id", sample.responsible_profile_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (clientResult.error) throw clientResult.error;
+  if (consultantResult.error) throw consultantResult.error;
+  if (!clientResult.data) throw new Error("CLIENTE DA AMOSTRA NÃO ENCONTRADO.");
+  const consultantEmail = String(consultantResult.data?.email || "").trim().toLowerCase();
+  if (delivery.control_stage !== "PRODUCAO" && !consultantEmail)
+    throw new Error("CONSULTOR SEM E-MAIL. CORRIJA O CADASTRO ANTES DE REENVIAR.");
+  const expectedRecipients = delivery.control_stage === "PRODUCAO"
+    ? ["ppcp@dawos.com.br", "suporte@dawos.com.br", consultantEmail].filter(Boolean)
+    : [consultantEmail];
+  const recordedRecipients = String(delivery.recipient_email).split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
+  if (expectedRecipients.length !== recordedRecipients.length || expectedRecipients.some((email, index) => email !== recordedRecipients[index]))
+    throw new Error("DESTINATÁRIOS ALTERADOS DESDE A FALHA. CONFIRA O AVISO COM O SUPORTE ANTES DE REENVIAR.");
+
+  const control = sampleOverdueControl(sample);
+  const { data: attemptId, error: claimError } = await admin.rpc("claim_sample_overdue_email_retry", {
+    p_company_id: input.companyId, p_delivery_id: delivery.id, p_actor_id: input.actorId,
+  });
+  if (claimError) throw claimError;
+  if (typeof attemptId !== "string" || !attemptId) throw new Error("NÃO FOI POSSÍVEL RESERVAR A TENTATIVA.");
+
+  let providerMessageId: string;
+  try {
+    providerMessageId = await sendSampleOverdueEmail({
+      companyId: input.companyId,
+      companySlug: "dawos",
+      sampleCode: `AM-${String(sample.sample_number).padStart(6, "0")}`,
+      clientName: clientResult.data.trade_name || clientResult.data.legal_name || "CLIENTE",
+      productDescription: String(sample.product_description || "ITEM SEM DESCRICAO"),
+      quantity: Number(sample.quantity || 0),
+      requestedAt: String(sample.requested_at || ""),
+      deliveryDate: control.dueDate,
+      revisedDeliveryDate: control.currentDueDate,
+      notes: String(sample.notes || ""),
+      consultantEmail,
+      overdueDays: Number(delivery.overdue_days),
+      controlStage: delivery.control_stage,
+      controlDueLabel: control.label,
+    }, `dawos-sample-overdue-retry-${attemptId}`);
+  } catch (error) {
+    const uncertain = error instanceof SampleEmailUncertainError;
+    const message = uncertain ? error.message : error instanceof SampleEmailRejectedError
+      ? error.message : "O SERVIDOR NÃO CONSEGUIU PREPARAR O ENVIO. CONFIRA A CONFIGURAÇÃO DE E-MAIL.";
+    const { error: finishError } = await admin.rpc("finish_sample_overdue_email_retry", {
+      p_company_id: input.companyId, p_delivery_id: delivery.id, p_attempt_id: attemptId,
+      p_status: uncertain ? "UNKNOWN" : "FAILED", p_provider_message_id: null,
+      p_error_code: uncertain ? "PROVIDER_UNCERTAIN" : error instanceof SampleEmailRejectedError ? error.code : "PREPARATION_FAILED",
+      p_error_message: message,
+    });
+    if (finishError) throw finishError;
+    return { accepted: false, uncertain, message };
+  }
+
+  // If persistence fails, leave the attempt locked for reconciliation. A
+  // second click must never create a new provider message after acceptance.
+  const { error: finishError } = await admin.rpc("finish_sample_overdue_email_retry", {
+    p_company_id: input.companyId, p_delivery_id: delivery.id, p_attempt_id: attemptId,
+    p_status: "ACCEPTED", p_provider_message_id: providerMessageId,
+    p_error_code: null, p_error_message: null,
+  });
+  if (finishError) throw finishError;
+  return { accepted: true, uncertain: false, providerMessageId };
+}
+
 export async function inspectSampleEmailCredentials() {
   const admin = createSupabaseAdmin();
   const { data: company, error } = await admin.from("companies").select("id").eq("slug", "dawos").eq("active", true).maybeSingle();
@@ -311,7 +409,7 @@ function sampleOverdueControl(sample: Record<string, unknown>) {
   return sampleDeadlineControl(sample);
 }
 
-async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
+async function sendSampleOverdueEmail(sample: SampleOverdueEmail, idempotencyKey?: string) {
   const connection = await emailConnectionForCompany(createSupabaseAdmin(), sample.companyId);
   const integration = emailIntegrationStatus(connection);
   if (!integration.configured) throw new Error("CONFIGURE A CHAVE E O REMETENTE DO RESEND EM INTEGRACOES.");
@@ -329,7 +427,7 @@ async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
   const consultantCc = isProduction && consultantEmail && !primaryRecipients.includes(consultantEmail) ? [consultantEmail] : undefined;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
     body: JSON.stringify({
       from: integration.sender,
       to: primaryRecipients,
@@ -339,9 +437,23 @@ async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
       text: renderSampleOverdueText({ ...sample, appUrl }),
       reply_to: integration.replyTo || undefined,
     }),
-  });
-  const payload = await response.json().catch(() => ({})) as { id?: string; message?: string };
-  if (!response.ok) throw new Error(payload.message || "O PROVEDOR DE E-MAIL RECUSOU O ENVIO.");
+  }).catch((error) => { if (idempotencyKey) throw new SampleEmailUncertainError(); throw error; });
+  const payload = await response.json().catch(() => ({})) as { id?: string; message?: string; name?: string };
+  if (!response.ok) {
+    if (idempotencyKey && (response.status >= 500 || response.status === 409)) throw new SampleEmailUncertainError();
+    if (idempotencyKey) {
+      const code = /^[a-z0-9_-]{1,80}$/i.test(payload.name || "") ? payload.name! : String(response.status);
+      const guidance = response.status === 401 || response.status === 403
+        ? "CONFIRA A API KEY E A PERMISSÃO DE ENVIO NO RESEND."
+        : response.status === 429 ? "CONFIRA O LIMITE DE ENVIO NO RESEND E AGUARDE ANTES DE TENTAR NOVAMENTE."
+        : response.status === 422 ? "CONFIRA O REMETENTE, DOMÍNIO E DESTINATÁRIOS NO RESEND."
+        : response.status === 409 ? "CONFIRA A TENTATIVA NO RESEND ANTES DE UM NOVO ENVIO."
+        : "CONFIRA O ERRO NO RESEND ANTES DE TENTAR NOVAMENTE.";
+      throw new SampleEmailRejectedError(code, `O PROVEDOR RECUSOU O REENVIO (HTTP ${response.status}, ${code}). ${guidance}`);
+    }
+    throw new Error(payload.message || "O PROVEDOR DE E-MAIL RECUSOU O ENVIO.");
+  }
+  if (idempotencyKey && !payload.id) throw new SampleEmailUncertainError();
   return payload.id || "";
 }
 

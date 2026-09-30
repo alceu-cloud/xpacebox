@@ -10,6 +10,9 @@ export function emailFailureDiagnosis(error: string | null | undefined, pending 
   if (pending) {
     cause = "A tentativa ficou sem conclusão por mais de 30 minutos. Não há confirmação de envio.";
     step = "Confira se chegou uma mensagem antes de solicitar reenvio, para evitar duplicidade.";
+  } else if (/resposta indeterminada|sem confirma[cç][aã]o do provedor/i.test(message)) {
+    cause = "O provedor não confirmou se aceitou a última tentativa. Reenviar agora pode duplicar o aviso.";
+    step = "Confira a tentativa no painel do Resend e o recebimento dos destinatários; peça ao suporte para reconciliar o registro antes de novo envio.";
   } else if (/authenticate data|credencial|criptografia/.test(message)) {
     cause = "Naquela tentativa, o servidor não conseguiu ler a chave de e-mail salva. Não é falta de cadastro do destinatário.";
     step = "Se o teste atual funcionar, não troque a chave: esta é uma falha anterior. Se indicar credencial ilegível, um gerente deve salvar novamente a API key do Resend ou pedir revisão da chave de criptografia do servidor. Nunca envie chaves no chat.";

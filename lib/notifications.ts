@@ -8,7 +8,7 @@ export const notificationCategories = {
 } as const;
 export type NotificationCategory = keyof typeof notificationCategories;
 export type NoticeTarget = "CRM" | "FINANCE" | "COMMUNITY" | "MESSAGE_CONNECTOR" | "EMAIL" | "SAMPLES";
-export type CompanyNotice = { id: string; category: NotificationCategory; title: string; detail: string; createdAt: string; target: NoticeTarget; leadId?: string; studentId?: string; diagnosis?: { cause: string; steps: string[]; actionLabel: string; secondaryTarget?: NoticeTarget; secondaryLabel?: string } };
+export type CompanyNotice = { id: string; category: NotificationCategory; title: string; detail: string; createdAt: string; target: NoticeTarget; leadId?: string; studentId?: string; canRetrySampleEmail?: boolean; diagnosis?: { cause: string; steps: string[]; actionLabel: string; secondaryTarget?: NoticeTarget; secondaryLabel?: string } };
 export type NotificationPreferences = { categories: NotificationCategory[]; readBefore: Partial<Record<NotificationCategory, string>> };
 export type NoticeFeed = { notices: CompanyNotice[]; issues: CompanyNotice[]; preferences: NotificationPreferences; unread: number; todayErrors: number };
 
