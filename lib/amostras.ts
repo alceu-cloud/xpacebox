@@ -1,4 +1,4 @@
-import type { ClientSampleFormData, ClientSampleRecord } from "@/types/amostras";
+import type { ClientSampleFormData, ClientSampleRecord, SampleDeadlineEvent } from "@/types/amostras";
 
 export type SampleTransitionAction = "MARK_READY" | "MARK_DELIVERED" | "APPROVE" | "REJECT";
 
@@ -43,9 +43,13 @@ export async function deleteClientSample(slug: string, id: string) {
   });
 }
 
-export async function transitionClientSample(slug: string, id: string, action: SampleTransitionAction, nextDueDate = "") {
-  await authorizedFetch(`/api/clientes/amostras/${id}/transicao`, {
+export async function transitionClientSample(slug: string, sample: ClientSampleRecord, action: SampleTransitionAction | "REPROGRAM", nextDueDate = "", actualDate = "", reason = "") {
+  await authorizedFetch(`/api/clientes/amostras/${sample.id}/transicao`, {
     method: "POST",
-    body: JSON.stringify({ slug, action, nextDueDate }),
+    body: JSON.stringify({ slug, action, nextDueDate, actualDate, reason, expectedStatus: sample.status, expectedDueDate: sample.controlCurrentDueDate ?? (["REQUESTED", "IN_PRODUCTION"].includes(sample.status) ? sample.productionDueDate : sample.status === "READY" ? sample.customerDeliveryDate : sample.approvalDueDate) }),
   });
+}
+
+export async function loadClientSampleHistory(slug: string, id: string): Promise<SampleDeadlineEvent[]> {
+  return (await authorizedFetch(`/api/clientes/amostras/${id}/historico?slug=${encodeURIComponent(slug)}`)).events;
 }

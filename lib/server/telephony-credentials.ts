@@ -27,9 +27,16 @@ export function encryptIntegrationCredential(value: string) {
 
 export function decryptIntegrationCredential({ ciphertext, iv, authTag }: { ciphertext: string; iv: string; authTag: string }) {
   if (!ciphertext || !iv || !authTag) throw new Error("CREDENCIAL DA INTEGRACAO INCOMPLETA.");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64"));
-  decipher.setAuthTag(Buffer.from(authTag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
+  // Credentials saved before the dedicated integration key still use the Baldussi key.
+  // Try the configured keys without changing ciphertext or weakening GCM authentication.
+  for (const key of decryptionKeys()) {
+    try {
+      const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64"));
+      decipher.setAuthTag(Buffer.from(authTag, "base64"));
+      return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
+    } catch { /* The next configured legacy key may own this credential. */ }
+  }
+  throw new Error("NAO FOI POSSIVEL LER A CREDENCIAL DE E-MAIL/INTEGRACAO. SALVE NOVAMENTE A CHAVE EM INTEGRACOES.");
 }
 
 export function encryptBaldussiCredential(value: string) {

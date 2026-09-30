@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { decryptIntegrationCredential, encryptIntegrationCredential } from "@/lib/server/telephony-credentials";
+import { sampleDeadlineControl } from "@/lib/sample-deadlines";
 
 type AgendaTask = {
   clientName: string;
@@ -45,6 +46,7 @@ type SampleRequestEmail = {
 };
 
 type SampleOverdueEmail = SampleRequestEmail & {
+  revisedDeliveryDate: string;
   overdueDays: number;
   controlStage: "PRODUCAO" | "ENTREGA" | "APROVACAO";
   controlDueLabel: string;
@@ -156,7 +158,7 @@ export async function sendSampleRequestEmail(sample: SampleRequestEmail) {
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: integration.sender,
-      to: ["ppcp@dawos.com.br", "suporte@dawos.com.br"],
+      to: [...primaryRecipients],
       cc: consultantCc,
       subject,
       html,
@@ -183,7 +185,7 @@ export async function sendScheduledSampleOverdueEmails() {
 
   const { data: rows, error: samplesError } = await admin
     .from("client_samples")
-    .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,production_due_date,customer_delivery_date,approval_due_date,product_description,quantity,notes,status,closed_at")
+    .select("id,sample_number,client_id,responsible_profile_id,requested_at,delivery_date,production_due_date,customer_delivery_date,approval_due_date,original_production_due_date,original_customer_delivery_date,original_approval_due_date,product_description,quantity,notes,status,closed_at")
     .eq("tenant_company_id", dawos.id)
     .is("closed_at", null)
     .in("status", ["REQUESTED", "IN_PRODUCTION", "READY", "SENT"]);
@@ -251,6 +253,7 @@ export async function sendScheduledSampleOverdueEmails() {
         quantity: Number(sample.quantity || 0),
         requestedAt: String(sample.requested_at || ""),
         deliveryDate: sample.control.dueDate,
+        revisedDeliveryDate: sample.control.currentDueDate,
         notes: String(sample.notes || ""),
         consultantEmail,
         overdueDays,
@@ -277,12 +280,23 @@ export async function sendScheduledSampleOverdueEmails() {
   return results;
 }
 
+export async function inspectSampleEmailCredentials() {
+  const admin = createSupabaseAdmin();
+  const { data: company, error } = await admin.from("companies").select("id").eq("slug", "dawos").eq("active", true).maybeSingle();
+  if (error) throw error;
+  if (!company) return { configured: false, credentialReadable: false };
+  // Read only: unlike emailConnectionForCompany this does not create a record.
+  const result = await admin.from("email_integration_connections").select("*").eq("tenant_company_id", company.id).maybeSingle();
+  if (result.error) throw result.error;
+  if (!result.data || !emailIntegrationStatus(result.data).configured) return { configured: false, credentialReadable: false };
+  try {
+    decryptIntegrationCredential({ ciphertext: result.data.api_key_ciphertext, iv: result.data.api_key_iv, authTag: result.data.api_key_auth_tag });
+    return { configured: true, credentialReadable: true };
+  } catch { return { configured: true, credentialReadable: false }; }
+}
+
 function sampleOverdueControl(sample: Record<string, unknown>) {
-  const status = String(sample.status || "REQUESTED");
-  if (["REQUESTED", "IN_PRODUCTION"].includes(status)) return { stage: "PRODUCAO" as const, dueDate: String(sample.production_due_date || sample.delivery_date || ""), label: "PRAZO PARA FICAR PRONTA" };
-  if (status === "READY") return { stage: "ENTREGA" as const, dueDate: String(sample.customer_delivery_date || ""), label: "PRAZO PARA ENTREGAR AO CLIENTE" };
-  if (status === "SENT") return { stage: "APROVACAO" as const, dueDate: String(sample.approval_due_date || ""), label: "PRAZO PARA APROVACAO DO CLIENTE" };
-  return { stage: "PRODUCAO" as const, dueDate: "", label: "PRAZO DA AMOSTRA" };
+  return sampleDeadlineControl(sample);
 }
 
 async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
@@ -306,7 +320,7 @@ async function sendSampleOverdueEmail(sample: SampleOverdueEmail) {
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: integration.sender,
-      to: ["ppcp@dawos.com.br", "suporte@dawos.com.br"],
+      to: primaryRecipients,
       cc: consultantCc,
       subject: `AMOSTRA ATRASADA ${sample.sampleCode} - ${sample.clientName}`,
       html: renderSampleOverdueHtml({ ...sample, appUrl }),
@@ -630,12 +644,12 @@ function renderSampleRequestText(input: SampleRequestEmail & { appUrl: string })
 function renderSampleOverdueHtml(input: SampleOverdueEmail & { appUrl: string }) {
   const notes = input.notes ? escapeHtml(input.notes).replace(/\n/g, "<br>") : "SEM OBSERVACOES.";
   const daysLabel = input.overdueDays === 1 ? "1 DIA DE ATRASO" : `${input.overdueDays} DIAS DE ATRASO`;
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#d24156;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">AMOSTRA EM ATRASO</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">A ETAPA ATUAL DA AMOSTRA PASSOU DO PRAZO E AINDA ESTA PENDENTE.</p><section style="padding:18px;border:1px solid #f1c7ce;border-left:4px solid #d24156;border-radius:8px;background:#fff8f8"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0 0 12px;color:#b22743;font:700 14px Arial,sans-serif">${daysLabel}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>SOLICITADA EM:</strong> ${formatDate(input.requestedAt)}<br><strong>${escapeHtml(input.controlDueLabel)}:</strong> ${formatDate(input.deliveryDate)}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#d24156;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f6f8;color:#17131d"><main style="max-width:680px;margin:0 auto;padding:30px;background:#fff;border-radius:12px"><div style="color:#d24156;font:700 11px Arial,sans-serif;letter-spacing:1px">XPACEBOX · CONTROLE DE AMOSTRAS</div><h1 style="margin:10px 0;color:#17131d;font:700 26px Arial,sans-serif">AMOSTRA EM ATRASO</h1><p style="margin:0 0 20px;color:#667085;font:15px/1.6 Arial,sans-serif">A ETAPA ATUAL DA AMOSTRA PASSOU DO PRAZO E AINDA ESTA PENDENTE.</p><section style="padding:18px;border:1px solid #f1c7ce;border-left:4px solid #d24156;border-radius:8px;background:#fff8f8"><p style="margin:0 0 10px;color:#17131d;font:700 16px Arial,sans-serif">${escapeHtml(input.sampleCode)} · ${escapeHtml(input.productDescription)}</p><p style="margin:0 0 12px;color:#b22743;font:700 14px Arial,sans-serif">${daysLabel}</p><p style="margin:0;color:#312b3a;font:14px/1.7 Arial,sans-serif"><strong>CLIENTE:</strong> ${escapeHtml(input.clientName)}<br><strong>QUANTIDADE:</strong> ${input.quantity}<br><strong>SOLICITADA EM:</strong> ${formatDate(input.requestedAt)}<br><strong>${escapeHtml(input.controlDueLabel)}:</strong> ${formatDate(input.deliveryDate)}${input.revisedDeliveryDate && input.revisedDeliveryDate !== input.deliveryDate ? `<br><strong>PREVISAO REPROGRAMADA:</strong> ${formatDate(input.revisedDeliveryDate)}` : ""}</p></section><section style="margin-top:16px;padding:18px;border:1px solid #e8e3eb;border-radius:8px;background:#fff"><h2 style="margin:0 0 8px;color:#17131d;font:700 14px Arial,sans-serif">OBSERVACOES</h2><p style="margin:0;color:#312b3a;font:14px/1.6 Arial,sans-serif">${notes}</p></section><a href="${escapeHtml(`${input.appUrl}/empresa/${input.companySlug}`)}" style="display:inline-block;margin-top:20px;padding:12px 18px;border-radius:7px;background:#d24156;color:#fff;font:700 13px Arial,sans-serif;text-decoration:none">ABRIR CONTROLE DE AMOSTRAS</a></main></body></html>`;
 }
 
 function renderSampleOverdueText(input: SampleOverdueEmail & { appUrl: string }) {
   const daysLabel = input.overdueDays === 1 ? "1 DIA DE ATRASO" : `${input.overdueDays} DIAS DE ATRASO`;
-  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nAMOSTRA EM ATRASO\n\n${input.sampleCode} - ${input.productDescription}\n${daysLabel}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\n${input.controlDueLabel}: ${formatDate(input.deliveryDate)}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
+  return `XPACEBOX - CONTROLE DE AMOSTRAS\n\nAMOSTRA EM ATRASO\n\n${input.sampleCode} - ${input.productDescription}\n${daysLabel}\nCLIENTE: ${input.clientName}\nQUANTIDADE: ${input.quantity}\nDATA DA SOLICITACAO: ${formatDate(input.requestedAt)}\n${input.controlDueLabel}: ${formatDate(input.deliveryDate)}${input.revisedDeliveryDate && input.revisedDeliveryDate !== input.deliveryDate ? `\nPREVISAO REPROGRAMADA: ${formatDate(input.revisedDeliveryDate)}` : ""}\n\nOBSERVACOES:\n${input.notes || "SEM OBSERVACOES."}\n\nABRIR CONTROLE DE AMOSTRAS: ${input.appUrl}/empresa/${input.companySlug}`;
 }
 
 function renderQuoteEmailHtml(input: QuoteEmailInput) {

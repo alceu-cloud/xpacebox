@@ -1113,7 +1113,7 @@ function SampleAgendaBoard({
                 <article className="sample-agenda-item" key={item.id}>
                   <i className="sample-agenda-dot" />
                   <div className="sample-agenda-client"><strong>{item.clientName}</strong></div>
-                  <div className="sample-agenda-date"><span>{item.controlStage === "PRODUCAO" ? "FICAR PRONTA" : item.controlStage === "ENTREGA" ? "ENTREGAR CLIENTE" : "APROVACAO"}</span><strong>{displayDate(item.deliveryDate)}</strong></div>
+                  <div className="sample-agenda-date"><span>{item.controlStage === "PRODUCAO" ? "FICAR PRONTA" : item.controlStage === "ENTREGA" ? "ENTREGAR CLIENTE" : "APROVACAO"}</span><strong>{displayDate(item.deliveryDate)}</strong>{item.revisedDeliveryDate && item.revisedDeliveryDate !== item.deliveryDate ? <span>REPROGRAMADA: {displayDate(item.revisedDeliveryDate)}</span> : null}</div>
                 </article>
               ))}
               {!group.items.length ? <p>NENHUMA AMOSTRA NESTA FAIXA.</p> : null}

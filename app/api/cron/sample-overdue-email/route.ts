@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { sendScheduledSampleOverdueEmails } from "@/lib/server/daily-agenda-email";
+import { inspectSampleEmailCredentials, sendScheduledSampleOverdueEmails } from "@/lib/server/daily-agenda-email";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (new URL(request.url).searchParams.get("diagnostics") === "credentials") return NextResponse.json({ success: true, diagnostics: await inspectSampleEmailCredentials() });
     return NextResponse.json({ success: true, result: await sendScheduledSampleOverdueEmails() });
   } catch (error) {
     console.error("SAMPLE OVERDUE EMAIL CRON ERROR", error);

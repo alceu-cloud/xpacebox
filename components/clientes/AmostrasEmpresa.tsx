@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { deleteClientSample, loadClientSamples, saveClientSample, transitionClientSample } from "@/lib/amostras";
+import { deleteClientSample, loadClientSamples, loadClientSampleHistory, saveClientSample, transitionClientSample } from "@/lib/amostras";
 import type { SampleTransitionAction } from "@/lib/amostras";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
+import type { ClientSampleFormData, ClientSampleRecord, SampleDeadlineEvent, SampleStatus } from "@/types/amostras";
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
 import type { ProductFicha } from "@/types/gerenciador";
 
-const today = new Date().toISOString().slice(0, 10);
+function localToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()); }
+const today = localToday();
 
 const emptyForm: ClientSampleFormData = {
   clientId: "",
@@ -63,8 +64,24 @@ export default function AmostrasEmpresa({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [transition, setTransition] = useState<{ sample: ClientSampleRecord; action: SampleTransitionAction } | null>(null);
+  const [transition, setTransition] = useState<{ sample: ClientSampleRecord; action: SampleTransitionAction | "REPROGRAM" } | null>(null);
   const [transitionDueDate, setTransitionDueDate] = useState("");
+  const [actualDate, setActualDate] = useState(localToday());
+  const [reason, setReason] = useState("");
+  const [historySample, setHistorySample] = useState<ClientSampleRecord | null>(null);
+  const [history, setHistory] = useState<SampleDeadlineEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
+  useEffect(() => {
+    if (!historySample) return;
+    let active = true;
+    setHistory([]); setHistoryError(""); setHistoryLoading(true);
+    loadClientSampleHistory(slug, historySample.id).then(events => { if (active) setHistory(events); })
+      .catch(e => { if (active) setHistoryError(messageFrom(e)); })
+      .finally(() => { if (active) setHistoryLoading(false); });
+    return () => { active = false; };
+  }, [slug, historySample]);
 
   useEffect(() => {
     let active = true;
@@ -181,25 +198,29 @@ export default function AmostrasEmpresa({
     }
   }
 
-  function startTransition(sample: ClientSampleRecord, action: SampleTransitionAction) {
+  function startTransition(sample: ClientSampleRecord, action: SampleTransitionAction | "REPROGRAM") {
     setTransition({ sample, action });
     setTransitionDueDate("");
+    setActualDate(localToday()); setReason(""); setError("");
   }
 
   async function confirmTransition() {
     if (!transition) return;
-    const requiresNextDeadline = ["MARK_READY", "MARK_DELIVERED"].includes(transition.action);
+    const requiresNextDeadline = ["MARK_READY", "MARK_DELIVERED", "REPROGRAM"].includes(transition.action);
     if (requiresNextDeadline && !transitionDueDate) {
       setError("INFORME O PROXIMO PRAZO PARA CONTINUAR.");
       return;
     }
+    if (transition.action === "REPROGRAM" && reason.trim().length < 3) { setError("INFORME O MOTIVO DA REPROGRAMACAO."); return; }
+    if (transition.action !== "REPROGRAM" && !actualDate) { setError("INFORME A DATA REAL."); return; }
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      await transitionClientSample(slug, transition.sample.id, transition.action, transitionDueDate);
+      await transitionClientSample(slug, transition.sample, transition.action, transitionDueDate, transition.action === "REPROGRAM" ? "" : actualDate, reason);
       setSamples(await loadClientSamples(slug));
-      setMessage(transitionMessage(transition.action, transition.sample.sampleCode));
+      setMessage(transition.action === "REPROGRAM" ? `${transition.sample.sampleCode} REPROGRAMADA. PRAZO ANTERIOR PRESERVADO NO HISTORICO.` : transitionMessage(transition.action, transition.sample.sampleCode));
+      if (form.id === transition.sample.id) setForm(emptyForm);
       setTransition(null);
     } catch (transitionError) {
       setError(messageFrom(transitionError));
@@ -232,7 +253,7 @@ export default function AmostrasEmpresa({
           <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
           <SampleSelect label="CONSULTOR DE VENDAS" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
           <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
-          <SampleInput label="PRAZO PARA FICAR PRONTA" type="date" value={form.productionDueDate} onChange={(value) => update("productionDueDate", value)} />
+          <SampleInput label="PRAZO PARA FICAR PRONTA" type="date" value={form.productionDueDate} onChange={(value) => update("productionDueDate", value)} disabled={Boolean(form.id)} />
           <SampleSelect label="ITEM CADASTRADO" value={form.productFichaId} onChange={selectProductFicha} options={clientFichas.map((ficha) => ({ value: ficha.id, label: productFichaLabel(ficha) }))} />
           <SampleInput label="QUANTIDADE" type="number" value={form.quantity} onChange={(value) => update("quantity", value)} />
           <label className="samples-field samples-span-2">
@@ -240,6 +261,7 @@ export default function AmostrasEmpresa({
             <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} />
           </label>
         </div>
+        {form.id ? <p className="samples-selected">PARA ALTERAR UMA DATA, USE <strong>REPROGRAMAR PRAZO</strong> NO CARD. O PRAZO ANTERIOR FICA NO HISTORICO.</p> : null}
         {selectedClient ? <p className="samples-selected">CLIENTE SELECIONADO: <strong>{selectedClient.clientCode} - {selectedClient.tradeName || selectedClient.legalName}</strong></p> : null}
         <div className="samples-actions">
           {form.id ? <button type="button" className="clients-button-secondary" onClick={() => setForm(emptyForm)}>CANCELAR EDICAO</button> : null}
@@ -283,12 +305,14 @@ export default function AmostrasEmpresa({
                 </div>
                 <dl>
                   <div><dt>QTDE.</dt><dd>{sample.quantity}</dd></div>
-                  <div><dt>{stageLabel(sample.controlStage)}</dt><dd>{displayDate(sample.controlDueDate)}</dd></div>
+                  <div><dt>{stageLabel(sample.controlStage)} · ORIGINAL</dt><dd>{displayDate(sample.controlDueDate)}</dd>{sample.controlCurrentDueDate && sample.controlCurrentDueDate !== sample.controlDueDate ? <small>PREVISAO ATUAL {displayDate(sample.controlCurrentDueDate)}</small> : null}</div>
                   <div><dt>CONCLUSAO</dt><dd>{displayDate(sample.closedAt)}</dd></div>
                   <div><dt>CONSULTOR</dt><dd>{sample.responsibleName || "-"}</dd></div>
                 </dl>
                 <div className="samples-card-actions">
                   {sampleActions(sample).map((action) => <button key={action.action} type="button" className={action.action === "REJECT" ? "danger" : ""} onClick={() => startTransition(sample, action.action)}>{action.label}</button>)}
+                  {sampleActions(sample).length ? <button type="button" onClick={() => startTransition(sample, "REPROGRAM")}>REPROGRAMAR PRAZO</button> : null}
+                  <button type="button" onClick={() => setHistorySample(sample)}>HISTORICO</button>
                   <button type="button" onClick={() => handleEdit(sample)}>EDITAR</button>
                   <button type="button" className="danger" onClick={() => handleDelete(sample)}>EXCLUIR</button>
                 </div>
@@ -297,13 +321,55 @@ export default function AmostrasEmpresa({
           </div>
         ) : null}
       </section>
-      {transition ? <div className="samples-transition-backdrop" role="presentation"><section className="samples-transition-dialog" role="dialog" aria-modal="true" aria-labelledby="samples-transition-title"><span className="clients-eyebrow">FLUXO DA AMOSTRA</span><h3 id="samples-transition-title">{transitionTitle(transition.action)}</h3><p>{transition.sample.sampleCode} · {transition.sample.clientName}</p>{["MARK_READY", "MARK_DELIVERED"].includes(transition.action) ? <SampleInput label={transition.action === "MARK_READY" ? "DATA PREVISTA PARA ENTREGAR AO CLIENTE" : "DATA LIMITE PARA APROVACAO DO CLIENTE"} type="date" value={transitionDueDate} onChange={setTransitionDueDate} /> : <p className="samples-transition-confirm">CONFIRME A DECISAO PARA ENCERRAR ESTA ETAPA.</p>}<div className="samples-actions"><button type="button" className="clients-button-secondary" onClick={() => setTransition(null)} disabled={saving}>CANCELAR</button><button type="button" className="clients-button-primary" onClick={() => void confirmTransition()} disabled={saving}>{saving ? "SALVANDO..." : "CONFIRMAR"}</button></div></section></div> : null}
+      {transition ? <SampleDialog titleId="samples-transition-title" onClose={() => setTransition(null)} busy={saving}>
+        <span className="clients-eyebrow">FLUXO DA AMOSTRA</span>
+        <h3 id="samples-transition-title">{transition.action === "REPROGRAM" ? "REPROGRAMAR PRAZO" : transitionTitle(transition.action)}</h3>
+        <p>{transition.sample.sampleCode} · {transition.sample.clientName}</p>
+        <p className="samples-transition-confirm">{stageLabel(transition.sample.controlStage)} · PRAZO ORIGINAL: {displayDate(transition.sample.controlDueDate)} · PREVISAO ATUAL: {displayDate(transition.sample.controlCurrentDueDate ?? transition.sample.controlDueDate)}</p>
+        {error ? <p className="clients-feedback clients-feedback-error" role="alert">{error}</p> : null}
+        {transition.action === "REPROGRAM" ? <>
+          <SampleInput label="NOVO PRAZO" type="date" value={transitionDueDate} onChange={setTransitionDueDate} min={localToday()} required />
+          <label className="samples-field"><span>MOTIVO DA REPROGRAMACAO *</span><textarea value={reason} onChange={e => setReason(e.target.value)} required minLength={3} maxLength={2000} /></label>
+          <p className="samples-history-note">REPROGRAMAR NAO RETIRA O ATRASO NEM INTERROMPE A COBRANCA. O ALERTA CONTINUA PELO PRAZO ORIGINAL ATE CONCLUIR A ETAPA.</p>
+        </> : <>
+          <SampleInput label={transition.action === "MARK_READY" ? "DATA REAL EM QUE FICOU PRONTA" : transition.action === "MARK_DELIVERED" ? "DATA REAL DA ENTREGA" : "DATA REAL DA DECISAO"} type="date" value={actualDate} onChange={setActualDate} min={transition.action === "MARK_READY" ? transition.sample.requestedAt : transition.action === "MARK_DELIVERED" ? transition.sample.readyAt || transition.sample.requestedAt : transition.sample.deliveredAt || transition.sample.requestedAt} max={localToday()} required />
+          {["MARK_READY", "MARK_DELIVERED"].includes(transition.action) ? <SampleInput label={transition.action === "MARK_READY" ? "DATA PREVISTA PARA ENTREGAR AO CLIENTE" : "DATA LIMITE PARA APROVACAO DO CLIENTE"} type="date" value={transitionDueDate} onChange={setTransitionDueDate} min={actualDate} required /> : null}
+        </>}
+        <div className="samples-actions"><button type="button" className="clients-button-secondary" onClick={() => setTransition(null)} disabled={saving}>CANCELAR</button><button type="button" className="clients-button-primary" onClick={() => void confirmTransition()} disabled={saving}>{saving ? "SALVANDO..." : "CONFIRMAR"}</button></div>
+      </SampleDialog> : null}
+      {historySample ? <SampleDialog titleId="samples-history-title" onClose={() => setHistorySample(null)}>
+        <span className="clients-eyebrow">PRAZOS E REALIZACOES</span><h3 id="samples-history-title">HISTORICO DA AMOSTRA</h3><p>{historySample.sampleCode} · {historySample.clientName}</p>
+        {historySample.deadlineBaselineAt ? <p className="samples-history-note">AMOSTRA ANTERIOR AO HISTORICO: AS DATAS INICIAIS SAO OS PRAZOS CONHECIDOS NA IMPLANTACAO. ADIAMENTOS ANTIGOS NAO FORAM RECONSTRUIDOS.</p> : null}
+        <div className="samples-history-table-wrap"><table className="samples-history-table"><thead><tr><th>ETAPA</th><th>ORIGINAL / CONHECIDO</th><th>ATUAL</th><th>REALIZADO</th></tr></thead><tbody>
+          <DeadlineRow label="PRODUCAO" original={historySample.originalProductionDueDate} current={historySample.productionDueDate} actual={historySample.readyAt} />
+          <DeadlineRow label="ENTREGA" original={historySample.originalCustomerDeliveryDate} current={historySample.customerDeliveryDate} actual={historySample.deliveredAt} />
+          <DeadlineRow label="APROVACAO" original={historySample.originalApprovalDueDate} current={historySample.approvalDueDate} actual={historySample.approvedAt || (["REJECTED"].includes(historySample.status) ? historySample.closedAt : "")} />
+        </tbody></table></div>
+        {historyLoading ? <p role="status">CARREGANDO HISTORICO...</p> : historyError ? <p role="alert" className="clients-feedback clients-feedback-error">{historyError}</p> : <ol className="samples-history-events">{history.map(event => <li key={event.id}>
+          <strong>{stageLabel(event.stage)} · {event.action === "BASELINE" ? "PRAZO CONHECIDO" : event.action === "REPROGRAM" ? "REPROGRAMACAO" : transitionTitle(event.action)}</strong>
+          <span>{event.action === "REPROGRAM" ? `${displayDate(event.oldDueDate)} → ${displayDate(event.newDueDate)}` : event.actualDate ? `REALIZADO EM ${displayDate(event.actualDate)} · PREVISTO ${displayDate(event.oldDueDate)}` : `PREVISTO ${displayDate(event.newDueDate)}`}</span>
+          {event.reason ? <p>{event.reason}</p> : null}<small>{event.changedByName} · {new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date(event.createdAt))}</small>
+        </li>)}</ol>}
+        <div className="samples-actions"><button type="button" className="clients-button-secondary" onClick={() => setHistorySample(null)}>FECHAR</button></div>
+      </SampleDialog> : null}
     </section>
   );
 }
 
-function SampleInput({ label, value, onChange, type = "text", wide = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean }) {
-  return <label className={wide ? "samples-field samples-span-2" : "samples-field"}><span>{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+function SampleInput({ label, value, onChange, type = "text", wide = false, disabled, min, max, required }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean; disabled?: boolean; min?: string; max?: string; required?: boolean }) {
+  return <label className={wide ? "samples-field samples-span-2" : "samples-field"}><span>{label}</span><input type={type} value={value} disabled={disabled} min={min} max={max} required={required} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function SampleDialog({ titleId, onClose, busy = false, children }: { titleId: string; onClose: () => void; busy?: boolean; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => { const dialog = ref.current; const trigger = document.activeElement as HTMLElement | null; dialog?.showModal(); return () => { dialog?.close(); queueMicrotask(() => { if (trigger?.isConnected) trigger.focus(); }); }; }, []);
+  return <dialog ref={ref} className="samples-transition-dialog samples-modal" aria-labelledby={titleId} aria-busy={busy} onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>{children}</dialog>;
+}
+
+function DeadlineRow({ label, original = "", current, actual }: { label: string; original?: string; current: string; actual: string }) {
+  const lag = (due: string) => due && actual ? Math.round((Date.parse(actual) - Date.parse(due)) / 86400000) : null;
+  const note = (days: number | null) => days === null ? "" : days > 0 ? `${days} DIA(S) DE ATRASO` : "NO PRAZO";
+  return <tr><th scope="row">{label}</th><td>{displayDate(original)}{actual && original ? <small>{note(lag(original))}</small> : null}</td><td>{displayDate(current)}{actual && current ? <small>{note(lag(current))}</small> : null}</td><td>{displayDate(actual)}</td></tr>;
 }
 
 function SampleSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {

@@ -4,6 +4,7 @@ import { AccessError, requireCompanyAccess, requireCompanyProfile } from "@/lib/
 import { sendSampleRequestEmail } from "@/lib/server/daily-agenda-email";
 import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
 import type { ProductFicha } from "@/types/gerenciador";
+import { sampleDeadlineControl } from "@/lib/sample-deadlines";
 
 const sampleStatuses: SampleStatus[] = ["REQUESTED", "IN_PRODUCTION", "READY", "SENT", "APPROVED", "REJECTED", "CANCELLED"];
 
@@ -81,24 +82,25 @@ export async function PATCH(request: Request) {
     const sample = normalizeSample(body.sample);
     validateSample(slug, sample, true);
 
-    const { admin, company } = await requireCompanyAccess(request, slug);
+    const { admin, company, profile } = await requireCompanyAccess(request, slug);
     const { data: existing, error: existingError } = await admin
       .from("client_samples")
-      .select("id,status,production_due_date,delivery_date,ready_at,customer_delivery_date,delivered_at,approval_due_date,approved_at,closed_at")
+      .select("id,responsible_profile_id,status,production_due_date,delivery_date,ready_at,customer_delivery_date,delivered_at,approval_due_date,approved_at,closed_at")
       .eq("id", sample.id)
       .eq("tenant_company_id", company.id)
       .maybeSingle();
     if (existingError) throw existingError;
     if (!existing) throw new RequestError("AMOSTRA NAO ENCONTRADA.", 404);
+    if (!["platform_owner", "company_manager"].includes(profile.platform_role) && existing.responsible_profile_id !== profile.id) throw new RequestError("VOCE NAO PODE ATUALIZAR ESTA AMOSTRA.", 403);
+    if (sample.productionDueDate !== String(existing.production_due_date || existing.delivery_date || "")) throw new RequestError("PARA ALTERAR O PRAZO, USE REPROGRAMAR PRAZO E INFORME O MOTIVO.", 400);
 
     // The phase itself and its deadlines are changed only by the transition endpoint.
     // Editing the card must not let a client skip production, delivery or approval.
     const currentStatus = String(existing.status || "REQUESTED") as SampleStatus;
-    const isProductionStage = ["REQUESTED", "IN_PRODUCTION"].includes(currentStatus);
     const protectedSample: ClientSampleFormData = {
       ...sample,
       status: currentStatus,
-      productionDueDate: isProductionStage ? sample.productionDueDate : String(existing.production_due_date || existing.delivery_date || ""),
+      productionDueDate: String(existing.production_due_date || existing.delivery_date || ""),
       readyAt: String(existing.ready_at || ""),
       customerDeliveryDate: String(existing.customer_delivery_date || ""),
       deliveredAt: String(existing.delivered_at || ""),
@@ -147,6 +149,7 @@ function normalizeSample(value?: ClientSampleFormData): ClientSampleFormData {
 }
 
 function validateSample(slug: string, sample: ClientSampleFormData, editing = false) {
+  if (!editing && (!['REQUESTED', 'IN_PRODUCTION'].includes(sample.status) || sample.readyAt || sample.deliveredAt || sample.approvedAt || sample.closedAt || sample.customerDeliveryDate || sample.approvalDueDate)) throw new RequestError("NOVA AMOSTRA DEVE INICIAR EM PRODUCAO.", 400);
   if (!slug) throw new RequestError("EMPRESA NAO INFORMADA.", 400);
   if (editing && !sample.id) throw new RequestError("AMOSTRA NAO INFORMADA.", 400);
   if (!sample.clientId) throw new RequestError("PREENCHA O CLIENTE DA AMOSTRA.", 400);
@@ -263,15 +266,16 @@ async function enrichSamples(admin: Awaited<ReturnType<typeof requireCompanyAcce
     trackingCode: row.tracking_code || "",
     notes: row.notes || "",
     updatedAt: row.updated_at,
+    originalProductionDueDate: row.original_production_due_date || "",
+    originalCustomerDeliveryDate: row.original_customer_delivery_date || "",
+    originalApprovalDueDate: row.original_approval_due_date || "",
+    deadlineBaselineAt: row.deadline_baseline_at || "",
   }));
 }
 
 function sampleControl(row: Record<string, unknown>) {
-  const status = String(row.status || "REQUESTED");
-  if (["REQUESTED", "IN_PRODUCTION"].includes(status)) return { controlStage: "PRODUCAO" as const, controlDueDate: String(row.production_due_date || row.delivery_date || "") };
-  if (status === "READY") return { controlStage: "ENTREGA" as const, controlDueDate: String(row.customer_delivery_date || "") };
-  if (status === "SENT") return { controlStage: "APROVACAO" as const, controlDueDate: String(row.approval_due_date || "") };
-  return { controlStage: "ENCERRADA" as const, controlDueDate: "" };
+  const control = sampleDeadlineControl(row);
+  return { controlStage: control.dueDate ? control.stage : "ENCERRADA" as const, controlDueDate: control.dueDate, controlCurrentDueDate: control.currentDueDate };
 }
 
 function upper(value: string) { return (value || "").trim().toLocaleUpperCase("pt-BR"); }
