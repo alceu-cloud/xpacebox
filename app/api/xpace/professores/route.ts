@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
+import { queueMissingInstructorNotices } from "@/lib/server/xpace-trial-instructors";
 
 const companySlug = "xpace";
 type RequestBody = {
@@ -45,7 +46,14 @@ export async function PATCH(request: Request) {
       const { data, error } = await access.admin.from("xpace_instructors").update({ full_name: instructor.fullName, mobile: instructor.mobile || null, email: instructor.email || null, updated_by: access.user.id, updated_at: new Date().toISOString() }).eq("id", instructorId).eq("tenant_company_id", access.company.id).select("id").maybeSingle();
       if (error) throw error;
       if (!data) throw new RequestError("PROFESSOR NÃO ENCONTRADO NESTA EMPRESA.", 404);
-      return NextResponse.json({ success: true });
+      let queuedNotices = 0;
+      let noticeWarning = "";
+      try { queuedNotices = await queueMissingInstructorNotices(access.admin, access.company.id, instructorId); }
+      catch (noticeError) {
+        console.error("XPACE INSTRUCTOR NOTICE RECOVERY ERROR", noticeError);
+        noticeWarning = "PROFESSOR SALVO, MAS NÃO FOI POSSÍVEL PROGRAMAR OS AVISOS AUSENTES. SALVE NOVAMENTE PARA TENTAR.";
+      }
+      return NextResponse.json({ success: true, queuedNotices, noticeWarning });
     }
     if (body.action !== "SET_INSTRUCTOR_ACTIVE" || !body.instructor?.id || typeof body.instructor.active !== "boolean") throw new RequestError("ATUALIZAÇÃO DE PROFESSOR INVÁLIDA.", 400);
     requireManager(access.profile.platform_role);

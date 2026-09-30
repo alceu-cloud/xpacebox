@@ -15,6 +15,8 @@ export async function queueTrialInstructorMessage(admin: SupabaseClient, input: 
   studentName: string; scheduledOn: string; startsAt: string; className: string;
 }) {
   if (!input.instructorId) return "NO_INSTRUCTOR" as const;
+  const expiresAt = Date.parse(`${input.scheduledOn}T${input.startsAt.slice(0, 5)}:00${zoneOffset}`);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return "EXPIRED" as const;
   const [{ data: instructor, error: instructorError }, { data: connector, error: connectorError }] = await Promise.all([
     admin.from("xpace_instructors").select("id,full_name,mobile,active").eq("id", input.instructorId).eq("tenant_company_id", input.companyId).maybeSingle(),
     admin.from("xpace_message_connectors").select("id").eq("tenant_company_id", input.companyId).maybeSingle(),
@@ -22,7 +24,7 @@ export async function queueTrialInstructorMessage(admin: SupabaseClient, input: 
   if (instructorError || connectorError) throw instructorError ?? connectorError;
   if (!instructor?.active || !whatsappPhone(instructor.mobile ?? "")) return "NO_CONTACT" as const;
   if (!connector) return "NO_CONNECTOR" as const;
-  const teacherName = personName(instructor.full_name);
+  const teacherName = personName(instructor.full_name.replace(/^professor(?:a)?\s+/i, ""));
   const studentName = personName(input.studentName);
   const { error } = await admin.from("xpace_message_outbox").insert({
     tenant_company_id: input.companyId, connector_id: connector.id,
@@ -32,7 +34,7 @@ export async function queueTrialInstructorMessage(admin: SupabaseClient, input: 
     destination_phone: whatsappPhone(instructor.mobile ?? ""),
     body: `✨ Olá, prof. *${teacherName}*!\n\nUma nova aula experimental entrou na sua agenda:\n\n👤 *Aluno(a):* ${studentName}\n💃 *Turma:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n\nAté lá! 💜\n*Equipe XPACE*`,
     scheduled_at: new Date().toISOString(),
-    expires_at: new Date(`${input.scheduledOn}T${input.startsAt}:00${zoneOffset}`).toISOString(),
+    expires_at: new Date(expiresAt).toISOString(),
   });
   if (error && error.code !== "23505") throw error;
   return "QUEUED" as const;

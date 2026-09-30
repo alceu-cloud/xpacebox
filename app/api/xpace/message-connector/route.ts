@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
+import { trialInstructorContexts } from "@/lib/server/xpace-trial-instructors";
 
 const companySlug = "xpace";
 const noStore = { "Cache-Control": "no-store" };
@@ -14,6 +15,8 @@ export async function GET(request: Request) {
     if (error) throw error;
     const { data: messages, error: messagesError } = await access.admin.from("xpace_message_outbox").select("id,kind,lead_id,appointment_id,appointment_scheduled_on,appointment_starts_at,contact_name,destination_phone,status,error_message,created_at,scheduled_at,sent_at,delivered_at,read_at").eq("tenant_company_id", access.company.id).order("created_at", { ascending: false }).limit(200);
     if (messagesError) throw messagesError;
+    const appointmentIds = [...new Set((messages ?? []).flatMap((item) => item.appointment_id ? [item.appointment_id] : []))];
+    const instructors = await trialInstructorContexts(access.admin, access.company.id, appointmentIds);
     const leadIds = [...new Set((messages ?? []).map((item) => item.lead_id).filter((id): id is string => Boolean(id)))];
     const leadContacts = new Map<string, { name: string; phone: string }>();
     if (leadIds.length) {
@@ -28,7 +31,7 @@ export async function GET(request: Request) {
     const failures = recent.filter((item) => ["FAILED", "UNKNOWN"].includes(item.status)).length;
     const oldQueue = recent.filter((item) => item.status === "QUEUED" && Date.now() - Date.parse(item.scheduled_at) > 86_400_000).length;
     const score = connector ? Math.max(0, 100 - (online && connector.status === "CONNECTED" ? 0 : 25) - failures * 15 - oldQueue * 5) : null;
-    return NextResponse.json({ success: true, connector: connector ? { configured: true, status: online ? connector.status : "OFFLINE", phone: connector.phone ?? "", qrDataUrl: qrFresh ? connector.qr_data_url ?? "" : "", lastSeenAt: connector.last_seen_at, lastError: connector.last_error ?? "", disconnectRequested: connector.disconnect_requested } : { configured: false, status: "NOT_CONFIGURED", phone: "", qrDataUrl: "", lastSeenAt: null, lastError: "", disconnectRequested: false }, messages: (messages ?? []).map((item) => ({ ...item, student_name: item.lead_id ? leadContacts.get(item.lead_id)?.name ?? "" : "", student_phone: item.lead_id ? leadContacts.get(item.lead_id)?.phone ?? "" : "" })), score, scoreDetails: { failures, oldQueue, windowDays: 7 } }, { headers: noStore });
+    return NextResponse.json({ success: true, connector: connector ? { configured: true, status: online ? connector.status : "OFFLINE", phone: connector.phone ?? "", qrDataUrl: qrFresh ? connector.qr_data_url ?? "" : "", lastSeenAt: connector.last_seen_at, lastError: connector.last_error ?? "", disconnectRequested: connector.disconnect_requested } : { configured: false, status: "NOT_CONFIGURED", phone: "", qrDataUrl: "", lastSeenAt: null, lastError: "", disconnectRequested: false }, messages: (messages ?? []).map((item) => ({ ...item, student_name: item.lead_id ? leadContacts.get(item.lead_id)?.name ?? "" : "", student_phone: item.lead_id ? leadContacts.get(item.lead_id)?.phone ?? "" : "", instructor_name: item.appointment_id ? instructors.get(item.appointment_id)?.name ?? "" : "", instructor_phone: item.appointment_id ? instructors.get(item.appointment_id)?.phone ?? "" : "", instructor_missing_reason: item.appointment_id ? instructors.get(item.appointment_id)?.missingReason ?? "" : "" })), score, scoreDetails: { failures, oldQueue, windowDays: 7 } }, { headers: noStore });
   } catch (error) { return handleError(error); }
 }
 

@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
-import { queueSatisfactionAfterAttendance } from "@/lib/server/xpace-automatic-messages";
+import { queueSatisfactionAfterAttendance, queueTrialInstructorMessage } from "@/lib/server/xpace-automatic-messages";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 import { scheduleAllowsTrial, trialScheduleDetails, trialScheduleSettings } from "@/lib/xpace/trial-schedule";
@@ -204,7 +204,7 @@ async function createAppointment(access: Awaited<ReturnType<typeof requireCompan
   const trialLimitOverride = Boolean(raw?.trialLimitOverride);
   if (!leadId || !classGroupId || !classScheduleId || !isDate(scheduledOn)) throw new RequestError("SELECIONE O LEAD, A TURMA E A DATA DA AULA EXPERIMENTAL.", 400);
   if (trialLimitOverride && !isManager(access.profile.platform_role)) throw new AccessError("SOMENTE GERENTE OU ADMINISTRADOR PODE LIBERAR UMA AULA COM TAXA.", 403);
-  const [leadResult, snapshot] = await Promise.all([access.admin.from("xpace_leads").select("id,pipeline_stage,mobile").eq("id", leadId).eq("tenant_company_id", access.company.id).maybeSingle(), classSnapshot(access, classGroupId, classScheduleId, scheduledOn)]);
+  const [leadResult, snapshot] = await Promise.all([access.admin.from("xpace_leads").select("id,full_name,pipeline_stage,mobile").eq("id", leadId).eq("tenant_company_id", access.company.id).maybeSingle(), classSnapshot(access, classGroupId, classScheduleId, scheduledOn)]);
   if (leadResult.error) throw leadResult.error;
   if (!leadResult.data) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
   if (bookingKind === "NOVO" && !phone(leadResult.data.mobile)) throw new RequestError("CADASTRE UM TELEFONE VÁLIDO NO LEAD ANTES DE AGENDAR UMA NOVA EXPERIMENTAL.", 400);
@@ -215,6 +215,11 @@ async function createAppointment(access: Awaited<ReturnType<typeof requireCompan
   if (!stages.includes(leadResult.data.pipeline_stage as typeof stages[number]) || ["NOVO", "ATENDIMENTO"].includes(leadResult.data.pipeline_stage)) await access.admin.from("xpace_leads").update({ pipeline_stage: "AULA_EXPERIMENTAL", updated_by: access.profile.id, updated_at: new Date().toISOString() }).eq("id", leadId);
   await activity(access, leadId, data.id, "AGENDAMENTO_CRIADO", `${bookingKind}: ${snapshot.className} em ${scheduledOn}.${trialLimitOverride ? " LIBERAÇÃO EXCEPCIONAL COM TAXA REGISTRADA POR GERÊNCIA/ADMINISTRAÇÃO." : ""}`, trialLimitOverride ? { trialLimitOverride: true, trialLimitOverrideBy: access.profile.id } : {});
   after(() => sendNewAppointmentPush(access.company.id, data.id, scheduledOn));
+  after(async () => {
+    try { await queueTrialInstructorMessage(access.admin, { companyId: access.company.id, leadId, appointmentId: data.id,
+      instructorId: snapshot.instructorId, studentName: leadResult.data!.full_name, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className }); }
+    catch (error) { console.error("XPACE CRM INSTRUCTOR NOTICE ERROR", error); }
+  });
   return NextResponse.json({ success: true, appointmentId: data.id }, { status: 201 });
 }
 
