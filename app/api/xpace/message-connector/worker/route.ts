@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
-import { whatsappPhone } from "@/lib/server/xpace-automatic-messages";
+import { trialInstructorNoticeAt, whatsappPhone } from "@/lib/server/xpace-automatic-messages";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "no-store" };
@@ -67,6 +67,18 @@ export async function POST(request: Request) {
           ]);
           if (instructorError || scheduleError) throw instructorError ?? scheduleError;
           if (!instructor?.active || whatsappPhone(instructor.mobile ?? "") !== queued.destination_phone || schedule?.instructor_id !== queued.instructor_id) cancelReason = "PROFESSOR OU CELULAR DO HORÁRIO FOI ALTERADO.";
+          if (!cancelReason) {
+            const noticeAt = trialInstructorNoticeAt(appointment!.scheduled_on, appointment!.starts_at);
+            if (noticeAt > Date.parse(now)) {
+              // Also protect previously queued notices created with the immediate-send rule.
+              const { error: deferError } = await admin.from("xpace_message_outbox")
+                .update({ scheduled_at: new Date(noticeAt).toISOString(), updated_at: now })
+                .eq("id", queued.id).eq("tenant_company_id", connector.tenant_company_id)
+                .eq("connector_id", connector.id).eq("status", "QUEUED");
+              if (deferError) throw deferError;
+              return NextResponse.json({ success: true, message: null }, { headers });
+            }
+          }
         }
       }
       if (!cancelReason && ["VIDEO_BOAS_VINDAS", "LEMBRETE_VESPERA", "CONFIRMACAO_DIA", "AVISO_PROFESSOR", "PESQUISA_SATISFACAO"].includes(queued.kind) && !queued.appointment_id) {

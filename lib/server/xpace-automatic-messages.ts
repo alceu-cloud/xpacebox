@@ -10,6 +10,13 @@ export function whatsappPhone(value: string) {
   return /^\d{10,11}$/.test(local) ? `55${local}` : "";
 }
 
+// Three hours before class, never on the previous day for early classes.
+export function trialInstructorNoticeAt(scheduledOn: string, startsAt: string) {
+  const classAt = Date.parse(`${scheduledOn}T${startsAt.slice(0, 5)}:00${zoneOffset}`);
+  const dayStart = Date.parse(`${scheduledOn}T00:00:00${zoneOffset}`);
+  return Math.max(dayStart, classAt - 3 * 60 * 60_000);
+}
+
 export async function queueTrialInstructorMessage(admin: SupabaseClient, input: {
   companyId: string; leadId: string; appointmentId: string; instructorId: string;
   studentName: string; scheduledOn: string; startsAt: string; className: string;
@@ -32,8 +39,8 @@ export async function queueTrialInstructorMessage(admin: SupabaseClient, input: 
     appointment_scheduled_on: input.scheduledOn, appointment_starts_at: input.startsAt,
     kind: "AVISO_PROFESSOR", contact_name: instructor.full_name,
     destination_phone: whatsappPhone(instructor.mobile ?? ""),
-    body: `✨ Olá, prof. *${teacherName}*!\n\nUma nova aula experimental entrou na sua agenda:\n\n👤 *Aluno(a):* ${studentName}\n💃 *Turma:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n\nAté lá! 💜\n*Equipe XPACE*`,
-    scheduled_at: new Date().toISOString(),
+    body: `✨ Olá, prof. *${teacherName}*!\n\nHoje você tem uma aula experimental na sua turma! 💃\n\n👤 *Aluno(a):* ${studentName}\n💃 *Turma:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n\nPrepare uma recepção especial! 💜\n*Equipe XPACE*`,
+    scheduled_at: new Date(Math.max(Date.now(), trialInstructorNoticeAt(input.scheduledOn, input.startsAt))).toISOString(),
     expires_at: new Date(expiresAt).toISOString(),
   });
   if (error && error.code !== "23505") throw error;

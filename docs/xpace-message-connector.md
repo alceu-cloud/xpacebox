@@ -37,6 +37,9 @@ O XPACEBOX agora tem, na **Loja → Integrador de mensagens**, telas de pontuaç
 
 ### Recuperação dos avisos ao professor
 
+- Regra atualizada em 30/09: o aviso ao professor fica programado para **o dia da aula, três horas antes**, no horário de São Paulo. Para aulas antes das 03h, o aviso fica à meia-noite do próprio dia; se o agendamento/cadastro do celular acontecer depois do horário de aviso, entra na fila imediatamente, somente enquanto a aula ainda não começou.
+- O worker também adia avisos antigos ainda `QUEUED` que estariam saindo antes desse horário. `SENT`, `UNKNOWN`, `SENDING` e cancelados não são reenviados nem reprogramados automaticamente. Uma tentativa sem confirmação exige conferir a conversa antes de decidir qualquer reenvio.
+
 - O nome e celular do professor são consultados pelo agendamento/horário, mesmo quando ainda não existe `AVISO_PROFESSOR`. Falta de celular é exibida como “Cadastre o celular do professor”, não como “Professor não informado”. Histórico sem vínculo conserva o nome do agendamento; o sistema não inventa telefone.
 - Salvar o cadastro do professor com celular válido recupera somente avisos **ausentes** para aulas futuras agendadas daquele professor, excluindo registros importados da planilha. Não recria avisos enviados, em verificação ou cancelados e não reenvia vídeos/lembretes. A unicidade por agendamento/tipo também protege contra chamadas simultâneas.
 - A criação de uma experimental pelo próprio CRM também programa o aviso operacional ao professor, independentemente da autorização do aluno. Essa mudança não libera mensagens ao aluno sem consentimento.
