@@ -4,7 +4,7 @@ import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { queueSatisfactionAfterAttendance } from "@/lib/server/xpace-automatic-messages";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
-import { scheduleAllowsTrial, trialScheduleSettings } from "@/lib/xpace/trial-schedule";
+import { scheduleAllowsTrial, trialScheduleDetails, trialScheduleSettings } from "@/lib/xpace/trial-schedule";
 
 const companySlug = "xpace";
 export const maxDuration = 30;
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       access.admin.from("xpace_lead_loss_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_lead_win_reasons").select("id,name,active").eq("tenant_company_id", access.company.id).order("name"),
       access.admin.from("xpace_class_groups").select("id,name,modality,capacity,instructor_id,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("name"),
-      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
+      access.admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,room_name,instructor_id,class_level,age_group,age_groups,settings,active").eq("tenant_company_id", access.company.id).eq("active", true).order("weekday").order("starts_at"),
       access.admin.from("xpace_instructors").select("id,full_name,active").eq("tenant_company_id", access.company.id).order("full_name"),
       access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("active", true),
     ]);
@@ -58,6 +58,14 @@ export async function GET(request: Request) {
       }
       appointmentsResult.data = [...(appointmentsResult.data ?? []).filter(a => a.lead_id !== focusLead),...focusedAppointments];
     }
+    const trialDetailsBySchedule = new Map((schedulesResult.data ?? []).map((schedule) => [schedule.id, trialScheduleDetails(schedule)]));
+    const missingScheduleIds = [...new Set((appointmentsResult.data ?? []).flatMap((appointment) => appointment.class_schedule_id && !trialDetailsBySchedule.has(appointment.class_schedule_id) ? [appointment.class_schedule_id] : []))];
+    for (let start = 0; start < missingScheduleIds.length; start += 80) {
+      const { data, error } = await access.admin.from("xpace_class_schedules").select("id,class_level,age_group,age_groups")
+        .eq("tenant_company_id", access.company.id).in("id", missingScheduleIds.slice(start, start + 80));
+      if (error) throw error;
+      for (const schedule of data ?? []) trialDetailsBySchedule.set(schedule.id, trialScheduleDetails(schedule));
+    }
     const profileIds = [...new Set([access.profile.id, ...(membersResult.data ?? []).map((member) => member.profile_id)])];
     const { data: profiles, error: profilesError } = profileIds.length ? await access.admin.from("profiles").select("id,full_name").in("id", profileIds) : { data: [], error: null };
     if (profilesError) throw profilesError;
@@ -71,7 +79,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({
       success: true, canManage: isManager(access.profile.platform_role), canOverrideTrialLimit: isManager(access.profile.platform_role), canDeleteLeads: isManager(access.profile.platform_role),
-      leads: leadsResult.data ?? [], appointments: appointmentsResult.data ?? [], activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name), winReasons: sortNaturally(winReasonsResult.data ?? [], (reason) => reason.name),
+      leads: leadsResult.data ?? [], appointments: (appointmentsResult.data ?? []).map((appointment) => { const details = appointment.class_schedule_id ? trialDetailsBySchedule.get(appointment.class_schedule_id) : undefined; return { ...appointment, schedule_level: details?.level ?? "", schedule_age_groups: details?.ageGroups ?? [] }; }), activities: activitiesResult.data ?? [], sources: sortNaturally(sourcesResult.data ?? [], (source) => source.name), lossReasons: sortNaturally(reasonsResult.data ?? [], (reason) => reason.name), winReasons: sortNaturally(winReasonsResult.data ?? [], (reason) => reason.name),
       attendants: sortNaturally(profiles ?? [], (profile) => profile.full_name), instructors: sortNaturally(instructorsResult.data ?? [], (instructor) => instructor.full_name),
       groups: sortNaturally(groupsResult.data ?? [], (group) => group.name).map((group) => ({ id: group.id, name: group.name, modality: group.modality ?? "", instructorName: group.instructor_id ? instructorNames.get(group.instructor_id) ?? "PROFESSOR ARQUIVADO" : "", capacity: group.capacity, allowsLeads: (schedulesByGroup.get(group.id) ?? []).some((schedule) => schedule.allowsLeads === true), schedules: schedulesByGroup.get(group.id) ?? [] })),
     });

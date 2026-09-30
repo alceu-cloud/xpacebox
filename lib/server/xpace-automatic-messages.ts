@@ -40,7 +40,7 @@ export async function queueTrialInstructorMessage(admin: SupabaseClient, input: 
 
 export async function queueTrialMessages(admin: SupabaseClient, input: {
   companyId: string; leadId: string; appointmentId: string; name: string; mobile: string;
-  scheduledOn: string; startsAt: string; className: string; instructor: string; videoUrl: string;
+  scheduledOn: string; startsAt: string; className: string; instructor: string; roomName: string; videoUrl: string;
 }) {
   const destinationPhone = whatsappPhone(input.mobile);
   if (!destinationPhone) return;
@@ -54,6 +54,7 @@ export async function queueTrialMessages(admin: SupabaseClient, input: {
   const dayAt = classAt - 3 * 60 * 60_000;
   const firstName = personName(input.name).split(/\s+/)[0] || "pessoal";
   const instructor = personName(input.instructor);
+  const room = input.roomName.trim() ? `\n🚪 *Sala:* ${input.roomName.trim()}` : "";
   const common = {
     tenant_company_id: input.companyId, connector_id: connector.id, lead_id: input.leadId,
     appointment_id: input.appointmentId, appointment_scheduled_on: input.scheduledOn,
@@ -61,7 +62,7 @@ export async function queueTrialMessages(admin: SupabaseClient, input: {
     destination_phone: destinationPhone,
   };
   const rows = [
-    ...(input.videoUrl ? [{ ...common, kind: "VIDEO_BOAS_VINDAS", scheduled_at: new Date(now).toISOString(), expires_at: new Date(classAt).toISOString(), body: `💜 Oi, *${firstName}*! Sua aula experimental na *XPACE* foi agendada!\n\n💃 *Aula:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n👩‍🏫 *Professor(a):* ${instructor}\n\n🎬 Preparamos um vídeo de boas-vindas para você. Assista antes da aula para já entrar no clima! ✨` }] : []),
+    ...(input.videoUrl ? [{ ...common, kind: "VIDEO_BOAS_VINDAS", scheduled_at: new Date(now).toISOString(), expires_at: new Date(classAt).toISOString(), body: `💜 Oi, *${firstName}*! Sua aula experimental na *XPACE* foi agendada!\n\n💃 *Aula:* ${input.className}\n📅 *Dia:* ${dateLabel(input.scheduledOn)}\n🕒 *Horário:* ${input.startsAt}\n👩‍🏫 *Professor(a):* ${instructor}${room}\n\n🎬 Preparamos um vídeo de boas-vindas para você. Assista antes da aula para já entrar no clima! ✨` }] : []),
     ...(eveAt > now ? [{ ...common, kind: "LEMBRETE_VESPERA", scheduled_at: new Date(eveAt).toISOString(), expires_at: new Date(dayAt > eveAt ? dayAt : classAt).toISOString(), body: `💜 Oi, *${firstName}*! Passando para lembrar: sua aula experimental de *${input.className}* na XPACE é *amanhã*, ${dateLabel(input.scheduledOn)}, às *${input.startsAt}*.\n\nEstamos te esperando! ✨` }] : []),
     ...(dayAt > now ? [{ ...common, kind: "CONFIRMACAO_DIA", scheduled_at: new Date(dayAt).toISOString(), expires_at: new Date(classAt).toISOString(), body: `💜 Oi, *${firstName}*! Sua aula experimental na XPACE é *hoje às ${input.startsAt}*.\n\nVocê vem? Responda *SIM* ou *NÃO* por aqui para nossa equipe acompanhar. 💃` }] : []),
   ];

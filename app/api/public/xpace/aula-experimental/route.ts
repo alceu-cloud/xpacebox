@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     await addActivity(admin, company.id, leadId, appointment.id, "AGENDAMENTO_CRIADO", `AGENDAMENTO PÚBLICO: ${snapshot.className} em ${scheduledOn}.`);
     if (snapshot.welcomeVideoUrl && whatsappOptIn) await addActivity(admin, company.id, leadId, appointment.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
     if (whatsappOptIn) {
-      try { await queueTrialMessages(admin, { companyId: company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className, instructor: snapshot.instructor, videoUrl: snapshot.welcomeVideoUrl }); }
+      try { await queueTrialMessages(admin, { companyId: company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className, instructor: snapshot.instructor, roomName: snapshot.roomName, videoUrl: snapshot.welcomeVideoUrl }); }
       catch (error) { console.error("XPACE TRIAL MESSAGE QUEUE ERROR", { appointmentId: appointment.id, error }); }
     }
     try {
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 async function classSnapshot(admin: ReturnType<typeof createSupabaseAdmin>, companyId: string, groupId: string, scheduleId: string, scheduledOn: string) {
   const [{ data: group, error: groupError }, { data: schedule, error: scheduleError }] = await Promise.all([
     admin.from("xpace_class_groups").select("id,name,modality,instructor_id,settings,active").eq("id", groupId).eq("tenant_company_id", companyId).maybeSingle(),
-    admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,settings,active").eq("id", scheduleId).eq("tenant_company_id", companyId).maybeSingle(),
+    admin.from("xpace_class_schedules").select("id,class_group_id,weekday,starts_at,ends_at,instructor_id,room_name,settings,active").eq("id", scheduleId).eq("tenant_company_id", companyId).maybeSingle(),
   ]);
   if (groupError || scheduleError) throw groupError ?? scheduleError;
   const settings = slotSettings(schedule?.settings, group?.settings);
@@ -116,7 +116,7 @@ async function classSnapshot(admin: ReturnType<typeof createSupabaseAdmin>, comp
   const { data: instructor, error: instructorError } = schedule.instructor_id ? await admin.from("xpace_instructors").select("id,full_name").eq("id", schedule.instructor_id).eq("tenant_company_id", companyId).maybeSingle() : { data: null, error: null };
   if (instructorError) throw instructorError;
   const video = settings?.leadWelcomeVideoUrl;
-  return { className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", instructorId: instructor?.id ?? "", instructor: instructor?.full_name ?? "PROFESSOR", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof video === "string" && /^https?:\/\//i.test(video) ? video : "" };
+  return { className: group.name, modality: group.modality ?? "AULA EXPERIMENTAL", instructorId: instructor?.id ?? "", instructor: instructor?.full_name ?? "PROFESSOR", roomName: schedule.room_name ?? "", startsAt: schedule.starts_at.slice(0, 5), endsAt: schedule.ends_at.slice(0, 5), welcomeVideoUrl: typeof video === "string" && /^https?:\/\//i.test(video) ? video : "" };
 }
 
 async function addActivity(admin: ReturnType<typeof createSupabaseAdmin>, companyId: string, leadId: string, appointmentId: string | null, activityType: string, body: string, payload: Record<string, unknown> = {}) { const { error } = await admin.from("xpace_lead_activities").insert({ tenant_company_id: companyId, lead_id: leadId, appointment_id: appointmentId, activity_type: activityType, body, payload }); if (error) throw error; }

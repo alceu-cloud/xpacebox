@@ -18,10 +18,13 @@ function periods() {
   monday.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
   const nextMonday = new Date(monday);
   nextMonday.setUTCDate(monday.getUTCDate() + 7);
+  const followingMonday = new Date(nextMonday);
+  followingMonday.setUTCDate(nextMonday.getUTCDate() + 7);
   return {
     today,
     weekFrom: iso(monday),
     weekTo: iso(nextMonday),
+    nextWeekTo: iso(followingMonday),
     monthFrom: `${year}-${String(month).padStart(2, "0")}-01`,
     nextMonth: iso(new Date(Date.UTC(year, month, 1, 12))),
   };
@@ -31,9 +34,12 @@ export async function GET(request: Request) {
   try {
     const { admin, company, profile } = await requireCompanyAccess(request, "xpace");
     const period = periods();
-    const [trials, contracts, newContracts, recentBookings] = await Promise.all([
+    const [trials, nextWeekTrials, contracts, newContracts, recentBookings] = await Promise.all([
       admin.from("xpace_lead_appointments").select("id", { count: "exact", head: true })
         .eq("tenant_company_id", company.id).gte("scheduled_on", period.weekFrom).lt("scheduled_on", period.weekTo)
+        .not("class_schedule_id", "is", null).neq("attendance_status", "CANCELADO"),
+      admin.from("xpace_lead_appointments").select("id", { count: "exact", head: true })
+        .eq("tenant_company_id", company.id).gte("scheduled_on", period.weekTo).lt("scheduled_on", period.nextWeekTo)
         .not("class_schedule_id", "is", null).neq("attendance_status", "CANCELADO"),
       admin.from("xpace_student_contracts").select("student_id")
         .eq("tenant_company_id", company.id).eq("status", "ATIVO")
@@ -46,7 +52,7 @@ export async function GET(request: Request) {
         .eq("tenant_company_id", company.id).neq("attendance_status", "CANCELADO")
         .order("created_at", { ascending: false }).limit(8),
     ]);
-    for (const result of [trials, contracts, newContracts, recentBookings]) {
+    for (const result of [trials, nextWeekTrials, contracts, newContracts, recentBookings]) {
       if (result.error) throw result.error;
     }
     const monthlyLeadIds = new Set<string>();
@@ -72,6 +78,7 @@ export async function GET(request: Request) {
       profileName: profile.full_name || profile.email || "Equipe XPACE",
       metrics: {
         trialsThisWeek: trials.count ?? 0,
+        trialsNextWeek: nextWeekTrials.count ?? 0,
         activeClients: new Set((contracts.data ?? []).map((row) => row.student_id)).size,
         newClientsThisMonth: new Set((newContracts.data ?? []).map((row) => row.student_id)).size,
         newLeadsThisMonth: monthlyLeadIds.size,

@@ -30,7 +30,7 @@ function fakeAdmin(resolve) {
   }};
 }
 const automatic = moduleFrom('lib/server/xpace-automatic-messages.ts');
-const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',name:'ALCEU DE MIRANDA',mobile:'(47) 99999-9999',scheduledOn:'2099-10-20',startsAt:'19:00',className:'Jazz',instructor:'PROFESSOR TESTE',videoUrl:'https://res.cloudinary.com/test/video/upload/video.mp4'};
+const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',name:'ALCEU DE MIRANDA',mobile:'(47) 99999-9999',scheduledOn:'2099-10-20',startsAt:'19:00',className:'Jazz',instructor:'PROFESSOR TESTE',roomName:'SALA 3',videoUrl:'https://res.cloudinary.com/test/video/upload/video.mp4'};
 (async () => {
   assert.equal(automatic.whatsappPhone(input.mobile),'5547999999999');
   const admin = fakeAdmin(call => ({data:call.table==='xpace_message_connectors'?{id:'connector'}:null,error:null}));
@@ -38,6 +38,10 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
   const rows = admin.calls.find(call=>call.operation==='insert').value;
   assert.equal(rows.length,3);
   assert.ok(rows[0].body.includes('*Alceu*'));
+  assert.ok(rows[0].body.includes('🚪 *Sala:* SALA 3'));
+  const withoutRoom = fakeAdmin(call => ({data:call.table==='xpace_message_connectors'?{id:'connector'}:null,error:null}));
+  await automatic.queueTrialMessages(withoutRoom,{...input,roomName:''});
+  assert.ok(!withoutRoom.calls.find(call=>call.operation==='insert').value[0].body.includes('*Sala:*'));
   assert.ok(!rows[0].body.includes('https://'),'Video caption must not contain URL');
   assert.equal(rows[1].scheduled_at,'2099-10-19T21:30:00.000Z');
   assert.equal(rows[2].scheduled_at,'2099-10-20T19:00:00.000Z');
@@ -139,7 +143,7 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
     let data=[];
     if(call.table==='xpace_lead_appointments')data=[{...appointment,class_schedule_id:'archived',class_group_id:'group',instructor_name_snapshot:'PROFESSORA LIZBETH',actual_instructor_name_snapshot:null}];
     if(call.table==='xpace_leads')data=[{id:'lead',full_name:'JULIA CORREA',mobile:input.mobile}];
-    if(call.table==='xpace_class_schedules'&&call.filters.some(f=>f[0]==='in'))data=[{id:'archived',room_name:'SALA HISTÓRICA'}];
+    if(call.table==='xpace_class_schedules'&&call.filters.some(f=>f[0]==='in'))data=[{id:'archived',room_name:'SALA HISTÓRICA',class_level:'AVANCADO',age_groups:['KIDS','TEENS'],age_group:'KIDS'}];
     return {data,error:null};
   });
   const agendaApi=moduleFrom('app/api/xpace/agenda/route.ts',{'next/server':{after:()=>{},NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},'@/lib/server/company-access':{AccessError,requireCompanyAccess:async()=>({admin:agendaAdmin,company:{id:'company'},profile:{id:'user'}})},'@/lib/server/xpace-automatic-messages':automatic,'@/lib/server/xpace-web-push':{sendNewAppointmentPush:()=>{}},'@/lib/xpace/natural-sort':{sortNaturally:items=>items}});
@@ -148,6 +152,7 @@ const input = {companyId:'company',leadId:'lead',appointmentId:'appointment',nam
   const trial=agendaResult.body.trialAppointments[0];
   assert.equal(trial.className,'Jazz');assert.equal(trial.instructorName,'PROFESSORA LIZBETH');
   assert.equal(trial.startsAt,'19:00');assert.equal(trial.roomName,'SALA HISTÓRICA');
+  assert.equal(trial.level,'AVANCADO');assert.deepEqual(Array.from(trial.ageGroups),['KIDS','TEENS']);
   assert.equal(agendaResult.body.groups.length,0,'Archived schedules do not reappear as active calendar classes');
   for(const call of agendaAdmin.calls)assert.ok(call.filters.some(f=>f[1]==='tenant_company_id'&&f[2]==='company'));
   const racedAdmin=fakeAdmin(call=>call.operation==='delete'?{error:{message:'XPACE_LEAD_MESSAGE_SENDING'}}:{data:call.table==='xpace_leads'?{id:'lead',lead_number:1}:null,count:0,error:null});
