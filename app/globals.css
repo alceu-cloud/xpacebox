@@ -1944,6 +1944,18 @@ button {
   gap: 10px;
 }
 
+.samples-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.samples-create-button {
+  white-space: nowrap;
+}
+
 .samples-summary div {
   min-height: 66px;
   padding: 12px 15px;
@@ -2181,6 +2193,12 @@ button {
 .samples-modal { width: min(780px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; border: 0; margin: auto; }
 .samples-modal::backdrop { background: rgba(26, 17, 39, 0.55); }
 .samples-modal button:focus-visible { outline: 3px solid #9e73e7; outline-offset: 3px; }
+.samples-form-modal { width: min(1050px, calc(100vw - 32px)); }
+.samples-form-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.samples-modal-close { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0; border: 1px solid #e8e3eb; border-radius: 50%; background: #f8f5fc; color: #56339d; font-size: 28px; cursor: pointer; }
+.samples-form-modal .samples-form { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.samples-form-modal .samples-field { margin-top: 0; }
+.samples-form-modal .clients-feedback { margin-bottom: 22px; }
 .samples-history-note { font-size: 12px !important; line-height: 1.6; padding: 14px 0; }
 .samples-history-table-wrap { overflow-x: auto; margin: 20px 0; }
 .samples-history-table { border-collapse: collapse; width: 100%; font-size: 12px; }
@@ -2329,6 +2347,14 @@ button {
   .samples-view-tabs { transform: none; }
   .samples-view-tabs button { flex: 1; min-width: 0; }
   .samples-filters { grid-template-columns: 1fr; transform: none; }
+
+  .samples-header-actions { justify-content: flex-start; }
+  .samples-header-actions .samples-summary { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .samples-create-button { width: 100%; }
+  .samples-form-modal { padding: 20px; }
+  .samples-form-modal .samples-form-grid { grid-template-columns: 1fr; }
+  .samples-form-modal .samples-span-2 { grid-column: auto; }
+  .samples-form-modal .samples-actions { flex-direction: column-reverse; }
 
   .samples-card {
     grid-template-columns: 1fr auto;

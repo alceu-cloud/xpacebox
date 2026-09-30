@@ -57,6 +57,8 @@ export default function AmostrasEmpresa({
 }) {
   const [samples, setSamples] = useState<ClientSampleRecord[]>([]);
   const [form, setForm] = useState<ClientSampleFormData>(emptyForm);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SampleStatus | "ALL">("ALL");
   const [sampleView, setSampleView] = useState<"OPEN" | "CLOSED">("OPEN");
@@ -137,9 +139,24 @@ export default function AmostrasEmpresa({
     }));
   }
 
+  function handleCreate() {
+    setForm({ ...emptyForm, requestedAt: localToday() });
+    setFormError("");
+    setMessage("");
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    if (saving) return;
+    setFormOpen(false);
+    setFormError("");
+    setForm(emptyForm);
+  }
+
   async function handleSave() {
+    if (saving) return;
     setSaving(true);
-    setError("");
+    setFormError("");
     setMessage("");
     try {
       const saved = await saveClientSample(slug, form);
@@ -147,11 +164,12 @@ export default function AmostrasEmpresa({
         ? current.map((sample) => sample.id === saved.sample.id ? saved.sample : sample)
         : [saved.sample, ...current]);
       setForm(emptyForm);
+      setFormOpen(false);
       setMessage(saved.notificationSent
         ? `${saved.sample.sampleCode} SALVA E NOTIFICADA AO PPCP.`
         : `${saved.sample.sampleCode} SALVA COM SUCESSO.${saved.notificationError ? ` E-MAIL NAO ENVIADO: ${saved.notificationError}` : ""}`);
     } catch (saveError) {
-      setError(messageFrom(saveError));
+      setFormError(messageFrom(saveError));
     } finally {
       setSaving(false);
     }
@@ -180,8 +198,10 @@ export default function AmostrasEmpresa({
       trackingCode: sample.trackingCode,
       notes: sample.notes,
     });
-    setMessage(`EDITANDO ${sample.sampleCode}.`);
+    setFormError("");
+    setMessage("");
     setError("");
+    setFormOpen(true);
   }
 
   async function handleDelete(sample: ClientSampleRecord) {
@@ -237,37 +257,18 @@ export default function AmostrasEmpresa({
           <h2>AMOSTRAS DE CLIENTES</h2>
           <p>CONTROLE PRODUCAO, ENTREGA AO CLIENTE E APROVACAO COM UM PRAZO PARA CADA ETAPA.</p>
         </div>
-        <div className="samples-summary">
-          <Summary label="ABERTAS" value={samples.filter((sample) => !sample.closedAt).length} />
-          <Summary label="BAIXADAS" value={samples.filter((sample) => Boolean(sample.closedAt)).length} />
-          <Summary label="COM PRAZO" value={samples.filter((sample) => !sample.closedAt && sample.controlDueDate).length} />
+        <div className="samples-header-actions">
+          <div className="samples-summary">
+            <Summary label="ABERTAS" value={samples.filter((sample) => !sample.closedAt).length} />
+            <Summary label="BAIXADAS" value={samples.filter((sample) => Boolean(sample.closedAt)).length} />
+            <Summary label="COM PRAZO" value={samples.filter((sample) => !sample.closedAt && sample.controlDueDate).length} />
+          </div>
+          <button type="button" className="clients-button-primary samples-create-button" onClick={handleCreate} disabled={loading}>CADASTRAR AMOSTRA</button>
         </div>
       </header>
 
       {error && <div className="clients-feedback clients-feedback-error">{error}</div>}
       {message && <div className="clients-feedback clients-feedback-success">{message}</div>}
-
-      <section className={`samples-form${form.id ? " is-editing" : ""}`}>
-        {form.id ? <div className="samples-edit-state">EDITANDO {form.id ? `AMOSTRA SELECIONADA` : ""}</div> : null}
-        <div className="samples-form-grid">
-          <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
-          <SampleSelect label="CONSULTOR DE VENDAS" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
-          <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
-          <SampleInput label="PRAZO PARA FICAR PRONTA" type="date" value={form.productionDueDate} onChange={(value) => update("productionDueDate", value)} disabled={Boolean(form.id)} />
-          <SampleSelect label="ITEM CADASTRADO" value={form.productFichaId} onChange={selectProductFicha} options={clientFichas.map((ficha) => ({ value: ficha.id, label: productFichaLabel(ficha) }))} />
-          <SampleInput label="QUANTIDADE" type="number" value={form.quantity} onChange={(value) => update("quantity", value)} />
-          <label className="samples-field samples-span-2">
-            <span>OBSERVACOES</span>
-            <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} />
-          </label>
-        </div>
-        {form.id ? <p className="samples-selected">PARA ALTERAR UMA DATA, USE <strong>REPROGRAMAR PRAZO</strong> NO CARD. O PRAZO ANTERIOR FICA NO HISTORICO.</p> : null}
-        {selectedClient ? <p className="samples-selected">CLIENTE SELECIONADO: <strong>{selectedClient.clientCode} - {selectedClient.tradeName || selectedClient.legalName}</strong></p> : null}
-        <div className="samples-actions">
-          {form.id ? <button type="button" className="clients-button-secondary" onClick={() => setForm(emptyForm)}>CANCELAR EDICAO</button> : null}
-          <button type="button" className="clients-button-primary" onClick={handleSave} disabled={saving || loading}>{saving ? "SALVANDO..." : form.id ? "SALVAR ALTERACOES" : "CADASTRAR AMOSTRA"}</button>
-        </div>
-      </section>
 
       <section className="samples-list">
         <div className="samples-list-header">
@@ -321,6 +322,36 @@ export default function AmostrasEmpresa({
           </div>
         ) : null}
       </section>
+      {formOpen ? <SampleDialog titleId="samples-form-title" onClose={closeForm} busy={saving} className="samples-form-modal">
+        <div className="samples-form-heading">
+          <div>
+            <span className="clients-eyebrow">CONTROLE DE AMOSTRAS</span>
+            <h3 id="samples-form-title">{form.id ? "EDITAR AMOSTRA" : "CADASTRAR AMOSTRA"}</h3>
+          </div>
+          <button type="button" className="samples-modal-close" aria-label="FECHAR FORMULARIO DE AMOSTRA" onClick={closeForm} disabled={saving}><span aria-hidden="true">×</span></button>
+        </div>
+        {formError ? <div className="clients-feedback clients-feedback-error" role="alert">{formError}</div> : null}
+        <form className={`samples-form${form.id ? " is-editing" : ""}`} noValidate onSubmit={event => { event.preventDefault(); void handleSave(); }}>
+          <div className="samples-form-grid">
+            <SampleSelect label="CLIENTE" value={form.clientId} onChange={selectClient} options={clients.map((client) => ({ value: client.id, label: `${client.tradeName || client.legalName} - ${formatCnpj(client.cnpj)}` }))} />
+            <SampleSelect label="CONSULTOR DE VENDAS" value={form.responsibleProfileId} onChange={(value) => update("responsibleProfileId", value)} options={representatives.map((representative) => ({ value: representative.id, label: representative.name }))} />
+            <SampleInput label="DATA DA SOLICITACAO" type="date" value={form.requestedAt} onChange={(value) => update("requestedAt", value)} />
+            <SampleInput label="PRAZO PARA FICAR PRONTA" type="date" value={form.productionDueDate} onChange={(value) => update("productionDueDate", value)} disabled={Boolean(form.id)} />
+            <SampleSelect label="ITEM CADASTRADO" value={form.productFichaId} onChange={selectProductFicha} options={clientFichas.map((ficha) => ({ value: ficha.id, label: productFichaLabel(ficha) }))} />
+            <SampleInput label="QUANTIDADE" type="number" value={form.quantity} onChange={(value) => update("quantity", value)} />
+            <label className="samples-field samples-span-2">
+              <span>OBSERVACOES</span>
+              <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} />
+            </label>
+          </div>
+          {form.id ? <p className="samples-selected">PARA ALTERAR UMA DATA, USE <strong>REPROGRAMAR PRAZO</strong> NO CARD. O PRAZO ANTERIOR FICA NO HISTORICO.</p> : null}
+          {selectedClient ? <p className="samples-selected">CLIENTE SELECIONADO: <strong>{selectedClient.clientCode} - {selectedClient.tradeName || selectedClient.legalName}</strong></p> : null}
+          <div className="samples-actions">
+            <button type="button" className="clients-button-secondary" onClick={closeForm} disabled={saving}>{form.id ? "CANCELAR EDICAO" : "CANCELAR"}</button>
+            <button type="submit" className="clients-button-primary" disabled={saving || loading}>{saving ? "SALVANDO..." : form.id ? "SALVAR ALTERACOES" : "CADASTRAR AMOSTRA"}</button>
+          </div>
+        </form>
+      </SampleDialog> : null}
       {transition ? <SampleDialog titleId="samples-transition-title" onClose={() => setTransition(null)} busy={saving}>
         <span className="clients-eyebrow">FLUXO DA AMOSTRA</span>
         <h3 id="samples-transition-title">{transition.action === "REPROGRAM" ? "REPROGRAMAR PRAZO" : transitionTitle(transition.action)}</h3>
@@ -360,10 +391,10 @@ function SampleInput({ label, value, onChange, type = "text", wide = false, disa
   return <label className={wide ? "samples-field samples-span-2" : "samples-field"}><span>{label}</span><input type={type} value={value} disabled={disabled} min={min} max={max} required={required} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
-function SampleDialog({ titleId, onClose, busy = false, children }: { titleId: string; onClose: () => void; busy?: boolean; children: ReactNode }) {
+function SampleDialog({ titleId, onClose, busy = false, className = "", children }: { titleId: string; onClose: () => void; busy?: boolean; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const dialog = ref.current; const trigger = document.activeElement as HTMLElement | null; dialog?.showModal(); return () => { dialog?.close(); queueMicrotask(() => { if (trigger?.isConnected) trigger.focus(); }); }; }, []);
-  return <dialog ref={ref} className="samples-transition-dialog samples-modal" aria-labelledby={titleId} aria-busy={busy} onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>{children}</dialog>;
+  return <dialog ref={ref} className={`samples-transition-dialog samples-modal ${className}`} aria-labelledby={titleId} aria-busy={busy} onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>{children}</dialog>;
 }
 
 function DeadlineRow({ label, original = "", current, actual }: { label: string; original?: string; current: string; actual: string }) {
