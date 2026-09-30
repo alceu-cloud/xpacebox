@@ -3853,6 +3853,7 @@ button {
 .xd-delivery-hint { margin:0;padding:10px;border-radius:8px;background:#f5eff8;color:#6b5b76;font-size:11px;line-height:1.5;text-transform:none }.xd-delivery-notice { margin:0;padding:11px;border-radius:8px;background:#eef7f0;color:#326443;font-size:12px;line-height:1.5;text-transform:none }.xd-delivery-loading { display:flex;align-items:center;gap:8px;color:#80549b;font-size:12px;font-weight:850 }
 body * { text-transform: uppercase !important; }
 input[type="email"] { text-transform: none !important; }
+.xb-login-input, input[type="password"] { text-transform: none !important; }
 .xd-modality-rule-settings, .xd-modality-rule-advanced { display: grid; gap: 11px; padding: 14px; border: 1px solid #eee6f2; border-radius: 13px; background: #fcfaff; }
 .xd-modality-rule-settings h3 { margin: 0; color: #63566c; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
 .xd-modality-rule-advanced > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: transparent; color: #4a3658; font: inherit; font-size: 11px; font-weight: 900; text-align: left; cursor: pointer; }
@@ -4286,6 +4287,15 @@ input[type="email"] { text-transform: none !important; }
 .cn-panel .cn-notices { padding: 0; margin: 6px 0; list-style: none; display: grid; gap: 7px; }
 .cn-panel .cn-notice { display: grid; gap: 4px; width: 100%; padding: 9px 12px; border: 1px solid #e9e3ec; border-left: 4px solid var(--cn-color); border-radius: 10px; background: #fff; font: inherit; text-align: left; color: #2b1b37; cursor: pointer; }
 .cn-panel .cn-notice:disabled { cursor: default; opacity: 1; }
+.cn-panel .cn-notice-diagnostic { cursor: default; }
+.cn-cause { margin: 5px 0; padding: 8px; border-radius: 7px; background: #f4f7fc; color: #34455d; font-size: 11px; line-height: 1.5; text-transform: none; }
+.cn-solution { font-size: 11px; line-height: 1.6; text-transform: none; }
+.cn-solution summary { cursor: pointer; font-weight: 800; color: #285db3; }
+.cn-solution ol { margin: 8px 0; padding-left: 19px; }
+.cn-solution li + li { margin-top: 8px; }
+.cn-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 7px; }
+.cn-actions button { padding: 8px 10px; border: 1px solid #cad8eb; border-radius: 8px; background: #f4f7fc; color: #285db3; font: inherit; font-size: 10px; font-weight: 800; cursor: pointer; }
+.cn-actions button:focus-visible, .cn-solution summary:focus-visible { outline: 2px solid #285db3; outline-offset: 3px; }
 .cn-panel .cn-category { color: var(--cn-color); font-size: 9px; font-weight: 850; }
 .cn-panel .cn-notice strong { font-size: 12px; }
 .cn-panel .cn-detail { font-size: 11px; color: #62586d; line-height: 1.5; text-transform: none; overflow-wrap: anywhere; }
@@ -4294,7 +4304,7 @@ input[type="email"] { text-transform: none !important; }
 .cn-mark-read { margin: 8px 0 0; justify-self: end; }
 .cn-helper { margin: 8px 0; font-size: 11px; color: #695a76; line-height: 1.5; text-transform: none; }
 .cn-dawos-home { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 370px); gap: 16px; width: 100%; align-items: start; }
-.cn-dawos-home .xb-welcome { min-height: 420px; }
+.cn-dawos-home .xb-welcome, .cn-dawos-home .xb-manager-empty { min-height: 420px; }
 .cn-dawos-home > div { min-width: 0; display: grid; gap: 12px; }
 .cn-preferences { padding: 20px; border: 1px solid #e4dce9; border-radius: 18px; background: #fff; text-transform: none; color: #2b1b37; }
 .cn-preferences h2 { margin: 0 0 6px; font-size: 18px; }
@@ -4306,4 +4316,4 @@ input[type="email"] { text-transform: none !important; }
 .cn-preferences label > span { display: grid; gap: 4px; padding-left: 10px; border-left: 3px solid; }
 .cn-preferences strong { font-size: 12px; }.cn-preferences small { font-size: 11px; color: #695a76; }
 .cn-preferences button:focus-visible, .cn-preferences input:focus-visible { outline: 2px solid #7438aa; outline-offset: 3px; }
-@media (max-width: 980px) { .cn-dawos-home { grid-template-columns: 1fr; }.cn-dawos-home .xb-welcome { min-height: 250px; } }
+@media (max-width: 980px) { .cn-dawos-home { grid-template-columns: 1fr; }.cn-dawos-home .xb-welcome, .cn-dawos-home .xb-manager-empty { min-height: 250px; } }

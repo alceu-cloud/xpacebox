@@ -32,6 +32,9 @@ function fakeAdmin(stage='PRODUCAO') {
     const admin=fakeAdmin(stage), sent=[];
     const emails=moduleFrom('lib/server/daily-agenda-email.ts',{'@/lib/sample-deadlines':deadlines,'@/lib/server/supabase-admin':{createSupabaseAdmin:()=>admin},'@/lib/server/telephony-credentials':{decryptIntegrationCredential:()=> 'test-only',encryptIntegrationCredential:()=>{}}},{process:{env:{}},fetch:async(url,init)=>{assert.equal(url,'https://api.resend.com/emails');sent.push(JSON.parse(init.body));return{ok:true,json:async()=>({id:'provider'})}}});
     const result=await emails.sendScheduledSampleOverdueEmails();assert.equal(result.sent,1);
+    assert.equal(emails.emailCredentialHealth(connection),'READABLE');
+    assert.equal(emails.emailCredentialHealth({...connection,enabled:false}),'DISABLED');
+    assert.equal(emails.emailCredentialHealth({...connection,api_key_ciphertext:null}),'INCOMPLETE');
     assert.deepEqual(sent[0].to,stage==='PRODUCAO'?['ppcp@dawos.com.br','suporte@dawos.com.br']:['consultor@example.test']);
     assert.deepEqual(sent[0].cc,stage==='PRODUCAO'?['consultor@example.test']:undefined);
     assert.match(sent[0].text,/2020/); assert.match(sent[0].text,/2099/);

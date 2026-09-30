@@ -2,6 +2,11 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), vm = require('node:vm');
 function load(file, imports) { const exports={}; vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:name=>{if(name in imports)return imports[name];throw Error(name)},Date,Intl,console,Set,Map,URL}); return exports; }
 const rules=load('lib/notifications.ts',{});
+const emailDiagnostics=load('lib/email-diagnostics.ts',{});
+assert.match(emailDiagnostics.emailFailureDiagnosis('Unsupported state or unable to authenticate data').cause,/chave/);
+assert.match(emailDiagnostics.emailFailureDiagnosis('private-token@example.test').cause,/segurança/);
+assert.ok(!JSON.stringify(emailDiagnostics.emailFailureDiagnosis('private-token@example.test')).includes('private-token'));
+assert.match(emailDiagnostics.emailFailureDiagnosis('',true).cause,/30 minutos/);
 const base={id:'l',full_name:'LEAD TESTE',pipeline_stage:'GANHO',mobile:'47999999999',source_id:'source',assigned_to:'p',win_reason_id:'win',converted_contract_id:'contract',legacy_import_batch_id:null,updated_at:new Date().toISOString()};
 const a={id:'a',lead_id:'l',scheduled_on:'2020-01-01',created_at:new Date().toISOString(),confirmation_status:'NAO_CONFIRMADO',attendance_status:'FALTOU',enrollment_outcome:'NAO_MATRICULOU',class_group_id:'g',class_schedule_id:'s'};
 assert.equal(rules.wonLeadMissingFields(base,[a],'2026-09-30').length,0,'Negative answers are filled answers');
@@ -14,7 +19,7 @@ function fakeAdmin(fixtures) { const calls=[]; return {calls,from(table){const f
 (async()=>{
   const stamp=new Date().toISOString();
   const f={company_notification_preferences:null,daily_agenda_email_deliveries:[],company_automation_issues:[],xpace_leads:[base,{...base,id:'old',legacy_import_batch_id:'import',source_id:null}],xpace_lead_appointments:[{...a,confirmation_status:'PENDENTE'}],xpace_contract_charges:[{id:'charge',student_id:'student',paid_at:stamp,status:'PAGA',paid_amount_cents:10000,provider_error:'old error',updated_at:stamp}],xpace_contract_sales:[{id:'sale',sale_number:1,student_id:'student',status:'CONCLUIDA',signature_status:'ASSINADA',signed_at:stamp,updated_at:stamp}],xpace_message_outbox:[],xpace_message_connectors:[],xpace_payment_cancellations:[]};
-  const lib=load('lib/server/company-notifications.ts',{'@/lib/notifications':rules});
+  const lib=load('lib/server/company-notifications.ts',{'@/lib/notifications':rules,'@/lib/email-diagnostics':emailDiagnostics});
   let admin=fakeAdmin(f),feed=await lib.companyNoticeFeed(admin,'company','xpace','profile',true);
   assert.equal(feed.issues.length,1);assert.equal(feed.issues[0].leadId,'l');assert.equal(feed.notices.length,3);
   assert.ok(admin.calls.every(c=>c.filters.some(x=>x[0]==='eq'&&x[1]==='tenant_company_id'&&x[2]==='company')),'Every query tenant scoped');
@@ -23,9 +28,10 @@ function fakeAdmin(fixtures) { const calls=[]; return {calls,from(table){const f
   f.xpace_lead_appointments=[a];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','xpace','profile',true);assert.equal(feed.issues.length,0,'Correcting source clears the issue');
   f.company_notification_preferences=null;admin=fakeAdmin(f);await lib.companyNoticeFeed(admin,'company','xpace','profile',false);
   assert.ok(!admin.calls.some(c=>['xpace_contract_charges','xpace_contract_sales','xpace_message_outbox','company_automation_issues'].includes(c.table)),'Common users never query restricted finance/integration data');
-  const sample={id:'sample',sample_number:2,status:'IN_PRODUCTION'};
-  const d={id:'error',sample_id:'sample',control_stage:'PRODUCAO',scheduled_for:'2026-09-30',status:'FAILED',created_at:stamp,updated_at:stamp};
-  f.client_samples=[sample];f.sample_overdue_email_deliveries=[d];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','dawos','profile',true);assert.equal(feed.issues.length,1);
+  const sample={id:'sample',sample_number:2,status:'IN_PRODUCTION',client:{tenant_company_id:'company',trade_name:'PAES BUENO'}};
+  const d={id:'error',sample_id:'sample',control_stage:'PRODUCAO',scheduled_for:'2026-09-30',status:'FAILED',created_at:stamp,updated_at:stamp,error_message:'Unsupported state or unable to authenticate data'};
+  f.client_samples=[sample];f.sample_overdue_email_deliveries=[d];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','dawos','profile',true);assert.equal(feed.issues.length,1);assert.match(feed.issues[0].detail,/PAES BUENO/);assert.equal(feed.issues[0].target,'EMAIL');assert.match(feed.issues[0].diagnosis.cause,/chave/);assert.equal(feed.issues[0].diagnosis.secondaryTarget,'SAMPLES');
+  f.client_samples=[{...sample,client:{tenant_company_id:'other',trade_name:'PRIVATE'}}];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','dawos','profile',true);assert.ok(!JSON.stringify(feed).includes('PRIVATE'));f.client_samples=[sample];
   f.sample_overdue_email_deliveries=[{...d,id:'success',status:'SENT'},d];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','dawos','profile',true);assert.equal(feed.issues.length,0,'New success resolves old failures without erasing history');
   f.sample_overdue_email_deliveries=[d];f.client_samples=[{...sample,status:'READY'}];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','dawos','profile',true);assert.equal(feed.issues.length,0,'Old phase not still actionable');
   class AccessError extends Error{constructor(message,status){super(message);this.status=status}}

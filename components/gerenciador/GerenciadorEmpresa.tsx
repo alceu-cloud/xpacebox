@@ -10,6 +10,7 @@ import { SearchableFilter, SearchableSelect } from "@/components/ui/SearchableSe
 import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
 import EmailAgendaIntegrationPanel from "@/components/integracoes/EmailAgendaIntegrationPanel";
 import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
+import CompanyNoticePanel from "@/components/notifications/CompanyNoticePanel";
 
 import {
   defaultQuoteParametersByCompany,
@@ -93,6 +94,7 @@ const emptyEngineering: EngineeringFormula = {
 };
 type GerenciadorEmpresaProps = {
   companySlug?: string;
+  onOpenClientArea?: (area: "crm" | "amostras") => void;
   suppliers?: Supplier[];
   paperTypes?: PaperType[];
   materials?: SpecificMaterial[];
@@ -136,6 +138,7 @@ type GerenciadorEmpresaProps = {
 
 export default function GerenciadorEmpresa({
   companySlug,
+  onOpenClientArea,
   suppliers: controlledSuppliers,
   paperTypes: controlledPaperTypes,
   materials: controlledMaterials,
@@ -366,7 +369,10 @@ export default function GerenciadorEmpresa({
       <main style={pageStyle}>
         <section style={shellStyle}>
           {managerNavigation}
-          <ManagerWelcome />
+          {companySlug === "dawos" ? <div className="cn-dawos-home"><ManagerWelcome /><CompanyNoticePanel slug="dawos" onPreferences={() => { setManagerSection("empresa"); setActiveTab("notificacoes"); }} onOpen={notice => {
+            if ((notice.target === "SAMPLES" || notice.target === "CRM") && onOpenClientArea) onOpenClientArea(notice.target === "SAMPLES" ? "amostras" : "crm");
+            else { setManagerSection("empresa"); setActiveTab("integracoes"); setForm(null); }
+          }} /></div> : <ManagerWelcome />}
         </section>
       </main>
     );

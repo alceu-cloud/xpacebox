@@ -5,15 +5,13 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { ArrowLeft, Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import BuildRevision from "@/components/BuildRevision";
 import ModuleNavigation from "@/components/ui/ModuleNavigation";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import WorkspaceWelcome from "@/components/ui/WorkspaceWelcome";
-import CompanyNoticePanel from "@/components/notifications/CompanyNoticePanel";
-import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany, normalizeSalesGoals } from "@/lib/gerenciador/data";
@@ -216,10 +214,12 @@ function buildModelOptions(formulas: EngineeringFormula[]): Record<BoxCategory, 
 
 export default function EmpresaPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const { isBlocked: crmBlocked, lock: crmLock } = useCrmOperationalLock();
   const [podeGerenciar, setPodeGerenciar] = useState(false);
   const [moduloAtivo, setModuloAtivo] = useState<ModuloKey | null>(null);
-  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [clientInitialArea, setClientInitialArea] = useState<"crm" | "amostras" | undefined>();
+  const [managerOpening, setManagerOpening] = useState(0);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [paperTypes, setPaperTypes] = useState<PaperType[]>(initialPaperTypes);
   const [materials, setMaterials] = useState<SpecificMaterial[]>(initialMaterials);
@@ -244,6 +244,11 @@ export default function EmpresaPage() {
   const [quoteContinuationOpen, setQuoteContinuationOpen] = useState(false);
 
   const slug = String(params.slug ?? "");
+
+  useEffect(() => {
+    const area = searchParams.get("clientArea");
+    if (slug === "dawos" && (area === "crm" || area === "amostras")) { setClientInitialArea(area); setModuloAtivo("clientes"); }
+  }, [slug, searchParams]);
 
   useEffect(() => {
     async function carregarPermissao() {
@@ -335,14 +340,16 @@ export default function EmpresaPage() {
 
   return (
     <main className="xb-operating-shell">
-      <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onSelect={setModuloAtivo} />
+      <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onSelect={module => { setClientInitialArea(undefined); if (module === "gerenciador") setManagerOpening(value => value + 1); setModuloAtivo(module); }} />
 
       <section className={`xb-workspace${!moduloSelecionado ? " xb-workspace--welcome" : ""}`}>
-        {!moduloSelecionado && (slug === "dawos" ? <div className="cn-dawos-home"><WorkspaceWelcome /><div><CompanyNoticePanel slug="dawos" onPreferences={() => setShowNotificationSettings(value => !value)} onOpen={notice => setModuloAtivo(notice.target === "EMAIL" ? "gerenciador" : "clientes")} />{showNotificationSettings ? <NotificationPreferencesPanel slug="dawos" /> : null}</div></div> : <WorkspaceWelcome />)}
+        {!moduloSelecionado && <WorkspaceWelcome />}
 
         {moduloEmExibicao === "gerenciador" ? (
           <GerenciadorEmpresa
+            key={managerOpening}
             companySlug={slug}
+            onOpenClientArea={area => { setClientInitialArea(area); setModuloAtivo("clientes"); }}
             suppliers={suppliers}
             paperTypes={paperTypes}
             materials={materials}
@@ -384,7 +391,7 @@ export default function EmpresaPage() {
             onProductColorsChange={(value) => persistManagerChange("productColors", value, setProductColors)}
           />
         ) : moduloEmExibicao === "clientes" ? (
-          <ClientesEmpresa slug={slug} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} lostReasons={lostReasons} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} onProductFichasSync={(syncedFichas) => setProductFichas((current) => { const syncedById = new Map(syncedFichas.map((ficha) => [ficha.id, ficha])); return current.map((ficha) => syncedById.get(ficha.id) ?? ficha); })} />
+          <ClientesEmpresa slug={slug} initialArea={clientInitialArea} paymentConditions={paymentConditions} cfops={cfops} taxRegimes={taxRegimes} fiscalProfiles={fiscalProfiles} fiscalBenefits={fiscalBenefits} lostReasons={lostReasons} productFichas={productFichas} forceCrm={crmBlocked} forcedClientId={crmLock?.clientId || ""} onProductFichasSync={(syncedFichas) => setProductFichas((current) => { const syncedById = new Map(syncedFichas.map((ficha) => [ficha.id, ficha])); return current.map((ficha) => syncedById.get(ficha.id) ?? ficha); })} />
         ) : moduloEmExibicao === "produtos" ? (
           <ProductCatalogPanel
             companySlug={slug}

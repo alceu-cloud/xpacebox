@@ -1,6 +1,6 @@
 # Notificações e providências por empresa
 
-DAWOS: painel compacto ao lado da abertura da página inicial. Configuração no
+DAWOS: painel compacto na abertura do Gerenciador, não na abertura da empresa. Configuração no
 ícone do painel ou Gerenciador → Configurações da empresa → Usuário e notificações.
 XPACE: painel da página inicial, com cores e rótulos por assunto. Configurações →
 Usuário e notificações. As preferências são do usuário logado naquela empresa,
@@ -41,6 +41,16 @@ escrita do navegador é revogada. Eventos técnicos são server-only. O RPC de
 cursores é SECURITY INVOKER, executável somente pelo service_role.
 
 Não existe reenvio em massa neste painel e nenhuma leitura dispara mensagens.
+Falhas de e-mail mostram a tentativa, o que aquele e-mail comunicaria e uma
+causa sanitizada, com "Como resolver" e ação direta para a configuração do
+Resend. O resumo diário do CRM mostra consultor e quantidades de ações. Avisos
+de amostras mostram cliente e etapa. Atalhos secundários abrem Clientes na
+agenda do CRM ou no controle de amostras. Abrir a configuração apenas verifica
+se o servidor consegue ler a credencial, sem expor a chave ou contatar o
+provedor. Credencial legível não significa autenticação/entrega confirmadas.
+Enviar teste é uma ação explícita já existente, não reenvia amostras nem
+resolve uma tentativa anterior. Histórico com falha não prova erro atual;
+uma correção de configuração, sozinha, não marca mensagens como enviadas.
 Testes: company-notifications-test.cjs e company-notifications-visual.cjs usam
 somente fixtures. Migração específica validada em transação com ROLLBACK antes
 de ser aplicada. Não usar db push nem repair para instalar.

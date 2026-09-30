@@ -60,6 +60,7 @@ const showDeferredCommercialFields = false;
 
 export default function ClientesEmpresa({
   slug,
+  initialArea,
   paymentConditions = [],
   cfops = [],
   taxRegimes = [],
@@ -72,6 +73,7 @@ export default function ClientesEmpresa({
   onProductFichasSync,
 }: {
   slug: string;
+  initialArea?: "crm" | "amostras";
   paymentConditions?: PaymentCondition[];
   cfops?: CfopOption[];
   taxRegimes?: GeneralOption[];
@@ -89,7 +91,7 @@ export default function ClientesEmpresa({
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [search, setSearch] = useState("");
   const [showClientForm, setShowClientForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras" | null>(null);
+  const [activeTab, setActiveTab] = useState<"cadastro" | "crm" | "amostras" | null>(initialArea ?? null);
   const [crmView, setCrmView] = useState<"agenda" | "carteira" | "pipeline">("agenda");
   const [unplannedData, setUnplannedData] = useState<{ profileId: string; scheduledClientIds: string[]; blockedClientIds: string[] } | null>(null);
   const [unplannedError, setUnplannedError] = useState("");

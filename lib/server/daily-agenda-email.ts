@@ -1,6 +1,7 @@
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { decryptIntegrationCredential, encryptIntegrationCredential } from "@/lib/server/telephony-credentials";
 import { sampleDeadlineControl } from "@/lib/sample-deadlines";
+import type { EmailCredentialHealth } from "@/lib/email-diagnostics";
 
 type AgendaTask = {
   clientName: string;
@@ -88,7 +89,18 @@ export function emailIntegrationStatus(connection: EmailConnection) {
 export async function getCompanyEmailIntegration(companyId: string) {
   const admin = createSupabaseAdmin();
   const connection = await emailConnectionForCompany(admin, companyId);
-  return emailIntegrationStatus(connection);
+  return { ...emailIntegrationStatus(connection), credentialHealth: emailCredentialHealth(connection) };
+}
+
+// Read-only check on this server. No provider request, test e-mail or secret
+// returned to the client; readability is not proof the provider accepts it.
+export function emailCredentialHealth(connection: EmailConnection): EmailCredentialHealth {
+  if (!connection.enabled) return "DISABLED";
+  if (!emailIntegrationStatus(connection).configured) return "INCOMPLETE";
+  try {
+    const key = decryptIntegrationCredential({ ciphertext: connection.api_key_ciphertext || "", iv: connection.api_key_iv || "", authTag: connection.api_key_auth_tag || "" });
+    return key.trim() ? "READABLE" : "UNREADABLE";
+  } catch { return "UNREADABLE"; }
 }
 
 export async function saveCompanyEmailIntegration(input: { companyId: string; apiKey?: string; sender: string; replyTo: string; enabled: boolean }) {
@@ -105,7 +117,7 @@ export async function saveCompanyEmailIntegration(input: { companyId: string; ap
   }
   const { data, error } = await admin.from("email_integration_connections").update(update).eq("id", connection.id).select("*").single();
   if (error) throw error;
-  return emailIntegrationStatus(data as EmailConnection);
+  return { ...emailIntegrationStatus(data as EmailConnection), credentialHealth: emailCredentialHealth(data as EmailConnection) };
 }
 
 export async function listCompanyEmailRecipients(companyId: string, currentProfileId: string) {

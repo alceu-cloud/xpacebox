@@ -48,7 +48,7 @@ export default function GerenciadorPage() {
 
   if (!autorizado) return null;
 
-  return <GerenciadorEmpresa />;
+  return <GerenciadorEmpresa companySlug={slug} onOpenClientArea={area => router.push(`/empresa/${encodeURIComponent(slug)}?clientArea=${area}`)} />;
 }
 
 const loadingStyle = {

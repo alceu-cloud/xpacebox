@@ -22,15 +22,19 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
         if(url.pathname==='/api/notifications'){
           if(request.method()==='PATCH'){const b=request.postDataJSON();writes.push(b);if(b.action==='MARK_READ')read=true;if(b.action==='PREFERENCES')categories=b.categories;return send({success:true});}
           if(url.searchParams.get('preferencesOnly'))return send({success:true,userName:'USUÁRIO TESTE',preferences:{categories,readBefore:{}}});
-          const issues=[{id:'issue',category:slug==='dawos'?'EMAIL':'CRM',title:slug==='dawos'?'E-mail da amostra AM-000002 não enviado':'ALUNO TESTE · ganho com dados pendentes',detail:slug==='dawos'?'PRODUCAO · confira o e-mail em Integrações.':'Preencher: confirmação; presença; resultado da matrícula.',createdAt:new Date().toISOString(),target:slug==='dawos'?'SAMPLES':'CRM',leadId:slug==='xpace'?'lead-test':undefined}];
+          const issues=slug==='dawos'?[
+            {id:'sample',category:'EMAIL',title:'E-mail da amostra AM-000002 não enviado',detail:'PAES BUENO · Aviso de atraso na produção. O problema foi no e-mail de cobrança.',createdAt:new Date().toISOString(),target:'EMAIL',diagnosis:{cause:'Naquela tentativa, o servidor não conseguiu ler a chave de e-mail salva.',steps:['Abra a configuração e use Enviar teste. O teste não reenvia a amostra.','Se o teste atual funcionar, não troque a chave.'],actionLabel:'Configurar e-mail',secondaryTarget:'SAMPLES',secondaryLabel:'Ver controle de amostras'}},
+            {id:'agenda',category:'EMAIL',title:'Resumo diário do CRM não enviado',detail:'USUÁRIO TESTE · E-mail com 12 ações do dia e 2 atrasadas. Suas tarefas continuam no CRM.',createdAt:new Date().toISOString(),target:'EMAIL',diagnosis:{cause:'Naquela tentativa, o servidor não conseguiu ler a chave de e-mail salva.',steps:['O teste não apaga a tentativa com erro.'],actionLabel:'Configurar e-mail',secondaryTarget:'CRM',secondaryLabel:'Ver agenda do CRM'}}
+          ]:[{id:'issue',category:'CRM',title:'ALUNO TESTE · ganho com dados pendentes',detail:'Preencher: confirmação; presença; resultado da matrícula.',createdAt:new Date().toISOString(),target:'CRM',leadId:'lead-test'}];
           const notices=[{id:'trial',category:'EXPERIMENTAL',title:'ALUNO TESTE',detail:'Aula experimental · 05/10/2026',createdAt:new Date().toISOString(),target:'CRM',leadId:'lead-test'},{id:'paid',category:'FINANCEIRO',title:'Pagamento recebido',detail:'R$ 100,00 · confira em Financeiro.',createdAt:new Date().toISOString(),target:'FINANCE'}];
           const bucket=url.searchParams.get('bucket'),list=bucket==='ISSUES'?issues:bucket==='READ'?(read?notices:[]):(read?[]:notices);
-          return send({success:true,items:list,total:list.length,unread:read?0:2,issueCount:1,todayErrors:slug==='dawos'?1:0,page:0,pageSize:2,snapshotAt:new Date().toISOString(),preferences:{categories,readBefore:{}}});
+          return send({success:true,items:list,total:list.length,unread:read?0:2,issueCount:issues.length,todayErrors:slug==='dawos'?2:0,page:0,pageSize:2,snapshotAt:new Date().toISOString(),preferences:{categories,readBefore:{}}});
         }
         if(request.method()!=='GET')throw Error('Unexpected write '+url.pathname);
         if(url.pathname==='/api/xpace/home')return send({success:true,metrics:{activeClients:48,newClientsThisMonth:7}});
         if(url.pathname==='/api/xpace/message-connector/status')return send({success:true,configured:false});
         if(url.pathname==='/api/gerenciador')return send({success:true,settings:{},representatives:[]});
+        if(url.pathname==='/api/integracoes/email')return send({success:true,integration:{configured:true,enabled:true,sender:'test@example.test',replyTo:'',scheduleLabel:'DIAS UTEIS, 07:30',credentialHealth:'READABLE'},recipients:[]});
         if(url.pathname==='/api/clientes')return send({success:true,clients:[]});
         if(url.pathname.startsWith('/api/empresas/'))return send({success:true,canAccessCentral:true,company});
         return send({success:true,lock:null,latest:null,quotes:[],samples:[],connections:[]});
@@ -39,14 +43,22 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
     });
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
     await page.goto(origin+(slug==='dawos'?'/empresa/dawos':'/xpace'));
+    if(slug==='dawos'){await page.getByRole('navigation',{name:'Módulos da empresa'}).getByRole('button',{name:'GERENCIADOR',exact:true}).waitFor();assert.equal(await page.locator('.cn-panel').count(),0,'Company landing must not contain the DAWOS panel');await page.getByRole('navigation',{name:'Módulos da empresa'}).getByRole('button',{name:'GERENCIADOR',exact:true}).click();}
     const panel=page.locator('.cn-panel');await panel.waitFor();await panel.locator('.cn-notice').first().waitFor();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Page overflow');
     await panel.getByRole('button',{name:/^PROVIDÊNCIAS/}).click();await panel.getByText(slug==='dawos'?'E-mail da amostra AM-000002 não enviado':'ALUNO TESTE · ganho com dados pendentes',{exact:true}).waitFor();
     assert.equal(await panel.getByRole('button',{name:'Marcar todas como lidas'}).count(),0,'Issues cannot be acknowledged');
     await page.screenshot({path:path.join(out,`${slug}-${label}-issues.png`),fullPage:true});
+    if(slug==='dawos'){
+      await panel.getByText('Como resolver',{exact:true}).first().click();await panel.getByText('Se o teste atual funcionar, não troque a chave.',{exact:true}).waitFor();
+      await panel.getByRole('button',{name:'Configurar e-mail',exact:true}).first().click();await page.getByRole('heading',{name:'E-MAIL · RESEND',exact:true}).waitFor();await page.getByText('CREDENCIAL LEGÍVEL',{exact:true}).waitFor();
+      await page.getByRole('navigation',{name:'Módulos da empresa'}).getByRole('button',{name:'GERENCIADOR',exact:true}).click();await panel.waitFor();
+      await panel.getByRole('button',{name:'Ver controle de amostras'}).click();await page.getByRole('button',{name:'AMOSTRAS',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'AMOSTRAS',exact:true}).getAttribute('aria-current'),'page');
+      await page.getByRole('navigation',{name:'Módulos da empresa'}).getByRole('button',{name:'GERENCIADOR',exact:true}).click();await panel.waitFor();
+    }
     await panel.getByRole('button',{name:/^NÃO LIDAS/}).click();await panel.getByRole('button',{name:'Marcar todas como lidas'}).click();await panel.getByRole('button',{name:'LIDAS',exact:true}).waitFor();await panel.getByText('Pagamento recebido',{exact:true}).waitFor();
     await panel.getByRole('button',{name:/^NÃO LIDAS/}).click();await panel.getByText('Nenhuma notificação não lida.',{exact:true}).waitFor();
-    await page.reload();await page.locator('.cn-panel').waitFor();if(slug==='xpace')await page.getByText('Nenhuma notificação não lida.',{exact:true}).waitFor();
+    await page.reload();if(slug==='dawos')await page.getByRole('navigation',{name:'Módulos da empresa'}).getByRole('button',{name:'GERENCIADOR',exact:true}).click();await page.locator('.cn-panel').waitFor();if(slug==='xpace')await page.getByText('Nenhuma notificação não lida.',{exact:true}).waitFor();
     await page.locator('.cn-panel').getByRole('button',{name:'Usuário e notificações',exact:true}).click();
     const preferences=page.locator('.cn-preferences');await preferences.waitFor();await preferences.getByRole('button',{name:'SALVAR PREFERÊNCIAS'}).click();await preferences.getByRole('status').waitFor();
     await page.screenshot({path:path.join(out,`${slug}-${label}-preferences.png`),fullPage:true});

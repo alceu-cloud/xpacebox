@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 
 import { ui } from "@/lib/ui/styles";
 import { supabase } from "@/lib/supabase";
+import type { EmailCredentialHealth } from "@/lib/email-diagnostics";
 
 type Recipient = { id: string; name: string; email: string };
-type Integration = { configured: boolean; sender: string; replyTo: string; enabled: boolean; scheduleLabel: string };
+type Integration = { configured: boolean; sender: string; replyTo: string; enabled: boolean; scheduleLabel: string; credentialHealth?: EmailCredentialHealth };
 type Payload = { success: boolean; message?: string; integration: Integration; recipients: Recipient[] };
 
 export default function EmailAgendaIntegrationPanel({ companySlug }: { companySlug?: string }) {
@@ -86,8 +87,12 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
 
   return <section style={panelStyle}>
     <div style={headerStyle}>
-      <div><span style={eyebrowStyle}>NOTIFICACOES COMERCIAIS</span><h3 style={titleStyle}>E-MAIL DA AGENDA</h3><p style={descriptionStyle}>ENVIA PARA CADA REPRESENTANTE AS TAREFAS ATRASADAS E AS TAREFAS DO DIA.</p></div>
-      <span style={{ ...statusStyle, ...(integration.configured ? configuredStatusStyle : {}) }}>{integration.configured ? "E-MAIL CONFIGURADO" : "CONFIGURACAO PENDENTE"}</span>
+      <div><span style={eyebrowStyle}>ENVIO DE E-MAILS DA EMPRESA</span><h3 style={titleStyle}>E-MAIL · RESEND</h3><p style={descriptionStyle}>ESTA CONFIGURAÇÃO É USADA PELOS AVISOS DE AMOSTRAS, ORÇAMENTOS E PELO RESUMO DIÁRIO DO CRM.</p></div>
+      <span style={{ ...statusStyle, ...(integration.credentialHealth === "READABLE" ? configuredStatusStyle : {}) }}>{integration.credentialHealth === "READABLE" ? "CREDENCIAL LEGÍVEL" : integration.configured ? "CONFERIR CREDENCIAL" : "CONFIGURAÇÃO PENDENTE"}</span>
+    </div>
+
+    <div style={integration.credentialHealth === "READABLE" ? messageStyle : errorStyle} role="status">
+      {integration.credentialHealth === "READABLE" ? "O servidor consegue ler a chave salva agora. Isso não confirma a validade no Resend nem reenvia mensagens antigas. Se Enviar teste funcionar, não é necessário trocar a chave por causa de uma falha anterior." : integration.credentialHealth === "UNREADABLE" ? "O servidor não consegue ler a chave salva. Um gerente deve salvar novamente a API key do Resend ou pedir ao responsável técnico para revisar a criptografia no servidor. Não envie chaves no chat." : integration.credentialHealth === "DISABLED" ? "O envio automático está desativado. Ative e salve somente se quiser retomar os envios da empresa." : "Confira remetente, API key e envio ativo. Nenhum e-mail é disparado ao abrir esta tela."}
     </div>
 
     {message ? <div style={message.startsWith("TESTE ENVIADO") || message.startsWith("CONFIGURACAO") ? messageStyle : errorStyle}>{message}</div> : null}
@@ -97,12 +102,12 @@ export default function EmailAgendaIntegrationPanel({ companySlug }: { companySl
       <label style={labelStyle}>E-MAIL PARA RESPOSTAS<input value={replyTo} onChange={(event) => setReplyTo(event.target.value)} placeholder="OPCIONAL" style={inputStyle} /></label>
       <label style={labelStyle}>API KEY DO RESEND<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={integration.configured ? "CHAVE CONFIGURADA - INFORME OUTRA PARA TROCAR" : "COLE A CHAVE DO RESEND"} style={inputStyle} /></label>
       <label style={checkLabelStyle}><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> ENVIO AUTOMATICO ATIVO</label>
-      <div><small style={detailLabelStyle}>AGENDAMENTO</small><strong style={detailValueStyle}>{integration.scheduleLabel}</strong></div>
+      <div><small style={detailLabelStyle}>RESUMO DIÁRIO DO CRM</small><strong style={detailValueStyle}>{integration.scheduleLabel}</strong></div>
       <div style={saveAreaStyle}><button type="button" onClick={() => void save()} disabled={saving} style={saveButtonStyle}>{saving ? "SALVANDO..." : "SALVAR E-MAIL"}</button></div>
     </section>
 
     <section style={recipientSectionStyle}>
-      <div><span style={eyebrowStyle}>DESTINATARIOS</span><h4 style={subtitleStyle}>CADA USUARIO RECEBE APENAS A PROPRIA AGENDA.</h4></div>
+      <div><span style={eyebrowStyle}>TESTE CONTROLADO</span><h4 style={subtitleStyle}>CADA USUÁRIO RECEBE APENAS A PRÓPRIA AGENDA DO CRM.</h4><p style={descriptionStyle}>O teste envia um novo resumo com as ações do dia e atrasadas. Não é reenvio de amostra e não apaga falhas anteriores.</p></div>
       <div style={recipientHeaderStyle}><span>REPRESENTANTE</span><span>E-MAIL</span><span>TESTE</span></div>
       {recipients.map((recipient) => <div key={recipient.id} style={recipientRowStyle}><strong>{recipient.name}</strong><span>{recipient.email}</span><button type="button" onClick={() => void sendTest(recipient.id)} disabled={!integration.configured || Boolean(sendingTo)} style={{ ...testButtonStyle, ...(!integration.configured ? disabledButtonStyle : {}) }}>{sendingTo === recipient.id ? "ENVIANDO..." : "ENVIAR TESTE"}</button></div>)}
       {!recipients.length ? <div style={emptyStyle}>NENHUM USUARIO ATIVO COM E-MAIL ENCONTRADO NESTA EMPRESA.</div> : null}

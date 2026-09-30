@@ -169,6 +169,9 @@ export default function LoginPage() {
                 className="xb-login-input"
                 type={mostrarSenha ? "text" : "password"}
                 autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={senha}
                 onChange={(event) => setSenha(event.target.value)}
                 placeholder="Digite sua senha"
@@ -180,6 +183,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setMostrarSenha((valor) => !valor)}
                 className="xb-login-password-toggle"
+                aria-pressed={mostrarSenha}
               >
                 {mostrarSenha ? "Ocultar" : "Ver"}
               </button>
