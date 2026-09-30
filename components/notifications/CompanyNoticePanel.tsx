@@ -1,9 +1,11 @@
 "use client";
-import { Bell, ChevronLeft, ChevronRight, RefreshCw, Settings2, AlertTriangle } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, RefreshCw, Settings2, AlertTriangle, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 import { notificationCategories, type CompanyNotice } from "@/lib/notifications";
-type Feed = { items: CompanyNotice[]; total: number; unread: number; issueCount: number; todayErrors: number; page: number; pageSize: number; snapshotAt: string };
+import { useIssueAlarm } from "./useIssueAlarm";
+import type { IssueSignal } from "@/lib/issue-sound";
+type Feed = { items: CompanyNotice[]; total: number; unread: number; issueCount: number; issueSignals?: IssueSignal[]; todayErrors: number; page: number; pageSize: number; snapshotAt: string };
 type Bucket = "UNREAD" | "READ" | "ISSUES";
 export async function noticesRequest(slug: string, query = "", init?: RequestInit) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -16,6 +18,7 @@ export async function noticesRequest(slug: string, query = "", init?: RequestIni
 export default function CompanyNoticePanel({ slug, onOpen, onPreferences }: { slug: "dawos" | "xpace"; onOpen?: (notice: CompanyNotice) => void; onPreferences?: () => void }) {
   const [bucket, setBucket] = useState<Bucket>(slug === "dawos" ? "ISSUES" : "UNREAD");
   const [feed, setFeed] = useState<Feed>();
+  const alarm = useIssueAlarm(slug, feed?.issueSignals, feed?.snapshotAt);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [retryingId, setRetryingId] = useState("");
@@ -71,14 +74,14 @@ export default function CompanyNoticePanel({ slug, onOpen, onPreferences }: { sl
   }
   const total = feed?.total ?? 0, page = feed?.page ?? 0;
   return <article className={`xd-home-notifications cn-panel cn-panel--${slug}`} aria-label={slug === "dawos" ? "Falhas e providências DAWOS" : "Notificações e providências XPACE"} aria-busy={loading || busy}>
-    <header><div className="xd-home-notification-heading"><span className="xd-home-bell">{slug === "dawos" ? <AlertTriangle size={20} aria-hidden="true" /> : <Bell size={20} aria-hidden="true" />}{feed?.unread ? <b>{feed.unread}</b> : null}</span><div><strong>{slug === "dawos" ? "FALHAS E PROVIDÊNCIAS" : "NOTIFICAÇÕES"}</strong><small>{slug === "dawos" ? `${feed?.todayErrors ?? 0} falhas ativas registradas hoje` : "Avisos por assunto · pendências até resolver"}</small></div></div>{onPreferences ? <button type="button" className="cn-settings-button" aria-label="Usuário e notificações" title="Usuário e notificações" onClick={onPreferences}><Settings2 size={17} /></button> : null}</header>
-    <div className="xd-home-notification-tabs" aria-label="Filtrar avisos">{(["UNREAD", "READ", "ISSUES"] as Bucket[]).map(value => <button type="button" key={value} aria-pressed={bucket === value} className={bucket === value ? "is-active" : ""} onClick={() => setBucket(value)}>{value === "UNREAD" ? `NÃO LIDAS${feed?.unread ? ` · ${feed.unread}` : ""}` : value === "READ" ? "LIDAS" : `PROVIDÊNCIAS${feed?.issueCount ? ` · ${feed.issueCount}` : ""}`}</button>)}</div>
+    <header><div className="xd-home-notification-heading"><span className="xd-home-bell">{slug === "dawos" ? <AlertTriangle size={20} aria-hidden="true" /> : <Bell size={20} aria-hidden="true" />}{feed?.unread ? <b>{feed.unread}</b> : null}</span><div><strong>{slug === "dawos" ? "FALHAS E PROVIDÊNCIAS" : "NOTIFICAÇÕES"}</strong><small>{slug === "dawos" ? `${feed?.todayErrors ?? 0} falhas ativas registradas hoje` : "Avisos por assunto · pendências até resolver"}</small></div></div><div className="cn-header-actions"><button type="button" className={`cn-sound-button${alarm.mode === "ACTIVE" ? " is-active" : ""}`} disabled={!alarm.ready} aria-label={alarm.label} aria-pressed={alarm.mode !== "OFF"} title={alarm.mode === "WAITING" ? "Som salvo. Clique para o navegador liberar o alerta de providências." : alarm.label} onClick={() => void alarm.toggle()}>{alarm.mode === "OFF" ? <VolumeX size={17} aria-hidden="true" /> : <Volume2 size={17} aria-hidden="true" />}</button>{onPreferences ? <button type="button" className="cn-settings-button" aria-label="Usuário e notificações" title="Usuário e notificações" onClick={onPreferences}><Settings2 size={17} /></button> : null}</div></header>
+    <div className="xd-home-notification-tabs" aria-label="Filtrar avisos">{(["UNREAD", "READ", "ISSUES"] as Bucket[]).map(value => <button type="button" key={value} aria-pressed={bucket === value} className={`${bucket === value ? "is-active" : ""}${value === "ISSUES" ? " cn-issues-tab" : ""}`} onClick={() => setBucket(value)}>{value === "ISSUES" ? <AlertTriangle size={12} aria-hidden="true" /> : null}{value === "UNREAD" ? `NÃO LIDAS${feed?.unread ? ` · ${feed.unread}` : ""}` : value === "READ" ? "LIDAS" : `PROVIDÊNCIAS${feed?.issueCount ? ` · ${feed.issueCount}` : ""}`}</button>)}</div>
     {bucket !== "ISSUES" ? <button type="button" className="xd-home-mark-read cn-mark-read" disabled={busy || loading || !feed?.unread} onClick={() => void markRead()}>Marcar todas como lidas</button> : <p className="cn-helper">Não desaparecem ao ler. Corrija o registro ou a automação.</p>}
     {error ? <p className="xd-home-error" role="alert">{error}</p> : null}
     {feedback ? <p className="cn-helper" role="status">{feedback}</p> : null}
     {!feed && loading ? <p className="xd-home-empty">Carregando...</p> : null}
     {feed && !total && !error ? <p className="xd-home-empty">{bucket === "ISSUES" ? "Tudo em dia! Nenhuma providência nas categorias escolhidas." : bucket === "READ" ? "Nenhuma notificação lida." : "Nenhuma notificação não lida."}</p> : null}
-    <ul className="cn-notices">{feed?.items.map(item => <li key={item.id} style={{ "--cn-color": notificationCategories[item.category].color } as CSSProperties}>
+    <ul className={`cn-notices${bucket === "ISSUES" ? " cn-notices--issues" : ""}`}>{feed?.items.map(item => <li key={item.id} style={{ "--cn-color": notificationCategories[item.category].color } as CSSProperties}>
       {item.diagnosis ? <div className="cn-notice cn-notice-diagnostic">
         <span className="cn-category">{notificationCategories[item.category].label} · AÇÃO NECESSÁRIA</span><strong>{item.title}</strong><span className="cn-detail">{item.detail}</span>
         <time dateTime={item.createdAt}>Tentativa: {new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(item.createdAt))}</time>

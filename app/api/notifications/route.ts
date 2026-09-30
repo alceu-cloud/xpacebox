@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const isRead = (n: typeof feed.notices[number]) => n.createdAt <= (feed.preferences.readBefore[n.category] || "");
     const list = bucket === "ISSUES" ? feed.issues : feed.notices.filter(n => n.createdAt <= snapshotAt && (bucket === "READ" ? isRead(n) : !isRead(n)));
     const currentPage = Math.min(Math.floor(page), Math.max(0, Math.ceil(list.length / 2) - 1));
-    return NextResponse.json({ success: true, items: list.slice(currentPage * 2, currentPage * 2 + 2), total: list.length, unread: feed.unread, issueCount: feed.issues.length, todayErrors: feed.todayErrors, page: currentPage, pageSize: 2, snapshotAt, preferences: feed.preferences }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ success: true, items: list.slice(currentPage * 2, currentPage * 2 + 2), total: list.length, unread: feed.unread, issueCount: feed.issues.length, issueSignals: feed.issues.map(issue => ({ id: issue.id, delayed: issue.category === "WHATSAPP" && issue.id.startsWith("connector:") })), todayErrors: feed.todayErrors, page: currentPage, pageSize: 2, snapshotAt, preferences: feed.preferences }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 export async function PATCH(request: Request) {

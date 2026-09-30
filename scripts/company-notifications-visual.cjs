@@ -11,6 +11,15 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
     let read=false,categories=['EXPERIMENTAL','FINANCEIRO','CONTRATO','EMAIL','WHATSAPP','CRM'];const writes=[],errors=[];
     const company={id:'company-test',name:slug.toUpperCase(),slug};const context=await browser.newContext({viewport});
     await context.addInitScript(({project,user})=>localStorage.setItem(`sb-${project}-auth-token`,JSON.stringify({access_token:'fixture',refresh_token:'fixture',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user})),{project,user});
+    await context.addInitScript(()=>{
+      window.__issueAlarmNotes=0;
+      window.AudioContext=class {
+        state='suspended';currentTime=0;destination={};
+        async resume(){this.state='running';}async suspend(){this.state='suspended';}async close(){this.state='closed';}
+        createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}
+        createOscillator(){return {frequency:{setValueAtTime(){}},connect(){},start(){window.__issueAlarmNotes++;},stop(){}};}
+      };
+    });
     await context.route('**/*',async route=>{
       const request=route.request(),url=new URL(request.url()),send=value=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(value)});
       if(url.hostname.endsWith('supabase.co')){
@@ -28,7 +37,7 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
           ]:[{id:'issue',category:'CRM',title:'ALUNO TESTE · ganho com dados pendentes',detail:'Preencher: confirmação; presença; resultado da matrícula.',createdAt:new Date().toISOString(),target:'CRM',leadId:'lead-test'}];
           const notices=[{id:'trial',category:'EXPERIMENTAL',title:'ALUNO TESTE',detail:'Aula experimental · 05/10/2026',createdAt:new Date().toISOString(),target:'CRM',leadId:'lead-test'},{id:'paid',category:'FINANCEIRO',title:'Pagamento recebido',detail:'R$ 100,00 · confira em Financeiro.',createdAt:new Date().toISOString(),target:'FINANCE'}];
           const bucket=url.searchParams.get('bucket'),list=bucket==='ISSUES'?issues:bucket==='READ'?(read?notices:[]):(read?[]:notices);
-          return send({success:true,items:list,total:list.length,unread:read?0:2,issueCount:issues.length,todayErrors:slug==='dawos'?2:0,page:0,pageSize:2,snapshotAt:new Date().toISOString(),preferences:{categories,readBefore:{}}});
+          return send({success:true,items:list,total:list.length,unread:read?0:2,issueCount:issues.length,issueSignals:issues.map(i=>({id:i.id})),todayErrors:slug==='dawos'?2:0,page:0,pageSize:2,snapshotAt:new Date().toISOString(),preferences:{categories,readBefore:{}}});
         }
         if(request.method()!=='GET')throw Error('Unexpected write '+url.pathname);
         if(url.pathname==='/api/xpace/home')return send({success:true,metrics:{activeClients:48,newClientsThisMonth:7}});
@@ -47,6 +56,10 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
     const panel=page.locator('.cn-panel');await panel.waitFor();await panel.locator('.cn-notice').first().waitFor();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Page overflow');
     await panel.getByRole('button',{name:/^PROVIDÊNCIAS/}).click();await panel.getByText(slug==='dawos'?'E-mail da amostra AM-000002 não enviado':'ALUNO TESTE · ganho com dados pendentes',{exact:true}).waitFor();
+    await panel.getByRole('button',{name:'Silenciar som de providências',exact:true}).waitFor();
+    await page.waitForFunction(()=>window.__issueAlarmNotes===3);
+    assert.equal(await panel.locator('.cn-issues-tab').evaluate(el=>getComputedStyle(el).color),'rgb(180, 35, 24)');
+    await panel.locator('.cn-sound-button').focus();assert.equal(await panel.locator('.cn-sound-button').evaluate(el=>el===document.activeElement),true);
     assert.equal(await panel.getByRole('button',{name:'Marcar todas como lidas'}).count(),0,'Issues cannot be acknowledged');
     await page.screenshot({path:path.join(out,`${slug}-${label}-issues.png`),fullPage:true});
     if(slug==='dawos'){
@@ -59,6 +72,10 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
     await panel.getByRole('button',{name:/^NÃO LIDAS/}).click();await panel.getByRole('button',{name:'Marcar todas como lidas'}).click();await panel.getByRole('button',{name:'LIDAS',exact:true}).waitFor();await panel.getByText('Pagamento recebido',{exact:true}).waitFor();
     await panel.getByRole('button',{name:/^NÃO LIDAS/}).click();await panel.getByText('Nenhuma notificação não lida.',{exact:true}).waitFor();
     await page.reload();if(slug==='dawos')await page.getByRole('navigation',{name:'Módulos da empresa'}).getByRole('button',{name:'GERENCIADOR',exact:true}).click();await page.locator('.cn-panel').waitFor();if(slug==='xpace')await page.getByText('Nenhuma notificação não lida.',{exact:true}).waitFor();
+    const sound=page.locator('.cn-sound-button');await sound.waitFor();await sound.click();
+    await page.locator('.cn-panel').getByRole('button',{name:'Silenciar som de providências',exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>window.__issueAlarmNotes),0,'Reload must not sound the same issue again');
+    await sound.click();await page.locator('.cn-panel').getByRole('button',{name:'Ativar som de providências',exact:true}).waitFor();
     await page.locator('.cn-panel').getByRole('button',{name:'Usuário e notificações',exact:true}).click();
     const preferences=page.locator('.cn-preferences');await preferences.waitFor();await preferences.getByRole('button',{name:'SALVAR PREFERÊNCIAS'}).click();await preferences.getByRole('status').waitFor();
     await page.screenshot({path:path.join(out,`${slug}-${label}-preferences.png`),fullPage:true});

@@ -28,7 +28,14 @@ O XPACEBOX agora tem, na **Loja → Integrador de mensagens**, telas de pontuaç
 - Publicar o site **não atualiza** `C:\Xpacebox\connector`. No computador da escola, pare somente a tarefa/processo desse conector, atualize a pasta inteira preservando `.env` e a sessão em `%LOCALAPPDATA%\XpaceBox\message-connector`, valide `npm ci` e `npm test`, e use `npm start` ou `node launcher.mjs` na tarefa sob o mesmo usuário. Não copie `.env.example` por cima do `.env` existente. Configure a tarefa para não iniciar uma segunda instância, reiniciar em falha (por exemplo, 1 minuto / 3 tentativas) e não encerrar por limite de duração. Valide manualmente antes de ocultar a janela.
 - Se encerrar novamente, examine os últimos eventos dos dois logs. Eles esclarecem a próxima falha, mas não recuperam a causa de um encerramento antigo que não foi registrado. Não é necessário enviar o `.env`, a chave ou arquivos de sessão para suporte.
 
-### Professor ausente no controle de envios
+### Alarme de providências (30/09/2026)
+
+- Na XPACE e na DAWOS, a aba Providências e os cartões de pendências usam destaque vermelho com ícone/texto. O botão de som ao lado das configurações permite silenciar ou ativar um alerta curto de três notas.
+- O alerta identifica novas pendências por registro, mesmo quando a quantidade total não mudou. Uma pendência já sinalizada não toca a cada atualização; tocar o som não resolve nem marca o registro como lido. Preferência e histórico de alarmes ficam neste navegador por usuário e empresa.
+- Após recarregar ou reabrir a página, o navegador pode exigir uma interação para liberar áudio; o botão indica essa espera. A página precisa estar aberta e visível. O alarme não é uma notificação em segundo plano nem substitui monitoramento do computador.
+- Queda do conector só gera som se permanecer no painel por pelo menos um minuto, para evitar alertas de reconexões breves. Erros de envio não aguardam esse minuto. Categorias desativadas nas preferências não geram alarmes.
+
+### Recuperação dos avisos ao professor
 
 - O nome e celular do professor são consultados pelo agendamento/horário, mesmo quando ainda não existe `AVISO_PROFESSOR`. Falta de celular é exibida como “Cadastre o celular do professor”, não como “Professor não informado”. Histórico sem vínculo conserva o nome do agendamento; o sistema não inventa telefone.
 - Salvar o cadastro do professor com celular válido recupera somente avisos **ausentes** para aulas futuras agendadas daquele professor, excluindo registros importados da planilha. Não recria avisos enviados, em verificação ou cancelados e não reenvia vídeos/lembretes. A unicidade por agendamento/tipo também protege contra chamadas simultâneas.

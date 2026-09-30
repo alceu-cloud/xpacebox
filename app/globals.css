@@ -4310,6 +4310,14 @@ input[type="email"] { text-transform: none !important; }
 @media (max-width: 390px) { .xd-topbar--dashboard .xd-brand-logo { width: 135px; } }
 .xdd-scope-note { margin: -5px 2px 17px; color: #84778e; font-size: 10px; line-height: 1.5; text-transform: none; }
 .cn-panel { grid-template-rows: auto; align-content: start; }
+.cn-header-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.cn-panel .cn-sound-button { display: grid; place-items: center; flex: 0 0 32px; height: 32px; border: 1px solid #e6c2be; border-radius: 9px; background: #fff; color: #b42318; cursor: pointer; }
+.cn-panel .cn-sound-button.is-active { background: #fff1f2; border-color: #b42318; }
+.cn-panel .cn-sound-button:disabled { opacity: .5; cursor: wait; }
+.cn-panel .cn-sound-button:focus-visible, .cn-panel .xd-home-notification-tabs button:focus-visible { outline: 2px solid #b42318; outline-offset: 2px; }
+.cn-panel .xd-home-notification-tabs .cn-issues-tab { display: inline-flex; align-items: center; gap: 4px; color: #b42318; }
+.cn-panel .xd-home-notification-tabs .cn-issues-tab.is-active { color: #b42318; border-bottom-color: #b42318; background: #fff1f2; }
+.cn-panel .cn-notices--issues .cn-notice { border-color: #e6c2be; border-left-color: #b42318; background: #fff7f7; }
 .cn-panel .cn-notices { padding: 0; margin: 6px 0; list-style: none; display: grid; gap: 7px; }
 .cn-panel .cn-notice { display: grid; gap: 4px; width: 100%; padding: 9px 12px; border: 1px solid #e9e3ec; border-left: 4px solid var(--cn-color); border-radius: 10px; background: #fff; font: inherit; text-align: left; color: #2b1b37; cursor: pointer; }
 .cn-panel .cn-notice:disabled { cursor: default; opacity: 1; }
