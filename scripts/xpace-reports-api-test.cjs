@@ -66,7 +66,7 @@ const a={lead_id:'lead',tenant_company_id:'xpace',scheduled_on:'2026-08-31',star
   const schedule={id:'schedule',class_group_id:'group',tenant_company_id:'xpace',active:true,weekday:2,starts_at:'19:00:00',ends_at:'20:00:00',room_name:'SALA 2',instructor_id:'teacher',class_level:'INICIANTE',settings:{allowLeads:true,leadWelcomeVideoUrl:'https://schedule.test/video'}};
   const crmTables={xpace_class_groups:[group],xpace_class_schedules:[schedule],xpace_instructors:[{id:'teacher',full_name:'PROFESSORA DO HORÁRIO',tenant_company_id:'xpace'}],xpace_leads:[{id:'lead',pipeline_stage:'AULA_EXPERIMENTAL',mobile:'47999999999',tenant_company_id:'xpace'}]};
   const crmAdmin=fakeAdmin(crmTables),crm=moduleFrom('app/api/xpace/leads/route.ts',imports(crmAdmin));
-  const options=await crm.GET({});
+  const options=await crm.GET({url:'http://localhost/api/xpace/leads'});
   assert.equal(options.body.groups[0].allowsLeads,true);assert.equal(options.body.groups[0].schedules[0].allowsLeads,true);
   assert.equal(options.body.groups[0].schedules[0].roomName,'SALA 2');assert.equal(options.body.groups[0].schedules[0].instructorName,'PROFESSORA DO HORÁRIO');
   const booking=()=>({json:async()=>({action:'CREATE_APPOINTMENT',appointment:{leadId:'lead',classGroupId:'group',classScheduleId:'schedule',scheduledOn:'2026-09-29',bookingKind:'NOVO'}})});
@@ -76,5 +76,12 @@ const a={lead_id:'lead',tenant_company_id:'xpace',scheduled_on:'2026-08-31',star
   assert.equal(saved.whatsapp_opt_in,false,'Fixing schedule options must not grant consent');
   schedule.settings.allowLeads=false;assert.equal((await crm.POST(booking())).status,409);
   schedule.settings.allowLeads=true;schedule.tenant_company_id='dawos';assert.equal((await crm.POST(booking())).status,409,'Other company schedule cannot be booked');
-  console.log('PASS: authenticated report API, company isolation, pagination, date validation, manual-lead options and schedule-level booking validation.');
+  const focusId='00000000-0000-4000-8000-000000000002', foreignId='00000000-0000-4000-8000-000000000003';
+  const focusedAdmin=fakeAdmin({xpace_leads:[...Array.from({length:1000},(_,i)=>({id:String(i),tenant_company_id:'xpace'})),{id:focusId,tenant_company_id:'xpace',full_name:'LEAD ANTIGO'},{id:foreignId,tenant_company_id:'dawos'}],xpace_lead_appointments:[...Array.from({length:1500},(_,i)=>({...a,id:String(i),lead_id:'recent'})),{...a,id:'old-trial',lead_id:focusId}]});
+  const focusedApi=moduleFrom('app/api/xpace/leads/route.ts',imports(focusedAdmin));
+  const focused=await focusedApi.GET({url:'http://localhost/api/xpace/leads?focusLead='+focusId});
+  assert.equal(focused.status,200);assert.ok(focused.body.leads.some(l=>l.id===focusId));assert.ok(focused.body.appointments.some(a=>a.id==='old-trial'),'Focused old trials not lost to general limit');
+  assert.equal((await focusedApi.GET({url:'http://localhost/api/xpace/leads?focusLead='+foreignId})).status,404);
+  assert.equal((await focusedApi.GET({url:'http://localhost/api/xpace/leads?focusLead=invalid'})).status,400);
+  console.log('PASS: authenticated report API, company isolation, pagination, old lead focus, date validation, manual-lead options and schedule-level booking validation.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -7,13 +7,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { attendanceTone, modalityAction, professorAction, professorSample, rate, type TrialGroup, type TrialRecord, type TrialReport, type TrialStats } from "@/lib/xpace/report-metrics";
 import type { HistoryMonth } from "@/lib/server/xpace-report-history";
+import ConversionWorkspace from "./ConversionWorkspace";
+import { dateInSaoPaulo } from "@/lib/xpace/dashboard-metrics";
 
-type Section = "COMPARECIMENTO" | "CONVERSAO" | "PROFESSORES" | "EXPERIMENTAIS" | "METAS" | "FINANCEIRO" | "ORIGEM";
+type Section = "ACOES" | "COMPARECIMENTO" | "CONVERSAO" | "PROFESSORES" | "EXPERIMENTAIS" | "METAS" | "FINANCEIRO" | "ORIGEM";
 type SystemMonth = { month: string; future: boolean; partial: boolean; active: number | null; newClients: number | null; churn: number | null; salesCents: number | null; ticketCents: number | null; revenueCents: number | null };
 type Payload = { success: true; from: string; to: string; today: string; report: Omit<TrialReport, "records">; history: Array<HistoryMonth & { fullMonth: boolean }>; systemMonths: SystemMonth[]; transition: boolean; historySource: { file: string; inspectedOn: string }; historySources: Array<{ name: string; count: number }>; historyDestinations: Array<{ name: string; count: number }> };
 type DetailSelection = { group: "month" | "modality" | "instructor" | "all"; key: string; label: string };
 type DetailPayload = { success: true; total: number; page: number; pages: number; items: Array<TrialRecord & { name: string }> };
 const tabs: Array<{ id: Section; label: string; icon: typeof BarChart3 }> = [
+  { id: "ACOES", label: "AÇÃO E CONVERSÃO", icon: Target },
   { id: "COMPARECIMENTO", label: "COMPARECIMENTO", icon: CheckCheck }, { id: "CONVERSAO", label: "CONVERSÃO", icon: TrendingUp },
   { id: "PROFESSORES", label: "PROFESSORES", icon: GraduationCap }, { id: "EXPERIMENTAIS", label: "EXPERIMENTAIS", icon: CalendarDays },
   { id: "METAS", label: "METAS E RETENÇÃO", icon: Target }, { id: "FINANCEIRO", label: "FINANCEIRO GERENCIAL", icon: WalletCards },
@@ -27,12 +30,16 @@ function day(value: string) { return new Intl.DateTimeFormat("pt-BR", { day: "2-
 function kind(value: string) { return ({ NOVO: "Novo", REAGENDAMENTO: "Reagendado", RECUPERACAO: "Recuperado" } as Record<string, string>)[value] ?? value; }
 function status(value: string) { return ({ COMPARECEU: "Compareceu", FALTOU: "Faltou", AGENDADO: "Agendado", NAO_INFORMADO: "Não informado", MATRICULOU: "Matriculou", NAO_MATRICULOU: "Não matriculou", PENDENTE: "Pendente" } as Record<string, string>)[value] ?? value; }
 
-export default function ReportsWorkspace() {
-  const year = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 4);
-  const [section, setSection] = useState<Section>("COMPARECIMENTO");
-  const [from, setFrom] = useState(`${year}-01-01`); const [to, setTo] = useState(`${year}-12-31`);
-  const [period, setPeriod] = useState({ from: `${year}-01-01`, to: `${year}-12-31` });
+export default function ReportsWorkspace({ onOpenLead = () => {}, startWithActions = false }: { onOpenLead?: (id: string) => void; startWithActions?: boolean }) {
+  const today = dateInSaoPaulo(new Date().toISOString());
+  const year = today.slice(0, 4);
+  const initialFrom = startWithActions ? `${today.slice(0,7)}-01` : `${year}-01-01`;
+  const initialTo = startWithActions ? new Date(Date.UTC(Number(year),Number(today.slice(5,7)),0)).toISOString().slice(0,10) : `${year}-12-31`;
+  const [section, setSection] = useState<Section>(startWithActions ? "ACOES" : "COMPARECIMENTO");
+  const [from, setFrom] = useState(initialFrom); const [to, setTo] = useState(initialTo);
+  const [period, setPeriod] = useState({ from: initialFrom, to: initialTo });
   const [payload, setPayload] = useState<Payload | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
+  const [periodError, setPeriodError] = useState("");
   const [detail, setDetail] = useState<DetailSelection | null>(null); const [detailPage, setDetailPage] = useState(1);
   const [detailData, setDetailData] = useState<DetailPayload | null>(null); const [detailError, setDetailError] = useState(""); const [detailLoading, setDetailLoading] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null); const trigger = useRef<HTMLElement | null>(null);
@@ -52,7 +59,7 @@ export default function ReportsWorkspace() {
     catch (cause) { if (!signal.aborted) setError(cause instanceof Error ? cause.message : "Falha no carregamento."); }
     finally { if (!signal.aborted) setLoading(false); }
   }, [period, request]);
-  useEffect(() => { const controller = new AbortController(); setPayload(null); void load(controller.signal); return () => controller.abort(); }, [load]);
+  useEffect(() => { if (section === "ACOES") return; const controller = new AbortController(); setPayload(null); void load(controller.signal); return () => controller.abort(); }, [load, section === "ACOES"]);
   useEffect(() => () => refreshRequest.current?.abort(), []);
   function refresh() { refreshRequest.current?.abort(); const controller = new AbortController(); refreshRequest.current = controller; void load(controller.signal); }
   function openDetail(selection: DetailSelection) { trigger.current = document.activeElement as HTMLElement; setDetailPage(1); setDetail(selection); }
@@ -69,14 +76,16 @@ export default function ReportsWorkspace() {
   const report = payload?.report;
 
   return <section className="xdd-workspace xpr-workspace">
-    <header className="xdd-heading"><div><span>ACOMPANHAMENTO · XPACE</span><h1>Relatórios<span>.</span></h1><p>Entenda os números, investigue os resultados e planeje suas ações.</p></div><button type="button" className="xdd-refresh" disabled={loading} onClick={refresh} aria-label="Atualizar relatórios"><RefreshCw size={16} aria-hidden="true" /> Atualizar</button></header>
-    <form className="xdd-period" onSubmit={(event) => { event.preventDefault(); if (from > to) { setError("A data inicial deve ser anterior à final."); return; } refreshRequest.current?.abort(); setDetail(null); setPeriod({ from, to }); }}>
+    <header className="xdd-heading"><div><span>ACOMPANHAMENTO · XPACE</span><h1>Relatórios<span>.</span></h1><p>Entenda os números, investigue os resultados e planeje suas ações.</p></div>{section !== "ACOES" ? <button type="button" className="xdd-refresh" disabled={loading} onClick={refresh} aria-label="Atualizar relatórios"><RefreshCw size={16} aria-hidden="true" /> Atualizar</button> : null}</header>
+    <form className="xdd-period" onSubmit={(event) => { event.preventDefault(); if (from > to) { setPeriodError("A data inicial deve ser anterior à final."); return; } setPeriodError(""); refreshRequest.current?.abort(); setDetail(null); setPeriod({ from, to }); }}>
       <div><CalendarDays size={18} aria-hidden="true" /><span>PERÍODO DE ANÁLISE</span></div><label>DE<input type="date" required value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>ATÉ<input type="date" required value={to} onChange={(e) => setTo(e.target.value)} /></label><button type="submit">APLICAR</button><small>Experimentais usam a data da aula. Histórico manual permanece identificado.</small>
     </form>
     <nav className="xdd-tabs xpr-tabs" aria-label="Áreas dos relatórios">{tabs.map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-pressed={section === id} className={section === id ? "is-active" : ""} onClick={() => setSection(id)}><Icon size={17} aria-hidden="true" />{label}</button>)}</nav>
-    {error ? <div className="xdd-alert" role="alert"><CircleAlert size={18} aria-hidden="true" />{error}<button type="button" onClick={refresh}>Tentar novamente</button></div> : null}
-    {loading ? <div className="xdd-loading" role="status">CARREGANDO RELATÓRIOS...</div> : null}
-    {!loading && !error && report && payload ? <div className="xdd-content">
+    {periodError ? <p className="xdd-alert" role="alert">{periodError}</p> : null}
+    {section === "ACOES" ? <ConversionWorkspace from={period.from} to={period.to} onOpenLead={onOpenLead} /> : null}
+    {section !== "ACOES" && error ? <div className="xdd-alert" role="alert"><CircleAlert size={18} aria-hidden="true" />{error}<button type="button" onClick={refresh}>Tentar novamente</button></div> : null}
+    {section !== "ACOES" && loading ? <div className="xdd-loading" role="status">CARREGANDO RELATÓRIOS...</div> : null}
+    {section !== "ACOES" && !loading && !error && report && payload ? <div className="xdd-content">
       <p className="xpr-context">{report.imported} agendamentos históricos + {report.stats.appointments - report.imported} do sistema nesta seleção. {report.cancelled ? `${report.cancelled} cancelados fora das taxas.` : "Cancelados não entram nas taxas."}{payload.transition ? " Setembro/2026: mês de transição; todos os registros disponíveis entram normalmente." : ""}</p>
       {section === "COMPARECIMENTO" ? <Attendance report={report} onDetail={openDetail} /> : null}
       {section === "CONVERSAO" ? <Conversion report={report} onDetail={openDetail} /> : null}

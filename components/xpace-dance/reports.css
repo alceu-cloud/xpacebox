@@ -1,4 +1,28 @@
 .xpr-workspace { min-width: 0; }
+.xcv-workspace { display: grid; gap: 20px; min-width: 0; }
+.xpr-table th > small.xcv-consent-block { color: #a12e47; font-weight: 700; }
+.xcv-toolbar, .xcv-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.xcv-toolbar > p { flex: 1 1 280px; margin: 0; }
+.xcv-filters { margin-top: 18px; }
+.xcv-filters label, .xcv-form > label { display: grid; gap: 7px; font-size: 12px; color: #574266; text-transform: none; }
+.xcv-filters label { flex: 1 1 220px; }
+.xcv-filters input, .xcv-filters select, .xcv-form input, .xcv-form select, .xcv-form textarea { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid #d9c8e7; border-radius: 10px; background: white; color: #352145; font: inherit; font-size: 14px; min-height: 44px; }
+.xcv-filters > strong { font-size: 12px; text-transform: none; }
+.xcv-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.xcv-funnel { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 20px; text-transform: none; }
+.xcv-funnel > div { display: grid; gap: 8px; padding: 16px; border: 1px solid #e9e1ef; border-radius: 12px; font-size: 13px; }
+.xcv-funnel progress { width: 100%; height: 12px; accent-color: #7134b2; }
+.xcv-warning { padding: 16px; border: 1px solid #e8aebc; border-radius: 12px; background: #fceaf0; color: #a12e47; text-transform: none; font-size: 13px; }
+.xcv-checkbox { display: flex !important; align-items: center; gap: 10px; font-size: 13px; text-transform: none; margin-top: 16px; }
+.xcv-checkbox input { width: 18px; min-height: 18px; height: 18px; flex: 0 0 18px; accent-color: #7134b2; }
+.xcv-dialog { max-width: 620px; }
+.xcv-form { display: grid; gap: 15px; margin-top: 20px; }
+.xcv-form textarea { min-height: 100px; resize: vertical; }
+.xcv-form .xcv-actions { justify-content: flex-end; }
+.xcv-form .xcv-checkbox { margin-top: 0; }
+.xcv-workspace button:focus-visible, .xcv-workspace input:focus-visible, .xcv-workspace select:focus-visible, .xcv-workspace textarea:focus-visible { outline: 2px solid #7134b2; outline-offset: 3px; }
+.xpr-table th > small { display: block; margin-top: 4px; font-weight: 500; color: #716378; font-size: 10px; }
+@media (max-width: 760px) { .xcv-funnel { grid-template-columns: 1fr; }.xcv-filters input,.xcv-filters select,.xcv-form input,.xcv-form select,.xcv-form textarea { font-size: 16px; } }
 .xpr-tabs { flex-wrap: wrap; }
 .xpr-context, .xpr-explanation { margin: 0; color: #665474; font-size: 12px; line-height: 1.65; text-transform: none; }
 .xpr-context { padding: 13px 17px; border: 1px solid #e4d8ef; border-radius: 13px; background: #faf6fe; }

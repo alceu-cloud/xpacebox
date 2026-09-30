@@ -1,6 +1,21 @@
 # Relatórios de acompanhamento XPACE
 
 Implementação de 29/09/2026. Acesso pelo botão **RELATÓRIOS** na página inicial da XPACE.
+
+## Ação e conversão
+
+Novo acesso em **Relatórios → Ação e conversão**, também pelo atalho **Ação e conversão** no CRM. O atalho do CRM começa no mês vigente. O filtro de período é compartilhado com os relatórios; os relatórios históricos por aula permanecem inalterados.
+
+- **Conversão por pessoa:** pessoas com experimental não cancelada no período, identificadas por cliente vinculado/convertido ou ID do lead, nunca só por nome/telefone. Duas modalidades não duplicam o total geral. Clientes previamente vinculados ficam separados da aquisição. Comparecimento usa presença no período; matrícula considera todo o histórico disponível, inclusive aula posterior ao filtro. É uma visão atualizada do grupo, não uma fotografia imutável do fechamento do mês.
+- **Etapas:** presentes/pessoas agendadas e presentes que matricularam/todos os presentes. Pendências permanecem visíveis na base desta nova visão; não são convertidas em perdas. A regra histórica por resultados preenchidos continua nos demais relatórios. Matrícula e lead ganho aparecem separados, com contador de divergências.
+- **Fila comercial:** uma pessoa que compareceu, sem Matriculou em qualquer aula, com ao menos um lead não encerrado como perdido. Mostra última presença, professor real, tempo desde a aula e próxima ação. Próxima ação exige data e responsável ativo autorizado para a XPACE; concluir exige resultado e não encerra lead nem inventa matrícula. O registro é uma atividade CONTATO estruturada, preservando histórico. Leads antigos podem ser abertos diretamente sem depender do limite da lista recente do CRM.
+- **Pesquisa:** envio permanece controlado pelo fluxo automático existente. A resposta recebida no Google Forms é registrada pela equipe como positiva/neutra/negativa/sem resposta; não há leitura automática do Forms. Negativa não tratada gera aviso no painel. A equipe pode registrar atendimento, com observação obrigatória. Registrar resposta não marca enviada, não libera WhatsApp e não envia mensagens.
+- **Perdas:** pessoas do período cujos leads estão todos perdidos. Categoria ausente com observação é “Só observação · classificar motivo”; sem ambos é “Não informado”. Usa os motivos existentes em Configurações → CRM, sem criar categorias ou reinterpretar históricos silenciosamente.
+- **Professores:** pessoas presentes únicas por professor no período, excluindo clientes previamente vinculados. Conversão atribuída apenas à aula com Matriculou registrado; professor real prevalece. Pendentes ficam separados; taxa usa resultados conhecidos. Menos de cinco: baixa amostra, sem ranking. Uma pessoa em dois professores pode entrar nas duas linhas; somá-las não é o total geral e a taxa não demonstra causalidade.
+
+`/api/xpace/conversion` exige acesso à XPACE em GET e POST, valida lead/aula/responsável da empresa no servidor e usa no-store. Próximas ações e respostas são atividades com payload versionado pelo discriminador `kind`; lê-se o último evento por data/ID. Paginação do banco evita truncamento em 1.000; a tela exibe 20 registros por página. Estrutura real, checks e permissões foram conferidos antes da implementação: tabelas com RLS habilitado, sem acesso direto por anon/authenticated, via servidor autorizado. Não necessita migrations e não modifica Asaas/Autentique/conector/planilha.
+
+Testes adicionais locais: `node scripts/xpace-conversion-test.cjs` e, com servidor local 3007, `node scripts/xpace-conversion-visual.cjs`. Dados fictícios e todas as APIs externas interceptadas, sem mensagens reais.
 Fonte de referência: `Graficos de Acompanhamento 2026.xlsx`, da aba Comparecimento em diante. O arquivo original não é alterado.
 
 ## Apuração de experimentais

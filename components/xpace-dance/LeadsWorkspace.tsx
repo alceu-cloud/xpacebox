@@ -14,12 +14,12 @@ type Group = { id: string; name: string; modality: string; instructorName: strin
 type Workspace = { leads: Lead[]; appointments: Appointment[]; activities: Activity[]; sources: Array<{ id: string; name: string; active: boolean }>; lossReasons: Array<{ id: string; name: string; active: boolean }>; winReasons: Array<{ id: string; name: string; active: boolean }>; attendants: Array<{ id: string; full_name: string }>; instructors: Array<{ id: string; full_name: string; active: boolean }>; groups: Group[]; canOverrideTrialLimit: boolean; canDeleteLeads: boolean };
 const blank: Workspace = { leads: [], appointments: [], activities: [], sources: [], lossReasons: [], winReasons: [], attendants: [], instructors: [], groups: [], canOverrideTrialLimit: false, canDeleteLeads: false };
 
-export default function LeadsWorkspace() {
+export default function LeadsWorkspace({ initialLeadId = "", onOpenConversion }: { initialLeadId?: string; onOpenConversion?: () => void }) {
   const [workspace, setWorkspace] = useState<Workspace>(blank);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(initialLeadId);
   const [draggedLeadId, setDraggedLeadId] = useState("");
   const [showClosed, setShowClosed] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -47,7 +47,7 @@ export default function LeadsWorkspace() {
     if (!response.ok || !payload.success) throw new Error(payload.message || "NÃO FOI POSSÍVEL CONCLUIR A OPERAÇÃO.");
     return payload;
   }
-  async function load() { setLoading(true); try { setWorkspace(await request<Workspace>("/api/xpace/leads")); } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR O CRM."); } finally { setLoading(false); } }
+  async function load() { setLoading(true); try { setWorkspace(await request<Workspace>(`/api/xpace/leads${initialLeadId ? `?focusLead=${encodeURIComponent(initialLeadId)}` : ""}`)); } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR O CRM."); } finally { setLoading(false); } }
   async function action(payload: unknown, success?: string) { try { setNotice(""); await request("/api/xpace/leads", { method: "POST", body: JSON.stringify(payload) }); if (success) setNotice(success); await load(); return true; } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL ATUALIZAR O CRM."); return false; } }
   async function deleteSelectedLead(id: string): Promise<string | null> {
     try {
@@ -61,7 +61,7 @@ export default function LeadsWorkspace() {
   async function copyPublicLink() { try { await navigator.clipboard.writeText(`${window.location.origin}/aula-experimental`); setNotice("LINK DE AGENDAMENTO COPIADO."); } catch { setNotice("LINK: /aula-experimental"); } }
 
   return <section className="xd-leads">
-    <header className="xd-leads-heading"><div><span>RELACIONAMENTO E CONVERSÃO</span><h1>CRM DE LEADS.</h1><p>Controle cada experimental sem misturar interessados com alunos ou vendas financeiras.</p></div><div className="xd-leads-heading-actions"><button type="button" className="xd-secondary" onClick={() => { void copyPublicLink(); }}><ClipboardCopy size={15} /> LINK DE AGENDAMENTO</button><button type="button" className="xd-primary" onClick={() => setCreating(true)}><UserRoundPlus size={16} /> NOVO LEAD</button></div></header>
+    <header className="xd-leads-heading"><div><span>RELACIONAMENTO E CONVERSÃO</span><h1>CRM DE LEADS.</h1><p>Controle cada experimental sem misturar interessados com alunos ou vendas financeiras.</p></div><div className="xd-leads-heading-actions">{onOpenConversion ? <button type="button" className="xd-secondary" onClick={onOpenConversion}><CheckCircle2 size={15} aria-hidden="true" /> AÇÃO E CONVERSÃO</button> : null}<button type="button" className="xd-secondary" onClick={() => { void copyPublicLink(); }}><ClipboardCopy size={15} /> LINK DE AGENDAMENTO</button><button type="button" className="xd-primary" onClick={() => setCreating(true)}><UserRoundPlus size={16} /> NOVO LEAD</button></div></header>
     <section className="xd-lead-stats"><article><small>EM FUNIL</small><strong>{stats.active}</strong></article><article><small>AGENDADOS</small><strong>{stats.scheduled}</strong></article><article><small>COMPARECERAM</small><strong>{stats.attended}</strong></article><article><small>GANHOS</small><strong>{stats.won}</strong></article></section>
     <section className="xd-leads-toolbar"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="BUSCAR LEAD" /><button type="button" className={showFilters ? "xd-primary" : "xd-secondary"} onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters}><Filter size={15} /> {showFilters ? "FECHAR FILTROS" : "FILTROS"}</button><button type="button" className={showClosed ? "xd-primary" : "xd-secondary"} onClick={() => setShowClosed(!showClosed)}>{showClosed ? "OCULTAR GANHOS/PERDIDOS" : "MOSTRAR GANHOS/PERDIDOS"}</button>{unlinkedHistoricalCount ? <small className="xd-historical-pending">{unlinkedHistoricalCount} HISTÓRICO(S) PARA AJUSTAR NOS CARTÕES VERMELHOS</small> : null}<button type="button" className="xd-secondary" onClick={() => { void load(); }}><RotateCcw size={15} /> ATUALIZAR</button></section>
     {showFilters ? <section className="xd-lead-date-filters" aria-label="Filtros de data"><div><strong>LEADS EM ABERTO</strong><label>DE<input type="date" value={entryFrom} onChange={(event) => setEntryFrom(event.target.value)} /></label><label>ATÉ<input type="date" value={entryTo} onChange={(event) => setEntryTo(event.target.value)} /></label><small>DATA DA AULA OU ENTRADA DO LEAD</small></div><div><strong>GANHOS E PERDIDOS</strong><label>DE<input type="date" value={closedFrom} onChange={(event) => setClosedFrom(event.target.value)} /></label><label>ATÉ<input type="date" value={closedTo} onChange={(event) => setClosedTo(event.target.value)} /></label><small>DATA DO FECHAMENTO OU DA AULA HISTÓRICA</small></div><button type="button" className="xd-secondary" onClick={() => { setEntryFrom(""); setEntryTo(""); setClosedFrom(""); setClosedTo(""); }}>LIMPAR DATAS</button></section> : null}

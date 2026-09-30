@@ -26,6 +26,8 @@ type Body = {
 export async function GET(request: Request) {
   try {
     const access = await requireCompanyAccess(request, companySlug);
+    const focusLead = new URL(request.url).searchParams.get("focusLead");
+    if (focusLead && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(focusLead)) throw new RequestError("LEAD INVÁLIDO.",400);
     const [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, winReasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult] = await Promise.all([
       access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,win_reason_id,converted_person_id,converted_contract_id,linked_student_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("tenant_company_id", access.company.id).order("updated_at", { ascending: false }).limit(1000),
       access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,actual_instructor_id,actual_instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,survey_opt_in,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,whatsapp_opt_in,whatsapp_opt_in_at,whatsapp_legacy_allowed_at,trial_limit_override,trial_limit_override_by,trial_limit_override_at,created_at,updated_at").eq("tenant_company_id", access.company.id).order("scheduled_on", { ascending: false }).limit(1500),
@@ -39,6 +41,23 @@ export async function GET(request: Request) {
       access.admin.from("company_members").select("profile_id").eq("company_id", access.company.id).eq("active", true),
     ]);
     for (const result of [leadsResult, appointmentsResult, activitiesResult, sourcesResult, reasonsResult, winReasonsResult, groupsResult, schedulesResult, instructorsResult, membersResult]) if (result.error) throw result.error;
+    // A follow-up can target an old lead outside the board's recent-row limit.
+    if (focusLead) {
+      if (!leadsResult.data?.some(l => l.id === focusLead)) {
+        const {data: focused,error} = await access.admin.from("xpace_leads").select("id,lead_number,full_name,mobile,email,pipeline_stage,source_id,source_note,assigned_to,loss_reason_id,loss_note,win_reason_id,converted_person_id,converted_contract_id,linked_student_id,created_at,updated_at,won_at,lost_at,legacy_import_batch_id,legacy_row_number").eq("id",focusLead).eq("tenant_company_id",access.company.id).maybeSingle();
+        if (error) throw error; if (!focused) throw new RequestError("LEAD NÃO ENCONTRADO.",404);
+        leadsResult.data = [...(leadsResult.data ?? []),focused];
+      }
+    }
+    if (focusLead) {
+      // Include all this lead's trials even when older than the board's general cutoff.
+      const focusedAppointments = [];
+      for (let offset=0; ; offset+=1000) {
+        const {data,error} = await access.admin.from("xpace_lead_appointments").select("id,lead_id,class_group_id,class_schedule_id,scheduled_on,starts_at,ends_at,booking_kind,confirmation_status,attendance_status,enrollment_outcome,assigned_to,attendant_name_snapshot,modality_name_snapshot,instructor_name_snapshot,actual_instructor_id,actual_instructor_name_snapshot,class_name_snapshot,legacy_week_label,note,survey_status,survey_opt_in,welcome_video_url,welcome_delivery_status,welcome_delivered_at,confirmed_at,attended_at,outcome_recorded_at,whatsapp_opt_in,whatsapp_opt_in_at,whatsapp_legacy_allowed_at,trial_limit_override,trial_limit_override_by,trial_limit_override_at,created_at,updated_at").eq("tenant_company_id",access.company.id).eq("lead_id",focusLead).order("id").range(offset,offset+999);
+        if (error) throw error; focusedAppointments.push(...(data ?? [])); if (!data || data.length < 1000) break;
+      }
+      appointmentsResult.data = [...(appointmentsResult.data ?? []).filter(a => a.lead_id !== focusLead),...focusedAppointments];
+    }
     const profileIds = [...new Set([access.profile.id, ...(membersResult.data ?? []).map((member) => member.profile_id)])];
     const { data: profiles, error: profilesError } = profileIds.length ? await access.admin.from("profiles").select("id,full_name").in("id", profileIds) : { data: [], error: null };
     if (profilesError) throw profilesError;
