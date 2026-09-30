@@ -9,6 +9,7 @@ import ManagerWelcome from "@/components/ui/ManagerWelcome";
 import { SearchableFilter, SearchableSelect } from "@/components/ui/SearchableSelect";
 import BaldussiIntegrationPanel from "@/components/integracoes/BaldussiIntegrationPanel";
 import EmailAgendaIntegrationPanel from "@/components/integracoes/EmailAgendaIntegrationPanel";
+import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
 
 import {
   defaultQuoteParametersByCompany,
@@ -31,7 +32,7 @@ import type { EngineeringFormula, PaperCostParams, PaperType, PricingGoalCompany
 import type { CfopOption, GeneralOption, PaymentCondition } from "@/types/cadastros-gerais";
 import type { ClientRecord } from "@/types/clientes";
 
-type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "orcamento" | "integracoes" | "tempos" | "lembretes";
+type Tab = "fornecedores" | "papeis" | "materiais" | "engenharia" | "cores" | "custo" | "parametros" | "metas" | "orcamento" | "integracoes" | "tempos" | "lembretes" | "notificacoes";
 type ManagerSection = "embalagem" | "fornecedores" | "produtos" | "empresa" | "gerais";
 type Mode = "create" | "edit";
 
@@ -46,6 +47,7 @@ const tabs: Array<{ key: Tab; label: string; icon: LucideIcon; disabled?: boolea
   { key: "metas", label: "METAS", icon: Target },
   { key: "orcamento", label: "PARAMETROS DE ORCAMENTO", icon: ClipboardList },
   { key: "integracoes", label: "INTEGRACOES", icon: Plug },
+  { key: "notificacoes", label: "USUARIO E NOTIFICACOES", icon: Settings2 },
   { key: "tempos", label: "TEMPOS DE PRODUCAO", icon: Timer },
   { key: "lembretes", label: "LEMBRETES & FORMULAS", icon: FileText },
 ];
@@ -62,7 +64,7 @@ const sectionTabs: Record<Exclude<ManagerSection, "gerais">, Tab[]> = {
   embalagem: ["papeis", "materiais", "tempos", "lembretes"],
   fornecedores: ["fornecedores", "custo"],
   produtos: ["engenharia", "cores"],
-  empresa: ["parametros", "metas", "orcamento", "integracoes"],
+  empresa: ["parametros", "metas", "orcamento", "integracoes", "notificacoes"],
 };
 
 const emptySupplier: Supplier = { id: "", name: "" };
@@ -252,6 +254,7 @@ export default function GerenciadorEmpresa({
     if (activeTab === "metas") return "METAS DE DESEMPENHO COMERCIAL";
     if (activeTab === "orcamento") return "PARAMETROS DE ORCAMENTO";
     if (activeTab === "integracoes") return "INTEGRACOES DA EMPRESA";
+    if (activeTab === "notificacoes") return "USUARIO E NOTIFICACOES";
     if (activeTab === "tempos") return "TABELA DE TEMPOS DE PRODUCAO";
     return "LEMBRETES & FORMULAS";
   }, [activeTab]);
@@ -694,6 +697,7 @@ export default function GerenciadorEmpresa({
               <BaldussiIntegrationPanel companySlug={companySlug} />
             </div>
           )}
+          {activeTab === "notificacoes" && companySlug === "dawos" && <NotificationPreferencesPanel slug={companySlug} />}
 
           {activeTab === "tempos" && (
             <>

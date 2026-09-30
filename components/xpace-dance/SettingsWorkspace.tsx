@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, CircleCheck, CircleX, MapPinned, Plus, Tags, Wall
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
 
 type Profile = {
   legalName: string;
@@ -22,8 +23,10 @@ const empty: Profile = {
   legalName: "", tradeName: "", cnpj: "", postalCode: "", street: "", streetNumber: "", complement: "", district: "", city: "", state: "",
 };
 
-export default function SettingsWorkspace() {
-  const [view, setView] = useState<"HOME" | "PROFILE_MENU" | "CRM_MENU" | "FINANCE_MENU" | "SCHOOL_PROFILE" | "CRM_REASONS" | "EXPENSE_CATEGORIES">("HOME");
+export default function SettingsWorkspace({ startWithNotifications = false }: { startWithNotifications?: boolean }) {
+  const [view, setView] = useState<"HOME" | "PROFILE_MENU" | "CRM_MENU" | "FINANCE_MENU" | "SCHOOL_PROFILE" | "CRM_REASONS" | "EXPENSE_CATEGORIES" | "NOTIFICATIONS">(startWithNotifications ? "NOTIFICATIONS" : "HOME");
+
+  if (view === "NOTIFICATIONS") return <section className="xd-administration"><button type="button" className="xd-settings-back" onClick={() => setView("HOME")} aria-label="Voltar para Configurações"><ArrowLeft size={18} /></button><NotificationPreferencesPanel slug="xpace" /></section>;
 
   if (view === "SCHOOL_PROFILE") return <SchoolProfile onBack={() => setView("PROFILE_MENU")} />;
   if (view === "CRM_REASONS") return <CrmRegistries onBack={() => setView("CRM_MENU")} />;
@@ -44,6 +47,7 @@ export default function SettingsWorkspace() {
       <p>Organize os dados e parâmetros gerais usados pela escola.</p>
     </header>
     <div className="xd-administration-grid xd-administration-grid--single">
+      <button type="button" className="xd-administration-card" onClick={() => setView("NOTIFICATIONS")}><span><Tags size={22} /></span><strong>USUÁRIO E NOTIFICAÇÕES</strong><small>ESCOLHA OS ASSUNTOS QUE QUER RECEBER</small></button>
       <button type="button" className="xd-administration-card" onClick={() => setView("PROFILE_MENU")}>
         <span><Building2 size={22} /></span>
         <strong>PERFIL</strong>

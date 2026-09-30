@@ -5,6 +5,7 @@ import { sendSampleRequestEmail } from "@/lib/server/daily-agenda-email";
 import type { ClientSampleFormData, ClientSampleRecord, SampleStatus } from "@/types/amostras";
 import type { ProductFicha } from "@/types/gerenciador";
 import { sampleDeadlineControl } from "@/lib/sample-deadlines";
+import { recordAutomationResult } from "@/lib/server/automation-issues";
 
 const sampleStatuses: SampleStatus[] = ["REQUESTED", "IN_PRODUCTION", "READY", "SENT", "APPROVED", "REJECTED", "CANCELLED"];
 
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
         notificationError = emailError instanceof Error ? emailError.message : "NAO FOI POSSIVEL ENVIAR A NOTIFICACAO.";
         console.error("SAMPLE NOTIFICATION ERROR", { sampleId: saved.id, emailError });
       }
+      await recordAutomationResult({ companyId: company.id, automation: "sample-request-email", scopeKey: saved.id, category: "EMAIL", summary: `E-mail inicial da amostra ${saved.sampleCode} não enviado`, failed: !notificationSent });
     }
     return NextResponse.json({ success: true, sample: saved, notificationSent, notificationError }, { status: 201 });
   } catch (error) {

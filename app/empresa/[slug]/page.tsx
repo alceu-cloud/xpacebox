@@ -12,6 +12,8 @@ import ModuleNavigation from "@/components/ui/ModuleNavigation";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import WorkspaceWelcome from "@/components/ui/WorkspaceWelcome";
+import CompanyNoticePanel from "@/components/notifications/CompanyNoticePanel";
+import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
 import { useCrmOperationalLock } from "@/components/clientes/CrmOperationalLock";
 import { loadClients } from "@/lib/clientes";
 import { defaultPaperCostParams, defaultPricingGoalsByCompany, defaultPricingOperationalParams, defaultPricingParamsByCompany, defaultQuoteParametersByCompany, defaultSalesGoals, initialEngineeringFormulas, initialMaterials, initialPaperTypes, initialSuppliers, normalizePricingOperationalParams, normalizePricingParamsByCompany, normalizeSalesGoals } from "@/lib/gerenciador/data";
@@ -217,6 +219,7 @@ export default function EmpresaPage() {
   const { isBlocked: crmBlocked, lock: crmLock } = useCrmOperationalLock();
   const [podeGerenciar, setPodeGerenciar] = useState(false);
   const [moduloAtivo, setModuloAtivo] = useState<ModuloKey | null>(null);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [paperTypes, setPaperTypes] = useState<PaperType[]>(initialPaperTypes);
   const [materials, setMaterials] = useState<SpecificMaterial[]>(initialMaterials);
@@ -335,7 +338,7 @@ export default function EmpresaPage() {
       <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onSelect={setModuloAtivo} />
 
       <section className={`xb-workspace${!moduloSelecionado ? " xb-workspace--welcome" : ""}`}>
-        {!moduloSelecionado && <WorkspaceWelcome />}
+        {!moduloSelecionado && (slug === "dawos" ? <div className="cn-dawos-home"><WorkspaceWelcome /><div><CompanyNoticePanel slug="dawos" onPreferences={() => setShowNotificationSettings(value => !value)} onOpen={notice => setModuloAtivo(notice.target === "EMAIL" ? "gerenciador" : "clientes")} />{showNotificationSettings ? <NotificationPreferencesPanel slug="dawos" /> : null}</div></div> : <WorkspaceWelcome />)}
 
         {moduloEmExibicao === "gerenciador" ? (
           <GerenciadorEmpresa

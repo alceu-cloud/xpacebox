@@ -5,6 +5,7 @@ import { ensureContractCharges, todayIso } from "@/lib/xpace/billing";
 import { resendAutentiqueSignature } from "@/lib/server/autentique";
 import { issuePendingPixCharges, queueReadyPixMessages } from "@/lib/server/xpace-charge-issuance";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { recordAutomationResult, recordCronResult } from "@/lib/server/automation-issues";
 
 export const dynamic = "force-dynamic";
 
@@ -56,9 +57,11 @@ export async function GET(request: Request) {
     }));
     const reminders = await sendSignatureReminders(admin, company.id, today, new Set(activeContracts.map((contract) => contract.id)), signatureRemindersResult.data ?? []);
     const cancellations = await processPaymentCancellations(admin, company.id);
+    await recordCronResult("xpace", "recurring-charges", false, "FINANCEIRO", "Rotina diária de cobranças interrompida");
     return NextResponse.json({ success: true, cancellations, reminders, issuedPix, queuedPixMessages, generatedFor: contractsForCharges.size, renewedFor: renewedContracts?.length ?? 0, paymentBlocked: overdueContractIds.size, signatureBlocked: signatureBlockedIds.size });
   } catch (error) {
     console.error("XPACE RECURRING CHARGES CRON ERROR", error);
+    await recordCronResult("xpace", "recurring-charges", true, "FINANCEIRO", "Rotina diária de cobranças interrompida");
     return NextResponse.json({ success: false, message: "NÃO FOI POSSÍVEL GERAR AS COBRANÇAS RECORRENTES." }, { status: 500 });
   }
 }
@@ -97,12 +100,14 @@ async function sendSignatureReminders(admin: ReturnType<typeof createSupabaseAdm
       if (!locked) { result.skipped += 1; continue; }
       try {
         await resendAutentiqueSignature(sale.signature_provider_signature_id);
+        await recordAutomationResult({ companyId, automation: "signature-reminder", scopeKey: `${sale.id}:${stage.field}`, category: "CONTRATO", summary: "Lembrete de assinatura não enviado", failed: false });
         const { error: eventError } = await admin.from("xpace_contract_events").insert({ tenant_company_id: companyId, contract_id: sale.contract_id, event_type: "LEMBRETE_ASSINATURA", note: `LEMBRETE DE ASSINATURA REENVIADO PELA AUTENTIQUE NO ${stage.label}.`, created_by: null });
         if (eventError) throw eventError;
         result.sent += 1;
       } catch (error) {
         await admin.from("xpace_contract_sales").update({ [stage.field]: null, updated_at: new Date().toISOString() }).eq("id", sale.id).eq("tenant_company_id", companyId);
         result.failed += 1;
+        await recordAutomationResult({ companyId, automation: "signature-reminder", scopeKey: `${sale.id}:${stage.field}`, category: "CONTRATO", summary: "Lembrete de assinatura não enviado", failed: true });
         console.error("XPACE SIGNATURE REMINDER ERROR", { saleId: sale.id, stage: stage.label, error });
       }
     }

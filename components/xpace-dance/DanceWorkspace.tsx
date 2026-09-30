@@ -45,10 +45,11 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   const [profileId, setProfileId] = useState("");
   const [leadId, setLeadId] = useState("");
   const [reportActions, setReportActions] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState(false);
   function openReports() { setReportActions(false); setScreen("REPORTS"); }
   function openCrm() { setLeadId(""); setScreen("CRM"); }
   const [connectorHealth, setConnectorHealth] = useState<{ configured: boolean; status: string; lastSeenAt: string | null } | null>(null);
-  useEffect(() => { window.scrollTo(0, 0); }, [screen]);
+  useEffect(() => { window.scrollTo(0, 0); if (screen === "HOME") setNotificationSettings(false); }, [screen]);
   useEffect(() => {
     let active = true;
     async function checkConnector() {
@@ -94,7 +95,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   if (screen === "SERVICES") return <main className="xd-shell">{topbar}<ServicesWorkspace /></main>;
   if (screen === "MODALITIES") return <main className="xd-shell">{topbar}<ModalitiesWorkspace /></main>;
   if (screen === "INSTRUCTORS") return <main className="xd-shell">{topbar}<InstructorsWorkspace /></main>;
-  if (screen === "SETTINGS") return <main className="xd-shell">{topbar}<SettingsWorkspace /></main>;
+  if (screen === "SETTINGS") return <main className="xd-shell">{topbar}<SettingsWorkspace startWithNotifications={notificationSettings} /></main>;
   if (screen === "ROOMS") return <main className="xd-shell">{topbar}<RoomsWorkspace /></main>;
 
   return <main className="xd-shell">
@@ -122,7 +123,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
       </div>
     </section>
 
-    <XpaceHomeOverview />
+    <XpaceHomeOverview onPreferences={() => { setNotificationSettings(true); setScreen("SETTINGS"); }} onOpen={notice => { if (notice.leadId) { setLeadId(notice.leadId); setScreen("CRM"); } else if (notice.studentId && notice.target === "COMMUNITY") { setProfileId(notice.studentId); setScreen("PROFILE"); } else if (notice.target === "MESSAGE_CONNECTOR") setScreen("MESSAGE_CONNECTOR"); else if (notice.target === "FINANCE") setScreen("FINANCE"); else setScreen("SETTINGS"); }} />
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
       {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "DASHBOARD", "RELATÓRIOS", "CRM", "AGENDA", "FINANCEIRO", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "DASHBOARD" ? setScreen("DASHBOARD") : title === "RELATÓRIOS" ? openReports() : title === "CRM" ? openCrm() : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
