@@ -121,9 +121,13 @@ Preços autorizados: 0–50 alunos R$99; 51–200 R$149; 201–300 R$199; 301–
 
 Entrega: loja por slug, Config → Planos e Pagamentos e página genérica, preferência Pix/boleto/cartão e adicional em preparação, histórico de faturas paginado, tabela versionada/CAS/imutável, simulações idempotentes/tenant no servidor, conta principal protegida contra subconta indevida, registro cifrado e QR opt-in de outra empresa, adapters Sandbox e guard de operação incerta. Helpers puros de fechamento/eventos atrasados não são cron ou webhook ativos. Nenhum cartão completo/CVV armazenado; não há checkout real ligado.
 
+Continuação após alinhar com o amigo: medição pura por competência prepara ativos no último fechamento e média diária exata, sem inventar dias nem arredondar. A regra segue PENDING, sem coleta automática. Planos e Pagamentos mostra cinco observações manuais e permite registrar a contagem atual (tenant, autor, hora Brasília e quantidade definidos no servidor/banco), com UUID idempotente e ledger imutável. Observação não é DAY_CLOSE, média ou fatura; fonte DAY_CLOSE não é gravável nessa API/tabela. Nenhuma contagem real foi criada para teste.
+
 Migrations aplicadas individualmente e alinhadas ao histórico remoto: `20261001225412_saas_commercial_preparation.sql` e `20261001230148_saas_sandbox_operation_guard.sql`. Não reaplicar nem fazer repair/mass push. Conferência após primeira migration: XPACE como principal, fase PREPARATION, preços corretos, zero rascunhos/preferências/faturas/conexões novas. Nenhuma conta/assinatura/cobrança/mensagem externa criada. RLS e privilégios só servidor; aviso INFO sem policy é intencional.
 
-Testes desta entrega: 22 testes Node SaaS/API/adapters e SQL das duas migrations em PostgreSQL isolado/PGlite; regressão `npm run test:stock`; telas novas em desktop1440/mobile320/390 com autenticação/APIs interceptadas; TypeScript/build verificados. Após integrar os commits de estoque do amigo, SaaS, estoque, build otimizado e ambos os testes de navegador foram reexecutados e passaram; somente o conflito documental exigiu resolução. Testes visuais não comprovam checkout/recibo real. Publicação e revisão efetivas devem ser reconferidas no Git/Vercel; não derivar estado de produção apenas deste texto.
+Também aplicadas e verificadas individualmente: `20261001234305_saas_least_privilege.sql` e `20261001235446_saas_student_observations.sql`. A primeira corrigiu defaults Supabase que mantinham ALL em service_role apesar de grants mínimos; configuração principal/faturas agora SELECT-only e nenhum DELETE/TRUNCATE nas tabelas SaaS. A segunda adicionou observações append-only com RLS e grants explícitos. Consulta final: fase PREPARATION, zero faturas/operações Sandbox/observações. Nenhuma alteração de dados das empresas, chave, callback ou cron operacional.
+
+Testes finais desta entrega: 34 testes Node SaaS/API/adapters/medição e dois suites SQL PGlite cobrindo as quatro migrations; regressão `npm run test:stock` e rolagem; telas em desktop1440/mobile320/390 com autenticação/APIs interceptadas; TypeScript/build otimizado verificados. Testes de navegador SaaS incluem observação, retry incerto com o mesmo UUID e gravação confirmada seguida de falha de leitura. Estoque/lista/grade/relatório também foram reconferidos após integrar o amigo. Somente o conflito documental exigiu resolução. Screenshot mobile inspecionado, sem overflow nem revisão cobrindo texto. Testes visuais não comprovam checkout/recibo real. Publicação e revisão efetivas devem ser reconferidas no Git/Vercel; não derivar estado de produção apenas deste texto.
 
 ## Seleção de produtos por lista e barra desktop — entrega de 01/10/2026
 
@@ -141,7 +145,7 @@ Publicação funcional comprovada em 01/10/2026: push à `main` confirmado e sta
 
 ## Nota temporária — continuação
 
-Checkpoint de 01/10/2026: primeira etapa de preparação comercial entregue; após Alceu confirmar que o amigo terminou, foram integradas as mudanças de seleção por lista/barra desktop sem alterar seu código. O único conflito era neste documento e ambas as entregas foram preservadas. A janela de cinco horas renovou durante a retomada (98% disponíveis na conferência, valor histórico). O restante depende das decisões de cobrança pendentes e da implementação/homologação abaixo; não declarar tudo pronto para vender.
+Checkpoint de 01/10/2026: base comercial e observações de alunos preparadas; mudanças de estoque do amigo preservadas após integração. A janela de cinco horas renovou durante a retomada; não houve esgotamento de crédito. O motivo da passagem é a necessidade de definição comercial e homologação/autorizações ainda pendentes, não o limite de uso. Não declarar SaaS inteiro pronto para vender.
 
 ### Escopo autorizado e bloqueios
 
@@ -158,7 +162,7 @@ Rotas/telas operacionais existentes continuam em vários pontos específicas de 
 ### Próximos passos em ordem
 
 1. Conferir Git atual, regras/contexto, autenticação e documentação do módulo. Revisar alterações concorrentes antes de qualquer publicação; usar skills Supabase/UI aplicáveis.
-2. Obter/registrar regra de alunos e contratação por competência; preparar snapshots auditáveis. Se escolher média diária, iniciar histórico confiável sem inventar médias de meses passados.
+2. Obter/registrar regra de alunos e contratação por competência. Helper de cobertura está pronto; observações manuais não são fechamento. Se escolher média diária, definir arredondamento, ampliar enum e iniciar histórico confiável sem inventar médias de meses passados.
 3. Completar onboarding/vínculos financeiros por tenant e conta mãe XPACE. Completar cliente/assinatura SaaS na mãe, checkout hospedado de cartão, Pix/boleto e metadados seguros de pagamento; nenhum PAN/CVV no banco. Asaas exige tokenização habilitada em produção para mudar valor de assinatura de cartão; incluir isso na homologação.
 4. Ligar fechamento mensal, emissão única de plano+adicionais, eventos/recibos autenticados, deduplicação/reconciliação, cancelamento/inadimplência e entitlement no servidor. Não tratar preferência, redirect ou ID retornado como pago; REVIEW/UNKNOWN exigem conferência.
 5. Generalizar operação/módulos/consumidor WhatsApp para novas empresas sem romper XPACE. Isolar dados, assinaturas, filas, credenciais e eventos de ponta a ponta. Registro/QR novo não é envio funcionando.

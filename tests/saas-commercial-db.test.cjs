@@ -10,6 +10,8 @@ const db=new PGlite();const id=n=>`00000000-0000-4000-8000-${String(n).padStart(
   await db.query("insert into companies values($1,'xpace',true),($2,'school',true)",[id(1),id(2)]);
   await db.query("insert into profiles values($1,true,'platform_owner'),($2,true,'company_manager'),($3,true,'company_manager'),($4,false,'company_manager')",[id(3),id(4),id(5),id(6)]);
   await db.query("insert into company_members values($1,$2,true,'manager'),($3,$4,true,'manager')",[id(2),id(4),id(1),id(5)]);
+  // Model Supabase legacy defaults, not just an empty PostgreSQL installation.
+  await db.exec('alter default privileges in schema public grant all on tables to anon,authenticated,service_role; alter default privileges in schema public grant all on sequences to anon,authenticated,service_role;');
   await db.exec(fs.readFileSync('supabase/migrations/20261001225412_saas_commercial_preparation.sql','utf8'));
   const book=(await db.query('select id,config from saas_pricebooks')).rows[0];assert.equal(book.config.addons.WHATSAPP,15000);
   assert.equal((await db.query('select count(*)::int n from saas_order_drafts')).rows[0].n,0);
@@ -56,5 +58,25 @@ const db=new PGlite();const id=n=>`00000000-0000-4000-8000-${String(n).padStart(
   await assert.rejects(db.query("select saas_finish_sandbox_operation($1,$2,'UNKNOWN',null)",[sub.id,sub.leaseKey]),/LEASE_INVALID/);
   await db.exec('reset role');await db.query("delete from saas_sandbox_operations where id=$1",[lease.id]);const expired=await begin();await db.query("update saas_sandbox_operations set lease_until=now()-interval '1 minute' where id=$1",[expired.id]);assert.equal((await begin()).status,'UNKNOWN');
   await db.exec('set role authenticated');await assert.rejects(db.query('select * from saas_sandbox_operations'),/permission denied/);await assert.rejects(begin(),/permission denied/);await db.exec('reset role');
-  await db.close();console.log('SaaS isolated PostgreSQL: preparation only, immutable versions, account modes, privacy, authorization, exemption and idempotency passed.');
+  assert.equal((await db.query("select has_table_privilege('service_role','saas_billing_invoices','INSERT') p")).rows[0].p,true);
+  await db.exec(fs.readFileSync('supabase/migrations/20261001234305_saas_least_privilege.sql','utf8'));
+  for (const table of ['saas_commercial_settings','saas_billing_invoices']) {
+    const privileges=(await db.query("select has_table_privilege('service_role',$1,'SELECT') r,has_table_privilege('service_role',$1,'INSERT') i,has_table_privilege('service_role',$1,'UPDATE') u,has_table_privilege('service_role',$1,'DELETE') d,has_table_privilege('service_role',$1,'TRUNCATE') t",[table])).rows[0];
+    assert.deepEqual(privileges,{r:true,i:false,u:false,d:false,t:false});
+  }
+  assert.equal((await db.query("select has_sequence_privilege('service_role','saas_pricebooks_revision_seq','UPDATE') p")).rows[0].p,false);
+  for(const table of ['saas_pricebooks','saas_order_drafts','saas_payment_account_drafts','saas_whatsapp_connections','saas_billing_preferences','saas_sandbox_operations']) {
+    assert.equal((await db.query("select has_table_privilege('service_role',$1,'DELETE') p",[table])).rows[0].p,false);
+    assert.equal((await db.query("select has_table_privilege('service_role',$1,'TRUNCATE') p",[table])).rows[0].p,false);
+  }
+  await db.exec('set role service_role');
+  await assert.rejects(db.query('update saas_commercial_settings set singleton=singleton'),/permission denied/);
+  await assert.rejects(db.query('insert into saas_billing_invoices default values'),/permission denied/);
+  await assert.rejects(db.query('delete from saas_sandbox_operations'),/permission denied/);
+  await db.query("update saas_billing_preferences set payment_method='PIX' where tenant_company_id=$1",[id(2)]);
+  await save();
+  const latest=(await db.query('select id from saas_pricebooks order by revision desc limit 1')).rows[0].id;
+  await db.query('select saas_save_pricebook($1,$2,$3)',[id(3),latest,book.config]);
+  await db.exec('reset role');
+  await db.close();console.log('SaaS isolated PostgreSQL: preparation only, immutable versions, account modes, privacy, authorization, exemption, idempotency and least privileges with Supabase defaults passed.');
 })().catch(async e=>{console.error(e);await db.close();process.exitCode=1;});
