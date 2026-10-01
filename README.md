@@ -2,6 +2,16 @@
 
 Sistema comercial da Xpacecompany para cadastro de clientes e produtos, formacao de preco, orcamentos, CRM e financeiro.
 
+## Continuar em outra conversa
+
+Comece pelo [contexto permanente](docs/contexto/README.md), leia as [diretrizes dos agentes](AGENTS.md) e o [estado atual](docs/contexto/estado-atual.md). Essa é a entrada vigente; os documentos de contexto antigos são históricos, não o estado operacional atual.
+
+Texto para enviar à nova conversa:
+
+> Continue o repositório `alceu-cloud/xpacebox`. Leia https://github.com/alceu-cloud/xpacebox/blob/main/docs/contexto/README.md e os documentos indicados nele. Confira o Git e preserve trabalhos locais antes de atualizar com segurança. Não use um commit fixo, não execute alterações em produção ao iniciar e aguarde meu pedido. Ao concluir mudanças autorizadas, mantenha o contexto atualizado.
+
+A regra de manutenção fica no `AGENTS.md`: mudanças materiais devem atualizar o estado e a documentação do módulo no mesmo commit. O documento orienta a continuação, mas não transfere credenciais nem dispensa conferir o código e o ambiente atual.
+
 ## Execucao local
 
 ```bash
@@ -16,7 +26,7 @@ Use `npm run build` antes de publicar para validar tipos e rotas.
 O repositorio `main` publica automaticamente na Vercel.
 
 ```bash
-git pull --rebase
+git pull --ff-only origin main
 git push
 npx vercel ls --yes
 ```
@@ -29,7 +39,7 @@ Antes de iniciar qualquer alteracao, confira se o seu diretorio esta limpo e bai
 
 ```bash
 git status
-git pull --rebase origin main
+git pull --ff-only origin main
 ```
 
 Se o `git status` mostrar arquivos alterados que voce nao reconhece, nao apague nem sobrescreva nada: confira primeiro com a outra pessoa.
@@ -40,11 +50,12 @@ Ao terminar uma alteracao, valide, registre e envie nesta ordem:
 npm run build
 git add <arquivos-alterados>
 git commit -m "descricao curta da alteracao"
-git pull --rebase origin main
+git fetch origin
+git pull --ff-only origin main
 git push origin main
 ```
 
-O `git pull --rebase` antes do `push` evita publicar por cima de uma alteracao que o outro computador acabou de enviar.
+O avanço rápido (`--ff-only`) integra apenas quando seguro. Se falhar por divergência, pare e confira os commits do outro computador antes de integrar: não faça rebase, stash, descarte ou force push automaticamente. Confira as novas diretrizes após atualizar.
 
 ## Estrutura principal
 
@@ -71,4 +82,4 @@ O `git pull --rebase` antes do `push` evita publicar por cima de uma alteracao q
 
 ## Estado atual
 
-Ultimo commit funcional antes deste README: `d4d7a99 bloqueia modulos por agenda crm atrasada`.
+Consulte [Estado atual](docs/contexto/estado-atual.md) e os commits posteriores à conferência registrada nele. A revisão vigente deve ser descoberta com `git fetch origin` e `git log`, não por um hash antigo escrito neste README.

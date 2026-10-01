@@ -1,6 +1,6 @@
 # Estado atual do XPACEBOX
 
-Última conferência desta base de contexto: 01/10/2026, America/Sao_Paulo. Este retrato inclui a conversa de Z-API/estoque e a atualização posterior do amigo para grade de tamanhos e relatório de movimentações, consultada na `main` antes de publicar a documentação. Leia commits e mudanças posteriores antes de assumir que o retrato continua atual. A referência de atualização é a `main` corrente, nunca um hash congelado neste arquivo.
+Última conferência desta base de contexto: 01/10/2026, America/Sao_Paulo. Este retrato reúne a documentação de continuidade do colega e a entrega de grade de tamanhos, relatório e cadastro de produtos desta conversa. Leia commits e mudanças posteriores antes de assumir que o retrato continua atual. A referência de atualização é a `main` corrente, nunca um hash congelado neste arquivo.
 
 ## Arquitetura e módulos
 
@@ -51,14 +51,26 @@ Não guardar contagens fixas de fila nesta memória. Último caso discutido no c
 - App lê QR/código de barras, oferece busca manual, foto/saldo, entrada/baixa e confirmação de quantidade.
 - Saldo inicia em zero; entrada registra saldo inicial. Não permitir negativo.
 - Saldo, histórico e alerta são atômicos. Após resposta ambígua, mesma operação usa o mesmo `requestId` UUID e payload; não duplicar movimento.
-- Mínimo 5 e saldo 5→4 gera aviso na tela e WhatsApp ao Alceu. Não repetir enquanto abaixo; reposição até o mínimo rearma. Destinatário em `xpace_stock_settings.alert_phone`, fora do Git e da resposta pública.
+- Exemplo de regra: com mínimo configurado em 5, saldo 5→4 gera aviso na tela e, com destinatário/integrador configurados, WhatsApp ao Alceu. O mínimo não é sempre 5: os novos cadastros desta conversa usam zero, sem inventar um ponto de reposição. Não repetir enquanto abaixo; reposição até o mínimo rearma. Destinatário em `xpace_stock_settings.alert_phone`, fora do Git e da resposta pública.
 
 Atualização do amigo incorporada sem alterar seu código:
 
 - Produto com grade de tamanhos PP/P/M/G/GG/XG aparece como um modelo no catálogo e na folha de QR. O QR do modelo exige escolher o tamanho antes de entrada ou baixa; roupas usam peças inteiras.
 - Editar grade preserva IDs, QR, saldos e histórico. Tamanho com saldo não pode ser removido. Remoção sem saldo arquiva; arquivar modelo bloqueia tamanhos; reativar modelo não restaura tamanho removido.
 - Relatórios → Estoque · Entradas e baixas, somente gestores: período em Brasília, produto, responsável e tipo, 50 registros por página, nota e saldo antes/depois, inclusive produtos arquivados. Nome do responsável preserva o snapshot do lançamento; conta compartilhada não identifica a pessoa física.
-- Existe `scripts/import-stock-photo-catalog.cjs` para importação explícita por operador, dry-run por padrão. Não executar `--apply` ou repetir catálogo só por encontrar o script; conferir manifesto, autorização e dados atuais. A situação de importações particulares do amigo não foi auditada neste handoff.
+- Existe `scripts/import-stock-photo-catalog.cjs` para importação explícita por operador, dry-run por padrão. Não executar `--apply` ou repetir catálogo só por encontrar o script; conferir manifesto, autorização e dados atuais. A importação das fotos abaixo já foi concluída; não cadastrá-las novamente.
+
+### Cadastro das fotos concluído em 01/10/2026
+
+Conferência em produção realizada nesta conversa após publicação e importação autorizada (snapshot histórico, não saldos atuais):
+
+- 16 novos Red Horse com foto e QR interno exclusivo, sabores/versões/volumes separados; custo R$4,50 e venda R$10,00 por unidade. Inclui a garrafa tradicional 275 ml e os sabores em lata 473 ml. Não usar o código de barras do fabricante para esses cadastros.
+- Red Horse Powerdrink Creatina Maçã Verde Zero Açúcar 350 ml já existia. Foto e descrição atualizadas sem trocar ID/QR/preços; saldo 3 preservado naquela conferência. Não criar outro cadastro.
+- Camiseta XPACE — 2ª coleção: custo R$79,90 / venda R$109,90; Calça XPACE: R$129,90 / R$159,90; Camiseta HHI 2026 — Ohio: R$49,90 / R$49,90, sem margem bruta.
+- Cada roupa possui PP/P/M/G/GG/XG dentro de um só modelo visível, com seis SKUs de tamanho. Os produtos/tamanhos novos começaram zerados porque Alceu não informou as quantidades reais; lançar por Entrada conforme contagem física.
+- Na conferência: 20 produtos visíveis com foto, 18 SKUs de tamanho e 38 códigos únicos. O único movimento preexistente permaneceu; a importação não criou entradas/baixas fictícias nem enviou testes reais de estoque.
+- Imagens foram enviadas ao bucket de produtos. Manifesto, prompts da edição integrada e imagens finais estão na pasta local `output/stock-catalog-20261001` da cópia usada nesta conversa; essa pasta não foi enviada ao GitHub e pode não existir em outro computador. Não importar novamente nem pedir chaves para reconstruí-la. Consulte os produtos existentes antes de qualquer nova carga.
+- Build, testes de estoque e testes de navegador gerais + grade/relatório passaram. Navegador usou fixtures interceptadas, incluindo entrada/baixa por tamanho em 320/390 px, filtros/responsável/paginação e impressão A4. Deploy Vercel confirmado; `/xpace` e `/xpace/app` retornaram 200 e a rota nova de relatório retornou 401 sem sessão, como esperado. Isso não substitui teste físico de câmera no iPhone ou entrega real de alertas.
 
 Gerentes/proprietário gerenciam catálogo; membros autorizados movimentam; custo somente a gerentes. Tenant/autor vêm da sessão. Tabelas com RLS e acesso direto de `anon/authenticated` revogado; RPCs invoker, search_path vazio, service-role. Ledger append-only no servidor: leitura/inserção, sem alteração/apagamento. Fotos no bucket público `xpace-stock-images`, JPEG/PNG/WebP até 3 MB, upload autorizado pelo servidor; sem documentos pessoais.
 
@@ -96,3 +108,5 @@ SQL testado em PostgreSQL isolado/PGlite; navegador com auth/API/provedores inte
 Ainda exige prova física/autorizada: câmera em embalagens/iPhone e cruzamento real de estoque mínimo com recibo na aba NOTIFICAÇÕES. Há avisos documentados de dependências; não executar `npm audit fix` geral às cegas.
 
 Em cada continuação: confira Git atual, autenticações e módulo relevante, preserve trabalho concorrente e mantenha este estado atualizado sem inventar verificação de produção.
+
+Revisão documental de continuidade em 01/10/2026: README principal passou a apontar esta entrada, referência antiga fixa foi retirada e a manutenção no mesmo commit foi explicitada no `AGENTS.md`. Nenhum código, dado, migração, credencial ou envio real foi alterado nessa revisão. Para esta mudança apenas documental, conferir links locais e `git diff --check` é a validação proporcional; os testes de aplicação acima pertencem às entregas identificadas, não foram reexecutados só para revisar o texto.

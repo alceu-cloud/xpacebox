@@ -51,4 +51,6 @@ Antes de alterar este repositório, leia completamente `docs/contexto/README.md`
 
 Ao concluir uma mudança solicitada, atualize `docs/contexto/estado-atual.md` e a documentação do módulo quando houver alteração material. Registre o que foi implementado/testado, migrations aplicadas ou pendentes, limitações e próximo passo. Diferencie comprovação em produção de teste local e relato do usuário.
 
+Inclua essa atualização no mesmo commit da mudança material, antes do push. Operações autorizadas feitas pelas ferramentas em produção também exigem registrar o resultado relevante e a data de conferência, mesmo sem mudar o código. Não trate números de uma conferência antiga como saldos atuais, não copie dados pessoais/segredos e não declare uma validação apenas porque outro documento a menciona. Se não houver mudança material, não gere edição ou commit vazio só para renovar a data.
+
 Não prenda a entrada do contexto a um “último commit” fixo: descubra a revisão atual no Git a cada início e informe o hash na resposta. Não invente estados de entrega/deploy nem mantenha uma pendência resolvida como atual. Se a publicação precisar esperar, deixe isso explícito no retorno ao usuário e preserve o trabalho local.
