@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const { execFileSync } = require('node:child_process');
 const { chromium } = require('@playwright/test');
 const origin = process.env.TEST_ORIGIN || 'http://127.0.0.1:3007';
 assert.ok(['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
@@ -14,10 +15,10 @@ const unit = { id: '00000000-0000-4000-8000-000000000003', description: 'Unidade
 const item = { id: '00000000-0000-4000-8000-000000000004', description: 'Água com gás', code: '0012345678905', codeMode: 'EXTERNAL', costPriceCents: 200, salePriceCents: 500, categoryId: category.id, unitId: unit.id, categoryName: 'Bebidas', unitName: 'Unidade', unitAbbreviation: 'UN', controlsStock: true, minimumStock: 5, stockQuantity: 5, imageUrl: '', active: true };
 const internal = { ...item, id: '00000000-0000-4000-8000-000000000005', description: 'Café XPACE', code: 'XP-00000000-0000-4000-8000-000000000005', codeMode: 'INTERNAL', stockQuantity: 20 };
 
-async function setup(browser, width, ambiguous = false) {
+async function setup(browser, width, ambiguous = false, seedProducts = [item, internal]) {
   const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500, serviceWorkers: 'block' });
   await context.addInitScript(({ user }) => localStorage.setItem('sb-fixture-auth-token', JSON.stringify({ access_token: 'fixture-only', refresh_token: 'fixture-only', token_type: 'bearer', expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, user })), { user });
-  const writes = [], requests = [], products = structuredClone([item, internal]);
+  const writes = [], requests = [], products = structuredClone(seedProducts);
   const movements = new Map();
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
@@ -116,6 +117,37 @@ async function snapshot(page, name) {
     assert.deepEqual(writes, []); assert.deepEqual(errors, []);
     await context.close();
 
+    // Compact A4 print regression: 30 actual generated QR cards, not 30 empty boxes.
+    const names = ['RED HORSE CREATINA MAÇÃ VERDE', 'ÁGUA COM GÁS', 'CAMISETA XPACE PRETA M', 'CAFÉ XPACE', 'GARRAFINHA XPACE ANO 3'];
+    const printProducts = Array.from({ length: 30 }, (_, index) => {
+      const id = `00000000-0000-4000-8000-${String(index + 10).padStart(12, '0')}`;
+      return { ...internal, id, code: `XP-${id}`, description: `${names[index % names.length]} ${index + 1}`, imageUrl: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="80"%3E%3Crect x="5" y="5" width="30" height="70" rx="6" fill="%2391b62b"/%3E%3Ctext x="20" y="43" text-anchor="middle" font-size="10"%3EXP%3C/text%3E%3C/svg%3E' };
+    });
+    const printFixture = await setup(browser, 1440, false, printProducts);
+    await printFixture.page.goto(`${origin}/xpace`);
+    await printFixture.page.locator('.xd-module').filter({ hasText: 'ESTOQUE' }).click();
+    await printFixture.page.getByRole('button', { name: 'Folha de códigos' }).click();
+    await printFixture.page.locator('.xs-sheet-qr').last().waitFor();
+    await printFixture.page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.querySelectorAll('.xs-sheet img')].map(image => image.decode())); });
+    const printFile = path.join(output, 'compact-sheet-30.pdf');
+    await printFixture.page.pdf({ path: printFile, preferCSSPageSize: true, printBackground: true, displayHeaderFooter: false });
+    const printInfo = execFileSync(process.env.PDFINFO || 'pdfinfo', [printFile], { encoding: 'utf8' });
+    assert.match(printInfo, /Pages:\s+1\s/, '30 typical products fit in one A4 page');
+    assert.equal(await printFixture.page.locator('.xs-code-grid article').count(), 30);
+    await printFixture.page.emulateMedia({ media: 'print' });
+    await printFixture.page.setViewportSize({ width: 718, height: 1047 });
+    assert.equal(await printFixture.page.locator('.xs-code-grid small').first().isVisible(), false, 'Print omits long internal IDs');
+    await printFixture.page.addScriptTag({ path: require.resolve('@zxing/browser/umd/zxing-browser.min.js') });
+    const qrPixels = await printFixture.page.locator('.xs-sheet-qr').first().screenshot({ scale: 'css' });
+    const qrText = await printFixture.page.evaluate(async data => {
+      const image = new Image(); image.src = data; await image.decode();
+      return new ZXingBrowser.BrowserMultiFormatReader().decodeFromImageElement(image).then(result => result.getText());
+    }, `data:image/png;base64,${qrPixels.toString('base64')}`);
+    assert.equal(qrText, printProducts[0].code, '22mm QR remains decodable at print CSS size');
+    await printFixture.page.screenshot({ path: path.join(output, 'compact-sheet-30.png'), fullPage: true });
+    assert.deepEqual(printFixture.writes, []); assert.deepEqual(printFixture.errors, []);
+    await printFixture.context.close();
+
     for (const width of [390, 320]) {
       const { context, page, errors, writes } = await setup(browser, width, width === 390);
       await page.goto(`${origin}/xpace/app`);
@@ -150,13 +182,14 @@ async function snapshot(page, name) {
       const L=['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
       const G=['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'];
       const R=['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100'];
-      const value='4006381333931', parity='LGLLGG';
-      const bits='101'+value.slice(1,7).split('').map((n,i)=>(parity[i]==='L'?L:G)[Number(n)]).join('')+'01010'+value.slice(7).split('').map(n=>R[Number(n)]).join('')+'101';
       const canvas=document.getElementById('code'), ctx=canvas.getContext('2d');
-      ctx.fillStyle='#fff';ctx.fillRect(0,0,500,180);ctx.fillStyle='#000'; [...bits].forEach((bit,i)=>{if(bit==='1')ctx.fillRect(60+i*4,20,4,130)});
-      return new ZXingBrowser.BrowserMultiFormatReader().decodeFromCanvas(canvas).getText();
+      return [['4006381333931','LGLLGG'],['7891234567895','LGLGLG']].map(([value,parity]) => {
+        const bits='101'+value.slice(1,7).split('').map((n,i)=>(parity[i]==='L'?L:G)[Number(n)]).join('')+'01010'+value.slice(7).split('').map(n=>R[Number(n)]).join('')+'101';
+        ctx.fillStyle='#fff';ctx.fillRect(0,0,500,180);ctx.fillStyle='#000'; [...bits].forEach((bit,i)=>{if(bit==='1')ctx.fillRect(60+i*4,20,4,130)});
+        return new ZXingBrowser.BrowserMultiFormatReader().decodeFromCanvas(canvas).getText();
+      });
     });
-    assert.equal(ean, '4006381333931'); await context2.close();
+    assert.deepEqual(ean, ['4006381333931','7891234567895']); await context2.close();
     console.log('PASS stock browser: desktop catalog/dialogs/QR print, mobile 390/320 scanner/manual/movement/low-stock, isolated writes, notification tabs, accepted-not-delivered, QR/EAN13 decoders.');
     console.log(`Visual fixtures: ${output}`);
   } finally { await browser.close(); }
