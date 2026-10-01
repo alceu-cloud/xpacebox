@@ -26,6 +26,14 @@ function fakeAdmin(fixtures) { const calls=[]; return {calls,from(table){const f
   f.company_notification_preferences={categories:['EXPERIMENTAL','CRM'],read_before:{EXPERIMENTAL:'2099-01-01T00:00:00Z'}};
   feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','xpace','profile',true);assert.equal(feed.unread,0);assert.equal(feed.issues.length,1,'Reading never dismisses issues');
   f.xpace_lead_appointments=[a];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','xpace','profile',true);assert.equal(feed.issues.length,0,'Correcting source clears the issue');
+  const cloudFixtures={...f,company_notification_preferences:null,xpace_message_connectors:[{id:'connector',status:'OFFLINE',last_seen_at:null,updated_at:stamp}],xpace_zapi_connections:[{connector_id:'connector',enabled:true,paused:false,connected:true,last_checked_at:stamp,updated_at:stamp}]};
+  const cloudAdmin=ready=>({...fakeAdmin(cloudFixtures),rpc:async name=>{assert.equal(name,'xpace_zapi_scheduler_ready');return{data:ready,error:null}}});
+  feed=await lib.companyNoticeFeed(cloudAdmin(true),'company','xpace','profile',true);assert.equal(feed.issues.length,0,'Healthy cloud must not depend on local heartbeat');
+  feed=await lib.companyNoticeFeed(cloudAdmin(false),'company','xpace','profile',true);assert.equal(feed.issues.length,1,'Failed scheduler stays actionable');
+  cloudFixtures.xpace_zapi_connections[0].paused=true;
+  feed=await lib.companyNoticeFeed(cloudAdmin(true),'company','xpace','profile',true);assert.match(feed.issues[0].title,/pausada/);
+  cloudFixtures.xpace_zapi_connections[0].enabled=false;
+  feed=await lib.companyNoticeFeed(cloudAdmin(true),'company','xpace','profile',true);assert.match(feed.issues[0].title,/aguarda conclusão/);
   f.company_notification_preferences=null;admin=fakeAdmin(f);await lib.companyNoticeFeed(admin,'company','xpace','profile',false);
   assert.ok(!admin.calls.some(c=>['xpace_contract_charges','xpace_contract_sales','xpace_message_outbox','company_automation_issues'].includes(c.table)),'Common users never query restricted finance/integration data');
   const sample={id:'sample',sample_number:2,status:'IN_PRODUCTION',client:{tenant_company_id:'company',trade_name:'PAES BUENO'}};

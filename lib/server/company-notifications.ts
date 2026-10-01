@@ -80,12 +80,13 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
       if (missing.length) add(issues, { id: `won-lead:${lead.id}`, category: "CRM", title: `${lead.full_name} · ganho com dados pendentes`, detail: `Preencher: ${missing.join("; ")}.`, createdAt: lead.updated_at, target: "CRM", leadId: lead.id });
     }
     if (manager) {
-      const [charges, sales, messages, connectors, cancellations] = await Promise.all([
+      const [charges, sales, messages, connectors, cancellations, clouds] = await Promise.all([
         rows(admin.from("xpace_contract_charges").select("id,student_id,status,paid_at,paid_amount_cents,provider_error,updated_at").eq("tenant_company_id", companyId).or(`paid_at.gte.${since},provider_error.not.is.null`).order("id")),
         rows(admin.from("xpace_contract_sales").select("id,sale_number,student_id,status,signature_status,signature_error,signed_at,updated_at").eq("tenant_company_id", companyId).or(`signed_at.gte.${since},signature_error.not.is.null,signature_status.in.(ENVIADA,PENDENTE)`).order("id")),
-        rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,status,updated_at").eq("tenant_company_id", companyId).in("status", ["FAILED", "UNKNOWN"]).order("id")),
+        rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,status,updated_at").eq("tenant_company_id", companyId).is("manually_confirmed_at", null).in("status", ["FAILED", "UNKNOWN"]).order("id")),
         rows(admin.from("xpace_message_connectors").select("id,status,last_seen_at,updated_at,disconnect_requested").eq("tenant_company_id", companyId).order("id")),
         rows(admin.from("xpace_payment_cancellations").select("charge_id,status,last_error,requested_at").eq("tenant_company_id", companyId).not("last_error", "is", null).order("charge_id")),
+        rows(admin.from("xpace_zapi_connections").select("connector_id,enabled,paused,connected,last_checked_at,last_error,updated_at").eq("tenant_company_id", companyId).order("connector_id")),
       ]);
       const salesById = new Map(sales.map(s => [s.id, s]));
       for (const row of automationRows) if (row.automation === "signature-reminder") {
@@ -101,7 +102,18 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
         if (row.signature_error && row.status !== "CANCELADA" && ["ERRO", "RECUSADA"].includes(row.signature_status)) add(issues, { id: `signature:${row.id}`, category: "CONTRATO", title: `Assinatura pendente de ação · venda ${row.sale_number}`, detail: row.signature_status === "RECUSADA" ? "Assinatura recusada pelo cliente. Confira o contrato." : "Falha no envio para assinatura. Confira o contrato e a integração.", createdAt: row.updated_at, target: "COMMUNITY", studentId: row.student_id });
       }
       for (const row of messages) add(issues, { id: `message:${row.id}`, category: "WHATSAPP", title: `${row.contact_name} · envio sem confirmação`, detail: `${row.kind} · confira a conversa antes de reenviar para não duplicar.`, createdAt: row.updated_at, target: "MESSAGE_CONNECTOR" });
-      for (const row of connectors) if (!row.disconnect_requested && (row.status !== "CONNECTED" || !row.last_seen_at || Date.parse(row.last_seen_at) < Date.now() - 120000)) add(issues, { id: `connector:${row.id}`, category: "WHATSAPP", title: "Conector WhatsApp offline", detail: "Confira o computador da escola e a conexão na Loja.", createdAt: row.last_seen_at || row.updated_at, target: "MESSAGE_CONNECTOR" });
+      for (const row of connectors) {
+        const cloud = clouds.find(c => c.connector_id === row.id);
+        if (cloud) {
+          if (!cloud.enabled || cloud.paused) add(issues, { id: `connector:${row.id}`, category: "WHATSAPP", title: cloud.enabled ? "Fila Z-API pausada" : "Troca para Z-API aguarda conclusão", detail: "Abra Loja → Integrador de mensagens. Confira os recibos, o teste e o agendador antes de liberar. Não depende de reiniciar o PC.", createdAt: cloud.updated_at, target: "MESSAGE_CONNECTOR" });
+          else {
+            const { data: schedulerReady, error } = await admin.rpc("xpace_zapi_scheduler_ready");
+            if (error) throw error;
+            if (!cloud.connected || !cloud.last_checked_at || Date.parse(cloud.last_checked_at) < Date.now()-180000 || !schedulerReady)
+              add(issues, { id: `connector:${row.id}`, category: "WHATSAPP", title: "Z-API ou agendador precisa de conferência", detail: "Confira a instância Z-API e a execução do agendador no Integrador de mensagens. Não reenvie mensagens sem conferir a conversa.", createdAt: cloud.last_checked_at || cloud.updated_at, target: "MESSAGE_CONNECTOR" });
+          }
+        } else if (!row.disconnect_requested && (row.status !== "CONNECTED" || !row.last_seen_at || Date.parse(row.last_seen_at) < Date.now() - 120000)) add(issues, { id: `connector:${row.id}`, category: "WHATSAPP", title: "Conector WhatsApp offline", detail: "Confira o computador da escola e a conexão na Loja.", createdAt: row.last_seen_at || row.updated_at, target: "MESSAGE_CONNECTOR" });
+      }
       for (const row of cancellations) if (!["COMPLETED", "CANCELLED", "DONE"].includes(row.status)) add(issues, { id: `cancellation:${row.charge_id}`, category: "FINANCEIRO", title: "Cancelamento de cobrança precisa de conferência", detail: "Não considere cancelado no Asaas até a confirmação do provedor.", createdAt: row.requested_at, target: "FINANCE" });
     }
   }

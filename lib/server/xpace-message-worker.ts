@@ -15,7 +15,7 @@ export async function processMessageWorker(admin: ReturnType<typeof createSupaba
     if (["CLAIM", "HEARTBEAT"].includes(body.action ?? "")) {
       const { data: cloud, error } = await admin.from("xpace_zapi_connections").select("enabled,paused").eq("connector_id", connector.id).eq("tenant_company_id", connector.tenant_company_id).maybeSingle();
       if (error) throw error;
-      if ((provider === "LOCAL" && cloud?.enabled) || (provider === "ZAPI" && (!cloud?.enabled || cloud.paused))) {
+      if ((provider === "LOCAL" && (cloud?.enabled || (body.action === "CLAIM" && cloud))) || (provider === "ZAPI" && (!cloud?.enabled || cloud.paused))) {
         return NextResponse.json({ success: true, message: null, cloudManaged: Boolean(cloud?.enabled) }, { headers });
       }
     }
@@ -153,7 +153,7 @@ export async function processMessageWorker(admin: ReturnType<typeof createSupaba
       const { data, error } = await admin.from("xpace_message_outbox")
         .update({ status: body.success ? "SENT" : "UNKNOWN", provider_message_id: body.providerMessageId?.slice(0, 200) || null, error_message: body.success ? null : (body.error ?? "ENVIO NÃO CONFIRMADO. VERIFIQUE O WHATSAPP.").slice(0, 400), sent_at: body.success ? now : null, updated_at: now })
         .eq("id", body.messageId).eq("tenant_company_id", connector.tenant_company_id).eq("connector_id", connector.id)
-        .eq("status", "SENDING").select("id,kind,appointment_id,lead_id").maybeSingle();
+        .in("status", provider === "ZAPI" ? ["SENDING", "UNKNOWN"] : ["SENDING"]).is("delivered_at", null).is("read_at", null).select("id,kind,appointment_id,lead_id").maybeSingle();
       if (error) throw error;
       if (!data) return fail("MENSAGEM NÃO ESTÁ EM ENVIO.", 409);
       if (data.kind === "VIDEO_BOAS_VINDAS" && data.appointment_id) {
@@ -180,7 +180,7 @@ export async function processMessageWorker(admin: ReturnType<typeof createSupaba
     }
     return fail("AÇÃO INVÁLIDA.", 400);
   } catch (error) {
-    console.error("XPACE CONNECTOR WORKER ERROR", error);
+    console.error("XPACE_CONNECTOR_WORKER_OPERATION_FAILED");
     return fail("FALHA TEMPORÁRIA NO CONECTOR.", 500);
   }
 }

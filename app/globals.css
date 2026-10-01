@@ -3848,6 +3848,8 @@ button {
 .xd-msg-panel { display:grid;gap:20px;padding:24px;border:1px solid #e9e0ed;border-radius:15px;background:#fff }
 .xd-zapi-settings form { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px }
 .xd-zapi-settings label { display:grid;gap:8px;color:#5f526b;font-size:12px }
+.xd-zapi-settings label.xd-zapi-confirmation { display:flex;align-items:flex-start;gap:10px;line-height:1.5;cursor:pointer }
+.xd-zapi-settings .xd-zapi-confirmation input { flex:0 0 18px;width:18px;height:18px;margin:0;accent-color:#7438aa }
 .xd-zapi-settings input:not([type=checkbox]) { width:100%;min-width:0;padding:12px;border:1px solid #d9c6e5;border-radius:9px;background:white;color:#2d1744 }
 .xd-zapi-settings button { width:max-content;max-width:100%;padding:10px 14px;border:1px solid #d9c6e5;border-radius:9px;color:#62278d;background:white;cursor:pointer }
 .xd-zapi-settings button:disabled { opacity:.5;cursor:default }

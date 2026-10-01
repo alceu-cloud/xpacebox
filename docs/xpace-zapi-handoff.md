@@ -1,6 +1,32 @@
 # Continuação: integração Z-API do XPACEBOX
 
-Estado: **WIP; não ativada nem publicada em produção**. Branch de continuação `wip/zapi-cloud-20260930`, baseada em `beb1e0f`. Não fazer merge automático na main. O usuário pediu pausa e handoff por limite de créditos.
+## Revisão da continuação (30/09/2026)
+
+O usuário retomou e autorizou revisão, aplicação das migrations e publicação. **A integração continua desativada: não há credenciais Z-API salvas nem teste real pela nova integração.** A publicação não equivale à liberação da fila.
+
+- Concorrência: reserva transacional do teste, lease, claim atômico e barreira de tentativa única. Salvar a primeira configuração já bloqueia novos claims do consumidor local; mensagens em andamento continuam exigindo conferência.
+- Recibos: mesmo telefone brasileiro com/sem nono dígito; LID não é convertido em telefone; ID + destinatário + instância são verificados. READ_BY_ME não comprova entrega. Erros tardios não desfazem entrega/leitura real.
+- A prova do teste pertence à versão atual das credenciais, expira em 30 minutos e não aceita conferência manual. Regravar credenciais invalida provas anteriores. A ativação exige confirmação humana e ausência de heartbeat local por 90 segundos, sem envios em andamento.
+- Agendamento: existência do cron não basta. O painel exige execução bem-sucedida recente do endpoint; falhas permanecem nas providências. O alerta geral e a pontuação usam saúde cloud quando ativa, não o PC antigo.
+- Migrations aplicadas via Supabase e arquivos alinhados ao histórico real: `20261001001620_xpace_zapi_cloud.sql` e `20261001001638_xpace_zapi_scheduler.sql`. As quatro tabelas Z-API têm RLS e acesso somente service-role; o aviso informativo RLS sem políticas é intencional nesse desenho server-only. Nenhuma configuração habilitada pela migration.
+- Histórico autorizado: quatro envios antigos sem recibo de Julia Correa/Vitor Bittencourt receberam `manually_confirmed_at` e justificativa. **Não são recibos de entrega fabricados.** O teste UNKNOWN de Alceu já confirmado no chat foi regularizado e retirado das pendências sem apagar o histórico. Envios futuros permanecem na regra normal.
+- Validação: 9 testes de adapter, SQL real em PostgreSQL isolado (PGlite 0.3.14), regressões de aula/professor/notificações/status e interface desktop/mobile. `npm run build` completo passou com o ambiente local configurado; warnings CSS preexistentes. Nunca houve envio real Z-API nesses testes.
+
+### Para concluir pessoalmente
+
+1. **Loja → Configurar conector → Configurar Z-API**: preencher ID da instância, token da instância e Client-Token, sem mandar valores no chat. Salvar mantém a fila pausada.
+2. Copiar o endereço privado dos recibos para **Ao enviar** e **Receber status da mensagem**, preservando **Ao receber** do atendimento e a instância/sessão existentes.
+3. Parar/desativar a tarefa antiga `XPACEBOX Integrador WhatsApp` no PC da escola, sem apagar sessão/.env. Fechar a janela não impede reinício pela tarefa. Não abrir instância paralela.
+4. Consultar conexão; fazer **um teste novo somente para Alceu**. Conferir no celular e aguardar recibo real no painel. Não liberar por simples aceitação ou ID. Não repetir uma tentativa ambígua sem conferir a conversa.
+5. Preparar o agendamento se ainda não estiver saudável; aguardar a execução confirmada e 90 segundos sem heartbeat local. Marcar as duas confirmações e ativar. Apenas QUEUED elegíveis e no prazo serão consumidos; UNKNOWN não volta para a fila automaticamente.
+
+Limitação de operação: uma mensagem por minuto para o consumidor cloud atual. É conservador e pode formar backlog com mais escolas/clientes; medir antes de ampliar. Trocar o host não transforma a Z-API em API oficial da Meta nem elimina risco de bloqueio.
+
+Na revisão, 9 itens continuam QUEUED (inclusive avisos futuros e duas pesquisas dentro do prazo), nenhum SENDING/UNKNOWN. Ariel (confirmação e professor), vídeo de Hevelin e um segundo teste antigo têm aceitação sem recibo: não há prova automática de entrega nem autorização para inventá-la. Avisos da aula já encerrada de Ariel não devem ser reenviados fora do prazo. A nova Z-API não consegue obter retroativamente recibos de mensagens enviadas pelo conector local.
+
+## Handoff original preservado (antes da retomada)
+
+O texto abaixo descreve o estado anterior em `c4ab12e`, e não deve ser usado como estado atual das migrations/testes.
 
 ## Objetivo e autorizações
 

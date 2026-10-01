@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { decryptIntegrationCredential } from "@/lib/server/telephony-credentials";
-import { createZapiClient, ZapiError, type ZapiCredentials } from "@/lib/server/zapi-client";
+import { canonicalZapiPhone, createZapiClient, ZapiError, type ZapiCredentials } from "@/lib/server/zapi-client";
 import { processMessageWorker } from "@/lib/server/xpace-message-worker";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
@@ -10,11 +10,12 @@ export type CloudConnection = {
   connector_id: string; tenant_company_id: string; instance_id: string; enabled: boolean; paused: boolean;
   credential_ciphertext: string; credential_iv: string; credential_auth_tag: string;
   webhook_secret_hash: string; connected: boolean; last_checked_at: string | null; last_error: string | null;
+  config_version: string;
 };
 export function cloudCredentials(connection: CloudConnection) {
   return JSON.parse(decryptIntegrationCredential({ ciphertext: connection.credential_ciphertext, iv: connection.credential_iv, authTag: connection.credential_auth_tag })) as ZapiCredentials & { webhookSecret: string };
 }
-export const recipientHash = (phone: string) => createHash("sha256").update(phone).digest("hex");
+export const recipientHash = (phone: string) => createHash("sha256").update(canonicalZapiPhone(phone)).digest("hex");
 
 export async function checkCloudConnection(admin: Admin, connection: CloudConnection) {
   let connected = false;
@@ -27,11 +28,13 @@ export async function checkCloudConnection(admin: Admin, connection: CloudConnec
   return connected;
 }
 
-export async function sendCloudMessage(admin: Admin, connection: CloudConnection, message: { id: string; destination_phone: string; body: string; mediaUrl?: string | null }) {
+export async function sendCloudMessage(admin: Admin, connection: CloudConnection, message: { id: string; destination_phone: string; body: string; mediaUrl?: string | null }, reservedTest = false) {
   const connector = { id: connection.connector_id, tenant_company_id: connection.tenant_company_id, disconnect_requested: false };
   // Unique message_id is an idempotency barrier before any external POST. Never retry an ambiguous attempt.
-  const { error: attemptError } = await admin.from("xpace_zapi_attempts").insert({ message_id: message.id, connector_id: connection.connector_id });
-  if (attemptError) throw new Error("ZAPI_ATTEMPT_ALREADY_EXISTS_OR_UNSAVED");
+  if (!reservedTest) {
+    const { error: attemptError } = await admin.from("xpace_zapi_attempts").insert({ message_id: message.id, connector_id: connection.connector_id, config_version: connection.config_version });
+    if (attemptError) throw new Error("ZAPI_ATTEMPT_ALREADY_EXISTS_OR_UNSAVED");
+  }
   let accepted: Awaited<ReturnType<ReturnType<typeof createZapiClient>["send"]>>;
   try { accepted = await createZapiClient(cloudCredentials(connection)).send(message); }
   catch (error) {
@@ -39,6 +42,8 @@ export async function sendCloudMessage(admin: Admin, connection: CloudConnection
     await admin.from("xpace_zapi_attempts").update({ error_code: code }).eq("message_id", message.id).eq("connector_id", connection.connector_id);
     const result = await processMessageWorker(admin, connector, { action: "RESULT", messageId: message.id, success: false, error: `${code}. VERIFIQUE A CONVERSA ANTES DE REENVIAR.` }, "ZAPI");
     if (!result.ok) throw new Error("ZAPI_RESULT_SAVE_FAILED");
+    const { error: receiptError } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
+    if (receiptError) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");
     return { accepted: false, code };
   }
   const { error: aliasError } = await admin.from("xpace_zapi_attempts").update({ aliases: accepted.aliases, accepted_at: new Date().toISOString() }).eq("message_id", message.id).eq("connector_id", connection.connector_id);
@@ -56,9 +61,10 @@ export async function dispatchCloudQueue(admin: Admin, connection: CloudConnecti
   const { data: locked, error } = await admin.from("xpace_zapi_connections")
     .update({ lease_id: lease, lease_until: new Date(Date.now() + 120_000).toISOString() })
     .eq("connector_id", connection.connector_id).eq("tenant_company_id", connection.tenant_company_id).eq("enabled", true).eq("paused", false)
-    .or(`lease_until.is.null,lease_until.lt.${now}`).select("connector_id").maybeSingle();
+    .or(`lease_until.is.null,lease_until.lt.${now}`).select("*").maybeSingle();
   if (error) throw new Error("ZAPI_LEASE_FAILED");
   if (!locked) return { processed: 0, skipped: true };
+  connection = locked as CloudConnection;
   try {
     const { error: receiptError } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
     if (receiptError) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");

@@ -1,0 +1,87 @@
+// Isolated real Postgres (PGlite). No network, real customers, credentials or sends.
+// pg_net/cron/Vault transport is stubbed; core RPCs and locks execute actual SQL.
+const { PGlite } = require(process.argv[2] || '@electric-sql/pglite');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const company = '00000000-0000-4000-8000-000000000001';
+const connector = '00000000-0000-4000-8000-000000000002';
+const actor = '00000000-0000-4000-8000-000000000003';
+const first = '00000000-0000-4000-8000-000000000004';
+const second = '00000000-0000-4000-8000-000000000005';
+const appointment = '00000000-0000-4000-8000-000000000006';
+const phone = '5547999110328';
+const db = new PGlite();
+const query = async (sql, args=[]) => (await db.query(sql,args)).rows;
+(async () => {
+  await db.exec(`
+    create role anon; create role authenticated; create role service_role;
+    create schema extensions;
+    create function extensions.digest(text,text) returns bytea language sql immutable as $$select sha256(convert_to($1,'UTF8'))$$;
+    create function extensions.gen_random_bytes(integer) returns bytea language sql as $$select decode(repeat('ab',$1),'hex')$$;
+    create table public.companies(id uuid primary key);
+    create table public.xpace_message_connectors(id uuid primary key,tenant_company_id uuid,last_seen_at timestamptz,status text);
+    create table public.xpace_lead_appointments(id uuid primary key,tenant_company_id uuid,welcome_delivery_status text,welcome_delivered_at timestamptz,survey_status text);
+    create table public.xpace_message_outbox(id uuid primary key,tenant_company_id uuid,connector_id uuid,kind text,contact_name text,destination_phone text,body text,status text,claimed_at timestamptz,created_by uuid,created_at timestamptz default now(),updated_at timestamptz default now(),scheduled_at timestamptz default now(),expires_at timestamptz,sent_at timestamptz,delivered_at timestamptz,read_at timestamptz,error_message text,appointment_id uuid);
+    create schema cron; create table cron.job(jobid bigint generated always as identity,jobname text unique,active boolean default true,schedule text,command text);
+    create function cron.schedule(text,text,text) returns bigint language sql as $$insert into cron.job(jobname,schedule,command) values($1,$2,$3) on conflict(jobname) do update set schedule=excluded.schedule,command=excluded.command returning jobid$$;
+    create schema vault; create table vault.decrypted_secrets(id uuid default gen_random_uuid(),name text,decrypted_secret text);
+    create function vault.create_secret(text,text,text) returns uuid language sql as $$insert into vault.decrypted_secrets(decrypted_secret,name) values($1,$2) returning id$$;
+  `);
+  await db.exec(fs.readFileSync('supabase/migrations/20261001001620_xpace_zapi_cloud.sql','utf8'));
+  await db.exec(fs.readFileSync('supabase/migrations/20261001001638_xpace_zapi_scheduler.sql','utf8').replace('create extension if not exists pg_net with schema extensions;', '-- transport only: pg_net stubbed in isolated fixture'));
+  await db.query('insert into companies values($1)',[company]);
+  await db.query("insert into xpace_message_connectors values($1,$2,null,'OFFLINE')",[connector,company]);
+  await db.query("insert into xpace_message_outbox(id,tenant_company_id,connector_id,status,destination_phone,body) values($1,$2,$3,'QUEUED',$4,'fixture')",[first,company,connector,phone]);
+  assert.equal((await query("select * from xpace_claim_provider_message($1,$2,$3,'LOCAL')",[first,company,connector])).length,1);
+  assert.equal((await query("select * from xpace_claim_provider_message($1,$2,$3,'LOCAL')",[first,company,connector])).length,0,'claim CAS only once');
+  await db.query("delete from xpace_message_outbox where id=$1",[first]);
+  const save = () => query("select xpace_save_zapi_config($1,$2,'instance-fixture','cipher-fixture','iv-fixture','tag-fixture','hash-fixture')",[connector,company]);
+  await save();
+  let version=(await query('select config_version from xpace_zapi_connections'))[0].config_version;
+  const begin = id => query('select xpace_begin_zapi_test($1,$2,$3,$4,$5,$6) as started',[connector,company,version,id,phone,actor]);
+  assert.equal((await begin(first))[0].started,true);
+  assert.equal((await begin(first))[0].started,false,'same test ID cannot send twice');
+  await assert.rejects(begin(second),/ZAPI_TEST_BUSY/,'different IDs cannot bypass lease');
+  await assert.rejects(save(),/ZAPI_OPERATION_BUSY/);
+  await db.query("update xpace_zapi_connections set lease_until=null,lease_id=null,connected=true,last_checked_at=now() where connector_id=$1",[connector]);
+  await assert.rejects(query('select xpace_activate_zapi($1,$2,$3)',[connector,company,version]),/ZAPI_SEND_IN_PROGRESS/);
+  await db.query("update xpace_message_outbox set status='SENT' where id=$1",[first]);
+  await db.query("update xpace_zapi_attempts set aliases=array['provider-1'] where message_id=$1",[first]);
+  // Receipt arrives with the short PN; an unrelated PN must never confirm delivery.
+  await db.query("insert into xpace_zapi_events values($1,'provider-1',xpace_zapi_recipient_hash('5547999110329'),'READ',now(),null,now())",[connector]);
+  await query('select xpace_reconcile_zapi_events($1)',[connector]);
+  assert.equal((await query('select delivered_at from xpace_message_outbox'))[0].delivered_at,null);
+  await assert.rejects(query('select xpace_activate_zapi($1,$2,$3)',[connector,company,version]),/ZAPI_TEST_RECEIPT_REQUIRED/);
+  await db.query("insert into xpace_zapi_events values($1,'provider-1',xpace_zapi_recipient_hash('554799110328'),'READ',now(),null,now())",[connector]);
+  await query('select xpace_reconcile_zapi_events($1)',[connector]);
+  const confirmed=(await query('select status,delivered_at,read_at from xpace_message_outbox'))[0];
+  assert.equal(confirmed.status,'SENT');assert.ok(confirmed.delivered_at);assert.ok(confirmed.read_at);
+  await db.query("insert into xpace_zapi_events values($1,'provider-1',xpace_zapi_recipient_hash($2),'ERROR',now(),'ZAPI_ASYNC_SEND_ERROR',now())",[connector,phone]);
+  await query('select xpace_reconcile_zapi_events($1)',[connector]);
+  assert.equal((await query('select status from xpace_message_outbox'))[0].status,'SENT','late failure must not downgrade delivery');
+  // Config save invalidates old proof, even when instance stays the same.
+  await save();version=(await query('select config_version from xpace_zapi_connections'))[0].config_version;
+  await db.query('update xpace_zapi_connections set connected=true,last_checked_at=now()');
+  await assert.rejects(query('select xpace_activate_zapi($1,$2,$3)',[connector,company,version]),/ZAPI_TEST_RECEIPT_REQUIRED/);
+  await db.query('update xpace_zapi_attempts set config_version=$1',[version]); // fixture proof only
+  await db.query("update xpace_message_connectors set status='ERROR',last_seen_at=now()");
+  await assert.rejects(query('select xpace_activate_zapi($1,$2,$3)',[connector,company,version]),/ZAPI_STOP_LOCAL_CONNECTOR/);
+  await db.query("update xpace_message_connectors set status='OFFLINE'");
+  await query('select xpace_activate_zapi($1,$2,$3)',[connector,company,version]);
+  await db.query("insert into xpace_message_outbox(id,tenant_company_id,connector_id,status,destination_phone,body) values($1,$2,$3,'QUEUED',$4,'fixture')",[second,company,connector,phone]);
+  assert.equal((await query("select * from xpace_claim_provider_message($1,$2,$3,'LOCAL')",[second,company,connector])).length,0,'local is blocked');
+  assert.equal((await query("select * from xpace_claim_provider_message($1,$2,$3,'ZAPI')",[second,actor,connector])).length,0,'cross-tenant blocked');
+  await db.query('update xpace_zapi_connections set paused=true');
+  assert.equal((await query("select * from xpace_claim_provider_message($1,$2,$3,'ZAPI')",[second,company,connector])).length,0,'pause blocks claims');
+  await db.query('update xpace_zapi_connections set paused=false');
+  assert.equal((await query("select * from xpace_claim_provider_message($1,$2,$3,'ZAPI')",[second,company,connector])).length,1);
+  await query('select xpace_prepare_zapi_scheduler()');
+  assert.equal((await query('select xpace_zapi_scheduler_ready() as ready'))[0].ready,false,'job existence is not execution');
+  await query('select xpace_record_zapi_scheduler_tick(true)');
+  assert.equal((await query('select xpace_zapi_scheduler_ready() as ready'))[0].ready,true);
+  await db.query("update xpace_zapi_scheduler set last_success_at=now()-interval '4 minutes'");
+  assert.equal((await query('select xpace_zapi_scheduler_ready() as ready'))[0].ready,false,'stale heartbeat not healthy');
+  assert.equal((await query("select has_function_privilege('anon','xpace_activate_zapi(uuid,uuid,uuid)','EXECUTE') as allowed"))[0].allowed,false);
+  assert.equal((await query("select has_table_privilege('authenticated','xpace_zapi_connections','SELECT') as allowed"))[0].allowed,false);
+  console.log('PASS: migration SQL, atomic claims/test reservation, tenant isolation, ninth digit, receipt ordering, config-bound proof, local stop, scheduler heartbeat and grants. Transport must still be validated in production.');
+})().catch(e=>{console.error(e.message,e.where||'');process.exitCode=1;}).finally(()=>db.close());

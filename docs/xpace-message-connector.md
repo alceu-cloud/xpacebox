@@ -55,6 +55,12 @@ Gerar uma nova chave na Loja invalida a anterior. O botão Desconectar solicita 
 
 ## Segurança e dados
 
+### Transição Z-API na nuvem (30/09/2026)
+
+O painel **Loja → Configurar conector → Configurar Z-API** prepara envio cloud de texto/vídeo e recibos reais sem depender do PC depois da ativação. Salvar mantém a fila pausada e bloqueia novas retiradas pelo consumidor local. A ativação exige teste novo com recibo de entrega/leitura, conferência no celular, parada da tarefa antiga e execução recente do agendador. Preserve o webhook **Ao receber** do atendimento; configure apenas **Ao enviar** e **Receber status da mensagem**. Não gere QR/chave novos nem compartilhe tokens/endereço privado.
+
+Verde significa recibo real ou **Conferido manualmente**, explicitamente identificado; a regularização histórica não inventa `delivered_at`. Aceitação/ID fica amarelo. UNKNOWN exige conferência, nunca reenvio automático. Veja a revisão atual em `docs/xpace-zapi-handoff.md`; os parágrafos sobre manter o PC ligado abaixo descrevem o consumidor local anterior à ativação cloud.
+
 ### Pesquisa automática e liberação dos agendamentos antigos (29/09/2026)
 
 - A autorização no agendamento inclui vídeo, lembretes e pesquisa da aula. Não há mais uma segunda caixa de autorização no resultado do lead. Agendamentos novos sem autorização ficam destacados no CRM; o conector bloqueia mensagens para o aluno, inclusive links manuais. O aviso operacional ao professor é independente da autorização do aluno.

@@ -53,3 +53,14 @@ test('DeliveryCallback is not delivery to contact; error details are sanitized',
   const failed = exported.parseZapiEvent({ ...payload, error: 'private-data', errorCode: 'SHADOW_BAN' }, credentials.instanceId, now);
   assert.equal(failed.state, 'ERROR'); assert.equal(failed.errorCode, 'ZAPI_SHADOW_BAN'); assert.equal(JSON.stringify(failed).includes('private-data'), false);
 });
+test('Brazilian mobile callbacks match with or without ninth digit, but landlines remain distinct', () => {
+  assert.equal(exported.canonicalZapiPhone('5547999110328'), exported.canonicalZapiPhone('554799110328'));
+  assert.equal(exported.canonicalZapiPhone('554733110328'), '554733110328');
+  assert.notEqual(exported.canonicalZapiPhone('5547999110328'), exported.canonicalZapiPhone('5547999110329'));
+  assert.throws(() => exported.canonicalZapiPhone('123456789012345@lid'), /ZAPI_PHONE_INVALID/);
+});
+test('a callback without ninth digit is accepted; malformed PN and old/future moments are ignored', () => {
+  assert.equal(exported.parseZapiEvent({ ...base, phone: '554799110328', status: 'RECEIVED' }, credentials.instanceId, now).state, 'DELIVERED');
+  for (const phone of ['554799110328@lid', '+554799110328', '1234']) assert.equal(exported.parseZapiEvent({ ...base, phone, status: 'READ' }, credentials.instanceId, now), null);
+  assert.equal(exported.parseZapiEvent({ ...base, status: 'READ', momment: now + 600000 }, credentials.instanceId, now), null);
+});

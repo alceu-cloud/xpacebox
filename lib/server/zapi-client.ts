@@ -4,6 +4,12 @@ export type ZapiEvent = { ids: string[]; phone: string; state: "ACCEPTED" | "DEL
 export class ZapiError extends Error {
   constructor(public code: string, public ambiguous = false) { super(code); }
 }
+// PN only: never turn an opaque @lid identifier into a telephone number.
+export function canonicalZapiPhone(phone: string) {
+  if (!/^\d{12,15}$/.test(phone)) throw new ZapiError("ZAPI_PHONE_INVALID");
+  // Brazilian mobile PNs may omit the ninth digit in callbacks. Keep landlines distinct.
+  return /^55\d{2}9[6-9]\d{7}$/.test(phone) ? phone.slice(0, 4) + phone.slice(5) : phone;
+}
 export function validateZapiCredentials(value: ZapiCredentials) {
   if (![value.instanceId, value.instanceToken, value.clientToken].every(item => typeof item === "string" && /^[A-Za-z0-9_-]{16,200}$/.test(item))) throw new ZapiError("ZAPI_CREDENTIALS_INVALID");
   return value;

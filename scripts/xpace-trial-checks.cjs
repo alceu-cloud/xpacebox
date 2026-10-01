@@ -9,6 +9,7 @@ function moduleFrom(file, imports = {}) {
   vm.runInNewContext(source, { exports, require: name => {
     if (name === 'server-only') return {};
     if (name in imports) return imports[name];
+    if (name === '@/lib/server/xpace-message-worker') return moduleFrom('lib/server/xpace-message-worker.ts', imports);
     if (name === '@/lib/xpace/trial-schedule') return require('../lib/xpace/trial-schedule.ts');
     if (name === 'node:crypto') return require(name);
     throw new Error('Unexpected import: ' + name);
@@ -17,15 +18,20 @@ function moduleFrom(file, imports = {}) {
 }
 function fakeAdmin(resolve) {
   const calls = [];
-  return { calls, from(table) {
+  return { calls, rpc(name, args) {
+    assert.equal(name, 'xpace_claim_provider_message');
+    const call={table:'xpace_message_outbox',operation:'update',value:{status:'SENDING'},filters:[['eq','tenant_company_id',args.p_tenant],['eq','connector_id',args.p_connector]]};
+    calls.push(call);
+    const result=resolve(call);return Promise.resolve({...result,data:result.data?[result.data]:[]});
+  }, from(table) {
     const call = { table, operation: 'select', filters: [] };
     const chain = {};
-    for (const method of ['select','insert','update','delete','eq','neq','in','lt','lte','gte','not','order','limit','single','maybeSingle']) chain[method] = (...args) => {
+    for (const method of ['select','insert','update','delete','eq','neq','in','is','lt','lte','gte','not','order','limit','single','maybeSingle']) chain[method] = (...args) => {
       if (['insert','update','delete'].includes(method)) {call.operation=method;call.value=args[0];}
-      if (['eq','neq','in','lt','lte','gte','not'].includes(method)) call.filters.push([method,...args]);
+      if (['eq','neq','in','is','lt','lte','gte','not'].includes(method)) call.filters.push([method,...args]);
       return chain;
     };
-    chain.then = (yes, no) => { calls.push(call); return Promise.resolve(resolve(call)).then(yes,no); };
+    chain.then = (yes, no) => { calls.push(call); return Promise.resolve(table==='xpace_zapi_connections'?{data:null,error:null}:resolve(call)).then(yes,no); };
     return chain;
   }};
 }

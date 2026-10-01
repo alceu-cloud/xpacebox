@@ -6,7 +6,7 @@ const ts = require('typescript');
 function moduleFrom(file, imports = {}, clock = Date) {
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  vm.runInNewContext(source, {exports,require(name){if(name==='server-only')return {};if(name in imports)return imports[name];if(name==='node:crypto')return require(name);throw new Error('Unexpected import '+name);},Date:clock,Intl,console});
+  vm.runInNewContext(source, {exports,require(name){if(name==='server-only')return {};if(name in imports)return imports[name];if(name==='@/lib/server/xpace-message-worker')return moduleFrom('lib/server/xpace-message-worker.ts',imports,clock);if(name==='node:crypto')return require(name);throw new Error('Unexpected import '+name);},Date:clock,Intl,console});
   return exports;
 }
 function fakeAdmin(resolve) {
@@ -18,7 +18,7 @@ function fakeAdmin(resolve) {
       if(['eq','neq','in','gte','lte','lt'].includes(method))call.filters.push([method,...args]);
       return chain;
     };
-    chain.then=(yes,no)=>{calls.push(call);return Promise.resolve(resolve(call)).then(yes,no);};return chain;
+    chain.then=(yes,no)=>{calls.push(call);return Promise.resolve(table==='xpace_zapi_connections'?{data:null,error:null}:resolve(call)).then(yes,no);};return chain;
   }};
 }
 const automatic=moduleFrom('lib/server/xpace-automatic-messages.ts');
