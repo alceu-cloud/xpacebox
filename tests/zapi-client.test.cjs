@@ -19,6 +19,21 @@ test('IDs returned by send are acceptance only; text uses official endpoint', as
   const result = await client.send({ destination_phone: base.phone, body: 'test' });
   assert.equal(result.messageId, 'provider_1'); assert.equal(result.delivered, undefined);
 });
+
+test('receipt diagnostics are read-only, scoped to the private callback and expose no secrets', async () => {
+  const secret = 's'.repeat(43), url = 'https://www.xpacebox.com.br/api/xpace/message-connector/zapi/webhook/' + secret;
+  const client = exported.createZapiClient(credentials, async (endpoint, options) => {
+    assert.match(endpoint, /\/me$/); assert.equal(options.method, 'GET'); assert.equal(options.body, undefined);
+    return Response.json({ token: 'private-token', deliveryCallbackUrl: url, messageStatusCallbackUrl: url,
+      receivedCallbackUrl: 'https://atendimento-xpace.onrender.com/webhook', callbackTypeFilters: ['FILTER_MESSAGE_STATUS_CALLBACK'] });
+  });
+  const result = await client.receiptConfiguration(secret);
+  assert.equal(result.sendingConfigured, true); assert.equal(result.statusConfigured, true);
+  assert.equal(result.statusIgnored, true); assert.equal(result.botPreserved, true);
+  assert.equal(JSON.stringify(result).includes(secret), false); assert.equal(JSON.stringify(result).includes('private-token'), false);
+  const mismatch = await client.receiptConfiguration('different-secret');
+  assert.equal(mismatch.sendingConfigured, false); assert.equal(mismatch.statusConfigured, false);
+});
 test('video requires Cloudinary HTTPS and async-success shortcut is off', async () => {
   let calls = 0;
   const client = exported.createZapiClient(credentials, async (url, options) => {

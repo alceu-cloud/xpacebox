@@ -1,5 +1,24 @@
 // Pure fixtures: the dashboard must use cloud health after provider migration.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{test}=require('node:test');
+test('Preparation cron reads receipt settings without claiming or sending the customer queue',async()=>{
+  let checks=0,diagnostics=0,ticks=0;
+  const connection={connector_id:'connector',tenant_company_id:'company',enabled:false,paused:true};
+  const receipts={sendingConfigured:true,statusConfigured:true,sendingIgnored:false,statusIgnored:false,botPreserved:true};
+  const admin={from(table){assert.equal(table,'xpace_zapi_connections');const q={select:()=>q,order:()=>q,limit:async()=>({data:[connection],error:null})};return q},rpc:async(name,args)=>{assert.equal(name,'xpace_record_zapi_scheduler_tick');assert.equal(args.p_success,true);ticks++;return {error:null}}};
+  const imports={
+    'node:crypto':require('node:crypto'),
+    'next/server':{NextResponse:{json:value=>value}},
+    '@/lib/server/supabase-admin':{createSupabaseAdmin:()=>admin},
+    '@/lib/server/xpace-zapi':{reconcileCloudEvents:async()=>{},checkCloudConnection:async()=>{checks++;return true},cloudCredentials:()=>({webhookSecret:'private-secret'}),dispatchCloudQueue:()=>assert.fail('paused preparation must never dispatch')},
+    '@/lib/server/zapi-client':{createZapiClient:()=>({receiptConfiguration:async secret=>{assert.equal(secret,'private-secret');diagnostics++;return receipts}})}
+  };
+  const exports={},source=ts.transpileModule(fs.readFileSync('app/api/cron/xpace-zapi/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  vm.runInNewContext(source,{exports,require:name=>imports[name],process:{env:{CRON_SECRET:'scheduler-secret'}},Buffer,console});
+  const result=await exports.GET({headers:{get:()=> 'Bearer scheduler-secret'}});
+  assert.equal(result.success,true);assert.equal(checks,1);assert.equal(diagnostics,1);assert.equal(ticks,1);
+  assert.equal(result.states[0].paused,true);assert.equal(result.states[0].receipts.statusConfigured,true);
+  assert.equal(JSON.stringify(result).includes('private-secret'),false);
+});
 test('Stale isolated sends become UNKNOWN, never QUEUED; fresh/confirmed/other-tenant rows stay intact',async()=>{
   const old=new Date(Date.now()-360_000).toISOString(),fresh=new Date().toISOString();
   const rows=[

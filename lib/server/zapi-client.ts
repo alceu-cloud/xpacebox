@@ -16,7 +16,7 @@ export function validateZapiCredentials(value: ZapiCredentials) {
 }
 export function createZapiClient(credentials: ZapiCredentials, fetcher: typeof fetch = fetch) {
   validateZapiCredentials(credentials);
-  async function call(endpoint: "status" | "send-text" | "send-video", body?: object) {
+  async function call(endpoint: "status" | "me" | "send-text" | "send-video", body?: object) {
     let response: Response;
     try {
       response = await fetcher(`https://api.z-api.io/instances/${credentials.instanceId}/token/${credentials.instanceToken}/${endpoint}`, {
@@ -31,6 +31,27 @@ export function createZapiClient(credentials: ZapiCredentials, fetcher: typeof f
   }
   return {
     async status() { const result = await call("status"); return result.connected === true; },
+    async receiptConfiguration(webhookSecret: string) {
+      // Read-only provider diagnostics: never return URLs, credentials or raw instance data.
+      const result = await call("me");
+      const matches = (value: unknown) => {
+        if (typeof value !== "string") return false;
+        try {
+          const url = new URL(value);
+          return url.protocol === "https:" && ["www.xpacebox.com.br", "xpacebox.com.br"].includes(url.hostname)
+            && !url.username && !url.password && !url.search && !url.hash
+            && url.pathname === `/api/xpace/message-connector/zapi/webhook/${webhookSecret}`;
+        } catch { return false; }
+      };
+      const filters = Array.isArray(result.callbackTypeFilters) ? result.callbackTypeFilters : [];
+      return {
+        sendingConfigured: matches(result.deliveryCallbackUrl),
+        statusConfigured: matches(result.messageStatusCallbackUrl),
+        sendingIgnored: filters.includes("FILTER_DELIVERY_CALLBACK"),
+        statusIgnored: filters.includes("FILTER_MESSAGE_STATUS_CALLBACK"),
+        botPreserved: result.receivedCallbackUrl === "https://atendimento-xpace.onrender.com/webhook",
+      };
+    },
     async send(message: { destination_phone: string; body: string; mediaUrl?: string | null }) {
       if (!/^\d{12,15}$/.test(message.destination_phone) || !message.body || message.body.length > 2000) throw new ZapiError("ZAPI_MESSAGE_INVALID");
       if (message.mediaUrl) {
