@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
+import { resolveCompanyLogo } from "@/lib/company-branding";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { sendQuoteEmail } from "@/lib/server/daily-agenda-email";
 import type { QuoteCompanyKey, QuoteCompanyParameters } from "@/types/gerenciador";
@@ -37,7 +38,7 @@ export async function POST(request: Request, { params }: Context) {
     const configured = ((settings?.data as { quoteParameters?: Partial<Record<QuoteCompanyKey, Partial<QuoteCompanyParameters>>> } | null)?.quoteParameters?.[sellerKey]) || {};
     const seller = { ...defaultQuoteParametersByCompany[sellerKey], ...configured };
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://xpacebox.com.br";
-    const logo = String(seller.logo || "");
+    const logo = resolveCompanyLogo(sellerKey, seller.logo);
     const sellerLogoUrl = !logo || logo.startsWith("data:") ? "" : logo.startsWith("http") ? logo : `${appUrl}${logo.startsWith("/") ? "" : "/"}${logo}`;
 
     await sendQuoteEmail({

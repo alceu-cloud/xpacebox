@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 
 import { CrmOperationalLockProvider } from "@/components/clientes/CrmOperationalLock";
 import { supabase } from "@/lib/supabase";
+import { companyLogo } from "@/lib/company-branding";
 
 type EmpresaLayoutProps = { children: ReactNode };
 
@@ -17,7 +18,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
   const router = useRouter();
   const slug = String(params.slug ?? "");
   const nomeEmpresa = slug.toUpperCase();
-  const logoEmpresa = slug === "dawos" ? "/companies/dawos-logo-nova.png" : "";
+  const logoEmpresa = companyLogo(slug);
   const noGerenciador = pathname.includes("/gerenciador");
   const [ehAdmin, setEhAdmin] = useState(false);
   const [emailLogado, setEmailLogado] = useState("");

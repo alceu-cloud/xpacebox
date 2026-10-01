@@ -204,6 +204,16 @@ body {
 .xb-company-card--tenant small, .xb-company-card--tenant span { color: #f0d7e9; }
 .xb-company-card--tenant i { color: rgba(255,255,255,.22); }
 .xb-company-card--tenant:hover { border-color: #c06dab; box-shadow: 0 22px 48px rgba(85,48,111,.24); }
+.xb-company-card--gta { background: linear-gradient(145deg, #eef8e9, #cce7bd 62%, #a9d38f); border-color: #b1d29d; color: #245637; }
+.xb-company-card--gta small, .xb-company-card--gta span { color: #3e6641; }
+.xb-company-card--gta i { color: rgba(36,86,55,.18); }
+.xb-company-card--carcat { background: linear-gradient(145deg, #f2f3f4, #d9dde1 62%, #bbc2c9); border-color: #c3c9cf; color: #343a42; }
+.xb-company-card--carcat small, .xb-company-card--carcat span { color: #515962; }
+.xb-company-card--carcat i { color: rgba(52,58,66,.18); }
+@media (hover: hover) and (pointer: fine) {
+  .xb-company-card--gta:hover { border-color: #78a35f; box-shadow: 0 22px 48px rgba(64,107,44,.16); }
+  .xb-company-card--carcat:hover { border-color: #929da7; box-shadow: 0 22px 48px rgba(60,72,83,.16); }
+}
 .xb-company-card--xpace { background: linear-gradient(145deg, #24113f, #5b1ec3 65%, #d839ae); border-color: transparent; color: #fff; }
 .xb-company-card--xpace small, .xb-company-card--xpace span { color: #f3d7ff; }
 .xb-company-card--xpace i { color: rgba(255,255,255,.24); }

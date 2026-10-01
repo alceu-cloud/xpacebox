@@ -11,6 +11,7 @@ import { SearchableFilter, SearchableSelect } from "@/components/ui/SearchableSe
 import SectionNavigation from "@/components/ui/SectionNavigation";
 import { loadClientOptions, loadClients } from "@/lib/clientes";
 import { defaultQuoteParametersByCompany } from "@/lib/gerenciador/data";
+import { resolveCompanyLogo } from "@/lib/company-branding";
 import type { EngineeringFormula, ProductFicha, QuoteCompanyKey, QuoteParametersByCompany, SpecificMaterial } from "@/types/gerenciador";
 import type { ClientRecord, RepresentativeOption } from "@/types/clientes";
 import type { PaymentCondition } from "@/types/cadastros-gerais";
@@ -663,6 +664,7 @@ function printQuote(quote: QuoteRecord, quoteParameters: QuoteParametersByCompan
   const escape = (value: unknown) => String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char] ?? char));
   const companyKey = resolveQuoteCompanyKey(quote);
   const seller = { ...defaultQuoteParametersByCompany[companyKey], ...(quoteParameters[companyKey] ?? {}) };
+  seller.logo = resolveCompanyLogo(companyKey, seller.logo);
   const isDirect = quote.kind === "DIRECT";
   const appliesIpi = companyKey === "gta";
   const logoSource = seller.logo
