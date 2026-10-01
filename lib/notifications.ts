@@ -38,3 +38,15 @@ export function wonLeadMissingFields(lead: Lead, appointments: Appointment[], to
 export function isNoticeUnread(item: CompanyNotice, preferences: NotificationPreferences) {
   return item.createdAt > (preferences.readBefore[item.category] || "");
 }
+
+export const READ_NOTICE_HISTORY_DAYS = 15;
+// Notices are projections of business records, not separately persisted messages.
+// Expire only read projections by event date; keep read cursors to avoid resurrection.
+export function retainNoticeInHistory(item: CompanyNotice, preferences: NotificationPreferences, now = Date.now()) {
+  return isNoticeUnread(item, preferences) || Date.parse(item.createdAt) >= now - READ_NOTICE_HISTORY_DAYS * 86400000;
+}
+// Bound source queries without cutting off older unread events. Null means no cursor.
+export function noticeQuerySince(preferences: NotificationPreferences, category: NotificationCategory, now = Date.now()) {
+  const cursor = Date.parse(preferences.readBefore[category] || "");
+  return Number.isFinite(cursor) ? new Date(Math.min(cursor, now - READ_NOTICE_HISTORY_DAYS * 86400000)).toISOString() : null;
+}

@@ -2,6 +2,16 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), vm = require('node:vm');
 function load(file, imports) { const exports={}; vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:name=>{if(name in imports)return imports[name];throw Error(name)},Date,Intl,console,Set,Map,URL}); return exports; }
 const rules=load('lib/notifications.ts',{});
+const fixedNow=Date.parse('2026-10-01T12:00:00Z'),cutoff=fixedNow-15*86400000;
+const retentionPreferences={categories:['EXPERIMENTAL','FINANCEIRO','CONTRATO'],readBefore:{EXPERIMENTAL:'2026-10-01T12:00:00.000Z'}};
+const noticeAt=ms=>({id:'retention',category:'EXPERIMENTAL',createdAt:new Date(ms).toISOString()});
+assert.equal(rules.retainNoticeInHistory(noticeAt(cutoff),retentionPreferences,fixedNow),true,'Exactly 15 days remains visible');
+assert.equal(rules.retainNoticeInHistory(noticeAt(cutoff-1),retentionPreferences,fixedNow),false,'Read notice expires after 15 days');
+assert.equal(rules.retainNoticeInHistory(noticeAt(fixedNow-16*86400000),{...retentionPreferences,readBefore:{}},fixedNow),true,'Unread never expires');
+assert.equal(rules.retainNoticeInHistory({...noticeAt(cutoff-1),category:'FINANCEIRO'},retentionPreferences,fixedNow),true,'Each category has its own read cursor');
+assert.equal(rules.noticeQuerySince(retentionPreferences,'EXPERIMENTAL',fixedNow),new Date(cutoff).toISOString());
+assert.equal(rules.noticeQuerySince(retentionPreferences,'FINANCEIRO',fixedNow),null,'Missing cursor must not truncate older unread events');
+assert.equal(rules.noticeQuerySince({...retentionPreferences,readBefore:{EXPERIMENTAL:'2026-01-01T00:00:00Z'}},'EXPERIMENTAL',fixedNow),'2026-01-01T00:00:00.000Z');
 const emailDiagnostics=load('lib/email-diagnostics.ts',{});
 assert.match(emailDiagnostics.emailFailureDiagnosis('Unsupported state or unable to authenticate data').cause,/chave/);
 assert.match(emailDiagnostics.emailFailureDiagnosis('private-token@example.test').cause,/segurança/);
@@ -23,6 +33,18 @@ function fakeAdmin(fixtures) { const calls=[]; return {calls,from(table){const f
   let admin=fakeAdmin(f),feed=await lib.companyNoticeFeed(admin,'company','xpace','profile',true);
   assert.equal(feed.issues.length,1);assert.equal(feed.issues[0].leadId,'l');assert.equal(feed.notices.length,3);
   assert.ok(admin.calls.every(c=>c.filters.some(x=>x[0]==='eq'&&x[1]==='tenant_company_id'&&x[2]==='company')),'Every query tenant scoped');
+  const ago=days=>new Date(Date.now()-days*86400000).toISOString();
+  const historyFixtures={...f,company_notification_preferences:{categories:Object.keys(rules.notificationCategories),read_before:{EXPERIMENTAL:stamp,FINANCEIRO:stamp,CONTRATO:stamp}},xpace_leads:[{...base,updated_at:ago(200)}],xpace_lead_appointments:[{...a,id:'recent',created_at:ago(14),confirmation_status:'PENDENTE'},{...a,id:'expired',created_at:ago(16)}],xpace_contract_charges:[{...f.xpace_contract_charges[0],paid_at:ago(16)}],xpace_contract_sales:[{...f.xpace_contract_sales[0],signed_at:ago(16)}]};
+  let history=await lib.companyNoticeFeed(fakeAdmin(historyFixtures),'company','xpace','profile',true);
+  assert.deepEqual(Array.from(history.notices,n=>n.id),['trial:recent'],'Read trial/payment/contract history expires consistently');
+  assert.equal(history.issues.length,1,'Unresolved provision survives even after 200 days');
+  assert.equal(history.unread,0);assert.equal(history.preferences.readBefore.EXPERIMENTAL,stamp,'Expiry never clears read state');
+  historyFixtures.company_notification_preferences.read_before={};historyFixtures.xpace_lead_appointments=[{...a,created_at:ago(100)}];
+  historyFixtures.xpace_contract_charges[0].paid_at=ago(100);historyFixtures.xpace_contract_sales[0].signed_at=ago(100);
+  const historyAdmin=fakeAdmin(historyFixtures);history=await lib.companyNoticeFeed(historyAdmin,'company','xpace','another-profile',true);
+  assert.equal(history.unread,3,'Unread older than former 90-day window remains visible to another user');
+  assert.ok(historyAdmin.calls.find(c=>c.table==='xpace_contract_charges').filters.some(x=>x[0]==='or'&&x[1].includes('paid_at.not.is.null')));
+  assert.ok(historyAdmin.calls.find(c=>c.table==='xpace_contract_sales').filters.some(x=>x[0]==='or'&&x[1].includes('signed_at.not.is.null')));
   f.company_notification_preferences={categories:['EXPERIMENTAL','CRM'],read_before:{EXPERIMENTAL:'2099-01-01T00:00:00Z'}};
   feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','xpace','profile',true);assert.equal(feed.unread,0);assert.equal(feed.issues.length,1,'Reading never dismisses issues');
   f.xpace_lead_appointments=[a];feed=await lib.companyNoticeFeed(fakeAdmin(f),'company','xpace','profile',true);assert.equal(feed.issues.length,0,'Correcting source clears the issue');

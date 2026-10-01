@@ -6,8 +6,15 @@ XPACE: painel da página inicial, com cores e rótulos por assunto. Configuraç�
 Usuário e notificações. As preferências são do usuário logado naquela empresa,
 não mudam suas permissões nem interrompem as mensagens enviadas aos clientes.
 
-Não lidas/Lidas: agendamentos experimentais, recebimentos e contratos assinados
-dos últimos 90 dias. Marcar todas como lidas salva cursores por categoria no
+Não lidas/Lidas: agendamentos experimentais, recebimentos e contratos assinados.
+O histórico de lidas mantém somente eventos dos últimos 15 dias (pela data do
+evento, não pela data em que foi lido). Ao passar esse prazo, sai automaticamente
+da lista na próxima atualização. Não lidas e providências sem solução não expiram.
+A regra é individual por usuário e empresa; não modifica os avisos dos colegas.
+Não existe uma tabela de cópias das notificações: são projeções dos cadastros.
+Esta limpeza não apaga agendamentos, pagamentos, contratos, logs de envio ou
+cursores de leitura; apagar esses cursores faria avisos antigos reaparecerem.
+Não precisa de botão nem tarefa agendada de exclusão. Marcar todas como lidas salva cursores por categoria no
 servidor, com bloqueio de linha e atualização monotônica; persiste entre aparelhos.
 O corte é a última consulta do painel, não inclui avisos novos recebidos depois.
 O marcador local antigo da XPACE é migrado uma vez, sem apagar o histórico.

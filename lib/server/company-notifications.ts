@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emailFailureDiagnosis } from "@/lib/email-diagnostics";
-import { notificationCategories, wonLeadMissingFields, isNoticeUnread, type CompanyNotice, type NotificationPreferences, type NoticeFeed, type NotificationCategory } from "@/lib/notifications";
+import { notificationCategories, wonLeadMissingFields, isNoticeUnread, retainNoticeInHistory, noticeQuerySince, type CompanyNotice, type NotificationPreferences, type NoticeFeed, type NotificationCategory } from "@/lib/notifications";
 
 type Row = Record<string, any>;
 // Exhaust pages rather than silently omitting records after Supabase's row cap.
@@ -21,9 +21,15 @@ export async function notificationPreferences(admin: SupabaseClient, companyId: 
 export async function companyNoticeFeed(admin: SupabaseClient, companyId: string, slug: string, profileId: string, manager: boolean): Promise<NoticeFeed> {
   const preferences = await notificationPreferences(admin, companyId, profileId);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-  const since = new Date(Date.now() - 90 * 86400000).toISOString();
+  const now = Date.now();
+  const paidSince = noticeQuerySince(preferences, "FINANCEIRO", now);
+  const signedSince = noticeQuerySince(preferences, "CONTRATO", now);
   const notices: CompanyNotice[] = [], issues: CompanyNotice[] = [];
-  const add = (list: CompanyNotice[], item: CompanyNotice) => { if (preferences.categories.includes(item.category)) list.push({ ...item, createdAt: new Date(item.createdAt).toISOString() }); };
+  const add = (list: CompanyNotice[], item: CompanyNotice) => {
+    const normalized = { ...item, createdAt: new Date(item.createdAt).toISOString() };
+    // Never apply history expiry to unresolved issues, regardless of their age.
+    if (preferences.categories.includes(item.category) && (list === issues || retainNoticeInHistory(normalized, preferences, now))) list.push(normalized);
+  };
   // Managers see company-wide failures. Common users see their own agenda
   // failures and operational CRM data, never company finance credentials/errors.
   let agendasQuery = admin.from("daily_agenda_email_deliveries").select("id,recipient_profile_id,scheduled_for,status,created_at,updated_at,error_message,today_count,overdue_count,recipient:profiles!recipient_profile_id(full_name)").eq("tenant_company_id", companyId).order("scheduled_for", { ascending: false }).order("id");
@@ -74,15 +80,15 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
     const leadById = new Map(leads.map(l => [l.id, l]));
     const byLead = new Map<string, Row[]>();
     for (const a of appointments) { const list = byLead.get(a.lead_id) || []; list.push(a); byLead.set(a.lead_id, list); }
-    for (const a of appointments) if (!a.legacy_week_label && a.attendance_status !== "CANCELADO" && a.created_at >= since) add(notices, { id: `trial:${a.id}`, category: "EXPERIMENTAL", title: leadById.get(a.lead_id)?.full_name || "Lead", detail: `Aula experimental · ${dateLabel(a.scheduled_on)}`, createdAt: a.created_at, target: "CRM", leadId: a.lead_id });
+    for (const a of appointments) if (!a.legacy_week_label && a.attendance_status !== "CANCELADO") add(notices, { id: `trial:${a.id}`, category: "EXPERIMENTAL", title: leadById.get(a.lead_id)?.full_name || "Lead", detail: `Aula experimental · ${dateLabel(a.scheduled_on)}`, createdAt: a.created_at, target: "CRM", leadId: a.lead_id });
     for (const lead of leads) {
       const missing = wonLeadMissingFields(lead as any, (byLead.get(lead.id) || []) as any, today);
       if (missing.length) add(issues, { id: `won-lead:${lead.id}`, category: "CRM", title: `${lead.full_name} · ganho com dados pendentes`, detail: `Preencher: ${missing.join("; ")}.`, createdAt: lead.updated_at, target: "CRM", leadId: lead.id });
     }
     if (manager) {
       const [charges, sales, messages, connectors, cancellations, clouds, pendingReceipts, lateQueue] = await Promise.all([
-        rows(admin.from("xpace_contract_charges").select("id,student_id,status,paid_at,paid_amount_cents,provider_error,updated_at").eq("tenant_company_id", companyId).or(`paid_at.gte.${since},provider_error.not.is.null`).order("id")),
-        rows(admin.from("xpace_contract_sales").select("id,sale_number,student_id,status,signature_status,signature_error,signed_at,updated_at").eq("tenant_company_id", companyId).or(`signed_at.gte.${since},signature_error.not.is.null,signature_status.in.(ENVIADA,PENDENTE)`).order("id")),
+        rows(admin.from("xpace_contract_charges").select("id,student_id,status,paid_at,paid_amount_cents,provider_error,updated_at").eq("tenant_company_id", companyId).or(`${paidSince ? `paid_at.gte.${paidSince}` : "paid_at.not.is.null"},provider_error.not.is.null`).order("id")),
+        rows(admin.from("xpace_contract_sales").select("id,sale_number,student_id,status,signature_status,signature_error,signed_at,updated_at").eq("tenant_company_id", companyId).or(`${signedSince ? `signed_at.gte.${signedSince}` : "signed_at.not.is.null"},signature_error.not.is.null,signature_status.in.(ENVIADA,PENDENTE)`).order("id")),
         rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,status,updated_at").eq("tenant_company_id", companyId).neq("kind", "TESTE").is("manually_confirmed_at", null).is("delivered_at", null).is("read_at", null).in("status", ["FAILED", "UNKNOWN"]).order("id")),
         rows(admin.from("xpace_message_connectors").select("id,status,last_seen_at,updated_at,disconnect_requested").eq("tenant_company_id", companyId).order("id")),
         rows(admin.from("xpace_payment_cancellations").select("charge_id,status,last_error,requested_at").eq("tenant_company_id", companyId).not("last_error", "is", null).order("charge_id")),
