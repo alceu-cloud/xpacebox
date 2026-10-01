@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { decryptIntegrationCredential } from "@/lib/server/telephony-credentials";
-import { canonicalZapiPhone, createZapiClient, ZapiError, type ZapiCredentials } from "@/lib/server/zapi-client";
+import { canonicalZapiPhone, createZapiClient, isZapiLid, ZapiError, type ZapiCredentials } from "@/lib/server/zapi-client";
 import { processMessageWorker } from "@/lib/server/xpace-message-worker";
 
 type Admin = ReturnType<typeof createSupabaseAdmin>;
@@ -15,7 +15,36 @@ export type CloudConnection = {
 export function cloudCredentials(connection: CloudConnection) {
   return JSON.parse(decryptIntegrationCredential({ ciphertext: connection.credential_ciphertext, iv: connection.credential_iv, authTag: connection.credential_auth_tag })) as ZapiCredentials & { webhookSecret: string };
 }
-export const recipientHash = (phone: string) => createHash("sha256").update(canonicalZapiPhone(phone)).digest("hex");
+export const recipientHash = (phone: string) => createHash("sha256").update(isZapiLid(phone) ? `LID:${phone}` : canonicalZapiPhone(phone)).digest("hex");
+
+async function reconcileVerifiedLids(admin: Admin, connection: CloudConnection) {
+  const { data: attempts, error } = await admin.from("xpace_zapi_attempts")
+    .select("message_id,aliases,started_at,xpace_message_outbox!inner(destination_phone,tenant_company_id,status)")
+    .eq("connector_id", connection.connector_id).is("recipient_lid_hash", null)
+    .eq("xpace_message_outbox.tenant_company_id", connection.tenant_company_id)
+    .in("xpace_message_outbox.status", ["SENT", "UNKNOWN", "FAILED"])
+    .gte("started_at", new Date(Date.now() - 3 * 86_400_000).toISOString()).order("started_at", { ascending: false }).limit(3);
+  if (error) throw new Error("ZAPI_LID_LOOKUP_FAILED");
+  for (const attempt of attempts ?? []) {
+    const message = attempt.xpace_message_outbox as unknown as { destination_phone: string; tenant_company_id: string };
+    if (!attempt.aliases?.length || !message?.destination_phone || message.tenant_company_id !== connection.tenant_company_id) continue;
+    const { data: pending, error: eventError } = await admin.from("xpace_zapi_events").select("recipient_hash")
+      .eq("connector_id", connection.connector_id).in("provider_id", attempt.aliases)
+      .gte("occurred_at", attempt.started_at).neq("recipient_hash", recipientHash(message.destination_phone)).limit(1);
+    if (eventError) throw new Error("ZAPI_LID_EVENTS_LOOKUP_FAILED");
+    if (!pending?.length) continue;
+    // One read-only provider lookup per reconciliation. An opaque LID is never stripped into a phone.
+    try {
+      const lid = await createZapiClient(cloudCredentials(connection)).recipientLid(message.destination_phone);
+      if (lid) {
+        const { error: saveError } = await admin.from("xpace_zapi_attempts").update({ recipient_lid_hash: recipientHash(lid) })
+          .eq("message_id", attempt.message_id).eq("connector_id", connection.connector_id).is("recipient_lid_hash", null);
+        if (saveError) throw new Error("ZAPI_LID_BINDING_SAVE_FAILED");
+      }
+    } catch { console.error("ZAPI_LID_VERIFICATION_PENDING"); }
+    break;
+  }
+}
 
 export async function reconcileCloudEvents(admin: Admin, connection: Pick<CloudConnection, "connector_id" | "tenant_company_id">) {
   // A crashed request must not leave a paused isolated test permanently SENDING.
@@ -25,6 +54,7 @@ export async function reconcileCloudEvents(admin: Admin, connection: Pick<CloudC
     .eq("connector_id", connection.connector_id).eq("tenant_company_id", connection.tenant_company_id)
     .eq("status", "SENDING").lt("claimed_at", new Date(Date.now() - 300_000).toISOString()).is("delivered_at", null).is("read_at", null);
   if (staleError) throw new Error("ZAPI_STALE_RESULT_SAVE_FAILED");
+  if ("credential_ciphertext" in connection) await reconcileVerifiedLids(admin, connection as CloudConnection);
   const { error } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
   if (error) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");
 }

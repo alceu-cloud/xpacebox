@@ -87,6 +87,25 @@ test('Brazilian mobile callbacks match with or without ninth digit, but landline
 });
 test('a callback without ninth digit is accepted; malformed PN and old/future moments are ignored', () => {
   assert.equal(exported.parseZapiEvent({ ...base, phone: '554799110328', status: 'RECEIVED' }, credentials.instanceId, now).state, 'DELIVERED');
-  for (const phone of ['554799110328@lid', '+554799110328', '1234']) assert.equal(exported.parseZapiEvent({ ...base, phone, status: 'READ' }, credentials.instanceId, now), null);
+  for (const phone of ['+554799110328', '1234']) assert.equal(exported.parseZapiEvent({ ...base, phone, status: 'READ' }, credentials.instanceId, now), null);
   assert.equal(exported.parseZapiEvent({ ...base, status: 'READ', momment: now + 600000 }, credentials.instanceId, now), null);
+});
+
+test('opaque LID receipts are retained without converting them into phone numbers', () => {
+  const event = exported.parseZapiEvent({ ...base, phone: '123456789012345@lid', status: 'RECEIVED' }, credentials.instanceId, now);
+  assert.equal(event.phone, '123456789012345@lid'); assert.equal(event.state, 'DELIVERED');
+  assert.throws(() => exported.canonicalZapiPhone(event.phone), /ZAPI_PHONE_INVALID/);
+  assert.equal(exported.parseZapiEvent({ ...base, phone: 'private@lid', status: 'READ' }, credentials.instanceId, now), null);
+});
+
+test('PN -> LID lookup verifies actual recipient, not arbitrary IDs or a different contact', async () => {
+  const client = exported.createZapiClient(credentials, async (endpoint, options) => {
+    assert.match(endpoint, /\/phone-exists\/5547999110328$/); assert.equal(options.method, 'GET');
+    return Response.json([{exists:true,phone:'554799110328',lid:'123456789012345@lid'}]);
+  });
+  assert.equal(await client.recipientLid('5547999110328'), '123456789012345@lid');
+  for (const row of [{exists:true,phone:'5547999110329',lid:'123456789012345@lid'},{exists:false,phone:'5547999110328',lid:'123456789012345@lid'}]) {
+    const mismatch = exported.createZapiClient(credentials, async()=>Response.json(row));
+    assert.equal(await mismatch.recipientLid('5547999110328'), null);
+  }
 });

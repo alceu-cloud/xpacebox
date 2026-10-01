@@ -1,5 +1,21 @@
 // Pure fixtures: the dashboard must use cloud health after provider migration.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{test}=require('node:test');
+test('LID binding uses only a verified expected recipient and stores a hash, with one provider lookup',async()=>{
+  const crypto=require('node:crypto'),phone='5547999110328',lid='123456789012345@lid';
+  for(const verifiedLid of [lid,null]){
+    let saved=0,lookups=0,reconciles=0;
+    const admin={from(table){let operation='';const q={};q.select=()=>{operation='select';return q};q.update=value=>{operation='update';if(table==='xpace_zapi_attempts'){saved++;assert.equal(value.recipient_lid_hash,crypto.createHash('sha256').update('LID:'+lid).digest('hex'));assert.equal(JSON.stringify(value).includes(lid),false)}return q};
+      for(const method of ['eq','is','lt','gte','neq','in','order'])q[method]=()=>q;
+      q.limit=async()=>({data:table==='xpace_zapi_attempts'?[{message_id:'test',aliases:['known-id'],started_at:new Date().toISOString(),xpace_message_outbox:{destination_phone:phone,tenant_company_id:'company'}}]:[{recipient_hash:'pending-lid-hash'}],error:null});
+      q.then=(yes,no)=>Promise.resolve({error:null}).then(yes,no);return q},rpc:async name=>{assert.equal(name,'xpace_reconcile_zapi_events');reconciles++;return {error:null}}};
+    const exports={},imports={'node:crypto':crypto,'@/lib/server/zapi-client':{canonicalZapiPhone:value=>value,isZapiLid:value=>typeof value==='string'&&value.endsWith('@lid'),createZapiClient:()=>({recipientLid:async value=>{assert.equal(value,phone);lookups++;return verifiedLid}})},'@/lib/server/telephony-credentials':{decryptIntegrationCredential:()=>JSON.stringify({instanceId:'fixture',instanceToken:'fixture',clientToken:'fixture'})}};
+    const source=ts.transpileModule(fs.readFileSync('lib/server/xpace-zapi.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+    vm.runInNewContext(source,{exports,require:name=>imports[name]||{},Date,console});
+    await exports.reconcileCloudEvents(admin,{connector_id:'connector',tenant_company_id:'company',credential_ciphertext:'fixture',credential_iv:'fixture',credential_auth_tag:'fixture'});
+    assert.equal(lookups,1);assert.equal(saved,verifiedLid?1:0);assert.equal(reconciles,1);
+    assert.notEqual(exports.recipientHash(phone),exports.recipientHash(phone+'@lid'));
+  }
+});
 test('Callback diagnostics scope rejected events by known aliases without marking them delivered',async()=>{
   const clientExports={},sourceClient=ts.transpileModule(fs.readFileSync('lib/server/zapi-client.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   vm.runInNewContext(sourceClient,{exports:clientExports,URL,AbortSignal,fetch,Date,Set,Buffer});

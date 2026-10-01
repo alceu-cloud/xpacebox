@@ -10,13 +10,14 @@ export function canonicalZapiPhone(phone: string) {
   // Brazilian mobile PNs may omit the ninth digit in callbacks. Keep landlines distinct.
   return /^55\d{2}9[6-9]\d{7}$/.test(phone) ? phone.slice(0, 4) + phone.slice(5) : phone;
 }
+export const isZapiLid = (value: unknown): value is string => typeof value === "string" && /^\d{5,20}@lid$/.test(value);
 export function validateZapiCredentials(value: ZapiCredentials) {
   if (![value.instanceId, value.instanceToken, value.clientToken].every(item => typeof item === "string" && /^[A-Za-z0-9_-]{16,200}$/.test(item))) throw new ZapiError("ZAPI_CREDENTIALS_INVALID");
   return value;
 }
 export function createZapiClient(credentials: ZapiCredentials, fetcher: typeof fetch = fetch) {
   validateZapiCredentials(credentials);
-  async function call(endpoint: "status" | "me" | "send-text" | "send-video", body?: object) {
+  async function call(endpoint: "status" | "me" | "send-text" | "send-video" | `phone-exists/${string}`, body?: object) {
     let response: Response;
     try {
       response = await fetcher(`https://api.z-api.io/instances/${credentials.instanceId}/token/${credentials.instanceToken}/${endpoint}`, {
@@ -31,6 +32,15 @@ export function createZapiClient(credentials: ZapiCredentials, fetcher: typeof f
   }
   return {
     async status() { const result = await call("status"); return result.connected === true; },
+    async recipientLid(phone: string) {
+      const expected = canonicalZapiPhone(phone);
+      const result = await call(`phone-exists/${phone}`);
+      const entries = Array.isArray(result) ? result : [result];
+      const verified = entries.filter(row => row && row.exists === true && typeof row.phone === "string"
+        && /^\d{12,15}$/.test(row.phone) && canonicalZapiPhone(row.phone) === expected && isZapiLid(row.lid));
+      const lids = [...new Set(verified.map(row => row.lid as string))];
+      return lids.length === 1 ? lids[0] : null;
+    },
     async receiptConfiguration(webhookSecret: string) {
       // Read-only provider diagnostics: never return URLs, credentials or raw instance data.
       const result = await call("me");
@@ -76,7 +86,8 @@ export function zapiEventIds(payload: Record<string, unknown>) {
 }
 
 export function parseZapiEvent(payload: Record<string, unknown>, instanceId: string, now = Date.now()): ZapiEvent | null {
-  if (payload.instanceId !== instanceId || payload.isGroup === true || typeof payload.phone !== "string" || !/^\d{12,15}$/.test(payload.phone)) return null;
+  // LID receipts may be persisted, but cannot confirm delivery until the server verifies PN -> LID.
+  if (payload.instanceId !== instanceId || payload.isGroup === true || typeof payload.phone !== "string" || (!/^\d{12,15}$/.test(payload.phone) && !isZapiLid(payload.phone))) return null;
   let state: ZapiEvent["state"];
   let errorCode: string | null = null;
   if (payload.type === "MessageStatusCallback") {
@@ -100,7 +111,7 @@ export function zapiReceiptDiagnostic(payload: Record<string, unknown>, instance
   const parser_result = parseZapiEvent(payload, instanceId, now) ? "PARSED"
     : payload.instanceId !== instanceId ? "INSTANCE_MISMATCH"
     : payload.isGroup === true ? "GROUP"
-    : typeof payload.phone !== "string" || !/^\d{12,15}$/.test(payload.phone) ? "PHONE_FORMAT"
+    : typeof payload.phone !== "string" || (!/^\d{12,15}$/.test(payload.phone) && !isZapiLid(payload.phone)) ? "PHONE_FORMAT"
     : callback_type === "OTHER" ? "TYPE_UNSUPPORTED"
     : callback_type === "STATUS" && !["SENT", "RECEIVED", "READ", "PLAYED"].includes(String(payload.status)) ? "STATUS_UNSUPPORTED"
     : !(Array.isArray(payload.ids) ? payload.ids : [payload.messageId, payload.zaapId]).some(id => typeof id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(id)) ? "IDS_FORMAT"

@@ -10,7 +10,7 @@ export async function POST(request: Request, context: { params: Promise<{ secret
   const { secret } = await context.params;
   if (!/^[A-Za-z0-9_-]{43}$/.test(secret)) return reply(401, false);
   const admin = createSupabaseAdmin();
-  const { data: connection, error } = await admin.from("xpace_zapi_connections").select("connector_id,tenant_company_id,instance_id").eq("webhook_secret_hash", createHash("sha256").update(secret).digest("hex")).maybeSingle();
+  const { data: connection, error } = await admin.from("xpace_zapi_connections").select("*").eq("webhook_secret_hash", createHash("sha256").update(secret).digest("hex")).maybeSingle();
   if (error) return reply(503, false);
   if (!connection) return reply(401, false);
   // Bounded parsing; do not retain raw payload (phone or chat content).
