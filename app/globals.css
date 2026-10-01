@@ -3854,7 +3854,10 @@ button {
 .xd-msg-metrics article { display:grid;grid-template-columns:auto 1fr;align-items:center;gap:4px 13px;padding:18px;border:1px solid #e8deec;border-radius:13px;background:#fff }
 .xd-msg-metrics svg { grid-row:span 2;color:#8e38c5 }.xd-msg-metrics span { color:#8a7c94;font-size:10px;font-weight:850;letter-spacing:.04em }.xd-msg-metrics strong { color:#2d1744;font:750 27px "Chillax",sans-serif }
 html.xpace-pull-enabled { overscroll-behavior-y: none; }
-.xd-refreshable { overscroll-behavior-y: contain; }
+/* Clip decoration without creating a hidden scroll container that traps wheel
+   events. The document owns scrolling; native pull-to-refresh stays disabled
+   by html.xpace-pull-enabled, while RefreshableScreen handles the touch gesture. */
+.xd-refreshable { display: flow-root; overflow: clip; overscroll-behavior-y: auto; }
 .xd-pull-feedback { position: sticky; top: 0; z-index: 20; display: flex; justify-content: center; align-items: center; gap: 8px; overflow: hidden; background: #f8f3fc; color: #6935aa; font-size: 12px; text-transform: none; }
 .xd-pull-feedback:not(.is-visible) { visibility: hidden; }
 @media(prefers-reduced-motion:reduce) { .xd-pull-feedback svg { animation: none; } }
