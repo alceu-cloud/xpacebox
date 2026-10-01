@@ -3,6 +3,7 @@
 ## Escopo desta entrega
 
 - Desktop: Estoque → Produtos, Categorias, Unidades e Folha de códigos.
+- Relatórios → Estoque · Entradas e baixas (gestores): filtro de período em Brasília, produto, responsável e tipo, com 50 registros por página, observação e saldo antes/depois. Preserva o nome do responsável gravado no lançamento, inclusive após renomear/desativar a conta. Inclui produtos arquivados. Conta compartilhada não identifica a pessoa física.
 - Impressão da folha em A4 com margens de 10 mm, três colunas, cartões horizontais e QR de 22 mm (incluindo a margem branca). Foto, nome e preço/unidade permanecem; o identificador interno extenso não é impresso. Até 30 produtos com nomes comuns cabem em uma página; nomes excepcionalmente longos expandem o cartão sem cortar texto. Imprimir a 100%, sem cabeçalhos/rodapés do navegador. Prévia de tela permanece inalterada.
 - App `/xpace/app`: Dashboard, Agenda e Estoque. Câmera para QR/código de barras e busca manual de contingência.
 - Cadastro em modal: descrição, custo/venda em centavos, categoria, unidade, controle/mínimo, foto e código da embalagem ou QR interno.
@@ -62,3 +63,9 @@ Para teste visual isolado, compile com URL pública fictícia `https://fixture.s
 No iPhone real, após publicar, abrir novamente o app, permitir câmera e verificar um código da embalagem e um da folha. Há busca manual se a câmera for bloqueada. Não há pareamento WhatsApp novo nem dependência do PC.
 
 Dependências novas fixadas no lockfile: ZXing (leitura), qrcode (folha), tipos QR e PGlite (apenas testes). O audit do repositório apontou avisos preexistentes de Next/PostCSS/Sharp/Nanoid; atualizar esses componentes é trabalho separado, não foi executado um audit fix automático nesta entrega.
+
+## Grade de tamanhos
+
+No novo produto, marque **Produto com grade de tamanhos** e escolha PP, P, M, G, GG e/ou XG. Um modelo aparece uma vez no catálogo e na folha de QR; cada tamanho guarda seu próprio saldo e código interno. A leitura do QR do modelo exige escolher o tamanho antes de **entrada ou baixa**. Quantidades de roupas são peças inteiras. Nenhum saldo inicial é inventado: use Entrada para contar e lançar as peças reais.
+
+Editar a grade mantém IDs, QR, saldos e histórico. Um tamanho com saldo não pode ser removido. Tamanhos removidos sem saldo são arquivados, não apagados; arquivar o modelo bloqueia todos os tamanhos. Reativar o modelo não restaura tamanhos removidos da grade. O histórico do modelo reúne suas variações e identifica o tamanho; o relatório mostra o nome do modelo com `TAM ...` e o responsável autenticado.

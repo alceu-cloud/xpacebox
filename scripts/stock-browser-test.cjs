@@ -6,6 +6,8 @@ const os = require('node:os');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require('@playwright/test');
 const origin = process.env.TEST_ORIGIN || 'http://127.0.0.1:3007';
+const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || fs.readFileSync('.env.local','utf8').match(/^NEXT_PUBLIC_SUPABASE_URL\s*=\s*["']?([^\s"']+)/m)?.[1];
+const storageKey = `sb-${new URL(publicUrl).hostname.split('.')[0]}-auth-token`;
 assert.ok(['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
 const output = process.env.TEST_OUTPUT || path.join(os.tmpdir(), 'xpace-stock-visual');
 fs.mkdirSync(output, { recursive: true });
@@ -17,7 +19,7 @@ const internal = { ...item, id: '00000000-0000-4000-8000-000000000005', descript
 
 async function setup(browser, width, ambiguous = false, seedProducts = [item, internal]) {
   const context = await browser.newContext({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500, serviceWorkers: 'block' });
-  await context.addInitScript(({ user }) => localStorage.setItem('sb-fixture-auth-token', JSON.stringify({ access_token: 'fixture-only', refresh_token: 'fixture-only', token_type: 'bearer', expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, user })), { user });
+  await context.addInitScript(({ user, storageKey }) => localStorage.setItem(storageKey, JSON.stringify({ access_token: 'fixture-only', refresh_token: 'fixture-only', token_type: 'bearer', expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, user })), { user, storageKey });
   const writes = [], requests = [], products = structuredClone(seedProducts);
   const movements = new Map();
   await context.route('**/*', async route => {
@@ -35,14 +37,15 @@ async function setup(browser, width, ambiguous = false, seedProducts = [item, in
       if (url.pathname === '/api/xpace/message-connector/status') return send({ success: true, configured: true, status: 'CONNECTED' });
       if (url.pathname === '/api/xpace/agenda') return send({ success: true, groups: [], trialAppointments: [] });
       if (url.pathname === '/api/xpace/mobile/overview') return send({ success: true, profileName: 'Alceu', metrics: { trialsThisWeek: 0, trialsNextWeek: 0, activeClients: 0, newClientsThisMonth: 0, newLeadsThisMonth: 0 }, notifications: [] });
+      if (url.pathname === '/api/xpace/estoque/relatorio') return send({ success: true, total: 51, page: Number(url.searchParams.get('page')), pages: 2, items: [{ id: 'fixture-movement', product: 'Camiseta fixture · TAM P', code: 'XP-FIXTURE', unit: 'UN', direction: 'ENTRADA', quantity: 3, before: 0, after: 3, actor: 'Operador fixture', at: '2026-10-01T19:00:00Z', note: 'Reposição fixture' }] });
       if (url.pathname === '/api/xpace/estoque') {
         if (request.method() === 'POST') {
           const body = request.postDataJSON(); writes.push(body);
           if (body.action === 'MOVE') {
             if (movements.has(body.requestId)) return send({ ...movements.get(body.requestId), replayed: true });
-            const product = products.find(product => product.id === body.productId);
+            const product = products.flatMap(product => [product, ...(product.variants ?? [])]).find(product => product.id === body.productId);
             product.stockQuantity += body.direction === 'ENTRADA' ? body.quantity : -body.quantity;
-            const result = { success: true, movementId: 'fixture-movement', stockQuantity: product.stockQuantity, lowStock: product.stockQuantity < 5, lowStockCrossed: product.stockQuantity < 5, alertQueued: true, replayed: false };
+            const result = { success: true, movementId: 'fixture-movement', stockQuantity: product.stockQuantity, lowStock: product.stockQuantity < product.minimumStock, lowStockCrossed: product.stockQuantity < product.minimumStock, alertQueued: true, replayed: false };
             movements.set(body.requestId, result);
             if (ambiguous) { ambiguous = false; return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false, message: 'Fixture lost response after commit' }) }); }
             return send(result);
@@ -74,7 +77,8 @@ async function snapshot(page, name) {
   await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: true });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false, `${name}: page overflow`);
 }
-(async () => {
+module.exports = { setup, snapshot, item, internal, origin, output };
+if (require.main === module) (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   try {
     const { context, page, errors, writes, requests } = await setup(browser, 1440);

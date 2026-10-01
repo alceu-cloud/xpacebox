@@ -55,3 +55,10 @@
   .xs-sheet-qr { grid-column:3;grid-row:1 / span 2;width:22mm;height:22mm;justify-self:end; }
   .xs-code-grid small { display:none; }
 }
+.xs-size-fieldset{border:1px solid #ddd2e9;border-radius:12px;padding:14px;display:grid;gap:12px;min-width:0}
+.xs-size-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:10px}
+.xs-size-options button{display:grid;gap:6px;padding:14px;min-height:72px;text-align:center}
+.xs-size-options label{display:flex;align-items:center;gap:8px;min-height:44px}
+.xs-size-options small{font-size:10px;line-height:1.5}
+.xs-size-summary{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.xs-size-summary span{padding:3px 7px;background:#f4edf9;border-radius:5px;font-size:11px;white-space:nowrap}

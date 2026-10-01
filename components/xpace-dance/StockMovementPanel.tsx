@@ -19,6 +19,7 @@ export default function StockMovementPanel({ product, onDone, onCancel, onLockCh
     if (lock.current || result) return;
     try {
       const amount = stockQuantity(quantity);
+      if (product.sizeLabel && !Number.isInteger(amount)) throw new Error("PARA ROUPAS, INFORME UMA QUANTIDADE INTEIRA DE PEÇAS.");
       pending.current ??= { requestId: crypto.randomUUID(), direction, quantity: amount, note: note.trim() };
       lock.current = true; setBusy(true); setError("");
       const response = await stockApi<MoveStockResult>("", { action: "MOVE", productId: product.id, ...pending.current });
@@ -41,7 +42,7 @@ export default function StockMovementPanel({ product, onDone, onCancel, onLockCh
       <div className="xs-direction"><button type="button" disabled={busy || uncertain} className={direction === "ENTRADA" ? "is-active" : ""} onClick={() => setDirection("ENTRADA")}><ArrowDownToLine size={20} /> ENTRADA</button><button type="button" disabled={busy || uncertain} className={direction === "SAIDA" ? "is-active" : ""} onClick={() => setDirection("SAIDA")}><ArrowUpFromLine size={20} /> BAIXA</button></div>
       <label>QUANTIDADE ({product.unitAbbreviation})<input aria-label="Quantidade para movimentar" inputMode="decimal" value={quantity} disabled={busy || uncertain} onChange={event => setQuantity(event.target.value)} required /></label>
       <label>OBSERVAÇÃO / MOTIVO (OPCIONAL)<textarea maxLength={500} value={note} disabled={busy || uncertain} onChange={event => setNote(event.target.value)} placeholder="Ex.: reposição, venda no balcão, consumo interno..." /></label>
-      <small>Baixa manual só movimenta o estoque. Não gera cobrança nem receita.</small>
+      <small>O responsável pela entrada ou baixa é registrado automaticamente pelo usuário conectado. Use seu próprio acesso. Baixa manual só movimenta o estoque; não gera cobrança nem receita.</small>
       {error ? <p className="xs-error" role="alert">{error}{uncertain ? " Tente a mesma operação novamente: a chave de lançamento impede duplicação. Para corrigir dados, volte e confira o histórico antes." : ""}</p> : null}
       <footer><button type="button" className="xs-secondary" onClick={onCancel} disabled={busy}>VOLTAR</button><button type="submit" className="xs-primary" disabled={busy}>{busy ? "REGISTRANDO..." : uncertain ? "CONFERIR / TENTAR A MESMA OPERAÇÃO" : `CONFIRMAR ${direction === "ENTRADA" ? "ENTRADA" : "BAIXA"}`}</button></footer>
     </form>}

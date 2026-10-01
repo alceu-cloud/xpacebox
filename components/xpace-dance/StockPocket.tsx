@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import StockScanner from "@/components/xpace-dance/StockScanner";
-import StockMovementPanel from "@/components/xpace-dance/StockMovementPanel";
+import StockMovementPanel from "@/components/xpace-dance/StockSizeMovementPanel";
 import "./stock.css";
 import { stockApi } from "@/lib/xpace/stock-api";
 import { stockCode, type StockOverview, type StockProduct, type MoveStockResult } from "@/lib/xpace/stock";

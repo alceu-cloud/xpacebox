@@ -5,7 +5,10 @@ export type StockProduct = {
   categoryId: string; unitId: string; categoryName: string; unitName: string; unitAbbreviation: string;
   controlsStock: boolean; minimumStock: number; stockQuantity: number; code: string;
   codeMode: "EXTERNAL" | "INTERNAL"; imageUrl: string; active: boolean;
+  hasVariants?: boolean; parentProductId?: string | null; sizeLabel?: string | null;
+  sizeEnabled?: boolean; variants?: StockProduct[];
 };
+export const STOCK_SIZES = ["PP", "P", "M", "G", "GG", "XG"] as const;
 export type StockOverview = { success: true; canManage: boolean; products: StockProduct[]; total: number; categories: StockCategory[]; units: StockUnit[]; alertConfigured: boolean };
 export type StockMovement = { id: string; direction: "ENTRADA" | "SAIDA"; quantity: number; stock_before: number; stock_after: number; note: string; actor_name: string; created_at: string; low_stock_crossed: boolean; alert_message_id: string | null; alertStatus?: string; deliveredAt?: string | null };
 export type MoveStockResult = { success: true; movementId: string; stockQuantity: number; lowStock: boolean; lowStockCrossed: boolean; alertQueued: boolean; replayed: boolean };

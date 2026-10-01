@@ -14,7 +14,7 @@ let role = 'company_manager', accessDenied = false, calls = [], rpcCalls = [];
 const admin = {
   from(table) {
     const call = { table, filters: [], changes: null }; calls.push(call);
-    const chain = { select() { return chain; }, eq(...filter) { call.filters.push(filter); return chain; }, order() { return chain; }, range() { return chain; }, ilike() { return chain; }, in() { return chain; }, limit() { return chain; }, update(row) { call.changes = row; return chain; }, insert(row) { call.changes = row; return chain; }, delete() { return chain; }, single() { return chain; }, maybeSingle() { return chain; }, then(resolve, reject) {
+    const chain = { select() { return chain; }, is(...filter) { call.filters.push(filter); return chain; }, eq(...filter) { call.filters.push(filter); return chain; }, order() { return chain; }, range() { return chain; }, ilike() { return chain; }, in() { return chain; }, limit() { return chain; }, update(row) { call.changes = row; return chain; }, insert(row) { call.changes = row; return chain; }, delete() { return chain; }, single() { return chain; }, maybeSingle() { return chain; }, then(resolve, reject) {
       const data = table === 'xpace_stock_settings' ? { alert_phone: 'fixture-only' } : call.changes ? { id: product } : table === 'xpace_stock_products' ? [{ id: product, description: 'PRODUTO', cost_price_cents: 123, sale_price_cents: 500, category_id: company, unit_id: company, controls_stock: true, minimum_stock: 5, stock_quantity: 5, code: '00123', code_mode: 'EXTERNAL', image_path: '', active: true }] : [];
       return Promise.resolve({ data, error: null, count: 1 }).then(resolve, reject);
     } }; return chain;
@@ -32,7 +32,7 @@ const movement = { action: 'MOVE', productId: product, requestId: '00000000-0000
   role = 'employee'; calls = [];
   const employee = await (await route.GET(new Request('http://fixture.test/api/xpace/estoque'))).json();
   assert.equal(employee.canManage, false); assert.equal(employee.products[0].costPriceCents, null, 'Cost visible only to managers');
-  for (const action of ['SAVE_PRODUCT', 'SAVE_CATEGORY', 'SAVE_UNIT', 'SET_ACTIVE', 'DELETE_LOOKUP']) assert.equal((await post({ action })).status, 403);
+  for (const action of ['SAVE_SIZE_PRODUCT', 'SAVE_PRODUCT', 'SAVE_CATEGORY', 'SAVE_UNIT', 'SET_ACTIVE', 'DELETE_LOOKUP']) assert.equal((await post({ action })).status, 403);
   assert.equal((await post(movement)).status, 200);
   assert.equal(rpcCalls[0].args.p_tenant, company); assert.equal(rpcCalls[0].args.p_actor, actor); assert.equal(rpcCalls[0].name, 'xpace_move_stock');
   for (const quantity of [0, -1, 0.0001, 'NaN', null]) assert.equal((await post({ ...movement, quantity })).status, 400);
@@ -42,5 +42,12 @@ const movement = { action: 'MOVE', productId: product, requestId: '00000000-0000
   accessDenied = false; role = 'company_manager'; calls = [];
   assert.equal((await post({ action: 'SAVE_PRODUCT', product: { id: product, description: 'NOVO', costPriceCents: 100, salePriceCents: 500, controlsStock: true, minimumStock: 5, categoryId: company, unitId: company, codeMode: 'EXTERNAL', code: '00123', stock_quantity: 999, stockQuantity: 999, tenant_company_id: 'forged' } })).status, 200);
   const update = calls.at(-1); assert.equal(update.changes.code, '00123'); assert.equal('stock_quantity' in update.changes, false); assert.equal('stockQuantity' in update.changes, false); assert.ok(update.filters.some(([key,value]) => key === 'tenant_company_id' && value === company));
+  assert.ok(update.filters.some(([key,value]) => key === 'has_variants' && value === false), 'ordinary edits cannot mutate a size family');
+  const family = { id: product, description: 'Camiseta fixture', costPriceCents: 7990, salePriceCents: 10990, categoryId: company, unitId: company, minimumStock: 0, sizes: ['PP','P','M','G','GG','XG'], stockQuantity: 999, tenant_company_id: 'forged' };
+  assert.equal((await post({ action: 'SAVE_SIZE_PRODUCT', product: family })).status, 200);
+  const save = rpcCalls.at(-1); assert.equal(save.name, 'xpace_save_stock_sizes'); assert.equal(save.args.p_tenant, company); assert.equal(save.args.p_actor, actor); assert.equal('stockQuantity' in save.args, false);
+  for (const sizes of [[],['P','P'],['XXL'],[null]]) assert.equal((await post({ action: 'SAVE_SIZE_PRODUCT', product: { ...family, sizes } })).status, 400);
+  assert.equal((await post({ action: 'SET_ACTIVE', entity: 'PRODUCT', id: product, active: false })).status, 200);
+  assert.equal(rpcCalls.at(-1).name, 'xpace_stock_set_active', 'family archive uses atomic RPC');
   console.log('PASS stock API: authenticated XPACE scope, catalog manager-only, costs/recipient privacy, movement actor/tenant trusted, exact codes, ledger-only balances and invalid-input rejection.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

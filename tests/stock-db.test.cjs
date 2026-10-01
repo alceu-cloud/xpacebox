@@ -28,6 +28,7 @@ const readMigration = suffix => fs.readFileSync(path.join('supabase/migrations',
   await db.query('insert into xpace_message_connectors values($1,$2)', [id(8), tenant]);
   await db.exec(readMigration('_xpace_stock_catalog.sql'));
   await db.exec(readMigration('_xpace_stock_ledger_permissions.sql'));
+  await db.exec(readMigration('_xpace_stock_sizes.sql'));
   assert.equal((await db.query('select count(*)::int as n from xpace_stock_categories')).rows[0].n, 5);
   assert.equal((await db.query('select count(*)::int as n from xpace_stock_units')).rows[0].n, 9);
   const category = (await db.query("select id from xpace_stock_categories where description='Bebidas'")).rows[0].id;
@@ -61,6 +62,41 @@ const readMigration = suffix => fs.readFileSync(path.join('supabase/migrations',
   await move(108, 'SAIDA', 4.5);
   await db.query('update xpace_stock_products set controls_stock=false where id=$1', [id(10)]);
   await assert.rejects(move(109, 'ENTRADA', 1), /STOCK_NOT_CONTROLLED/);
+  const familyId = id(20);
+  const sizes = ['PP','P','M','G','GG','XG'];
+  const saveFamily = (grade = sizes, who = actor, company = tenant, target = familyId) => db.query('select xpace_save_stock_sizes($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [company,who,target,'Camiseta fixture',7990,10990,category,unit,0,grade]);
+  await db.exec('set role service_role');
+  await saveFamily();
+  const children = (await db.query('select * from xpace_stock_products where parent_product_id=$1 order by size_label', [familyId])).rows;
+  assert.equal(children.length, 6); assert.equal(new Set(children.map(child => child.code)).size, 6);
+  assert.ok(children.every(child => child.stock_quantity === '0.000' && child.code.startsWith('XP-') && child.controls_stock));
+  const small = children.find(child => child.size_label === 'P'), medium = children.find(child => child.size_label === 'M');
+  await move(200, 'ENTRADA', 3, actor, tenant, small.id);
+  await move(201, 'SAIDA', 1, actor, tenant, small.id);
+  await assert.rejects(move(202, 'SAIDA', 1, actor, tenant, medium.id), /STOCK_INSUFFICIENT/);
+  await assert.rejects(move(203, 'ENTRADA', .5, actor, tenant, small.id), /STOCK_SIZE_QUANTITY_INVALID/);
+  await assert.rejects(move(204, 'ENTRADA', 1, actor, tenant, familyId), /STOCK_NOT_CONTROLLED/);
+  await saveFamily();
+  assert.equal((await db.query('select stock_quantity from xpace_stock_products where id=$1', [small.id])).rows[0].stock_quantity, '2.000');
+  assert.deepEqual((await db.query('select id from xpace_stock_products where parent_product_id=$1 order by size_label', [familyId])).rows.map(row => row.id), children.map(row => row.id), 'save/retry preserves SKU IDs, QR and balances');
+  await assert.rejects(saveFamily(['M']), /STOCK_SIZE_HAS_BALANCE/);
+  await assert.rejects(saveFamily(['P','P']), /STOCK_SIZE_INVALID/);
+  await assert.rejects(saveFamily(['P','XXL']), /STOCK_SIZE_INVALID/);
+  await assert.rejects(saveFamily(sizes, outsider), /STOCK_ACCESS_DENIED/);
+  await assert.rejects(saveFamily(sizes, outsider, other), /STOCK_ACCESS_DENIED/);
+  await assert.rejects(saveFamily(sizes, inactive), /STOCK_ACCESS_DENIED/);
+  await assert.rejects(saveFamily(sizes, actor, tenant, id(10)), /STOCK_SIZE_INVALID/, 'cannot convert existing ordinary product');
+  await saveFamily(['P','M']);
+  await db.query('select xpace_stock_set_active($1,$2,$3,false)', [tenant,actor,familyId]);
+  await assert.rejects(move(205, 'ENTRADA', 1, actor, tenant, small.id), /STOCK_NOT_FOUND/);
+  await db.query('select xpace_stock_set_active($1,$2,$3,true)', [tenant,actor,familyId]);
+  assert.equal((await db.query('select count(*)::int as n from xpace_stock_products where parent_product_id=$1 and active', [familyId])).rows[0].n, 2, 'reactivation does not restore removed sizes');
+  await saveFamily();
+  await db.exec('reset role');
+  for (const signature of ['xpace_save_stock_sizes(uuid,uuid,uuid,text,integer,integer,uuid,uuid,numeric,text[])','xpace_stock_set_active(uuid,uuid,uuid,boolean)','xpace_stock_require_manager(uuid,uuid)']) {
+    for (const role of ['anon','authenticated']) assert.equal((await db.query('select has_function_privilege($1,$2,\'execute\') as allowed', [role,signature])).rows[0].allowed, false);
+  }
+  console.log('PASS stock sizes SQL: independent balances, unique QR, whole pieces, atomic edits/archive, no hidden stock, stable retry and manager/tenant grants.');
   for (const role of ['anon', 'authenticated']) {
     assert.equal((await db.query(`select has_function_privilege('${role}','xpace_move_stock(uuid,uuid,uuid,uuid,text,numeric,text)','execute') as allowed`)).rows[0].allowed, false);
     assert.equal((await db.query(`select has_table_privilege('${role}','xpace_stock_products','update') as allowed`)).rows[0].allowed, false);
