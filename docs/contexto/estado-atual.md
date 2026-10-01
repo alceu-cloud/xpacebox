@@ -110,3 +110,34 @@ Ainda exige prova física/autorizada: câmera em embalagens/iPhone e cruzamento 
 Em cada continuação: confira Git atual, autenticações e módulo relevante, preserve trabalho concorrente e mantenha este estado atualizado sem inventar verificação de produção.
 
 Revisão documental de continuidade em 01/10/2026: README principal passou a apontar esta entrada, referência antiga fixa foi retirada e a manutenção no mesmo commit foi explicitada no `AGENTS.md`. Nenhum código, dado, migração, credencial ou envio real foi alterado nessa revisão. Para esta mudança apenas documental, conferir links locais e `git diff --check` é a validação proporcional; os testes de aplicação acima pertencem às entregas identificadas, não foram reexecutados só para revisar o texto.
+
+## Nota temporária — continuação
+
+Checkpoint de 01/10/2026: conversa interrompida para alinhar a passagem, não por esgotamento de crédito. A última consulta mostrava 48% disponíveis na janela de cinco horas. Essa porcentagem é histórica e deve ser consultada novamente ao retomar.
+
+### Escopo e decisões autorizados
+
+Preparar, implementar e testar isoladamente a estrutura SaaS comercial: loja de mensalidades e adicionais, assinatura da escola por faixas de alunos e integração Asaas multiempresa. **Não criar contas reais, cobranças, assinaturas financeiras ou instâncias Z-API pagas nem ativar cobrança automática nesta preparação.** Alceu informará faixas/valores depois; não inventar preços nem tratar preço indefinido como gratuito.
+
+- A decisão mais recente substitui a proposta inicial: XPACE e XPACEBOX têm o mesmo CNPJ informado pelo usuário; XPACE usa a conta principal do Asaas e é isenta de mensalidade do software/adicionais. Não criar uma subconta para XPACE. Isso não isenta tarifas cobradas pelos provedores.
+- Outras empresas devem usar subcontas separadas, com credenciais e eventos isolados por tenant. Uma empresa não pode escolher a conta mãe pelo navegador ou herdar a isenção por ser gerida pelo dono da plataforma.
+- Xpace Pay é obrigatório para recebimento/conciliação e não terá mensalidade de módulo. Os outros itens da loja precisam ser contratáveis mensalmente. Integrador WhatsApp é adicional pago, com instância/número próprios de cada empresa.
+- Faixas de alunos, preços do software e do WhatsApp estão pendentes. Definição de aluno faturável, data de medição, mudança de faixa, vencimento, cancelamento/inadimplência e ativação após pagamento também precisam de decisão explícita antes de ligar a cobrança.
+- Não alterar o WhatsApp/robô XPACE atual nem interromper acessos existentes para implantar o piloto comercial. Não reativar conector antigo.
+
+### Trabalho realizado e ponto de parada
+
+Foi feita apenas inspeção inicial; **nenhuma implementação SaaS deste pedido, migration ou teste funcional novo foi concluído**. Cópia inspecionada `C:/XpaceBox`, remoto `alceu-cloud/xpacebox`, branch `main`; reconferir revisão atual ao começar. Alterações locais preexistentes em `supabase/.temp/cli-latest` e `output/` foram preservadas.
+
+Encontrado: `lib/server/xpay-asaas.ts` já cria subconta com chave da conta mãe e cifra a credencial retornada; `app/api/xpace/xpay/route.ts` está restrita à empresa XPACE; `20260915140647_xpay_payment_accounts.sql` associa contas e eventos por tenant, mas não implementa sozinho o modelo comercial solicitado. `lib/server/company-access.ts` valida sessão/perfil e vínculo no servidor. Loja é aberta por `components/xpace-dance/DanceWorkspace.tsx`; localizar a definição/importação real de `XPayStore` antes de editar (não existe arquivo `components/xpace-dance/XPayStore.tsx`).
+
+Documentação oficial consultada: [subcontas Asaas](https://docs.asaas.com/docs/criacao-de-subcontas), [criação de subconta](https://docs.asaas.com/reference/criar-subconta) e [QR Z-API](https://developer.z-api.io/instance/qr-code-image). O modelo Asaas depende de homologação/enquadramento BaaS e limites de avaliação; não assumir liberação definitiva. Z-API documenta QR em imagem, mas o fluxo seguro por empresa ainda não foi implementado. Revalidar documentação antes de integrar.
+
+### Próximos passos, em ordem
+
+1. Ler regras/contexto e módulos relevantes, conferir remoto/concorrência; usar as skills Supabase e UI aplicáveis. Não sobrescrever trabalho do colega.
+2. Concluir o inventário de loja, permissões/módulos, contas financeiras, webhooks e Z-API. Definir conta principal exclusiva da XPACE e subcontas dos demais tenants, sem misturar recebimentos de alunos com a mensalidade que a empresa paga ao SaaS.
+3. Implementar estrutura protegida/configurável para catálogo, faixas não sobrepostas, preços ainda não publicados, isenção exclusiva XPACE, assinatura por empresa e adicionais mensais. Preparar checkout/idempotência/reconciliação e ativação por pagamento validado, sem cobranças reais ou bloqueio retroativo de clientes atuais.
+4. Preparar onboarding por empresa Asaas e QR WhatsApp via servidor, sem expor tokens, sem compartilhar instâncias e sem substituir o callback do robô. Operações externas com custo continuam adiadas.
+5. Testar autorização/isolamento, concorrência, duplicidade, preços indefinidos, isenção, limites das faixas, eventos fora de ordem e onboarding com fixtures/sandbox autorizado. Novas migrations devem ser revisadas e testadas isoladamente; não aplicar em produção por simples leitura deste checkpoint.
+6. Manter o contexto e documentação do módulo, publicar somente mudanças prontas/testadas conforme autorização vigente e informar pendências de preços/homologação/teste real. Ao acabar a continuação, incorporar resultados permanentes e remover esta nota; se atingir o limite antes, substituir por checkpoint atualizado.

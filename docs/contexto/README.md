@@ -54,3 +54,11 @@ Os nomes não são orientação para recriar ou trocar chaves. Use configuraçõ
 Atualize o estado/documentação na mesma mudança que alterou comportamento relevante. Use datas de conferência, evidências e limites; deixe a revisão atual ser descoberta no Git. Documentação esquecida não se atualiza sozinha, e a regra de leitura não substitui inspeção do código/banco.
 
 Uma mudança apenas documental pode disparar build pela integração Git/Vercel. Quando outro agente estiver trabalhando, não publique na `main` sem a autorização vigente e a conferência do remoto. Se o usuário pedir para esperar “publica”, mantenha o pacote somente na cópia local até nova autorização.
+
+## Continuar uma tarefa interrompida
+
+Se houver `Nota temporária — continuação` no fim do [Estado atual](estado-atual.md), ela contém o checkpoint da tarefa em andamento. Para autorizar a próxima conversa a retomá-la, Alceu pode enviar:
+
+> Leia https://github.com/alceu-cloud/xpacebox/blob/main/docs/contexto/README.md e os documentos indicados. Confira o Git e preserve trabalhos concorrentes. Continue o escopo autorizado na nota temporária ao fim do estado atual, respeitando as decisões e os bloqueios nela. Ao terminar, atualize o contexto permanente e remova somente a nota resolvida.
+
+Essa instrução de continuação substitui o “aguarde meu pedido” do texto genérico acima somente para a tarefa identificada na nota. A regra permanente no `AGENTS.md` exige acompanhar o limite durante o trabalho e preparar o checkpoint perto de 10% disponíveis; não é um monitor executado em segundo plano. Ao concluir, incorpore os resultados e retire apenas o recado temporário, nunca esta entrada nem as regras permanentes.

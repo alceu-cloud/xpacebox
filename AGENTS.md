@@ -54,3 +54,13 @@ Ao concluir uma mudança solicitada, atualize `docs/contexto/estado-atual.md` e 
 Inclua essa atualização no mesmo commit da mudança material, antes do push. Operações autorizadas feitas pelas ferramentas em produção também exigem registrar o resultado relevante e a data de conferência, mesmo sem mudar o código. Não trate números de uma conferência antiga como saldos atuais, não copie dados pessoais/segredos e não declare uma validação apenas porque outro documento a menciona. Se não houver mudança material, não gere edição ou commit vazio só para renovar a data.
 
 Não prenda a entrada do contexto a um “último commit” fixo: descubra a revisão atual no Git a cada início e informe o hash na resposta. Não invente estados de entrega/deploy nem mantenha uma pendência resolvida como atual. Se a publicação precisar esperar, deixe isso explícito no retorno ao usuário e preserve o trabalho local.
+
+### Passagem temporária por limite de uso
+
+Durante o trabalho autorizado, consulte periodicamente os limites da conta, especialmente antes de etapas demoradas. Alceu pediu para interromper novas etapas ao chegar perto de 10% disponíveis na janela de cinco horas (90% usados), reservando margem para salvar, verificar e publicar um checkpoint seguro. O limite é compartilhado e não prevê uma quantidade fixa de mensagens; saldo de créditos e percentual da janela são medidas diferentes. Não espere o bloqueio para documentar.
+
+Ao interromper, atualize o contexto permanente e acrescente uma única seção final `Nota temporária — continuação` em `docs/contexto/estado-atual.md`, com data, motivo real, escopo autorizado, decisões, trabalho concluído/testado, ponto exato de parada, arquivos/branch, pendências e próximos passos ordenados. Não alegue que acabou o crédito quando a interrupção teve outro motivo. Não publicar código incompleto como pronto nem colocar segredos na nota.
+
+Quando Alceu disser à próxima conversa para ler o contexto e continuar, execute os próximos passos dessa nota após conferir Git, regras, autenticação e trabalho concorrente. Não é preciso pedir novamente autorização para o mesmo escopo; pagamentos reais, criação de contas/instâncias com custo e outras ativações explicitamente adiadas continuam bloqueadas até autorização específica. A nota não amplia o pedido original.
+
+Ao terminar a continuação, incorpore os resultados relevantes ao contexto permanente e à documentação do módulo; só então remova a nota temporária resolvida no mesmo commit. Se sobrar trabalho, substitua a nota por uma versão atual, sem empilhar recados. Preserve estas regras e a documentação fixa. Não enviar mensagem a outra conversa: a passagem será feita pelo próprio documento, conforme esclarecimento de Alceu.
