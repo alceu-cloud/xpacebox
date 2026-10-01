@@ -111,33 +111,42 @@ Em cada continuação: confira Git atual, autenticações e módulo relevante, p
 
 Revisão documental de continuidade em 01/10/2026: README principal passou a apontar esta entrada, referência antiga fixa foi retirada e a manutenção no mesmo commit foi explicitada no `AGENTS.md`. Nenhum código, dado, migração, credencial ou envio real foi alterado nessa revisão. Para esta mudança apenas documental, conferir links locais e `git diff --check` é a validação proporcional; os testes de aplicação acima pertencem às entregas identificadas, não foram reexecutados só para revisar o texto.
 
+## SaaS comercial — base implementada em 01/10/2026
+
+Leia [SaaS comercial](../saas-commercial.md) antes de continuar este módulo. A base inicial foi implementada; isso **não significa SaaS inteiro pronto para vender nem cobrança automática ativa**.
+
+Decisões vigentes: XPACE é a empresa principal/isenta e usa a conta mãe da XPACEBOX (mesmo CNPJ informado pelo usuário); outras empresas terão subcontas para recebimentos de seus alunos. A mensalidade SaaS e adicionais pertence à conta mãe. Xpace Pay obrigatório sem mensalidade de módulo; tarifas separadas. Integrador de mensagens opcional R$150/mês somado ao plano, sem nome Z-API ou custo interno na interface do cliente. O usuário dispensou registrar o custo do fornecedor.
+
+Preços autorizados: 0–50 alunos R$99; 51–200 R$149; 201–300 R$199; 301–500 R$249; 501–800 R$299; 801 ou mais R$349. Fechamento no final do mês. Não confundir as faixas da imagem com a regra de medição: alunos faturáveis/média diária ainda pendentes.
+
+Entrega: loja por slug, Config → Planos e Pagamentos e página genérica, preferência Pix/boleto/cartão e adicional em preparação, histórico de faturas paginado, tabela versionada/CAS/imutável, simulações idempotentes/tenant no servidor, conta principal protegida contra subconta indevida, registro cifrado e QR opt-in de outra empresa, adapters Sandbox e guard de operação incerta. Helpers puros de fechamento/eventos atrasados não são cron ou webhook ativos. Nenhum cartão completo/CVV armazenado; não há checkout real ligado.
+
+Migrations aplicadas individualmente e alinhadas ao histórico remoto: `20261001225412_saas_commercial_preparation.sql` e `20261001230148_saas_sandbox_operation_guard.sql`. Não reaplicar nem fazer repair/mass push. Conferência após primeira migration: XPACE como principal, fase PREPARATION, preços corretos, zero rascunhos/preferências/faturas/conexões novas. Nenhuma conta/assinatura/cobrança/mensagem externa criada. RLS e privilégios só servidor; aviso INFO sem policy é intencional.
+
+Testes desta entrega: 22 testes Node SaaS/API/adapters e SQL das duas migrations em PostgreSQL isolado/PGlite; regressão `npm run test:stock`; telas novas em desktop1440/mobile320/390 com autenticação/APIs interceptadas; TypeScript/build verificados. Testes visuais não comprovam checkout/recibo real. Publicação e revisão efetivas devem ser reconferidas no Git/Vercel; não derivar estado de produção apenas deste texto.
+
 ## Nota temporária — continuação
 
-Checkpoint de 01/10/2026: conversa interrompida para alinhar a passagem, não por esgotamento de crédito. A última consulta mostrava 48% disponíveis na janela de cinco horas. Essa porcentagem é histórica e deve ser consultada novamente ao retomar.
+Checkpoint de 01/10/2026: primeira etapa de preparação comercial entregue. **Não houve esgotamento de crédito**; a última consulta antes da publicação mostrou 16% restantes na janela de cinco horas. Consultar de novo, pois o limite é compartilhado. O restante depende das decisões de cobrança pendentes e da implementação/homologação abaixo; não declarar tudo pronto para vender.
 
-### Escopo e decisões autorizados
+### Escopo autorizado e bloqueios
 
-Preparar, implementar e testar isoladamente a estrutura SaaS comercial: loja de mensalidades e adicionais, assinatura da escola por faixas de alunos e integração Asaas multiempresa. **Não criar contas reais, cobranças, assinaturas financeiras ou instâncias Z-API pagas nem ativar cobrança automática nesta preparação.** Alceu informará faixas/valores depois; não inventar preços nem tratar preço indefinido como gratuito.
+Continuar preparação multiempresa, loja, assinatura mensal conjunta, Planos e Pagamentos, Asaas mãe/filhas e WhatsApp exclusivo por empresa. Commit/push de mudanças solicitadas e testadas autorizado, preservando trabalho concorrente. Não criar contas/assinaturas/cobranças **reais**, instâncias pagas, mandar mensagens de teste para clientes, ativar cron financeiro ou interromper XPACE nesta fase. Autorização futura de teste Sandbox deve ser específica; nenhuma flag nova foi habilitada.
 
-- A decisão mais recente substitui a proposta inicial: XPACE e XPACEBOX têm o mesmo CNPJ informado pelo usuário; XPACE usa a conta principal do Asaas e é isenta de mensalidade do software/adicionais. Não criar uma subconta para XPACE. Isso não isenta tarifas cobradas pelos provedores.
-- Outras empresas devem usar subcontas separadas, com credenciais e eventos isolados por tenant. Uma empresa não pode escolher a conta mãe pelo navegador ou herdar a isenção por ser gerida pelo dono da plataforma.
-- Xpace Pay é obrigatório para recebimento/conciliação e não terá mensalidade de módulo. Os outros itens da loja precisam ser contratáveis mensalmente. Integrador WhatsApp é adicional pago, com instância/número próprios de cada empresa.
-- Faixas de alunos, preços do software e do WhatsApp estão pendentes. Definição de aluno faturável, data de medição, mudança de faixa, vencimento, cancelamento/inadimplência e ativação após pagamento também precisam de decisão explícita antes de ligar a cobrança.
-- Não alterar o WhatsApp/robô XPACE atual nem interromper acessos existentes para implantar o piloto comercial. Não reativar conector antigo.
+A pergunta sobre ativos no fechamento versus média diária foi enviada, ainda sem resposta no checkpoint. Não assumir a métrica, proporcionalidade de adicional no meio do mês, mudança de faixa, tolerância ou cancelamento só por se parecer com Next Fit. Preços e fechamento no fim do mês já estão definidos acima; não perguntar tudo novamente.
 
-### Trabalho realizado e ponto de parada
+### Ponto exato e arquivos
 
-Foi feita apenas inspeção inicial; **nenhuma implementação SaaS deste pedido, migration ou teste funcional novo foi concluído**. Cópia inspecionada `C:/XpaceBox`, remoto `alceu-cloud/xpacebox`, branch `main`; reconferir revisão atual ao começar. Alterações locais preexistentes em `supabase/.temp/cli-latest` e `output/` foram preservadas.
+Cópia `C:/XpaceBox`, branch `main`, remoto `alceu-cloud/xpacebox`; reconferir revisão atual. Módulo/documentação `docs/saas-commercial.md`. As telas novas salvam apenas preparação. API de checkout/job SaaS/webhook financeiro/subconta real por empresa e integração operacional de novas escolas **ainda não implementados**. O helper `runSaasSandboxOperation` não é chamado por endpoint ou cron; antes de expô-lo, validar empresa→cliente Asaas e preço calculado no servidor. Ele não retorna chave/resultado privado ao navegador, e bloqueia tentativa incerta ou lease expirado sem repetir POST.
 
-Encontrado: `lib/server/xpay-asaas.ts` já cria subconta com chave da conta mãe e cifra a credencial retornada; `app/api/xpace/xpay/route.ts` está restrita à empresa XPACE; `20260915140647_xpay_payment_accounts.sql` associa contas e eventos por tenant, mas não implementa sozinho o modelo comercial solicitado. `lib/server/company-access.ts` valida sessão/perfil e vínculo no servidor. Loja é aberta por `components/xpace-dance/DanceWorkspace.tsx`; localizar a definição/importação real de `XPayStore` antes de editar (não existe arquivo `components/xpace-dance/XPayStore.tsx`).
+Rotas/telas operacionais existentes continuam em vários pontos específicas de `/api/xpace/...`. Loja por slug não autoriza outra escola a operar esses módulos. Nunca copiar acesso/filas da XPACE para criar um novo cliente. Alterações preexistentes `supabase/.temp/cli-latest` e `output/` não pertencem a este pacote e foram preservadas.
 
-Documentação oficial consultada: [subcontas Asaas](https://docs.asaas.com/docs/criacao-de-subcontas), [criação de subconta](https://docs.asaas.com/reference/criar-subconta) e [QR Z-API](https://developer.z-api.io/instance/qr-code-image). O modelo Asaas depende de homologação/enquadramento BaaS e limites de avaliação; não assumir liberação definitiva. Z-API documenta QR em imagem, mas o fluxo seguro por empresa ainda não foi implementado. Revalidar documentação antes de integrar.
+### Próximos passos em ordem
 
-### Próximos passos, em ordem
-
-1. Ler regras/contexto e módulos relevantes, conferir remoto/concorrência; usar as skills Supabase e UI aplicáveis. Não sobrescrever trabalho do colega.
-2. Concluir o inventário de loja, permissões/módulos, contas financeiras, webhooks e Z-API. Definir conta principal exclusiva da XPACE e subcontas dos demais tenants, sem misturar recebimentos de alunos com a mensalidade que a empresa paga ao SaaS.
-3. Implementar estrutura protegida/configurável para catálogo, faixas não sobrepostas, preços ainda não publicados, isenção exclusiva XPACE, assinatura por empresa e adicionais mensais. Preparar checkout/idempotência/reconciliação e ativação por pagamento validado, sem cobranças reais ou bloqueio retroativo de clientes atuais.
-4. Preparar onboarding por empresa Asaas e QR WhatsApp via servidor, sem expor tokens, sem compartilhar instâncias e sem substituir o callback do robô. Operações externas com custo continuam adiadas.
-5. Testar autorização/isolamento, concorrência, duplicidade, preços indefinidos, isenção, limites das faixas, eventos fora de ordem e onboarding com fixtures/sandbox autorizado. Novas migrations devem ser revisadas e testadas isoladamente; não aplicar em produção por simples leitura deste checkpoint.
-6. Manter o contexto e documentação do módulo, publicar somente mudanças prontas/testadas conforme autorização vigente e informar pendências de preços/homologação/teste real. Ao acabar a continuação, incorporar resultados permanentes e remover esta nota; se atingir o limite antes, substituir por checkpoint atualizado.
+1. Conferir Git atual, regras/contexto, autenticação e documentação do módulo. Revisar alterações concorrentes antes de qualquer publicação; usar skills Supabase/UI aplicáveis.
+2. Obter/registrar regra de alunos e contratação por competência; preparar snapshots auditáveis. Se escolher média diária, iniciar histórico confiável sem inventar médias de meses passados.
+3. Completar onboarding/vínculos financeiros por tenant e conta mãe XPACE. Completar cliente/assinatura SaaS na mãe, checkout hospedado de cartão, Pix/boleto e metadados seguros de pagamento; nenhum PAN/CVV no banco. Asaas exige tokenização habilitada em produção para mudar valor de assinatura de cartão; incluir isso na homologação.
+4. Ligar fechamento mensal, emissão única de plano+adicionais, eventos/recibos autenticados, deduplicação/reconciliação, cancelamento/inadimplência e entitlement no servidor. Não tratar preferência, redirect ou ID retornado como pago; REVIEW/UNKNOWN exigem conferência.
+5. Generalizar operação/módulos/consumidor WhatsApp para novas empresas sem romper XPACE. Isolar dados, assinaturas, filas, credenciais e eventos de ponta a ponta. Registro/QR novo não é envio funcionando.
+6. Implementar runner Sandbox protegido para teste autorizado e testar dois tenants, concurrent workers, limites/faixas/mês bissexto, aprovação/recusa, webhook duplicado/atrasado, alteração de preço e UNKNOWN. Migrations já aplicadas não precisam ser repetidas.
+7. Atualizar contexto/documentação e publicar só partes prontas/testadas. Ativação real vem somente depois da liberação Asaas, regras comerciais e autorização/prova isolada. Ao terminar toda a continuação, incorporar resultados e retirar esta nota; se sobrar trabalho ou aproximar 10% disponíveis, substituir por checkpoint atual sem empilhar recados. Não enviar mensagem a outra conversa.

@@ -38,6 +38,7 @@ Os nomes não são orientação para recriar ou trocar chaves. Use configuraçõ
 2. Git atual e [Estado atual](estado-atual.md), distinguindo decisões de snapshots antigos.
 3. [Arquitetura multiempresa](../../ARQUITETURA-V2.md).
 4. Documentação do módulo em questão:
+   - [SaaS comercial, loja e Planos e Pagamentos](../saas-commercial.md).
    - [Estoque](../xpace-stock.md).
    - [Z-API e histórico da migração](../xpace-zapi-handoff.md).
    - [Push no iPhone](../xpace-iphone-push.md).

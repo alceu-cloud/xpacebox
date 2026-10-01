@@ -40,6 +40,9 @@ export async function PATCH(request: Request) {
 }
 
 async function createSubaccount(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Partial<XPayRegistration>) {
+  // Latest owner decision: XPACE and XPACEBOX are the same legal entity.
+  // Never create another external account through this legacy XPACE-only endpoint.
+  if (access.company.slug === "xpace") throw new RequestError("XPACE USA A CONTA MÃE ASAAS. NÃO CRIE OUTRA SUBCONTA. PREPARE A VINCULAÇÃO NA LOJA DA PLATAFORMA.", 409);
   const registration = normalizeRegistration(input);
   validateRegistration(registration);
   const { data: current, error: currentError } = await access.admin.from("xpace_payment_accounts").select("id").eq("tenant_company_id", access.company.id).is("closed_at", null).maybeSingle();
