@@ -48,14 +48,14 @@ Não guardar contagens fixas de fila nesta memória. Último caso discutido no c
 - Unidades iniciais: Caixa/CX, Grama/G, Litro/L, Metro/M, Mililitro/ML, Pacote/PCT, Peça/PC, Quilograma/KG, Unidade/UN.
 - Cadastro em modal com descrição, custo/venda, unidade, categoria, foto, controlar estoque, mínimo e código da embalagem ou QR interno.
 - Preservar zeros iniciais. Sabores, cores e embalagens diferentes ficam em produtos separados. Tamanhos do mesmo modelo ficam na grade; cada SKU possui seu próprio saldo e código. Arquivar preserva histórico; categorias/unidades em uso não são excluídas.
-- App lê QR/código de barras, oferece busca manual, foto/saldo, entrada/baixa e confirmação de quantidade.
+- App oferece seleção por lista, pesquisa pelo nome, foto/saldo, entrada/baixa e confirmação de quantidade. Não é necessário ler QR nem autorizar câmera.
 - Saldo inicia em zero; entrada registra saldo inicial. Não permitir negativo.
 - Saldo, histórico e alerta são atômicos. Após resposta ambígua, mesma operação usa o mesmo `requestId` UUID e payload; não duplicar movimento.
 - Exemplo de regra: com mínimo configurado em 5, saldo 5→4 gera aviso na tela e, com destinatário/integrador configurados, WhatsApp ao Alceu. O mínimo não é sempre 5: os novos cadastros desta conversa usam zero, sem inventar um ponto de reposição. Não repetir enquanto abaixo; reposição até o mínimo rearma. Destinatário em `xpace_stock_settings.alert_phone`, fora do Git e da resposta pública.
 
 Atualização do amigo incorporada sem alterar seu código:
 
-- Produto com grade de tamanhos PP/P/M/G/GG/XG aparece como um modelo no catálogo e na folha de QR. O QR do modelo exige escolher o tamanho antes de entrada ou baixa; roupas usam peças inteiras.
+- Produto com grade de tamanhos PP/P/M/G/GG/XG aparece como um modelo no catálogo e na folha de QR. Selecionar o modelo na lista exige escolher o tamanho antes de entrada ou baixa; roupas usam peças inteiras.
 - Editar grade preserva IDs, QR, saldos e histórico. Tamanho com saldo não pode ser removido. Remoção sem saldo arquiva; arquivar modelo bloqueia tamanhos; reativar modelo não restaura tamanho removido.
 - Relatórios → Estoque · Entradas e baixas, somente gestores: período em Brasília, produto, responsável e tipo, 50 registros por página, nota e saldo antes/depois, inclusive produtos arquivados. Nome do responsável preserva o snapshot do lançamento; conta compartilhada não identifica a pessoa física.
 - Existe `scripts/import-stock-photo-catalog.cjs` para importação explícita por operador, dry-run por padrão. Não executar `--apply` ou repetir catálogo só por encontrar o script; conferir manifesto, autorização e dados atuais. A importação das fotos abaixo já foi concluída; não cadastrá-las novamente.
@@ -89,7 +89,7 @@ Não reaplicar. Consulte o histórico remoto para quaisquer migrations posterior
 
 Folha compacta publicada/verificada: A4 com margens 10 mm, três colunas horizontais, foto pequena, nome, preço/unidade e QR 22 mm; identificador extenso não impresso. Teste de 30 produtos comuns coube em uma página. Nomes longos expandem cartão sem truncar. Imprimir a 100%, sem cabeçalhos/rodapés. PDF renderizado foi inspecionado e QR reduzido decodificado.
 
-Leitor ZXing suporta QR e EAN-13, inclusive fixture começando em 789. Usuário relatou dificuldade com prata/reflexo e dois códigos na embalagem; não foi feita correção de câmera nessa entrega. Câmera fechando com “Produto não encontrado” indica leitura sem cadastro correspondente. Manter código completo/margens visíveis, evitar reflexo e cobrir outro código. Quadro é guia; decodificação usa o frame completo. Usuário decidiu usar QR interno nos produtos difíceis. Teste sintético não garante leitura física em toda embalagem.
+Histórico da câmera: ZXing suporta QR e EAN-13, inclusive fixture começando em 789; houve relatos de dificuldade com prata/reflexo e códigos vizinhos. A entrega de seleção por lista substitui o leitor no fluxo de movimentação. O componente/decoder e os códigos existentes foram preservados, mas o app não solicita câmera para selecionar produtos.
 
 ## DAWOS e pendências a reconferir
 
@@ -123,11 +123,25 @@ Entrega: loja por slug, Config → Planos e Pagamentos e página genérica, pref
 
 Migrations aplicadas individualmente e alinhadas ao histórico remoto: `20261001225412_saas_commercial_preparation.sql` e `20261001230148_saas_sandbox_operation_guard.sql`. Não reaplicar nem fazer repair/mass push. Conferência após primeira migration: XPACE como principal, fase PREPARATION, preços corretos, zero rascunhos/preferências/faturas/conexões novas. Nenhuma conta/assinatura/cobrança/mensagem externa criada. RLS e privilégios só servidor; aviso INFO sem policy é intencional.
 
-Testes desta entrega: 22 testes Node SaaS/API/adapters e SQL das duas migrations em PostgreSQL isolado/PGlite; regressão `npm run test:stock`; telas novas em desktop1440/mobile320/390 com autenticação/APIs interceptadas; TypeScript/build verificados. Testes visuais não comprovam checkout/recibo real. Publicação e revisão efetivas devem ser reconferidas no Git/Vercel; não derivar estado de produção apenas deste texto.
+Testes desta entrega: 22 testes Node SaaS/API/adapters e SQL das duas migrations em PostgreSQL isolado/PGlite; regressão `npm run test:stock`; telas novas em desktop1440/mobile320/390 com autenticação/APIs interceptadas; TypeScript/build verificados. Após integrar os commits de estoque do amigo, SaaS, estoque, build otimizado e ambos os testes de navegador foram reexecutados e passaram; somente o conflito documental exigiu resolução. Testes visuais não comprovam checkout/recibo real. Publicação e revisão efetivas devem ser reconferidas no Git/Vercel; não derivar estado de produção apenas deste texto.
+
+## Seleção de produtos por lista e barra desktop — entrega de 01/10/2026
+
+Em 01/10/2026, Alceu pediu trocar a seleção por câmera/QR por uma lista no estoque, mantendo tamanho, entrada/baixa, quantidade e mensagem de sucesso. Após a preparação isolada, autorizou conferir a revisão atual e commitar as duas alterações. A cópia de trabalho estava alinhada com a `main` corrente; a outra cópia inspecionada estava limpa e em revisão ancestral já incorporada. Nenhuma alteração do amigo foi sobrescrita.
+
+Implementada na branch local `feat/stock-product-list-20261001`, pasta `C:/Users/User/Documents/Codex/2026-10-01/ola/work/xpacebox-product-list`: foto/nome/categoria/saldo, busca por nome, paginação pela API existente, reconferência do produto escolhido e retorno à lista atualizada. O atalho desktop usa o mesmo seletor. Painéis de grade/movimento, códigos/cadastro/impressão, API, banco e integrações foram preservados.
+
+Passaram localmente build, testes de estoque, rolagem e navegador com fixtures (320/390 px, busca, 101 produtos/paginação, cancelamento, saldo atualizado, alerta, retry idempotente, tamanhos e seletor desktop). Sem migrations, dados, env de produção ou mensagens reais. Alceu autorizou explicitamente o envio à `main` e a publicação Vercel em 01/10/2026, substituindo a espera anterior; remoto/concorrência foram novamente conferidos antes do envio. Confirmar separadamente push, deploy e revisão visível antes de declarar produção atualizada. Detalhes em `docs/xpace-stock.md`.
+
+A nota SaaS pertence a outro escopo e foi preservada durante essa entrega de estoque; a continuação SaaS foi autorizada depois por Alceu nesta conversa.
+
+Pedido adicional de 01/10/2026: no computador, alinhar `PRODUTOS`, pesquisa, categorias e `INCLUIR ARQUIVADOS` na mesma linha. Ajustado no catálogo desktop, sem alteração da PWA do celular. Conferido em navegador isolado a 1440/1024/768 px: controles alinhados e página sem overflow; pesquisa e filtros funcionam. PWA 390 px permanece sem a barra desktop. Textos do cadastro e da folha impressa foram ajustados para orientar seleção pela lista, mantendo IDs/QR e impressão A4. Build e testes completos foram reconferidos para a versão final antes do commit.
+
+Publicação funcional comprovada em 01/10/2026: push à `main` confirmado e status Vercel `success` para `xpacebox/pricing-app-1`. `/xpace` e `/xpace/app` responderam HTTP 200; os arquivos públicos em produção continham a revisão da entrega, a lista/pesquisa por nome, o seletor desktop e a barra alinhada. A conferência foi somente de leitura, sem sessão, dados ou mensagens reais; testes de operação autenticada/alerta físico continuam sujeitos às provas já descritas. Não confundir confirmação dos arquivos publicados com movimentação real de estoque.
 
 ## Nota temporária — continuação
 
-Checkpoint de 01/10/2026: primeira etapa de preparação comercial entregue. **Não houve esgotamento de crédito**; a última consulta antes da publicação mostrou 16% restantes na janela de cinco horas. Consultar de novo, pois o limite é compartilhado. O restante depende das decisões de cobrança pendentes e da implementação/homologação abaixo; não declarar tudo pronto para vender.
+Checkpoint de 01/10/2026: primeira etapa de preparação comercial entregue; após Alceu confirmar que o amigo terminou, foram integradas as mudanças de seleção por lista/barra desktop sem alterar seu código. O único conflito era neste documento e ambas as entregas foram preservadas. A janela de cinco horas renovou durante a retomada (98% disponíveis na conferência, valor histórico). O restante depende das decisões de cobrança pendentes e da implementação/homologação abaixo; não declarar tudo pronto para vender.
 
 ### Escopo autorizado e bloqueios
 

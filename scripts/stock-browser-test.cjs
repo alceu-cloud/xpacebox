@@ -53,8 +53,9 @@ async function setup(browser, width, ambiguous = false, seedProducts = [item, in
           return send({ success: true, id: item.id });
         }
         if (url.searchParams.has('history')) return send({ success: true, movements: [] });
-        const filtered = url.searchParams.has('code') ? products.filter(product => product.code === url.searchParams.get('code')) : url.searchParams.has('sheet') ? products.filter(product => product.codeMode === 'INTERNAL') : products;
-        return send({ success: true, canManage: true, products: filtered, total: filtered.length, categories: [category], units: [unit], alertConfigured: true });
+        const filtered = (url.searchParams.has('code') ? products.filter(product => product.code === url.searchParams.get('code')) : url.searchParams.has('sheet') ? products.filter(product => product.codeMode === 'INTERNAL') : products).filter(product => product.active && product.description.toLocaleLowerCase('pt-BR').includes((url.searchParams.get('q') || '').toLocaleLowerCase('pt-BR')));
+        const size = url.searchParams.has('sheet') ? 1000 : 100, offset = Number(url.searchParams.get('page') || 0) * size;
+        return send({ success: true, canManage: true, products: filtered.slice(offset, offset + size), total: filtered.length, categories: [category], units: [unit], alertConfigured: true });
       }
       if (url.pathname === '/api/xpace/message-connector/zapi') return send({ success: true, configured: true, enabled: true, paused: false, connected: true, schedulerReady: true });
       if (url.pathname === '/api/xpace/message-connector') {
@@ -156,9 +157,13 @@ if (require.main === module) (async () => {
       const { context, page, errors, writes } = await setup(browser, width, width === 390);
       await page.goto(`${origin}/xpace/app`);
       await page.getByRole('button', { name: 'Estoque', exact: true }).click();
-      await snapshot(page, `mobile-${width}-scanner`);
-      await page.getByRole('textbox', { name: 'Código do produto' }).fill(item.code);
-      await page.getByRole('button', { name: 'BUSCAR', exact: true }).click();
+      await page.getByRole('button', { name: `Selecionar ${item.description}`, exact: true }).waitFor();
+      await snapshot(page, `mobile-${width}-products`);
+      assert.equal(await page.locator('video').count(), 0, 'Product selection does not open the camera');
+      await page.getByRole('searchbox', { name: 'Pesquisar produtos' }).fill('Água');
+      await page.getByRole('button', { name: `Selecionar ${item.description}`, exact: true }).click();
+      await page.getByRole('heading', { name: item.description, exact: true }).waitFor();
+      assert.equal(await page.getByRole('heading', { name: item.description, exact: true }).count(), 1, 'The movement shows the selected product');
       await page.getByRole('button', { name: 'BAIXA', exact: true }).click();
       await snapshot(page, `mobile-${width}-movement`);
       await page.getByRole('button', { name: 'CONFIRMAR BAIXA', exact: true }).click();
@@ -173,10 +178,33 @@ if (require.main === module) (async () => {
       assert.equal(writes.length, width === 390 ? 2 : 1); assert.equal(writes[0].action, 'MOVE'); assert.equal(writes[0].quantity, 1); assert.match(writes[0].requestId, /^[a-f0-9-]{36}$/);
       await page.getByText('4 UN', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'ENTENDI · PRÓXIMO PRODUTO' }).click();
-      await page.getByRole('textbox', { name: 'Código do produto' }).waitFor();
+      await page.getByRole('button', { name: `Selecionar ${item.description}`, exact: true }).waitFor();
+      await page.getByRole('status').filter({ hasText: 'PODE SELECIONAR O PRÓXIMO PRODUTO' }).waitFor();
+      assert.equal(await page.getByRole('button', { name: `Selecionar ${item.description}`, exact: true }).getByText('EM ESTOQUE: 4 UN').count(), 1, 'Returning to the list refreshes stock');
       assert.deepEqual(errors, []);
       await context.close();
     }
+    const listProducts = Array.from({ length: 101 }, (_, index) => ({ ...internal, id: `00000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`, code: `LIST-${index}`, description: `Produto ${String(index).padStart(3, '0')}` }));
+    const listFixture = await setup(browser, 390, false, listProducts);
+    await listFixture.page.goto(`${origin}/xpace/app`);
+    await listFixture.page.getByRole('button', { name: 'Estoque', exact: true }).click();
+    await listFixture.page.getByRole('button', { name: 'Selecionar Produto 099', exact: true }).waitFor();
+    assert.equal(await listFixture.page.locator('.xs-pocket-product').count(), 100);
+    await listFixture.page.getByRole('button', { name: 'Próxima página', exact: true }).click();
+    await listFixture.page.getByRole('button', { name: 'Selecionar Produto 100', exact: true }).waitFor();
+    const listSearch = listFixture.page.getByRole('searchbox', { name: 'Pesquisar produtos' });
+    await listSearch.fill('inexistente');
+    await listFixture.page.getByText('NENHUM PRODUTO ENCONTRADO. TENTE OUTRO NOME.').waitFor();
+    await listSearch.fill('Produto 000');
+    await listFixture.page.getByRole('button', { name: 'Selecionar Produto 000', exact: true }).waitFor();
+    assert.equal(await listFixture.page.locator('.xs-pocket-product').count(), 1, 'Searching resets pagination and filters products');
+    await listFixture.page.getByRole('button', { name: 'Selecionar Produto 000', exact: true }).click();
+    await listFixture.page.getByRole('button', { name: 'VOLTAR', exact: true }).click();
+    await listFixture.page.getByRole('button', { name: 'Selecionar Produto 000', exact: true }).waitFor();
+    await snapshot(listFixture.page, 'mobile-products-search');
+    assert.deepEqual(listFixture.writes, [], 'Selection, searching and cancellation never move stock');
+    assert.deepEqual(listFixture.errors, []);
+    await listFixture.context.close();
     // Multi-format decoder also reads a real EAN-13, not just generated QR codes.
     const context2 = await browser.newContext(); const p = await context2.newPage();
     await context2.route('**/*', route => route.abort());
@@ -194,7 +222,7 @@ if (require.main === module) (async () => {
       });
     });
     assert.deepEqual(ean, ['4006381333931','7891234567895']); await context2.close();
-    console.log('PASS stock browser: desktop catalog/dialogs/QR print, mobile 390/320 scanner/manual/movement/low-stock, isolated writes, notification tabs, accepted-not-delivered, QR/EAN13 decoders.');
+    console.log('PASS stock browser: desktop catalog/dialogs/QR print, mobile 390/320 product list/search/movement/low-stock/refreshed balances, isolated writes, notification tabs, accepted-not-delivered, QR/EAN13 decoders.');
     console.log(`Visual fixtures: ${output}`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

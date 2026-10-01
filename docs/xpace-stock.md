@@ -1,11 +1,25 @@
 # Estoque XPACE
 
+## Seleção por lista — entrega de 01/10/2026
+
+Pedido de Alceu: substituir a leitura de QR/código de barras pela seleção de um produto na lista, pois a câmera escolhe códigos vizinhos na folha. Após a preparação isolada, Alceu autorizou conferir a revisão atual, commitar e, em seguida, enviar à `main` acionando a publicação Vercel. A base foi comparada novamente com a `main` corrente, sem divergência ou alterações concorrentes nos arquivos desta entrega. A autorização explícita de push substitui a espera anterior. Publicação segue a integração Git/Vercel; verificar separadamente push, deploy e revisão em produção. Aprovação dos testes locais não comprova uso físico no iPhone.
+
+- `StockPocket` abre a lista de produtos ativos com foto, nome, categoria e saldo (ou escolha de tamanho), busca por nome e páginas de 100 itens pela API existente. Não abre câmera nem exige digitar código. Ao escolher, reconfirma o produto/saldo no servidor e confere o ID antes de abrir a movimentação.
+- Grade de tamanhos, entrada/baixa, quantidade, confirmação, idempotência e alerta de mínimo continuam nos mesmos painéis. Sucesso volta à lista, atualiza os saldos e permite selecionar o próximo produto; alerta de mínimo continua exigindo confirmação.
+- Desktop: o atalho passa a `SELECIONAR / MOVIMENTAR`, com o mesmo seletor. Cadastro, fotos, IDs/códigos e folha de impressão são preservados. Não houve alteração de API, banco, migration ou integração financeira.
+- Ajuste adicional solicitado por Alceu: no catálogo desktop, `PRODUTOS`, pesquisa, categoria e `INCLUIR ARQUIVADOS` ficam na mesma linha. Em larguras estreitas de computador, a barra pode rolar horizontalmente sem ampliar a página. A PWA do celular permanece sem esses filtros. Conferido em navegador isolado a 1440/1024/768 px, pesquisa/filtros sem escritas reais e PWA 390 px. Textos do cadastro e da folha impressa também orientam selecionar pela lista.
+- Validação local: build, `npm run test:stock`, `node scripts/xpace-scroll-test.cjs` e `npm run test:stock:browser`. Navegador com APIs/auth/provedores interceptados e dados fictícios: telas 320/390 px, busca sem resultado e recuperação, catálogo de 101 itens/paginação, cancelamento sem movimentos, saldo após baixa, repetição idempotente, tamanho correto e modal desktop. Impressão A4 e notificações também continuam validadas. Nenhum movimento ou envio real.
+
+O código mantém os QR e a folha de impressão para preservar identificadores e cadastros existentes; a movimentação usa a seleção pela lista.
+
+Publicação funcional confirmada em 01/10/2026: push à `main` confirmado, status Vercel `success` no projeto `xpacebox/pricing-app-1`, `/xpace` e `/xpace/app` com HTTP 200. Arquivos públicos servidos pelo domínio de produção continham a revisão da entrega, pesquisa por nome/lista de produtos, seletor desktop e CSS da barra alinhada. Conferência somente de leitura, sem login, movimentação ou mensagens reais; não substitui teste físico de câmera/alertas nem operação real no iPhone.
+
 ## Escopo desta entrega
 
 - Desktop: Estoque → Produtos, Categorias, Unidades e Folha de códigos.
 - Relatórios → Estoque · Entradas e baixas (gestores): filtro de período em Brasília, produto, responsável e tipo, com 50 registros por página, observação e saldo antes/depois. Preserva o nome do responsável gravado no lançamento, inclusive após renomear/desativar a conta. Inclui produtos arquivados. Conta compartilhada não identifica a pessoa física.
 - Impressão da folha em A4 com margens de 10 mm, três colunas, cartões horizontais e QR de 22 mm (incluindo a margem branca). Foto, nome e preço/unidade permanecem; o identificador interno extenso não é impresso. Até 30 produtos com nomes comuns cabem em uma página; nomes excepcionalmente longos expandem o cartão sem cortar texto. Imprimir a 100%, sem cabeçalhos/rodapés do navegador. Prévia de tela permanece inalterada.
-- App `/xpace/app`: Dashboard, Agenda e Estoque. Câmera para QR/código de barras e busca manual de contingência.
+- App `/xpace/app`: Dashboard, Agenda e Estoque. Lista com foto/nome/saldo, pesquisa por nome e escolha de tamanho antes de entrada/baixa.
 - Cadastro em modal: descrição, custo/venda em centavos, categoria, unidade, controle/mínimo, foto e código da embalagem ou QR interno.
 - Saldo começa em zero. Lance o saldo inicial com Entrada. Baixas não podem deixar saldo negativo. Tamanhos de um mesmo modelo ficam na grade; sabores, cores e embalagens diferentes ficam em produtos separados. Cada SKU tem código próprio.
 - Produtos podem ser arquivados/reativados, preservando histórico. Categorias/unidades em uso não são excluídas.
@@ -60,12 +74,12 @@ npm run build
 
 Para teste visual isolado, compile com URL pública fictícia `https://fixture.supabase.co` e chave pública placeholder, inicie o servidor local na porta 3007 e execute `npm run test:stock:browser`. Todos os requests de auth/API/provedores são interceptados. Valida modais/lista/QR/print, telas 390/320 px, baixa/aviso, ausência de verde para mera aceitação e decodificação QR/EAN-13. Não usar esse ambiente fictício em produção.
 
-No iPhone real, após publicar, abrir novamente o app, permitir câmera e verificar um código da embalagem e um da folha. Há busca manual se a câmera for bloqueada. Não há pareamento WhatsApp novo nem dependência do PC.
+No iPhone real, após publicar, abrir novamente o app, selecionar um produto pela lista e conferir entrada/baixa e escolha de tamanho. Não é necessária permissão de câmera. Não há pareamento WhatsApp novo nem dependência do PC. Testes automatizados usam dados fictícios e não substituem a conferência física/autorizada de alertas.
 
 Dependências novas fixadas no lockfile: ZXing (leitura), qrcode (folha), tipos QR e PGlite (apenas testes). O audit do repositório apontou avisos preexistentes de Next/PostCSS/Sharp/Nanoid; atualizar esses componentes é trabalho separado, não foi executado um audit fix automático nesta entrega.
 
 ## Grade de tamanhos
 
-No novo produto, marque **Produto com grade de tamanhos** e escolha PP, P, M, G, GG e/ou XG. Um modelo aparece uma vez no catálogo e na folha de QR; cada tamanho guarda seu próprio saldo e código interno. A leitura do QR do modelo exige escolher o tamanho antes de **entrada ou baixa**. Quantidades de roupas são peças inteiras. Nenhum saldo inicial é inventado: use Entrada para contar e lançar as peças reais.
+No novo produto, marque **Produto com grade de tamanhos** e escolha PP, P, M, G, GG e/ou XG. Um modelo aparece uma vez no catálogo e na folha de QR; cada tamanho guarda seu próprio saldo e código interno. Selecionar o modelo na lista exige escolher o tamanho antes de **entrada ou baixa**. Quantidades de roupas são peças inteiras. Nenhum saldo inicial é inventado: use Entrada para contar e lançar as peças reais.
 
 Editar a grade mantém IDs, QR, saldos e histórico. Um tamanho com saldo não pode ser removido. Tamanhos removidos sem saldo são arquivados, não apagados; arquivar o modelo bloqueia todos os tamanhos. Reativar o modelo não restaura tamanhos removidos da grade. O histórico do modelo reúne suas variações e identifica o tamanho; o relatório mostra o nome do modelo com `TAM ...` e o responsável autenticado.
