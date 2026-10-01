@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { AccessError, requireCompanyAccess } from "@/lib/server/company-access";
 import { encryptIntegrationCredential } from "@/lib/server/telephony-credentials";
 import { validateZapiCredentials } from "@/lib/server/zapi-client";
-import { checkCloudConnection, cloudCredentials, sendCloudMessage, type CloudConnection } from "@/lib/server/xpace-zapi";
+import { checkCloudConnection, cloudCredentials, reconcileCloudEvents, sendCloudMessage, type CloudConnection } from "@/lib/server/xpace-zapi";
 
 const headers = { "Cache-Control": "no-store" };
 async function manager(request: Request) {
@@ -20,8 +20,7 @@ export async function GET(request: Request) {
     const { data: cloud, error } = await admin.from("xpace_zapi_connections").select("*").eq("tenant_company_id", company.id).maybeSingle();
     if (error) throw error;
     if (!cloud) return NextResponse.json({ success: true, configured: false }, { headers });
-    const { error: receiptError } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: cloud.connector_id });
-    if (receiptError) throw receiptError;
+    await reconcileCloudEvents(admin, cloud as CloudConnection);
     const { data: schedulerReady, error: schedulerError } = await admin.rpc("xpace_zapi_scheduler_ready");
     if (schedulerError) throw schedulerError;
     const { data: tests, error: testsError } = await admin.from("xpace_zapi_attempts")
@@ -59,6 +58,7 @@ export async function POST(request: Request) {
     }
     if (!existing) throw new AccessError("CONFIGURE A Z-API PRIMEIRO.", 409);
     const connection = existing as CloudConnection;
+    await reconcileCloudEvents(admin, connection);
     if (input.action === "CHECK") return NextResponse.json({ success: true, connected: await checkCloudConnection(admin, connection) }, { headers });
     if (input.action === "PAUSE") {
       const { error } = await admin.from("xpace_zapi_connections").update({ paused: true, updated_at: new Date().toISOString() }).eq("connector_id", connector.id).eq("tenant_company_id", company.id);

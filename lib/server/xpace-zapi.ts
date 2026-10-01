@@ -17,6 +17,18 @@ export function cloudCredentials(connection: CloudConnection) {
 }
 export const recipientHash = (phone: string) => createHash("sha256").update(canonicalZapiPhone(phone)).digest("hex");
 
+export async function reconcileCloudEvents(admin: Admin, connection: Pick<CloudConnection, "connector_id" | "tenant_company_id">) {
+  // A crashed request must not leave a paused isolated test permanently SENDING.
+  // Never retry it: an ambiguous external POST may already have reached WhatsApp.
+  const { error: staleError } = await admin.from("xpace_message_outbox")
+    .update({ status: "UNKNOWN", error_message: "ENVIO SEM RESULTADO HÁ MAIS DE CINCO MINUTOS. CONFIRA A CONVERSA ANTES DE REENVIAR.", updated_at: new Date().toISOString() })
+    .eq("connector_id", connection.connector_id).eq("tenant_company_id", connection.tenant_company_id)
+    .eq("status", "SENDING").lt("claimed_at", new Date(Date.now() - 300_000).toISOString()).is("delivered_at", null).is("read_at", null);
+  if (staleError) throw new Error("ZAPI_STALE_RESULT_SAVE_FAILED");
+  const { error } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
+  if (error) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");
+}
+
 export async function checkCloudConnection(admin: Admin, connection: CloudConnection) {
   let connected = false;
   let errorCode: string | null = null;
@@ -42,16 +54,14 @@ export async function sendCloudMessage(admin: Admin, connection: CloudConnection
     await admin.from("xpace_zapi_attempts").update({ error_code: code }).eq("message_id", message.id).eq("connector_id", connection.connector_id);
     const result = await processMessageWorker(admin, connector, { action: "RESULT", messageId: message.id, success: false, error: `${code}. VERIFIQUE A CONVERSA ANTES DE REENVIAR.` }, "ZAPI");
     if (!result.ok) throw new Error("ZAPI_RESULT_SAVE_FAILED");
-    const { error: receiptError } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
-    if (receiptError) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");
+    await reconcileCloudEvents(admin, connection);
     return { accepted: false, code };
   }
   const { error: aliasError } = await admin.from("xpace_zapi_attempts").update({ aliases: accepted.aliases, accepted_at: new Date().toISOString() }).eq("message_id", message.id).eq("connector_id", connection.connector_id);
   if (aliasError) throw new Error("ZAPI_ACCEPTANCE_SAVE_FAILED_NO_RETRY");
   const result = await processMessageWorker(admin, connector, { action: "RESULT", messageId: message.id, success: true, providerMessageId: accepted.messageId }, "ZAPI");
   if (!result.ok) throw new Error("ZAPI_RESULT_SAVE_FAILED_NO_RETRY");
-  const { error: reconcileError } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
-  if (reconcileError) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");
+  await reconcileCloudEvents(admin, connection);
   return { accepted: true, code: null };
 }
 
@@ -66,8 +76,7 @@ export async function dispatchCloudQueue(admin: Admin, connection: CloudConnecti
   if (!locked) return { processed: 0, skipped: true };
   connection = locked as CloudConnection;
   try {
-    const { error: receiptError } = await admin.rpc("xpace_reconcile_zapi_events", { p_connector: connection.connector_id });
-    if (receiptError) throw new Error("ZAPI_RECEIPT_RECONCILIATION_FAILED");
+    await reconcileCloudEvents(admin, connection);
     if (!await checkCloudConnection(admin, connection)) return { processed: 0, offline: true };
     const { data: connector, error: connectorError } = await admin.from("xpace_message_connectors").select("id,tenant_company_id,disconnect_requested").eq("id", connection.connector_id).eq("tenant_company_id", connection.tenant_company_id).single();
     if (connectorError || !connector) throw new Error("ZAPI_CONNECTOR_NOT_FOUND");

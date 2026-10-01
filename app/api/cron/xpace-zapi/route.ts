@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
-import { checkCloudConnection, dispatchCloudQueue, type CloudConnection } from "@/lib/server/xpace-zapi";
+import { checkCloudConnection, dispatchCloudQueue, reconcileCloudEvents, type CloudConnection } from "@/lib/server/xpace-zapi";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   let success = true;
   // One message per connector per tick: bounded runtime, durable queue, no browser or school PC required.
   for (const connection of (data ?? []).slice(0, 1) as CloudConnection[]) {
-    try { states.push(connection.paused ? { paused: true, connected: await checkCloudConnection(admin, connection) } : await dispatchCloudQueue(admin, connection)); }
+    try { await reconcileCloudEvents(admin, connection); states.push(connection.paused ? { paused: true, connected: await checkCloudConnection(admin, connection) } : await dispatchCloudQueue(admin, connection)); }
     catch { success = false; states.push({ code: "ZAPI_DISPATCH_UNCONFIRMED_NO_RETRY" }); }
   }
   const { error: tickError } = await admin.rpc("xpace_record_zapi_scheduler_tick", { p_success: success });
