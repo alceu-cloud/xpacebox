@@ -7,7 +7,7 @@
 - Impressão da folha em A4 com margens de 10 mm, três colunas, cartões horizontais e QR de 22 mm (incluindo a margem branca). Foto, nome e preço/unidade permanecem; o identificador interno extenso não é impresso. Até 30 produtos com nomes comuns cabem em uma página; nomes excepcionalmente longos expandem o cartão sem cortar texto. Imprimir a 100%, sem cabeçalhos/rodapés do navegador. Prévia de tela permanece inalterada.
 - App `/xpace/app`: Dashboard, Agenda e Estoque. Câmera para QR/código de barras e busca manual de contingência.
 - Cadastro em modal: descrição, custo/venda em centavos, categoria, unidade, controle/mínimo, foto e código da embalagem ou QR interno.
-- Saldo começa em zero. Lance o saldo inicial com Entrada. Baixas não podem deixar saldo negativo. Cada tamanho/cor/embalagem deve ter um código e produto próprio.
+- Saldo começa em zero. Lance o saldo inicial com Entrada. Baixas não podem deixar saldo negativo. Tamanhos de um mesmo modelo ficam na grade; sabores, cores e embalagens diferentes ficam em produtos separados. Cada SKU tem código próprio.
 - Produtos podem ser arquivados/reativados, preservando histórico. Categorias/unidades em uso não são excluídas.
 - **Não há integração financeira nesta entrega.** Entrada/baixa não criam venda, receita, cobrança ou recebimento. Venda e consumo/perda precisarão de operações distintas quando a integração financeira for autorizada; não inferir recebimento de toda baixa.
 - DAWOS e o conector local antigo não são alterados.
