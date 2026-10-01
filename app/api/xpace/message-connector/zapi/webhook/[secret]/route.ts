@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
-import { parseZapiEvent } from "@/lib/server/zapi-client";
+import { parseZapiEvent, zapiReceiptDiagnostic } from "@/lib/server/zapi-client";
 import { recipientHash, reconcileCloudEvents } from "@/lib/server/xpace-zapi";
 
 export const runtime = "nodejs";
@@ -19,6 +19,13 @@ export async function POST(request: Request, context: { params: Promise<{ secret
   let payload: Record<string, unknown>;
   try { payload = JSON.parse(raw); } catch { return reply(400, false); }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return reply(400, false);
+  // At most three rows per connector. Technical shape only, separate from real delivery receipts.
+  // A diagnostics failure must never discard a valid receipt or fake delivery.
+  const { error: diagnosticError } = await admin.from("xpace_zapi_receipt_diagnostics").upsert({
+    connector_id: connection.connector_id, ...zapiReceiptDiagnostic(payload, connection.instance_id),
+    last_received_at: new Date().toISOString(),
+  }, { onConflict: "connector_id,callback_type" });
+  if (diagnosticError) console.error("ZAPI_RECEIPT_DIAGNOSTIC_SAVE_FAILED");
   const event = parseZapiEvent(payload, connection.instance_id);
   if (!event) return reply(200, true);
   const { error: storeError } = await admin.from("xpace_zapi_events").upsert(event.ids.map(id => ({ connector_id: connection.connector_id, provider_id: id, recipient_hash: recipientHash(event.phone), state: event.state, occurred_at: event.occurredAt, error_code: event.errorCode })), { onConflict: "connector_id,provider_id,state,occurred_at", ignoreDuplicates: true });

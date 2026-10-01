@@ -89,3 +89,17 @@ export function parseZapiEvent(payload: Record<string, unknown>, instanceId: str
   if (!ids.length || !Number.isFinite(moment) || moment < 1_500_000_000_000 || moment > now + 300_000) return null;
   return { ids, phone: payload.phone, state, occurredAt: new Date(moment).toISOString(), errorCode };
 }
+
+export function zapiReceiptDiagnostic(payload: Record<string, unknown>, instanceId: string, now = Date.now()) {
+  const callback_type = payload.type === "MessageStatusCallback" ? "STATUS" : payload.type === "DeliveryCallback" ? "SEND" : "OTHER";
+  const reported_status = callback_type === "STATUS" && ["SENT", "RECEIVED", "READ", "READ_BY_ME", "PLAYED"].includes(String(payload.status)) ? String(payload.status) : "OTHER";
+  const parser_result = parseZapiEvent(payload, instanceId, now) ? "PARSED"
+    : payload.instanceId !== instanceId ? "INSTANCE_MISMATCH"
+    : payload.isGroup === true ? "GROUP"
+    : typeof payload.phone !== "string" || !/^\d{12,15}$/.test(payload.phone) ? "PHONE_FORMAT"
+    : callback_type === "OTHER" ? "TYPE_UNSUPPORTED"
+    : callback_type === "STATUS" && !["SENT", "RECEIVED", "READ", "PLAYED"].includes(String(payload.status)) ? "STATUS_UNSUPPORTED"
+    : !(Array.isArray(payload.ids) ? payload.ids : [payload.messageId, payload.zaapId]).some(id => typeof id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(id)) ? "IDS_FORMAT"
+    : "TIMESTAMP_FORMAT";
+  return { callback_type, reported_status, parser_result };
+}

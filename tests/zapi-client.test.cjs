@@ -57,6 +57,17 @@ test('missing ID cannot produce successful acceptance', async () => {
 test('status mappings separate acceptance, delivery and reading', () => {
   for (const [status, expected] of [['SENT','ACCEPTED'],['RECEIVED','DELIVERED'],['READ','READ']]) assert.equal(exported.parseZapiEvent({ ...base, status }, credentials.instanceId, now).state, expected);
 });
+
+test('receipt diagnostics retain bounded shape only, including rejected status callbacks', () => {
+  const rejected = exported.zapiReceiptDiagnostic({ ...base, phone: 'opaque@lid', status: 'RECEIVED', token: 'private-secret', message: 'private-message' }, credentials.instanceId, now);
+  assert.equal(rejected.callback_type, 'STATUS'); assert.equal(rejected.reported_status, 'RECEIVED'); assert.equal(rejected.parser_result, 'PHONE_FORMAT');
+  assert.equal(JSON.stringify(rejected).includes('private'), false); assert.equal(JSON.stringify(rejected).includes('opaque'), false);
+  assert.equal(exported.zapiReceiptDiagnostic({ ...base, status: 'READ' }, credentials.instanceId, now).parser_result, 'PARSED');
+  assert.equal(exported.zapiReceiptDiagnostic({ ...base, status: 'READ', momment: 123 }, credentials.instanceId, now).parser_result, 'TIMESTAMP_FORMAT');
+  assert.equal(exported.zapiReceiptDiagnostic({ ...base, status: 'READ', ids: [] }, credentials.instanceId, now).parser_result, 'IDS_FORMAT');
+  const arbitrary = exported.zapiReceiptDiagnostic({ type: 'private-secret', status: 'private-secret' }, credentials.instanceId, now);
+  assert.equal(arbitrary.callback_type, 'OTHER'); assert.equal(arbitrary.reported_status, 'OTHER');
+});
 test('school own reading, groups and wrong instance do not create delivery', () => {
   assert.equal(exported.parseZapiEvent({ ...base, status: 'READ_BY_ME' }, credentials.instanceId, now), null);
   assert.equal(exported.parseZapiEvent({ ...base, status: 'READ', isGroup: true }, credentials.instanceId, now), null);
