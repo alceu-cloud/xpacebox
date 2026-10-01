@@ -46,7 +46,16 @@ const out=path.join(os.tmpdir(),'xpace-zapi-visual');fs.mkdirSync(out,{recursive
       const page=await context.newPage();page.on('pageerror',error=>{errors.push(error.message);console.log('Fixture UI error',error.message);});page.setDefaultTimeout(15000);
       page.on('framenavigated',frame=>{if(frame===page.mainFrame())console.log('Fixture navigation',new URL(frame.url()).pathname);});
       await page.goto(origin+'/xpace');
+      await page.getByRole('button',{name:/ADM Operação interna/}).waitFor();
+      await page.getByRole('button',{name:/Config Preferências/}).waitFor();
+      assert.equal(await page.locator('.xd-module-copy strong').filter({hasText:/^ADMINISTRATIVO$|^CONFIGURAÇÕES$/}).count(),0);
       await page.screenshot({path:path.join(out,label+'-initial.png')});
+      await page.getByRole('button',{name:/ADM Operação interna/}).click();
+      await page.getByRole('heading',{name:'ADMINISTRATIVO.',exact:true}).waitFor();
+      await page.getByRole('button',{name:/MÓDULO ATIVO ADMINISTRATIVO/}).click();
+      await page.getByRole('button',{name:/Config Preferências/}).click();
+      await page.getByRole('heading',{name:'CONFIGURAÇÕES.',exact:true}).waitFor();
+      await page.getByRole('button',{name:/MÓDULO ATIVO CONFIGURAÇÕES/}).click();
       await page.getByRole('button',{name:/LOJA Produtos/}).click();
       await page.getByRole('button',{name:/WHATSAPP E ENVIOS/}).click();
       await page.locator('.xd-msg-bundle').first().waitFor();
