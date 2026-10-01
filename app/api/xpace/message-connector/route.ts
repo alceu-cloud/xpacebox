@@ -14,12 +14,14 @@ export async function GET(request: Request) {
     const search = (params.get("search") ?? "").trim().slice(0, 100);
     const status = params.get("status") ?? "TODOS";
     const page = Number(params.get("page") ?? "0");
+    const scope = params.get("scope") ?? "LEADS";
+    if (!["LEADS", "NOTIFICATIONS"].includes(scope)) return failure("ABA INVÁLIDA.", 400);
     if (!["TODOS", "QUEUED", "SENDING", "SENT", "FAILED", "UNKNOWN", "CANCELLED"].includes(status) || !Number.isSafeInteger(page) || page < 0 || page > 100000) return failure("FILTRO INVÁLIDO.", 400);
-    const { data: control, error: controlError } = await access.admin.rpc("xpace_message_control_page", { p_tenant: access.company.id, p_search: search, p_status: status, p_page: page });
+    const { data: control, error: controlError } = await access.admin.rpc("xpace_message_control_scoped_page", { p_tenant: access.company.id, p_search: search, p_status: status, p_page: page, p_scope: scope });
     if (controlError) throw controlError;
     const { data: connector, error } = await access.admin.from("xpace_message_connectors").select("id,phone,last_seen_at,status").eq("tenant_company_id", access.company.id).maybeSingle();
     if (error) throw error;
-    const { data: messages, error: messagesError } = control.messageIds.length ? await access.admin.from("xpace_message_outbox").select("id,kind,lead_id,appointment_id,appointment_scheduled_on,appointment_starts_at,contact_name,destination_phone,status,error_message,created_at,scheduled_at,sent_at,delivered_at,read_at,manually_confirmed_at,manual_confirmation_note").eq("tenant_company_id", access.company.id).neq("kind", "TESTE").in("id", control.messageIds).order("created_at", { ascending: false }) : { data: [], error: null };
+    const { data: messages, error: messagesError } = control.messageIds.length ? await access.admin.from("xpace_message_outbox").select("id,kind,body,lead_id,appointment_id,appointment_scheduled_on,appointment_starts_at,contact_name,destination_phone,status,error_message,created_at,scheduled_at,sent_at,delivered_at,read_at,manually_confirmed_at,manual_confirmation_note").eq("tenant_company_id", access.company.id).neq("kind", "TESTE").in("id", control.messageIds).order("created_at", { ascending: false }) : { data: [], error: null };
     if (messagesError) throw messagesError;
     const appointmentIds = [...new Set((messages ?? []).flatMap((item) => item.appointment_id ? [item.appointment_id] : []))];
     const instructors = await trialInstructorContexts(access.admin, access.company.id, appointmentIds);

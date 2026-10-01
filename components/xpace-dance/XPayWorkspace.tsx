@@ -43,7 +43,7 @@ export function XPayStore({ onOpenBenefits, onOpenAccount, onOpenMessages }: { o
     </article>
     <article className="xd-xpay-card xd-xpay-card--messages">
       <div className="xd-xpay-card-visual"><div className="xd-xpay-mark"><MessageCircle size={42} /><i>QR</i></div><span>MENSAGENS</span></div>
-      <div className="xd-xpay-card-copy"><div><h2>Integrador de mensagens</h2><div className="xd-xpay-chips"><span className="is-pending">CONEXÃO POR QR</span><span className="is-usage">ENVIO SOB DEMANDA</span></div></div><p>Conecte o WhatsApp da escola para enviar links de assinatura e pagamento e acompanhar cada mensagem na fila.</p><small>PRECISA DO COMPUTADOR LIGADO · CONEXÃO NÃO OFICIAL, SUJEITA A LIMITAÇÕES.</small></div>
+      <div className="xd-xpay-card-copy"><div><h2>Integrador de mensagens</h2><div className="xd-xpay-chips"><span className="is-usage">Z-API NA NUVEM</span><span className="is-usage">ENVIOS ACOMPANHADOS</span></div></div><p>Acompanhe avisos de aulas e notificações da escola em filas separadas, com confirmação de entrega.</p><small>NÃO DEPENDE DO COMPUTADOR LIGADO · INTEGRAÇÃO DE TERCEIROS, SUJEITA ÀS REGRAS DO WHATSAPP.</small></div>
       <footer><button type="button" className="xd-xpay-edit" onClick={onOpenMessages}><MessageCircle size={17} /> WHATSAPP E ENVIOS</button></footer>
     </article>
     {notice ? <p className="xd-feedback">{notice}</p> : null}

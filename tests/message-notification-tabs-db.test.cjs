@@ -1,0 +1,21 @@
+const { PGlite } = require('@electric-sql/pglite');
+const assert = require('node:assert/strict'), fs = require('node:fs');
+const db = new PGlite(), id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+(async () => {
+  await db.exec(`create role anon;create role authenticated;create role service_role;
+    create table xpace_leads(id uuid,tenant_company_id uuid,full_name text);
+    create table xpace_message_outbox(id uuid primary key,tenant_company_id uuid,connector_id uuid,lead_id uuid,appointment_id uuid,kind text,status text,contact_name text,body text,created_at timestamptz default now(),scheduled_at timestamptz default now(),expires_at timestamptz,delivered_at timestamptz,read_at timestamptz,manually_confirmed_at timestamptz);
+    create table xpace_zapi_attempts(message_id uuid primary key,connector_id uuid,started_at timestamptz);`);
+  const file = fs.readdirSync('supabase/migrations').find(name => name.endsWith('_xpace_message_notification_tabs.sql'));
+  await db.exec(fs.readFileSync('supabase/migrations/'+file,'utf8'));
+  for (const [n,kind,status,appointment,tenant] of [[10,'VIDEO_BOAS_VINDAS','SENT',100,1],[11,'AVISO_PROFESSOR','QUEUED',100,1],[12,'ESTOQUE_BAIXO','SENT',null,1],[13,'TESTE','UNKNOWN',null,1],[14,'ESTOQUE_BAIXO','FAILED',null,2]]) await db.query('insert into xpace_message_outbox(id,tenant_company_id,connector_id,appointment_id,kind,status,contact_name,body) values($1,$2,$3,$4,$5,$6,\'Fixture\',\'Café · estoque baixo\')',[id(n),id(tenant),id(3),appointment ? id(appointment) : null,kind,status]);
+  const page = async scope => (await db.query("select xpace_message_control_scoped_page($1,'','TODOS',0,$2) as r",[id(1),scope])).rows[0].r;
+  let result = await page('LEADS'); assert.equal(result.total,1); assert.equal(result.messageIds.length,2); assert.equal(result.summary.registered,2);
+  result = await page('NOTIFICATIONS'); assert.equal(result.total,1); assert.deepEqual(result.messageIds,[id(12)]); assert.equal(result.summary.confirmed,0,'ID/acceptance is not delivery');
+  await db.query('insert into xpace_zapi_attempts values($1,$2,now()-interval \'20 minutes\')',[id(12),id(3)]);
+  assert.equal((await page('NOTIFICATIONS')).summary.receiptPending,1);
+  await db.query('update xpace_message_outbox set delivered_at=now() where id=$1',[id(12)]);
+  result = await page('NOTIFICATIONS'); assert.equal(result.summary.confirmed,1); assert.equal(result.summary.receiptPending,0);
+  for (const role of ['anon','authenticated']) assert.equal((await db.query(`select has_function_privilege('${role}','xpace_message_control_scoped_page(uuid,text,text,integer,text)','execute') as allowed`)).rows[0].allowed,false);
+  console.log('PASS notification SQL: separate tabs/pagination/summary, complete lead bundles, test exclusion, tenant isolation, real receipts and server-only RPC.');
+})().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => db.close());

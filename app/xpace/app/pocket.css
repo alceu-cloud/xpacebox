@@ -54,7 +54,7 @@
 .xp-hero strong { display: block; margin-top: 9px; color: #fff; font-size: clamp(21px, 6vw, 26px); font-weight: 900; line-height: 1.12; }
 .xp-hero p { margin: 9px 0 0; color: #f6e9ff; font-size: 12px; }
 .xp-content { position: relative; min-height: calc(100dvh - 230px); margin-top: -9px; padding: 8px 20px max(20px, env(safe-area-inset-bottom)); border-radius: 21px 21px 0 0; background: #fbf9fe; }
-.xp-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--xp-line); }
+.xp-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-bottom: 1px solid var(--xp-line); }
 .xp-tabs button { min-height: 55px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--xp-muted); font-size: 15px; font-weight: 700; }
 .xp-tabs button.is-active { border-bottom-color: var(--xp-violet); color: var(--xp-ink); font-weight: 900; }
 .xp-main { min-height: 380px; padding: 20px 0 28px; touch-action: pan-y; }

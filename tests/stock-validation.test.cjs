@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), vm = require('node:vm');
+const exportsFixture = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/xpace/stock.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: exportsFixture, Intl });
+const { stockQuantity, stockCode, stockMoney } = exportsFixture;
+assert.equal(stockCode('0000123456789'), '0000123456789');
+assert.equal(stockCode('XP-00000000-0000-4000-8000-000000000001'), 'XP-00000000-0000-4000-8000-000000000001');
+for (const value of ['', 'https://example.com', '<script>', null, 123]) assert.throws(() => stockCode(value));
+for (const value of ['', null, undefined, 'abc', '-1', '-0.5', '1.0001', 0, Infinity, NaN, 1_000_001, true, [], {}]) assert.throws(() => stockQuantity(value));
+assert.equal(stockQuantity('1,125'), 1.125); assert.equal(stockQuantity('0', true), 0); assert.equal(stockQuantity(.001), .001);
+for (const value of [-1, NaN, Infinity, '100', .5, null]) assert.throws(() => stockMoney(value));
+assert.equal(stockMoney(0), 0); assert.equal(stockMoney(150), 150);
+console.log('PASS stock input: exact identifiers/leading zeros, quantity precision, bounds and integer cents.');

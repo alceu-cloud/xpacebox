@@ -5,21 +5,27 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:visual": "node scripts/visual-smoke.cjs"
+    "test:visual": "node scripts/visual-smoke.cjs",
+    "test:stock": "node tests/stock-validation.test.cjs && node tests/stock-api.test.cjs && node tests/stock-db.test.cjs && node tests/message-notification-tabs-db.test.cjs",
+    "test:stock:browser": "node scripts/stock-browser-test.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.53.0",
+    "@zxing/browser": "0.2.1",
     "docxtemplater": "^3.70.1",
     "lucide-react": "^1.41.0",
     "next": "^15.4.6",
     "pizzip": "^3.2.0",
+    "qrcode": "1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "web-push": "3.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.63.0",
     "@types/node": "^24.2.0",
+    "@types/qrcode": "1.5.6",
     "@types/react": "^19.1.8",
     "@types/web-push": "3.6.4",
     "typescript": "^5.8.3"

@@ -10,9 +10,9 @@ async function api(method: "GET" | "POST", body?: object) {
   if (!response.ok || !result.success) throw new Error(result.message || "FALHA NA CONFIGURAÇÃO DA Z-API.");
   return result;
 }
-export default function ZapiConnectorSettings({ onChanged }: { onChanged: () => void }) {
+export default function ZapiConnectorSettings({ onChanged, initiallyOpen = false }: { onChanged: () => void; initiallyOpen?: boolean }) {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState("");
   const [instanceId, setInstanceId] = useState("");
