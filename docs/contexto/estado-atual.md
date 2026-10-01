@@ -123,6 +123,8 @@ A nota SaaS abaixo pertence a outro escopo e foi preservada; este pedido não a 
 
 Pedido adicional de 01/10/2026: no computador, alinhar `PRODUTOS`, pesquisa, categorias e `INCLUIR ARQUIVADOS` na mesma linha. Ajustado no catálogo desktop, sem alteração da PWA do celular. Conferido em navegador isolado a 1440/1024/768 px: controles alinhados e página sem overflow; pesquisa e filtros funcionam. PWA 390 px permanece sem a barra desktop. Textos do cadastro e da folha impressa foram ajustados para orientar seleção pela lista, mantendo IDs/QR e impressão A4. Build e testes completos foram reconferidos para a versão final antes do commit.
 
+Publicação funcional comprovada em 01/10/2026: push à `main` confirmado e status Vercel `success` para `xpacebox/pricing-app-1`. `/xpace` e `/xpace/app` responderam HTTP 200; os arquivos públicos em produção continham a revisão da entrega, a lista/pesquisa por nome, o seletor desktop e a barra alinhada. A conferência foi somente de leitura, sem sessão, dados ou mensagens reais; testes de operação autenticada/alerta físico continuam sujeitos às provas já descritas. Não confundir confirmação dos arquivos publicados com movimentação real de estoque.
+
 ## Nota temporária — continuação
 
 Checkpoint de 01/10/2026: conversa interrompida para alinhar a passagem, não por esgotamento de crédito. A última consulta mostrava 48% disponíveis na janela de cinco horas. Essa porcentagem é histórica e deve ser consultada novamente ao retomar.

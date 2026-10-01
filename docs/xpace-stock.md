@@ -12,6 +12,8 @@ Pedido de Alceu: substituir a leitura de QR/código de barras pela seleção de 
 
 O código mantém os QR e a folha de impressão para preservar identificadores e cadastros existentes; a movimentação usa a seleção pela lista.
 
+Publicação funcional confirmada em 01/10/2026: push à `main` confirmado, status Vercel `success` no projeto `xpacebox/pricing-app-1`, `/xpace` e `/xpace/app` com HTTP 200. Arquivos públicos servidos pelo domínio de produção continham a revisão da entrega, pesquisa por nome/lista de produtos, seletor desktop e CSS da barra alinhada. Conferência somente de leitura, sem login, movimentação ou mensagens reais; não substitui teste físico de câmera/alertas nem operação real no iPhone.
+
 ## Escopo desta entrega
 
 - Desktop: Estoque → Produtos, Categorias, Unidades e Folha de códigos.
