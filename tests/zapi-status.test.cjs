@@ -1,5 +1,23 @@
 // Pure fixtures: the dashboard must use cloud health after provider migration.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{test}=require('node:test');
+test('Callback diagnostics scope rejected events by known aliases without marking them delivered',async()=>{
+  const clientExports={},sourceClient=ts.transpileModule(fs.readFileSync('lib/server/zapi-client.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  vm.runInNewContext(sourceClient,{exports:clientExports,URL,AbortSignal,fetch,Date,Set,Buffer});
+  for(const [phone,isGroup,expected]of [['opaque@lid',false,'PHONE_FORMAT'],['5511999999999',true,'GROUP'],['5511999999999',false,'PARSED']]){
+    let diagnostic,eventCount=0;
+    const connection={connector_id:'connector',tenant_company_id:'company',instance_id:'instance'};
+    const admin={from(table){const q={};q.select=()=>q;q.eq=()=>q;q.maybeSingle=async()=>({data:connection,error:null});
+      q.overlaps=(key,ids)=>{assert.equal(key,'aliases');assert.equal(ids[0],'test-id');return q};q.limit=async()=>({data:[{message_id:'test'}],error:null});
+      q.upsert=async(value,options)=>{if(table==='xpace_zapi_receipt_diagnostics'){diagnostic=value;assert.match(options.onConflict,/message_scope/)}else if(table==='xpace_zapi_events')eventCount++;else assert.fail(table);return{error:null}};
+      return q}};
+    const exports={},imports={'node:crypto':require('node:crypto'),'next/server':{NextResponse:{json:(value,options)=>({value,...options})}},'@/lib/server/supabase-admin':{createSupabaseAdmin:()=>admin},'@/lib/server/zapi-client':clientExports,'@/lib/server/xpace-zapi':{recipientHash:()=> 'private-hash',reconcileCloudEvents:async()=>{}}};
+    const source=ts.transpileModule(fs.readFileSync('app/api/xpace/message-connector/zapi/webhook/[secret]/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+    vm.runInNewContext(source,{exports,require:name=>imports[name],Date,console});
+    const response=await exports.POST({text:async()=>JSON.stringify({instanceId:'instance',type:'MessageStatusCallback',status:'RECEIVED',ids:['test-id'],momment:Date.now(),phone,isGroup})},{params:Promise.resolve({secret:'s'.repeat(43)})});
+    assert.equal(response.status,200);assert.equal(diagnostic.message_scope,'MATCHED');assert.equal(diagnostic.parser_result,expected);assert.equal(eventCount,expected==='PARSED'?1:0);
+    assert.equal(JSON.stringify(diagnostic).includes(phone),false);assert.equal(JSON.stringify(diagnostic).includes('test-id'),false);
+  }
+});
 test('Preparation cron reads receipt settings without claiming or sending the customer queue',async()=>{
   let checks=0,diagnostics=0,ticks=0;
   const connection={connector_id:'connector',tenant_company_id:'company',enabled:false,paused:true};

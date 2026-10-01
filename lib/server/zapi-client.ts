@@ -70,6 +70,11 @@ export function createZapiClient(credentials: ZapiCredentials, fetcher: typeof f
   };
 }
 
+export function zapiEventIds(payload: Record<string, unknown>) {
+  const candidates = Array.isArray(payload.ids) ? payload.ids : [payload.messageId, payload.zaapId];
+  return [...new Set(candidates.filter((id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(id)))].slice(0, 100);
+}
+
 export function parseZapiEvent(payload: Record<string, unknown>, instanceId: string, now = Date.now()): ZapiEvent | null {
   if (payload.instanceId !== instanceId || payload.isGroup === true || typeof payload.phone !== "string" || !/^\d{12,15}$/.test(payload.phone)) return null;
   let state: ZapiEvent["state"];
@@ -83,8 +88,7 @@ export function parseZapiEvent(payload: Record<string, unknown>, instanceId: str
     state = payload.error ? "ERROR" : "ACCEPTED";
     if (payload.error) errorCode = payload.errorCode === "SHADOW_BAN" ? "ZAPI_SHADOW_BAN" : "ZAPI_ASYNC_SEND_ERROR";
   } else return null;
-  const candidates = Array.isArray(payload.ids) ? payload.ids : [payload.messageId, payload.zaapId];
-  const ids = [...new Set(candidates.filter((id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(id)))].slice(0, 100);
+  const ids = zapiEventIds(payload);
   const moment = Number(payload.momment);
   if (!ids.length || !Number.isFinite(moment) || moment < 1_500_000_000_000 || moment > now + 300_000) return null;
   return { ids, phone: payload.phone, state, occurredAt: new Date(moment).toISOString(), errorCode };

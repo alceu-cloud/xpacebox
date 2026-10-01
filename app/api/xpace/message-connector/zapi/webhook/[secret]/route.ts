@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
-import { parseZapiEvent, zapiReceiptDiagnostic } from "@/lib/server/zapi-client";
+import { parseZapiEvent, zapiEventIds, zapiReceiptDiagnostic } from "@/lib/server/zapi-client";
 import { recipientHash, reconcileCloudEvents } from "@/lib/server/xpace-zapi";
 
 export const runtime = "nodejs";
@@ -19,12 +19,16 @@ export async function POST(request: Request, context: { params: Promise<{ secret
   let payload: Record<string, unknown>;
   try { payload = JSON.parse(raw); } catch { return reply(400, false); }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return reply(400, false);
-  // At most three rows per connector. Technical shape only, separate from real delivery receipts.
+  // Bounded enum combinations per connector. Technical shape only, separate from real delivery receipts.
   // A diagnostics failure must never discard a valid receipt or fake delivery.
+  const ids = zapiEventIds(payload);
+  const matching = ids.length ? await admin.from("xpace_zapi_attempts").select("message_id")
+    .eq("connector_id", connection.connector_id).overlaps("aliases", ids).limit(1) : { data: [], error: null };
   const { error: diagnosticError } = await admin.from("xpace_zapi_receipt_diagnostics").upsert({
     connector_id: connection.connector_id, ...zapiReceiptDiagnostic(payload, connection.instance_id),
+    message_scope: matching.error ? "UNKNOWN" : matching.data?.length ? "MATCHED" : "UNMATCHED",
     last_received_at: new Date().toISOString(),
-  }, { onConflict: "connector_id,callback_type" });
+  }, { onConflict: "connector_id,callback_type,reported_status,parser_result,message_scope" });
   if (diagnosticError) console.error("ZAPI_RECEIPT_DIAGNOSTIC_SAVE_FAILED");
   const event = parseZapiEvent(payload, connection.instance_id);
   if (!event) return reply(200, true);
