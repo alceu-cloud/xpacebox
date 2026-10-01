@@ -25,6 +25,11 @@ export default function ZapiConnectorSettings({ onChanged }: { onChanged: () => 
   async function refresh() { const value = await api("GET") as Settings; setSettings(value); }
   useEffect(() => { if (settings?.instanceId) setInstanceId(settings.instanceId); }, [settings?.instanceId]);
   useEffect(() => { void refresh().catch(() => setNotice("NÃO FOI POSSÍVEL CONSULTAR A CONFIGURAÇÃO. ATUALIZE ESTA PÁGINA OU CONFIRA A PUBLICAÇÃO.")); }, []);
+  useEffect(() => {
+    const pull = (event: Event) => (event as CustomEvent<{ tasks: Promise<unknown>[] }>).detail.tasks.push(refresh());
+    window.addEventListener("xpace:refresh", pull);
+    return () => window.removeEventListener("xpace:refresh", pull);
+  }, []);
   useEffect(() => { if (!open) return; const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh().catch(() => {}); }, 10_000); return () => window.clearInterval(timer); }, [open]);
   useEffect(() => { setReceived(false); testId.current = null; }, [settings?.configVersion]);
   async function action(body: object, message: string) {

@@ -13,7 +13,8 @@ const out=path.join(os.tmpdir(),'xpace-zapi-visual');fs.mkdirSync(out,{recursive
     for(const [label,viewport]of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
       const context=await browser.newContext({viewport,timezoneId:'America/Sao_Paulo'});
       await context.addInitScript(({key,user})=>localStorage.setItem(key,JSON.stringify({access_token:'fixture-token',refresh_token:'fixture-refresh',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,user})),{key:`sb-${project}-auth-token`,user});
-      let settings={success:true,configured:false};const writes=[],errors=[];
+      let settings={success:true,configured:false};const writes=[],errors=[];let connectorReads=0;
+      const messages=Array.from({length:6},(_,n)=>({id:'message-'+n,kind:'VIDEO_BOAS_VINDAS',appointment_id:'lesson-'+n,appointment_scheduled_on:'2026-10-02',appointment_starts_at:'19:00:00',contact_name:'Aluno '+n,student_name:'Aluno '+n,student_phone:'5547999999999',destination_phone:'5547999999999',instructor_name:'Professor exemplo',status:'SENT',created_at:'2026-10-01T02:00:00Z',scheduled_at:'2026-10-01T02:00:00Z',sent_at:'2026-10-01T02:00:00Z',delivered_at:'2026-10-01T02:01:00Z',read_at:null}));
       await context.route('**/*',async route=>{
         const req=route.request(),url=new URL(req.url());const send=body=>route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
         if(url.hostname.endsWith('.supabase.co'))return send(url.pathname.includes('/auth/')?user:[]);
@@ -31,7 +32,12 @@ const out=path.join(os.tmpdir(),'xpace-zapi-visual');fs.mkdirSync(out,{recursive
           if(url.pathname==='/api/empresas/xpace')return send({success:true,canAccessCentral:true});
           if(url.pathname==='/api/xpace/home')return send({success:true,metrics:{activeClients:0,newClientsThisMonth:0},notifications:{items:[],total:0,unread:0,page:0,pageSize:2,latestCreatedAt:null}});
           if(url.pathname.includes('/notifications'))return send({success:true,items:[],total:0,unread:0,page:0,pageSize:2,latestCreatedAt:null});
-          if(url.pathname==='/api/xpace/message-connector')return send({success:true,connector:{configured:true,status:'OFFLINE'},score:0,scoreDetails:{failures:0,oldQueue:0,windowDays:7},messages:[]});
+          if(url.pathname==='/api/xpace/message-connector'){
+            connectorReads++;const search=(url.searchParams.get('search')||'').toLowerCase(),status=url.searchParams.get('status')||'TODOS';
+            const found=messages.filter(m=>m.student_name.toLowerCase().includes(search)&&(status==='TODOS'||status===m.status));
+            const current=Math.min(Number(url.searchParams.get('page')||0),Math.max(0,Math.ceil(found.length/5)-1));
+            return send({success:true,connector:{configured:true,status:'CONNECTED'},schedulerReady:true,pagination:{page:current,pageSize:5,total:found.length},summary:{registered:6,sent:6,confirmed:6,queued:0,failures:0,receiptPending:0,lateQueue:0,monitoringSince:'2026-10-01T02:00:00Z'},messages:found.slice(current*5,current*5+5)});
+          }
           if(url.pathname==='/api/xpace/xpay')return send({success:true,providerConfigured:false,accounts:[]});
           return send({success:true,configured:false});
         }
@@ -42,11 +48,41 @@ const out=path.join(os.tmpdir(),'xpace-zapi-visual');fs.mkdirSync(out,{recursive
       await page.goto(origin+'/xpace');
       await page.screenshot({path:path.join(out,label+'-initial.png')});
       await page.getByRole('button',{name:/LOJA Produtos/}).click();
-      await page.getByRole('button',{name:/CONFIGURAR CONECTOR/}).click();
+      await page.getByRole('button',{name:/WHATSAPP E ENVIOS/}).click();
+      await page.locator('.xd-msg-bundle').first().waitFor();
+      assert.equal(await page.locator('.xd-msg-bundle').count(),5);
+      assert.equal(await page.getByRole('button',{name:'Atualizar lista',exact:true}).count(),0);
+      assert.equal(await page.getByRole('button',{name:/GERAR NOVA CHAVE|PREPARAR CONEXÃO|DESCONECTAR DISPOSITIVO/}).count(),0);
+      assert.equal(await page.getByText('QR CODE',{exact:true}).count(),0);
+      await page.getByRole('button',{name:'Envios mais antigos'}).click();
+      await page.getByText('6–6 de 6',{exact:true}).waitFor();assert.equal(await page.locator('.xd-msg-bundle').count(),1);
+      await page.getByRole('searchbox',{name:'Buscar envios pelo nome'}).fill('Aluno 0');
+      await page.getByText('1–1 de 1',{exact:true}).waitFor();assert.equal(await page.locator('.xd-msg-bundle').count(),1);
+      const beforePull=connectorReads;
+      await page.evaluate(()=>{
+        window.scrollTo(0,0);const el=document.querySelector('.xd-msg-header h1');
+        for(const [type,y]of [['touchstart',30],['touchmove',220],['touchend',220]]){
+          const touch=new Touch({identifier:1,target:el,clientX:150,clientY:y});
+          el.dispatchEvent(new TouchEvent(type,{bubbles:true,touches:type==='touchend'?[]:[touch],changedTouches:[touch]}));
+        }
+      });
+      await page.waitForFunction(()=>!document.querySelector('.xd-pull-feedback.is-visible'));
+      assert.ok(connectorReads>beforePull,'pull refresh must request new data');
+      assert.equal(await page.getByRole('searchbox',{name:'Buscar envios pelo nome'}).inputValue(),'Aluno 0','gesture preserves search');
+      await page.getByRole('searchbox',{name:'Buscar envios pelo nome'}).fill('');
+      await page.getByText('1–5 de 6',{exact:true}).waitFor();
+      await page.screenshot({path:path.join(out,label+'-control.png'),fullPage:true});
       await page.getByRole('button',{name:'CONFIGURAR Z-API',exact:true}).click();
       await page.getByLabel('ID DA INSTÂNCIA',{exact:true}).fill('fixture-instance-id');
       await page.getByLabel('TOKEN DA INSTÂNCIA',{exact:true}).fill('fixture-instance-token');
       await page.getByLabel('CLIENT-TOKEN DA CONTA',{exact:true}).fill('fixture-account-token');
+      let warned=false;page.once('dialog',async dialog=>{warned=true;await dialog.dismiss();});
+      await page.evaluate(()=>{
+        window.scrollTo(0,0);const el=document.querySelector('.xd-msg-header h1');
+        for(const [type,y]of [['touchstart',30],['touchmove',220],['touchend',220]]){const touch=new Touch({identifier:1,target:el,clientX:150,clientY:y});el.dispatchEvent(new TouchEvent(type,{bubbles:true,touches:type==='touchend'?[]:[touch],changedTouches:[touch]}));}
+      });
+      assert.equal(warned,true,'editing a form requires confirmation before pull refresh');
+      assert.equal(await page.getByLabel('CLIENT-TOKEN DA CONTA',{exact:true}).inputValue(),'fixture-account-token','cancelled refresh preserves typed credentials');
       await page.getByRole('button',{name:'SALVAR COM A FILA PAUSADA',exact:true}).click();
       const panel=page.locator('.xd-zapi-settings');
       await panel.getByText('FILA PAUSADA PARA A TROCA.',{exact:false}).waitFor();
@@ -70,6 +106,6 @@ const out=path.join(os.tmpdir(),'xpace-zapi-visual');fs.mkdirSync(out,{recursive
       await activation.click();await panel.getByText('Z-API ATIVA. A FILA NÃO DEPENDE DO COMPUTADOR DA ESCOLA.').waitFor();
       assert.deepEqual(errors,[]);await context.close();
     }
-    console.log('PASS: desktop/mobile Z-API settings, token clearing, idempotent test, receipt + scheduler + stop gates; screenshots '+out);
+    console.log('PASS: desktop/mobile, five bundles + name search, no legacy controls, no reload button, pull refresh preserving search, Z-API token clearing/idempotency/activation gates; screenshots '+out);
   }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

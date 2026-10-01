@@ -80,13 +80,15 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
       if (missing.length) add(issues, { id: `won-lead:${lead.id}`, category: "CRM", title: `${lead.full_name} · ganho com dados pendentes`, detail: `Preencher: ${missing.join("; ")}.`, createdAt: lead.updated_at, target: "CRM", leadId: lead.id });
     }
     if (manager) {
-      const [charges, sales, messages, connectors, cancellations, clouds] = await Promise.all([
+      const [charges, sales, messages, connectors, cancellations, clouds, pendingReceipts, lateQueue] = await Promise.all([
         rows(admin.from("xpace_contract_charges").select("id,student_id,status,paid_at,paid_amount_cents,provider_error,updated_at").eq("tenant_company_id", companyId).or(`paid_at.gte.${since},provider_error.not.is.null`).order("id")),
         rows(admin.from("xpace_contract_sales").select("id,sale_number,student_id,status,signature_status,signature_error,signed_at,updated_at").eq("tenant_company_id", companyId).or(`signed_at.gte.${since},signature_error.not.is.null,signature_status.in.(ENVIADA,PENDENTE)`).order("id")),
-        rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,status,updated_at").eq("tenant_company_id", companyId).is("manually_confirmed_at", null).in("status", ["FAILED", "UNKNOWN"]).order("id")),
+        rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,status,updated_at").eq("tenant_company_id", companyId).neq("kind", "TESTE").is("manually_confirmed_at", null).is("delivered_at", null).is("read_at", null).in("status", ["FAILED", "UNKNOWN"]).order("id")),
         rows(admin.from("xpace_message_connectors").select("id,status,last_seen_at,updated_at,disconnect_requested").eq("tenant_company_id", companyId).order("id")),
         rows(admin.from("xpace_payment_cancellations").select("charge_id,status,last_error,requested_at").eq("tenant_company_id", companyId).not("last_error", "is", null).order("charge_id")),
         rows(admin.from("xpace_zapi_connections").select("connector_id,enabled,paused,connected,last_checked_at,last_error,updated_at").eq("tenant_company_id", companyId).order("connector_id")),
+        rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,updated_at,xpace_zapi_attempts!inner(started_at)").eq("tenant_company_id", companyId).neq("kind", "TESTE").eq("status", "SENT").is("delivered_at", null).is("read_at", null).is("manually_confirmed_at", null).lt("xpace_zapi_attempts.started_at", new Date(Date.now()-15*60000).toISOString()).order("id")),
+        rows(admin.from("xpace_message_outbox").select("id,kind,contact_name,updated_at").eq("tenant_company_id", companyId).neq("kind", "TESTE").eq("status", "QUEUED").lt("scheduled_at", new Date(Date.now()-10*60000).toISOString()).or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).order("id")),
       ]);
       const salesById = new Map(sales.map(s => [s.id, s]));
       for (const row of automationRows) if (row.automation === "signature-reminder") {
@@ -102,6 +104,8 @@ export async function companyNoticeFeed(admin: SupabaseClient, companyId: string
         if (row.signature_error && row.status !== "CANCELADA" && ["ERRO", "RECUSADA"].includes(row.signature_status)) add(issues, { id: `signature:${row.id}`, category: "CONTRATO", title: `Assinatura pendente de ação · venda ${row.sale_number}`, detail: row.signature_status === "RECUSADA" ? "Assinatura recusada pelo cliente. Confira o contrato." : "Falha no envio para assinatura. Confira o contrato e a integração.", createdAt: row.updated_at, target: "COMMUNITY", studentId: row.student_id });
       }
       for (const row of messages) add(issues, { id: `message:${row.id}`, category: "WHATSAPP", title: `${row.contact_name} · envio sem confirmação`, detail: `${row.kind} · confira a conversa antes de reenviar para não duplicar.`, createdAt: row.updated_at, target: "MESSAGE_CONNECTOR" });
+      for (const row of pendingReceipts) add(issues, { id: `message:${row.id}`, category: "WHATSAPP", title: `${row.contact_name} · entrega ainda não confirmada`, detail: `${row.kind} · a Z-API aceitou há mais de 15 minutos, mas não chegou recibo. O cliente pode estar offline. Confira a conversa antes de reenviar; esta providência some ao confirmar a entrega.`, createdAt: row.updated_at, target: "MESSAGE_CONNECTOR" });
+      for (const row of lateQueue) add(issues, { id: `message:${row.id}`, category: "WHATSAPP", title: `${row.contact_name} · envio atrasado na fila`, detail: `${row.kind} · passou mais de 10 minutos do horário previsto. Confira a Z-API e o agendador. Não faça envio paralelo; a fila ainda pode processar este aviso.`, createdAt: row.updated_at, target: "MESSAGE_CONNECTOR" });
       for (const row of connectors) {
         const cloud = clouds.find(c => c.connector_id === row.id);
         if (cloud) {

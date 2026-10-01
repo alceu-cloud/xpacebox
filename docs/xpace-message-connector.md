@@ -1,4 +1,6 @@
-# Integrador de mensagens XPACE — instalação e limites
+# Integrador de mensagens XPACE — histórico do conector local
+
+> **Descontinuado após ativação da Z-API.** A operação atual está em Loja → WhatsApp e envios, com Z-API e fila na nuvem, 5 aulas por página, busca e recibos. Este documento fica apenas para auditoria do conector anterior. Não reinstale, reinicie ou gere pareamento local. Preserve a sessão antiga; a tarefa do Windows deve ficar desativada. Consulte `docs/xpace-zapi-handoff.md` para as regras atuais.
 
 O XPACEBOX agora tem, na **Loja → Integrador de mensagens**, telas de pontuação operacional, controle de envios e QR Code. Depois da venda, a atendente pode copiar ou solicitar o envio dos links disponíveis de assinatura (Autentique) e da cobrança Pix já emitida (Asaas). Os mesmos links podem ser abertos no histórico de vendas ou na lista de contratos do aluno.
 

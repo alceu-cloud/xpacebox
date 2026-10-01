@@ -1,150 +1,90 @@
 "use client";
 
-import { ArrowLeft, Check, CircleHelp, Clock3, Copy, Laptop, Link2Off, LoaderCircle, MessageCircle, RefreshCw, Send, ShieldAlert, ShieldCheck, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, MessageCircle, Search, ShieldAlert, ShieldCheck, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-
 import { supabase } from "@/lib/supabase";
 import ZapiConnectorSettings from "@/components/xpace-dance/ZapiConnectorSettings";
 
-type Message = { id: string; kind: string; lead_id: string | null; appointment_id: string | null; appointment_scheduled_on: string | null; appointment_starts_at: string | null; contact_name: string; destination_phone: string; student_name: string; student_phone: string; instructor_name?: string; instructor_phone?: string; instructor_missing_reason?: string; status: string; error_message: string | null; created_at: string; scheduled_at: string; sent_at: string | null; delivered_at: string | null; read_at: string | null; manually_confirmed_at?: string | null; manual_confirmation_note?: string | null };
-type ConnectorPayload = { success: boolean; connector: { provider?: "ZAPI"; paused?: boolean; configured: boolean; status: string; phone: string; qrDataUrl: string; lastSeenAt: string | null; lastError: string; disconnectRequested: boolean }; messages: Message[]; score: number | null; scoreDetails: { failures: number; oldQueue: number; windowDays: number } };
-type Tab = "PONTUACAO" | "ENVIOS" | "QR";
+type Message = { id: string; kind: string; appointment_id: string | null; appointment_scheduled_on: string | null; appointment_starts_at: string | null; contact_name: string; destination_phone: string; student_name: string; student_phone: string; instructor_name?: string; instructor_phone?: string; instructor_missing_reason?: string; status: string; error_message: string | null; created_at: string; scheduled_at: string; sent_at: string | null; delivered_at: string | null; read_at: string | null; manually_confirmed_at?: string | null; manual_confirmation_note?: string | null };
+type Payload = { connector: { configured: boolean; status: string; paused?: boolean }; messages: Message[]; schedulerReady: boolean; pagination: { page: number; pageSize: number; total: number }; summary: { registered: number; sent: number; queued: number; confirmed: number; failures: number; receiptPending: number; lateQueue: number; monitoringSince: string | null } };
 
-async function request<T>(method: "GET" | "POST", body?: object): Promise<T> {
+async function request<T>(method: "GET" | "POST", query = "", body?: object): Promise<T> {
   const { data } = await supabase.auth.getSession();
   if (!data.session?.access_token) throw new Error("SESSÃO NÃO ENCONTRADA.");
-  const response = await fetch("/api/xpace/message-connector", { method, headers: { Authorization: `Bearer ${data.session.access_token}`, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
-  const result = await response.json().catch(() => ({})) as T & { success?: boolean; message?: string };
-  if (!response.ok || !result.success) throw new Error(result.message || "NÃO FOI POSSÍVEL CONSULTAR O CONECTOR.");
+  const response = await fetch(`/api/xpace/message-connector${query}`, { method, cache: "no-store", headers: { Authorization: `Bearer ${data.session.access_token}`, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const result = await response.json();
+  if (!response.ok || !result.success) throw new Error(result.message || "NÃO FOI POSSÍVEL CONSULTAR OS ENVIOS.");
   return result;
 }
 
 export default function MessageConnectorWorkspace({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<Tab>("PONTUACAO");
-  const [data, setData] = useState<ConnectorPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [working, setWorking] = useState(false);
+  const [data, setData] = useState<Payload | null>(null);
   const [notice, setNotice] = useState("");
-  const [token, setToken] = useState("");
+  const [working, setWorking] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("TODOS");
-  const [expandedMessage, setExpandedMessage] = useState<string | null>(null);
-  const [showGuide, setShowGuide] = useState(false);
+  const [page, setPage] = useState(0);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const sequence = useRef(0);
+  useEffect(() => { const timer = window.setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 300); return () => window.clearTimeout(timer); }, [searchInput]);
   const refresh = useCallback(async () => {
-    try { setData(await request<ConnectorPayload>("GET")); setNotice(""); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "FALHA AO CONSULTAR O CONECTOR."); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { void refresh(); const interval = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 10_000); return () => window.clearInterval(interval); }, [refresh]);
-
-  async function generateToken() {
-    if (data?.connector.configured && !window.confirm("GERAR UMA NOVA CHAVE INVALIDA A CHAVE DO COMPUTADOR ATUAL. CONTINUAR?")) return;
+    const id = ++sequence.current;
+    const query = new URLSearchParams({ search, status: filter, page: String(page) });
+    try { const value = await request<Payload>("GET", `?${query}`); if (id === sequence.current) { setData(value); setNotice(""); } }
+    catch (error) { if (id === sequence.current) setNotice(error instanceof Error ? error.message : "FALHA AO CONSULTAR OS ENVIOS."); }
+  }, [search, filter, page]);
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 10000);
+    const pull = (event: Event) => (event as CustomEvent<{ tasks: Promise<unknown>[] }>).detail.tasks.push(refresh());
+    const visible = () => { if (document.visibilityState === "visible") void refresh(); };
+    window.addEventListener("xpace:refresh", pull); document.addEventListener("visibilitychange", visible);
+    return () => { ++sequence.current; window.clearInterval(timer); window.removeEventListener("xpace:refresh", pull); document.removeEventListener("visibilitychange", visible); };
+  }, [refresh]);
+  async function cancel(id: string) {
+    if (!window.confirm("Cancelar apenas este envio ainda na fila?")) return;
     setWorking(true);
-    try { const result = await request<{ token: string }>("POST", { action: "GENERATE_TOKEN" }); setToken(result.token); setTab("QR"); await refresh(); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL GERAR A CHAVE."); }
+    try { await request("POST", "", { action: "CANCEL_MESSAGE", messageId: id }); await refresh(); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "FALHA AO CANCELAR."); }
     finally { setWorking(false); }
   }
-  async function disconnect() {
-    if (!window.confirm("DESCONECTAR ESTE WHATSAPP? O COMPUTADOR PRECISA ESTAR LIGADO PARA RECEBER O PEDIDO.")) return;
-    setWorking(true);
-    try { await request("POST", { action: "DISCONNECT" }); await refresh(); setNotice("PEDIDO DE DESCONEXÃO ENVIADO. AGUARDE O COMPUTADOR DA ESCOLA RESPONDER."); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL DESCONECTAR."); }
-    finally { setWorking(false); }
-  }
-  async function cancel(messageId: string) {
-    setWorking(true);
-    try { await request("POST", { action: "CANCEL_MESSAGE", messageId }); await refresh(); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CANCELAR."); }
-    finally { setWorking(false); }
-  }
-  const connector = data?.connector;
-  const online = connector?.status === "CONNECTED";
-  const messages = data?.messages ?? [];
-  const trialGroups = new Map<string, Message[]>();
-  for (const message of messages) {
-    if (!message.appointment_id) continue;
-    const group = trialGroups.get(message.appointment_id) ?? [];
-    group.push(message);
-    trialGroups.set(message.appointment_id, group);
-  }
-  const visibleTrialGroups = [...trialGroups.entries()].filter(([, group]) => filter === "TODOS" || group.some((message) => message.status === filter));
-  const otherMessages = messages.filter((item) => !item.appointment_id && ["ASSINATURA", "COBRANCA", "COBRANCA_PIX_AUTOMATICA", "TESTE"].includes(item.kind) && (filter === "TODOS" || item.status === filter));
-  const sent = data?.messages.filter((item) => item.status === "SENT").length ?? 0;
-  const pending = data?.messages.filter((item) => ["QUEUED", "SENDING"].includes(item.status)).length ?? 0;
+  const groups = new Map<string, Message[]>();
+  for (const message of data?.messages ?? []) { if (message.kind === "TESTE") continue; const key = message.appointment_id ?? message.id; groups.set(key, [...(groups.get(key) ?? []), message]); }
+  const summary = data?.summary;
+  const online = data?.connector.status === "CONNECTED";
+  const attention = (summary?.failures ?? 0) + (summary?.receiptPending ?? 0) + (summary?.lateQueue ?? 0);
+  const currentPage = data?.pagination.page ?? page;
+  const total = data?.pagination.total ?? 0;
   return <section className="xd-msg-workspace">
-    <header className="xd-msg-header"><button type="button" className="xd-xpay-back" onClick={onBack}><ArrowLeft size={16} /> VOLTAR PARA LOJA</button><div><span>LOJA · XPACE</span><h1>INTEGRADOR DE MENSAGENS.</h1><p>Acompanhe os avisos de aula e de Pix e envie links pelo WhatsApp da escola quando necessário.</p></div><span className={`xd-msg-status ${online ? "is-online" : ""}`}><i /> {loading ? "CARREGANDO" : online ? `CONECTADO · ${connector.phone || "WHATSAPP"}` : connector?.status === "WAITING_QR" ? "AGUARDANDO QR CODE" : connector?.configured ? "DESCONECTADO" : "NÃO CONFIGURADO"}</span></header>
-    {notice ? <p className="xd-msg-notice" role="status">{notice}</p> : null}
+    <header className="xd-msg-header"><button type="button" className="xd-xpay-back" onClick={onBack}><ArrowLeft size={16} /> VOLTAR PARA LOJA</button><div><span>LOJA · XPACE</span><h1>WHATSAPP NA NUVEM.</h1><p>Avisos automáticos pela Z-API, sem depender do computador da escola.</p></div><span className={`xd-msg-status ${online ? "is-online" : ""}`}><i /> {!data ? "CARREGANDO" : online ? "CONECTADO · Z-API" : data.connector.status === "PAUSED" ? "FILA PAUSADA" : data.connector.status === "SCHEDULER_ERROR" ? "CONFERIR AGENDADOR" : data.connector.status === "PREPARING" ? "EM PREPARAÇÃO" : "CONFERIR CONEXÃO"}</span></header>
+    {notice ? <p className="xd-msg-notice" role="alert">{notice}</p> : null}
     <ZapiConnectorSettings onChanged={() => void refresh()} />
-    <div className="xd-msg-metrics"><article><MessageCircle size={20} /><span>ENVIOS REGISTRADOS</span><strong>{data?.messages.length ?? 0}</strong></article><article><Check size={20} /><span>PROCESSADOS PELO CONECTOR</span><strong>{sent}</strong></article><article><Clock3 size={20} /><span>NA FILA</span><strong>{pending}</strong></article></div>
-    <div className="xd-msg-tabs" role="tablist" aria-label="Integrador de mensagens"><button type="button" className={tab === "PONTUACAO" ? "is-active" : ""} onClick={() => setTab("PONTUACAO")}>PONTUAÇÃO</button><button type="button" className={tab === "ENVIOS" ? "is-active" : ""} onClick={() => setTab("ENVIOS")}>CONTROLE DE ENVIOS</button><button type="button" className={tab === "QR" ? "is-active" : ""} onClick={() => setTab("QR")}>{connector?.provider === "ZAPI" ? "CONEXÃO NA NUVEM" : "QR CODE"}</button></div>
-    {tab === "PONTUACAO" ? <div className="xd-msg-panel"><p className="xd-msg-intro">Este indicador acompanha a <strong>operação do conector</strong>: conexão, falhas e fila antiga. Não é a pontuação oficial do WhatsApp nem prevê bloqueios.</p><div className="xd-msg-health"><div className="xd-msg-gauge"><strong>{data?.score ?? "—"}</strong><small>DE 100</small></div><div><span className="xd-msg-eyebrow"><ShieldCheck size={16} /> SAÚDE DA OPERAÇÃO</span><h2>{online ? "CONEXÃO ATIVA" : "CONECTOR FORA DO AR"}</h2><p>{online ? connector?.provider === "ZAPI" ? "A Z-API responde na nuvem. Confira também se a fila está pausada e o agendamento automático está ativo." : "O computador está respondendo. Mensagens na fila são processadas uma a uma." : connector?.provider === "ZAPI" ? "A conexão da Z-API não foi confirmada recentemente. Confira a instância; não reenvie mensagens incertas." : "Ligue o computador da escola e abra o conector para processar a fila."}</p><button type="button" className="xd-msg-text-button" onClick={() => setShowGuide(true)}>COMO REDUZIR RISCOS <CircleHelp size={16} /></button></div></div><div className="xd-msg-factors"><article><strong>{data?.scoreDetails.failures ?? 0}</strong><span>FALHAS OU ENVIOS SEM CONFIRMAÇÃO NOS ÚLTIMOS 7 DIAS</span></article><article><strong>{data?.scoreDetails.oldQueue ?? 0}</strong><span>MENSAGENS HÁ MAIS DE 24 HORAS NA FILA</span></article><article><strong>15 S</strong><span>INTERVALO MÍNIMO ENTRE TENTATIVAS DE ENVIO</span></article></div><aside className="xd-msg-caution"><ShieldAlert size={19} /><p>A conexão por QR usa uma biblioteca não oficial. Mesmo com poucos envios, existe risco de desconexão ou bloqueio do número. Não use para disparos em massa.</p></aside></div> : null}
-    {tab === "ENVIOS" ? <div className="xd-msg-panel"><div className="xd-msg-list-toolbar"><div><h2>CONTROLE DE ENVIOS</h2><p>Amarelo: aguardando ou aceito pelo servidor. Verde: recibo do WhatsApp ou conferência manual identificada no cartão. A confirmação não garante que a pessoa assistiu ao vídeo.</p></div><div><select aria-label="Filtrar situação" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="TODOS">TODAS AS SITUAÇÕES</option><option value="QUEUED">NA FILA</option><option value="SENDING">ENVIANDO</option><option value="SENT">PROCESSADAS</option><option value="UNKNOWN">VERIFICAR</option><option value="CANCELLED">CANCELADAS</option></select><button type="button" onClick={() => void refresh()} aria-label="Atualizar lista"><RefreshCw size={17} /></button></div></div>
-      {visibleTrialGroups.length ? <div className="xd-msg-bundles">{visibleTrialGroups.map(([appointmentId, group]) => {
-        const student = group[0];
-        const teacher = group.find((message) => message.kind === "AVISO_PROFESSOR");
-        return <article className="xd-msg-bundle" key={appointmentId}>
-          <header><div><span className="xd-msg-bundle-eyebrow">AULA EXPERIMENTAL · {student.appointment_scheduled_on ? dateOnly(student.appointment_scheduled_on) : "DATA NÃO INFORMADA"}{student.appointment_starts_at ? ` ÀS ${student.appointment_starts_at.slice(0, 5)}` : ""}</span><strong>{student.student_name || group.find((message) => message.kind !== "AVISO_PROFESSOR")?.contact_name || "ALUNO NÃO IDENTIFICADO"}</strong><small>Aluno(a) · {student.student_phone || group.find((message) => message.kind !== "AVISO_PROFESSOR")?.destination_phone || "SEM TELEFONE"}</small></div><div className="xd-msg-bundle-teacher"><strong>{teacher?.contact_name || student.instructor_name || "PROFESSOR NÃO INFORMADO"}</strong><small>Professor(a) · {teacher?.destination_phone || student.instructor_phone || "SEM CELULAR CADASTRADO"}</small></div></header>
-          <div className="xd-msg-bundle-steps">{(["VIDEO_BOAS_VINDAS", "AVISO_PROFESSOR", "LEMBRETE_VESPERA", "CONFIRMACAO_DIA", ...(group.some((item) => item.kind === "PESQUISA_SATISFACAO") ? ["PESQUISA_SATISFACAO"] : [])] as const).map((kind) => {
-            const message = group.find((item) => item.kind === kind);
-            const state = message ? deliveryState(message) : "missing";
-            return <button type="button" key={kind} disabled={!message} className={`xd-msg-step xd-msg-step--${state}`} aria-expanded={message ? expandedMessage === message.id : undefined} onClick={() => message && setExpandedMessage(expandedMessage === message.id ? null : message.id)}><span>{messageKindLabel(kind)}</span><strong>{message ? deliveryLabel(message) : "NÃO PROGRAMADO"}</strong><small>{message ? messageTimeLabel(message) : kind === "AVISO_PROFESSOR" ? student.instructor_missing_reason || "Sem envio para esta aula" : "Sem envio para esta aula"}</small></button>;
-          })}</div>
-          {group.map((message) => expandedMessage === message.id ? <div className="xd-msg-bundle-detail" key={message.id}><span>DESTINO: {message.contact_name} · {message.destination_phone}</span>{message.manual_confirmation_note ? <span>CONFERÊNCIA MANUAL: {message.manual_confirmation_note}</span> : null}{message.error_message ? <span className="xd-msg-row-error">{message.error_message}</span> : null}{message.status === "QUEUED" ? <button type="button" disabled={working} onClick={() => void cancel(message.id)}><X size={15} /> CANCELAR ESTE ENVIO</button> : null}</div> : null)}
+    <aside className={`xd-msg-automation ${online && data?.schedulerReady && !attention ? "is-healthy" : "needs-attention"}`} role="status">
+      {online && data?.schedulerReady && !attention ? <ShieldCheck size={23} /> : <ShieldAlert size={23} />}
+      <div><strong>{!data ? "CONFERINDO AUTOMAÇÃO" : !online || !data.schedulerReady ? "AUTOMAÇÃO PRECISA DE CONFERÊNCIA" : attention ? `${attention} ENVIO(S) PRECISAM DE CONFERÊNCIA` : "AUTOMAÇÃO ATIVA · SEM PENDÊNCIAS DETECTADAS"}</strong>
+      <p>Os novos envios são acompanhados por recibos reais. Agendamentos futuros não são erros. {summary?.monitoringSince ? `Acompanhamento da Z-API desde ${dateTime(summary.monitoringSince)}.` : "O acompanhamento começa com o primeiro envio real pela Z-API."}</p>
+      {attention ? <p>{summary?.failures ?? 0} falhas/incertos · {summary?.receiptPending ?? 0} sem recibo há mais de 15 minutos · {summary?.lateQueue ?? 0} atrasados na fila. Confira as Providências; não reenvie sem olhar a conversa.</p> : null}</div>
+    </aside>
+    <div className="xd-msg-metrics"><article><MessageCircle size={20} /><span>ENVIOS REAIS REGISTRADOS</span><strong>{summary?.registered ?? 0}</strong></article><article><Check size={20} /><span>ENTREGUES / CONFERIDOS</span><strong>{summary?.confirmed ?? 0}</strong></article><article><Clock3 size={20} /><span>NA FILA</span><strong>{summary?.queued ?? 0}</strong></article></div>
+    <div className="xd-msg-panel"><div className="xd-msg-list-toolbar"><div><h2>CONTROLE DE ENVIOS</h2><p>5 aulas ou envios por página, do mais recente ao mais antigo. Atualiza automaticamente a cada 10 segundos. No celular, puxe do topo para atualizar.</p></div></div>
+      <div className="xd-msg-filters"><label><Search size={17} /><input type="search" aria-label="Buscar envios pelo nome" placeholder="Buscar aluno, professor ou contato" maxLength={100} value={searchInput} onChange={event => setSearchInput(event.target.value)} /></label><select aria-label="Filtrar situação" value={filter} onChange={event => { setFilter(event.target.value); setPage(0); }}><option value="TODOS">TODAS AS SITUAÇÕES</option><option value="QUEUED">NA FILA</option><option value="SENDING">ENVIANDO</option><option value="SENT">PROCESSADAS</option><option value="UNKNOWN">VERIFICAR</option><option value="FAILED">FALHOU</option><option value="CANCELLED">CANCELADAS</option></select></div>
+      <p className="xd-msg-legend">Verde: entregue, lido ou conferido manualmente. Azul: aceito, ainda sem recibo. Amarelo: programado. Vermelho: falha ou envio incerto. Testes ficam fora desta lista.</p>
+      <div className="xd-msg-bundles">{[...groups].map(([key, group]) => {
+        const student = group[0]; const teacher = group.find(item => item.kind === "AVISO_PROFESSOR");
+        const steps = student.appointment_id ? ["VIDEO_BOAS_VINDAS", "AVISO_PROFESSOR", "LEMBRETE_VESPERA", "CONFIRMACAO_DIA", ...(group.some(item => item.kind === "PESQUISA_SATISFACAO") ? ["PESQUISA_SATISFACAO"] : [])] : [student.kind];
+        return <article className="xd-msg-bundle" key={key}><header><div><span className="xd-msg-bundle-eyebrow">{student.appointment_id ? `AULA EXPERIMENTAL · ${student.appointment_scheduled_on?.split("-").reverse().join("/") ?? "DATA NÃO INFORMADA"} ${student.appointment_starts_at ? `ÀS ${student.appointment_starts_at.slice(0, 5)}` : ""}` : "ENVIO DE LINK"}</span><strong>{student.student_name || group.find(item => item.kind !== "AVISO_PROFESSOR")?.contact_name || student.contact_name}</strong><small>{student.student_phone || student.destination_phone}</small></div>{student.appointment_id ? <div className="xd-msg-bundle-teacher"><strong>{teacher?.contact_name || student.instructor_name || "PROFESSOR NÃO INFORMADO"}</strong><small>{teacher?.destination_phone || student.instructor_phone || "SEM CELULAR CADASTRADO"}</small></div> : null}</header>
+          <div className="xd-msg-bundle-steps">{steps.map(kind => { const message = group.find(item => item.kind === kind); return <button type="button" key={kind} disabled={!message} className={`xd-msg-step xd-msg-step--${message ? deliveryState(message) : "missing"}`} aria-expanded={message ? expanded === message.id : undefined} onClick={() => message && setExpanded(expanded === message.id ? null : message.id)}><span>{kindLabel(kind)}</span><strong>{message ? deliveryLabel(message) : "NÃO PROGRAMADO"}</strong><small>{message ? timeLabel(message) : kind === "AVISO_PROFESSOR" ? student.instructor_missing_reason || "Sem envio para esta aula" : "Sem envio para esta aula"}</small></button>; })}</div>
+          {group.filter(item => expanded === item.id).map(message => <div className="xd-msg-bundle-detail" key={message.id}><span>DESTINO: {message.contact_name} · {message.destination_phone}</span>{message.manual_confirmation_note ? <span>CONFERÊNCIA MANUAL: {message.manual_confirmation_note}</span> : null}{message.error_message ? <span className="xd-msg-row-error">{message.error_message}</span> : null}{message.status === "QUEUED" ? <button type="button" disabled={working} onClick={() => void cancel(message.id)}><X size={15} /> CANCELAR ESTE ENVIO</button> : null}</div>)}
         </article>;
-      })}</div> : null}
-      {otherMessages.length ? <div className="xd-msg-table"><div className="xd-msg-table-head"><span>CONTATO</span><span>MENSAGEM</span><span>HORÁRIO</span><span>SITUAÇÃO</span><span /></div>{otherMessages.map((message) => <article key={message.id}><div><strong>{message.contact_name}</strong><small>{message.destination_phone}</small></div><span>{messageKindLabel(message.kind)}</span><time>{messageTimeLabel(message)}</time><span className={`xd-msg-pill xd-msg-pill--${deliveryState(message)}`}>{deliveryLabel(message)}</span><div>{message.status === "QUEUED" ? <button type="button" disabled={working} title="Cancelar mensagem" onClick={() => void cancel(message.id)}><X size={16} /></button> : null}</div>{message.error_message ? <small className="xd-msg-row-error">{message.error_message}</small> : null}</article>)}</div> : null}
-      {!visibleTrialGroups.length && !otherMessages.length ? <p className="xd-msg-empty">NENHUM ENVIO NESTE FILTRO.</p> : null}
-    </div> : null}
-    {tab === "QR" && connector?.provider === "ZAPI" ? <div className="xd-msg-panel"><h2>CONEXÃO PELA Z-API</h2><p>A configuração acima acompanha a instância na nuvem. Não é necessário executar o conector no computador. O robô de atendimento mantém o webhook de recebimento.</p></div> : null}
-    {tab === "QR" && connector?.provider !== "ZAPI" ? <div className="xd-msg-panel xd-msg-setup"><div><h2>CONEXÃO DO WHATSAPP DA ESCOLA</h2><p>O QR aparece aqui depois que o conector estiver rodando no computador da escola. Você pode preparar a chave agora, mas o pareamento precisa ser feito com o celular perto da tela.</p><ol><li><Laptop size={18} /> Instale Node.js 20+ no computador que ficará ligado.</li><li><Smartphone size={18} /> Copie a pasta <code>connector</code> e configure o endereço do XPACEBOX e a chave abaixo.</li><li><RefreshCw size={18} /> Execute <code>npm install</code> e <code>npm start</code>.</li><li><MessageCircle size={18} /> No WhatsApp, abra <strong>Dispositivos conectados → Conectar dispositivo</strong> e leia o QR desta tela.</li></ol><button type="button" className="xd-primary" disabled={working} onClick={() => void generateToken()}>{working ? <LoaderCircle size={17} className="xd-spin" /> : <ShieldCheck size={17} />} {connector?.configured ? "GERAR NOVA CHAVE" : "PREPARAR CONEXÃO"}</button>{token ? <div className="xd-msg-token"><span>CHAVE DE CONEXÃO · EXIBIDA SOMENTE AGORA</span><code>{token}</code><button type="button" onClick={() => void navigator.clipboard.writeText(token)}><Copy size={15} /> COPIAR</button><small>Guarde no arquivo .env do computador da escola. Não envie por WhatsApp nem coloque no Git.</small></div> : null}<p className="xd-msg-footnote">O computador pode ficar ligado com o monitor desligado. Desative suspensão automática do Windows e mantenha internet estável.</p></div><div className="xd-msg-qr-box">{connector?.qrDataUrl ? <><img src={connector.qrDataUrl} alt="QR code temporário para conectar o WhatsApp da escola" /><strong>ESCANEIE COM O WHATSAPP</strong><small>O QR muda periodicamente. Se vencer, aguarde o próximo.</small></> : online ? <><div className="xd-msg-qr-icon is-online"><Check size={47} /></div><strong>CONECTADO</strong><small>{connector.phone || "WhatsApp da escola"}</small><button type="button" className="xd-msg-disconnect" disabled={working} onClick={() => void disconnect()}><Link2Off size={16} /> DESCONECTAR DISPOSITIVO</button></> : <><div className="xd-msg-qr-icon"><Smartphone size={47} /></div><strong>AGUARDANDO O COMPUTADOR</strong><small>{connector?.configured ? "Quando o conector iniciar, o QR aparecerá aqui." : "Prepare a conexão para gerar a chave do computador."}</small>{connector?.lastError ? <p className="xd-msg-error">{connector.lastError}</p> : null}</>}</div></div> : null}
-    {showGuide ? <MessageGuideDialog onClose={() => setShowGuide(false)} /> : null}
+      })}</div>
+      {data && !groups.size ? <p className="xd-msg-empty">NENHUM ENVIO ENCONTRADO NESTA BUSCA.</p> : null}
+      <nav className="xd-msg-pagination" aria-label="Páginas de envios"><span>{total ? `${currentPage * 5 + 1}–${Math.min((currentPage + 1) * 5, total)} de ${total}` : "0 resultados"}</span><button type="button" aria-label="Envios mais recentes" disabled={!data || currentPage === 0} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={18} /></button><button type="button" aria-label="Envios mais antigos" disabled={!data || (currentPage + 1) * 5 >= total} onClick={() => setPage(currentPage + 1)}><ChevronRight size={18} /></button></nav>
+    </div>
   </section>;
 }
-
-function MessageGuideDialog({ onClose }: { onClose: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const [page, setPage] = useState<"SCORE" | "MANUAL">("SCORE");
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    dialog?.showModal();
-    titleRef.current?.focus({ preventScroll: true });
-    return () => { if (dialog?.open) dialog.close(); };
-  }, []);
-
-  function changePage(nextPage: "SCORE" | "MANUAL") {
-    setPage(nextPage);
-    requestAnimationFrame(() => {
-      titleRef.current?.focus({ preventScroll: true });
-      dialogRef.current?.scrollTo(0, 0);
-    });
-  }
-
-  return <dialog ref={dialogRef} className="xd-msg-guide-dialog" aria-labelledby="xd-msg-guide-title" onCancel={(event) => { event.preventDefault(); onClose(); }}>
-    <header><div><span>INTEGRADOR DE MENSAGENS · XPACEBOX</span><h2 id="xd-msg-guide-title" ref={titleRef} tabIndex={-1}>{page === "SCORE" ? "PONTUAÇÃO DO INTEGRADOR" : "MANUAL DE BOAS PRÁTICAS"}</h2></div><button type="button" aria-label="Fechar manual" onClick={onClose}><X size={20} /></button></header>
-    {page === "SCORE" ? <>
-      <p>Esta pontuação é interna do XPACEBOX: mostra se o conector está funcionando, se houve falhas e se há mensagens antigas na fila. <strong>Não é uma nota do WhatsApp e não prevê bloqueios.</strong></p>
-      <div className="xd-msg-guide-table"><div><strong>SINAL</strong><strong>O QUE ACONTECE</strong></div><div><span>Conexão ativa</span><span>Pedidos feitos por você seguem um a um. O intervalo de 15 segundos organiza a fila, mas não torna a conexão segura contra bloqueios.</span></div><div><span>Computador offline</span><span>Novos pedidos aguardam na fila; isso não significa que chegaram ao cliente.</span></div><div><span>Envio incerto</span><span>Fica em “Verificar”. Confira a conversa no WhatsApp antes de tentar novamente.</span></div></div>
-      <div className="xd-msg-guide-alert"><ShieldAlert size={20} /><p>O pareamento por QR usa uma biblioteca não oficial. Seu número pode ser limitado ou desconectado mesmo com poucos envios; Meta Verified não elimina esse risco.</p></div>
-      <footer><button type="button" className="xd-msg-guide-secondary" onClick={onClose}>FECHAR</button><button type="button" className="xd-primary" onClick={() => changePage("MANUAL")}>MANUAL DE BOAS PRÁTICAS</button></footer>
-    </> : <>
-      <p>Use este conector apenas para mensagens esperadas e autorizadas pelo cliente, como orientações da aula e links de pagamento. Antes de cada envio, faça esta conferência rápida:</p>
-      <div className="xd-msg-guide-steps">
-        <article><span>01</span><div><h3>CONFIRME O DESTINATÁRIO</h3><p>Confira telefone, cliente e link. Envie somente para quem autorizou o contato e sabe por que a XPACE está escrevendo.</p></div></article>
-        <article><span>02</span><div><h3>EVITE MENSAGEM DUPLICADA</h3><p>Verifique se o link já foi enviado por você, pelo Asaas ou pelo Autentique. Não use esta conexão para listas ou campanhas em massa.</p></div></article>
-        <article><span>03</span><div><h3>ACOMPANHE A FILA</h3><p>“Enviado” indica aceitação pelo WhatsApp, não entrega ou leitura. Se aparecer “Verificar”, olhe a conversa no celular antes de reenviar.</p></div></article>
-        <article><span>04</span><div><h3>SE A CONEXÃO PARAR</h3><p>Confira o computador, a internet e o dispositivo vinculado à XPACE. Não desconecte outros dispositivos vinculados por engano. Para algo urgente, copie o link ou use e-mail.</p></div></article>
-      </div>
-      <div className="xd-msg-guide-alert"><ShieldAlert size={20} /><p>Não existe ritmo de envio que garanta proteção contra restrições. Se o WhatsApp limitar o número, pause os envios e trate o caso pelos canais oficiais da Meta.</p></div>
-      <footer><button type="button" className="xd-msg-guide-secondary" onClick={() => changePage("SCORE")}>VOLTAR À PONTUAÇÃO</button><button type="button" className="xd-primary" onClick={onClose}>ENTENDI</button></footer>
-    </>}
-  </dialog>;
-}
-
 function dateTime(value: string) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value)); }
-function statusLabel(status: string) { return ({ QUEUED: "NA FILA", SENDING: "ENVIANDO", SENT: "ACEITO PELO SERVIDOR", FAILED: "FALHOU", UNKNOWN: "VERIFICAR", CANCELLED: "CANCELADO" } as Record<string, string>)[status] ?? status; }
-function deliveryState(message: Message) { if (message.read_at || message.delivered_at || message.manually_confirmed_at) return "delivered"; if (["FAILED", "UNKNOWN"].includes(message.status)) return "failed"; if (message.status === "CANCELLED") return "cancelled"; if (message.status === "SENT") return "accepted"; return "pending"; }
-function deliveryLabel(message: Message) { if (message.read_at) return "LIDO"; if (message.delivered_at) return "ENTREGUE"; if (message.manually_confirmed_at) return "CONFERIDO MANUALMENTE"; return statusLabel(message.status); }
-function messageKindLabel(kind: string) { return ({ ASSINATURA: "LINK DE ASSINATURA", COBRANCA: "LINK DE PAGAMENTO", COBRANCA_PIX_AUTOMATICA: "MENSALIDADE PIX", VIDEO_BOAS_VINDAS: "VÍDEO DA AULA", LEMBRETE_VESPERA: "LEMBRETE DA AULA", CONFIRMACAO_DIA: "CONFIRMAÇÃO DA AULA", AVISO_PROFESSOR: "AVISO AO PROFESSOR", PESQUISA_SATISFACAO: "PESQUISA DA AULA", TESTE: "TESTE" } as Record<string, string>)[kind] ?? kind; }
-function messageTimeLabel(message: Message) { return `${message.read_at ? "LIDO" : message.delivered_at ? "ENTREGUE" : message.manually_confirmed_at ? "CONFERIDO" : message.status === "QUEUED" && Date.parse(message.scheduled_at) > Date.now() ? "PROGRAMADO" : message.sent_at ? "ACEITO" : "ENTROU"} · ${dateTime(message.read_at ?? message.delivered_at ?? message.manually_confirmed_at ?? (message.status === "QUEUED" ? message.scheduled_at : message.sent_at ?? message.created_at))}`; }
-function dateOnly(value: string) { return value.split("-").reverse().join("/"); }
+function deliveryState(message: Message) { return message.read_at || message.delivered_at || message.manually_confirmed_at ? "delivered" : ["FAILED", "UNKNOWN"].includes(message.status) ? "failed" : message.status === "CANCELLED" ? "cancelled" : message.status === "SENT" ? "accepted" : "pending"; }
+function deliveryLabel(message: Message) { return message.read_at ? "LIDO" : message.delivered_at ? "ENTREGUE" : message.manually_confirmed_at ? "CONFERIDO MANUALMENTE" : ({ QUEUED: "NA FILA", SENDING: "ENVIANDO", SENT: "ACEITO PELO SERVIDOR", FAILED: "FALHOU", UNKNOWN: "VERIFICAR", CANCELLED: "CANCELADO" } as Record<string,string>)[message.status] ?? message.status; }
+function kindLabel(kind: string) { return ({ ASSINATURA: "LINK DE ASSINATURA", COBRANCA: "LINK DE PAGAMENTO", COBRANCA_PIX_AUTOMATICA: "MENSALIDADE PIX", VIDEO_BOAS_VINDAS: "VÍDEO DA AULA", LEMBRETE_VESPERA: "LEMBRETE DA AULA", CONFIRMACAO_DIA: "CONFIRMAÇÃO DA AULA", AVISO_PROFESSOR: "AVISO AO PROFESSOR", PESQUISA_SATISFACAO: "PESQUISA DA AULA" } as Record<string,string>)[kind] ?? kind; }
+function timeLabel(message: Message) { const label = message.read_at ? "LIDO" : message.delivered_at ? "ENTREGUE" : message.manually_confirmed_at ? "CONFERIDO" : message.status === "QUEUED" ? "PROGRAMADO" : message.sent_at ? "ACEITO" : "ENTROU"; return `${label} · ${dateTime(message.read_at ?? message.delivered_at ?? message.manually_confirmed_at ?? (message.status === "QUEUED" ? message.scheduled_at : message.sent_at ?? message.created_at))}`; }

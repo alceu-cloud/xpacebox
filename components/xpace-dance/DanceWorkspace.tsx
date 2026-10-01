@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import BuildRevision from "@/components/BuildRevision";
+import RefreshableScreen from "@/components/xpace-dance/RefreshableScreen";
 import CommunityWorkspace from "@/components/xpace-dance/CommunityWorkspace";
 import ContractsWorkspace from "@/components/xpace-dance/ContractsWorkspace";
 import AgendaWorkspace from "@/components/xpace-dance/AgendaWorkspace";
@@ -83,26 +84,26 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
     <div className="xd-topbar-tools"><NewLeadSoundToggle />{activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(returnScreen)} title={returnTitle}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}</div>
   </header>{connectorHealth?.configured && connectorHealth.status !== "CONNECTED" ? <div className="xd-connector-alert" role="alert"><AlertTriangle size={18} aria-hidden="true" /><span><strong>{connectorAlert}</strong> As mensagens automáticas podem ficar na fila. Avise um gerente para conferir o Integrador na Loja.</span></div> : null}</>;
 
-  if (screen === "COMMUNITY") return <main className="xd-shell">{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></main>;
-  if (screen === "DASHBOARD") return <main className="xd-shell">{topbar}<DashboardWorkspace /></main>;
-  if (screen === "REPORTS") return <main className="xd-shell">{topbar}<ReportsWorkspace startWithActions={reportActions} onOpenLead={(id) => { setLeadId(id); setScreen("CRM"); }} /></main>;
-  if (screen === "PROFILE" && profileId) return <main className="xd-shell">{topbar}<StudentProfileWorkspace studentId={profileId} /></main>;
-  if (screen === "CRM") return <main className="xd-shell">{topbar}<LeadsWorkspace initialLeadId={leadId} onOpenConversion={() => { setReportActions(true); setScreen("REPORTS"); }} /></main>;
-  if (screen === "AGENDA") return <main className="xd-shell">{topbar}<AgendaWorkspace /></main>;
-  if (screen === "FINANCE") return <main className="xd-shell">{topbar}<FinanceWorkspace /></main>;
-  if (screen === "STORE") return <main className="xd-shell">{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onOpenMessages={() => setScreen("MESSAGE_CONNECTOR")} /></main>;
-  if (screen === "MESSAGE_CONNECTOR") return <main className="xd-shell">{topbar}<MessageConnectorWorkspace onBack={() => setScreen("STORE")} /></main>;
-  if (screen === "XPAY_BENEFITS") return <main className="xd-shell">{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></main>;
-  if (screen === "XPAY_ACCOUNT") return <main className="xd-shell">{topbar}<XPayAccount onBack={() => setScreen("STORE")} /></main>;
-  if (screen === "ADMINISTRATIVE") return <main className="xd-shell">{topbar}<AdministrativeWorkspace onOpenContracts={() => setScreen("CONTRACTS")} onOpenServices={() => setScreen("SERVICES")} onOpenModalities={() => setScreen("MODALITIES")} onOpenInstructors={() => setScreen("INSTRUCTORS")} onOpenRooms={() => setScreen("ROOMS")} /></main>;
-  if (screen === "CONTRACTS") return <main className="xd-shell">{topbar}<ContractsWorkspace /></main>;
-  if (screen === "SERVICES") return <main className="xd-shell">{topbar}<ServicesWorkspace /></main>;
-  if (screen === "MODALITIES") return <main className="xd-shell">{topbar}<ModalitiesWorkspace /></main>;
-  if (screen === "INSTRUCTORS") return <main className="xd-shell">{topbar}<InstructorsWorkspace /></main>;
-  if (screen === "SETTINGS") return <main className="xd-shell">{topbar}<SettingsWorkspace startWithNotifications={notificationSettings} /></main>;
-  if (screen === "ROOMS") return <main className="xd-shell">{topbar}<RoomsWorkspace /></main>;
+  if (screen === "COMMUNITY") return <RefreshableScreen screenKey={screen}>{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></RefreshableScreen>;
+  if (screen === "DASHBOARD") return <RefreshableScreen screenKey={screen}>{topbar}<DashboardWorkspace /></RefreshableScreen>;
+  if (screen === "REPORTS") return <RefreshableScreen screenKey={screen}>{topbar}<ReportsWorkspace startWithActions={reportActions} onOpenLead={(id) => { setLeadId(id); setScreen("CRM"); }} /></RefreshableScreen>;
+  if (screen === "PROFILE" && profileId) return <RefreshableScreen screenKey={screen}>{topbar}<StudentProfileWorkspace studentId={profileId} /></RefreshableScreen>;
+  if (screen === "CRM") return <RefreshableScreen screenKey={screen}>{topbar}<LeadsWorkspace initialLeadId={leadId} onOpenConversion={() => { setReportActions(true); setScreen("REPORTS"); }} /></RefreshableScreen>;
+  if (screen === "AGENDA") return <RefreshableScreen screenKey={screen}>{topbar}<AgendaWorkspace /></RefreshableScreen>;
+  if (screen === "FINANCE") return <RefreshableScreen screenKey={screen}>{topbar}<FinanceWorkspace /></RefreshableScreen>;
+  if (screen === "STORE") return <RefreshableScreen screenKey={screen}>{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onOpenMessages={() => setScreen("MESSAGE_CONNECTOR")} /></RefreshableScreen>;
+  if (screen === "MESSAGE_CONNECTOR") return <RefreshableScreen screenKey={screen}>{topbar}<MessageConnectorWorkspace onBack={() => setScreen("STORE")} /></RefreshableScreen>;
+  if (screen === "XPAY_BENEFITS") return <RefreshableScreen screenKey={screen}>{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></RefreshableScreen>;
+  if (screen === "XPAY_ACCOUNT") return <RefreshableScreen screenKey={screen}>{topbar}<XPayAccount onBack={() => setScreen("STORE")} /></RefreshableScreen>;
+  if (screen === "ADMINISTRATIVE") return <RefreshableScreen screenKey={screen}>{topbar}<AdministrativeWorkspace onOpenContracts={() => setScreen("CONTRACTS")} onOpenServices={() => setScreen("SERVICES")} onOpenModalities={() => setScreen("MODALITIES")} onOpenInstructors={() => setScreen("INSTRUCTORS")} onOpenRooms={() => setScreen("ROOMS")} /></RefreshableScreen>;
+  if (screen === "CONTRACTS") return <RefreshableScreen screenKey={screen}>{topbar}<ContractsWorkspace /></RefreshableScreen>;
+  if (screen === "SERVICES") return <RefreshableScreen screenKey={screen}>{topbar}<ServicesWorkspace /></RefreshableScreen>;
+  if (screen === "MODALITIES") return <RefreshableScreen screenKey={screen}>{topbar}<ModalitiesWorkspace /></RefreshableScreen>;
+  if (screen === "INSTRUCTORS") return <RefreshableScreen screenKey={screen}>{topbar}<InstructorsWorkspace /></RefreshableScreen>;
+  if (screen === "SETTINGS") return <RefreshableScreen screenKey={screen}>{topbar}<SettingsWorkspace startWithNotifications={notificationSettings} /></RefreshableScreen>;
+  if (screen === "ROOMS") return <RefreshableScreen screenKey={screen}>{topbar}<RoomsWorkspace /></RefreshableScreen>;
 
-  return <main className="xd-shell">
+  return <RefreshableScreen screenKey={screen}>
     {topbar}
 
     <section className="xd-hero" aria-label="XPACE Escola de Dança">
@@ -137,5 +138,5 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
       </button>)}
     </section>
     <BuildRevision className="xd-home-revision" />
-  </main>;
+  </RefreshableScreen>;
 }
