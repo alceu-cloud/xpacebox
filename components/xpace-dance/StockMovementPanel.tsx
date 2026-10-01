@@ -24,7 +24,7 @@ export default function StockMovementPanel({ product, onDone, onCancel, onLockCh
       lock.current = true; setBusy(true); setError("");
       const response = await stockApi<MoveStockResult>("", { action: "MOVE", productId: product.id, ...pending.current });
       setUncertain(false); setResult(response);
-      // Keep low-stock warning visible until acknowledged; don't hide it with the scanner.
+      // Keep low-stock warning visible until acknowledged; don't hide it with the product list.
       if (!response.lowStock) onDone(response);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível lançar.");
@@ -35,7 +35,7 @@ export default function StockMovementPanel({ product, onDone, onCancel, onLockCh
   }
   return <section className="xs-movement" data-no-pull-refresh data-unsaved-form>
     <header>{product.imageUrl ? <img src={product.imageUrl} alt={product.description} /> : <span className="xs-product-placeholder"><Package size={34} /></span>}<div><span>{product.categoryName}</span><h2>{product.description}</h2><p>EM ESTOQUE: <strong>{quantityLabel(result?.stockQuantity ?? product.stockQuantity)} {product.unitAbbreviation}</strong></p></div></header>
-    {!product.controlsStock ? <><p className="xs-error">Este produto não controla estoque. Um gerente pode ativar essa opção no cadastro.</p><button className="xs-secondary" type="button" onClick={onCancel}>LER OUTRO PRODUTO</button></> : result ? <>
+    {!product.controlsStock ? <><p className="xs-error">Este produto não controla estoque. Um gerente pode ativar essa opção no cadastro.</p><button className="xs-secondary" type="button" onClick={onCancel}>SELECIONAR OUTRO PRODUTO</button></> : result ? <>
       <div className="xs-low-alert" role="alert"><TriangleAlert size={25} /><div><strong>ESTOQUE ABAIXO DO MÍNIMO</strong><p>Saldo: {quantityLabel(result.stockQuantity)} {product.unitAbbreviation} · Mínimo: {quantityLabel(product.minimumStock)}.</p><p>{result.lowStockCrossed ? result.alertQueued ? "AVISO PARA ALCEU NA FILA DO WHATSAPP. Acompanhe a entrega em Notificações do Integrador." : "Não foi possível programar o WhatsApp: confira o destinatário e o Integrador. A movimentação foi registrada." : "Este produto já estava abaixo do mínimo. Não foi criado outro aviso."}</p></div></div>
       <p className="xs-success"><CheckCircle2 size={18} /> {result.replayed ? "MOVIMENTAÇÃO JÁ REGISTRADA; SEM DUPLICAÇÃO." : "MOVIMENTAÇÃO REGISTRADA."}</p><button type="button" className="xs-primary" onClick={() => onDone(result)}>ENTENDI · PRÓXIMO PRODUTO</button>
     </> : <form onSubmit={event => { event.preventDefault(); void submit(); }}>

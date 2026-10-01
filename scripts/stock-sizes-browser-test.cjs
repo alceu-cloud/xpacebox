@@ -11,17 +11,17 @@ family.variants = ['PP','P','M','G','GG','XG'].map((size, index) => ({ ...item, 
    const f = await setup(browser,width,false,[family]);
    await f.page.goto(`${origin}/xpace/app`);
    await f.page.getByRole('button',{name:'Estoque',exact:true}).click();
-   await f.page.getByRole('textbox',{name:'Código do produto'}).fill(family.code);
-   await f.page.getByRole('button',{name:'BUSCAR',exact:true}).click();
+   await f.page.getByRole('button',{name:`Selecionar ${family.description}`,exact:true}).click();
    await f.page.getByRole('group',{name:'Escolher tamanho'}).waitFor();
-   assert.equal(f.writes.length,0,'scanning family does not move any size');
+   assert.equal(f.writes.length,0,'selecting family does not move any size');
    await snapshot(f.page,`sizes-${width}-choose`);
    await f.page.getByRole('group',{name:'Escolher tamanho'}).getByRole('button',{name:new RegExp(`^${size} `)}).click();
    await f.page.getByRole('button',{name:direction,exact:true}).click();
    await f.page.getByRole('textbox',{name:'Quantidade para movimentar'}).fill('1');
    await snapshot(f.page,`sizes-${width}-${direction.toLowerCase()}`);
    await f.page.getByRole('button',{name:`CONFIRMAR ${direction}`,exact:true}).click();
-   await f.page.getByRole('textbox',{name:'Código do produto'}).waitFor();
+   await f.page.getByRole('button',{name:`Selecionar ${family.description}`,exact:true}).waitFor();
+   await f.page.getByRole('status').filter({hasText:'PRODUTO LANÇADO / BAIXADO COM SUCESSO'}).waitFor();
    assert.equal(f.writes[0].productId,family.variants.find(child=>child.sizeLabel===size).id);
    assert.equal(f.writes[0].direction,direction==='BAIXA'?'SAIDA':'ENTRADA');
    assert.deepEqual(f.errors,[]); await f.context.close();
@@ -36,6 +36,13 @@ family.variants = ['PP','P','M','G','GG','XG'].map((size, index) => ({ ...item, 
   assert.equal(await dialog.locator('.xs-size-options input:checked').count(),6);
   await snapshot(f.page,'sizes-desktop-grade');
   await dialog.getByRole('button',{name:'CANCELAR',exact:true}).click();
+  await f.page.getByRole('button',{name:'SELECIONAR / MOVIMENTAR',exact:true}).click();
+  const picker=f.page.getByRole('dialog',{name:'SELECIONAR PRODUTO'});
+  await picker.getByRole('button',{name:`Selecionar ${family.description}`,exact:true}).click();
+  await picker.getByRole('group',{name:'Escolher tamanho'}).waitFor();
+  await picker.getByRole('button',{name:'CANCELAR / OUTRO PRODUTO',exact:true}).click();
+  await picker.getByRole('button',{name:`Selecionar ${family.description}`,exact:true}).waitFor();
+  await picker.getByRole('button',{name:'Fechar',exact:true}).click();
   await f.page.locator('.xd-active-module').click();
   await f.page.locator('.xd-module').filter({hasText:'RELATÓRIOS'}).click();
   await f.page.getByRole('button',{name:'ESTOQUE · ENTRADAS E BAIXAS',exact:true}).click();
@@ -50,6 +57,6 @@ family.variants = ['PP','P','M','G','GG','XG'].map((size, index) => ({ ...item, 
   await f.page.setViewportSize({width:390,height:900});
   await snapshot(f.page,'stock-report-mobile');
   assert.deepEqual(f.writes,[]); assert.deepEqual(f.errors,[]); await f.context.close();
-  console.log('PASS stock sizes browser: family QR requires size, entry/exit target chosen SKU, mobile320/390, grade edit, report responsible/search/pagination and mobile overflow.');
+  console.log('PASS stock sizes browser: selecting family requires size, entry/exit target chosen SKU, mobile320/390, grade edit, report responsible/search/pagination and mobile overflow.');
  } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});
