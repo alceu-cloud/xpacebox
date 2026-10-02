@@ -11,7 +11,13 @@ class AccessError extends Error { constructor(message,status){super(message);thi
 function moduleFrom(file,imports){
   const exports={};
   const source=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  vm.runInNewContext(source,{exports,require:name=>{if(name in imports)return imports[name];throw new Error('Unexpected import: '+name);},Date,Intl,URL,console});
+  vm.runInNewContext(source,{exports,require:name=>{
+    if(name in imports)return imports[name];
+    if(name==='server-only')return {};
+    if(name==='@/lib/xpace/trial-rebooking')return require('../lib/xpace/trial-rebooking.ts');
+    if(name==='@/lib/server/xpace-trial-rebooking')return moduleFrom('lib/server/xpace-trial-rebooking.ts',imports);
+    throw new Error('Unexpected import: '+name);
+  },Date,Intl,URL,console});
   return exports;
 }
 function fakeAdmin(tables){

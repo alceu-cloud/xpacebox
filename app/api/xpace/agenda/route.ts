@@ -5,6 +5,8 @@ import { queueSatisfactionAfterAttendance, queueTrialInstructorMessage, queueTri
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 import { trialScheduleDetails } from "@/lib/xpace/trial-schedule";
+import { publicLeadMatch, reschedulePredecessor } from "@/lib/xpace/trial-rebooking";
+import { loadTrialHistory, trialRescheduleError } from "@/lib/server/xpace-trial-rebooking";
 
 const companySlug = "xpace";
 type Body = {
@@ -66,7 +68,10 @@ export async function POST(request: Request) {
     if (body.action === "UPDATE_TRIAL_ATTENDANCE") return await updateTrialAttendance(access, body.trialAttendance);
     if (body.action === "CREATE_TRIAL_IN_CLASS") return await createTrialInClass(access, body.trial);
     throw new RequestError("AÇÃO DA AGENDA INVÁLIDA.", 400);
-  } catch (error) { return handleError(error); }
+  } catch (error) {
+    const message = trialRescheduleError(error);
+    return message ? NextResponse.json({ success: false, message }, { status: 409 }) : handleError(error);
+  }
 }
 
 async function createTrialInClass(access: Awaited<ReturnType<typeof requireCompanyAccess>>, input?: Body["trial"]) {
@@ -91,11 +96,15 @@ async function createTrialInClass(access: Awaited<ReturnType<typeof requireCompa
   if (fullName.length < 2 || fullName.length > 180 || !/^\d{10,11}$/.test(mobile) || (email && !/^\S+@\S+\.\S+$/.test(email))) throw new RequestError("CONFIRA NOME, CELULAR E E-MAIL. CLIENTES SEM CELULAR DEVEM SER ATUALIZADOS NO CADASTRO.", 400);
   const { data: instructor, error: instructorError } = schedule.instructor_id ? await access.admin.from("xpace_instructors").select("id,full_name").eq("id", schedule.instructor_id).eq("tenant_company_id", access.company.id).eq("active", true).maybeSingle() : { data: null, error: null };
   if (instructorError) throw instructorError;
-  const lookup = access.admin.from("xpace_leads").select("id,pipeline_stage").eq("tenant_company_id", access.company.id);
-  const { data: existing, error: lookupError } = studentId
-    ? await lookup.eq("linked_student_id", studentId).not("pipeline_stage", "in", "(GANHO,PERDIDO)").order("created_at", { ascending: false }).limit(1).maybeSingle()
-    : await lookup.eq("mobile", mobile).not("pipeline_stage", "in", "(GANHO,PERDIDO)").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const lookup = access.admin.from("xpace_leads").select("id,pipeline_stage,full_name,email").eq("tenant_company_id", access.company.id);
+  const { data: candidates, error: lookupError } = studentId
+    ? await lookup.eq("linked_student_id", studentId).not("pipeline_stage", "in", "(GANHO,PERDIDO)").order("created_at", { ascending: false }).limit(26)
+    : await lookup.eq("mobile", mobile).not("pipeline_stage", "in", "(GANHO,PERDIDO)").order("created_at", { ascending: false }).limit(26);
   if (lookupError) throw lookupError;
+  if ((candidates?.length ?? 0) > 25 || (studentId && (candidates?.length ?? 0) > 1)) throw new Error("XPACE_TRIAL_IDENTITY_AMBIGUOUS");
+  const existing = studentId ? candidates?.[0] ?? null : publicLeadMatch(candidates ?? [], { fullName, email });
+  const predecessor = existing ? reschedulePredecessor(await loadTrialHistory(access.admin, access.company.id, existing.id), { modality: group.modality ?? "", scheduledOn, startsAt: schedule.starts_at.slice(0, 5) }) : null;
+  const bookingKind = predecessor ? "REAGENDAMENTO" : "NOVO";
   let leadId = existing?.id;
   let createdLead = false;
   if (!leadId) {
@@ -108,13 +117,13 @@ async function createTrialInClass(access: Awaited<ReturnType<typeof requireCompa
   const videoUrl = typeof video === "string" && /^https?:\/\//i.test(video) ? video : "";
   const whatsappOptIn = input?.whatsappOptIn === true;
   const stamp = new Date().toISOString();
-  const { data: appointment, error: appointmentError } = await access.admin.from("xpace_lead_appointments").insert({ tenant_company_id: access.company.id, lead_id: leadId, class_group_id: group.id, class_schedule_id: schedule.id, scheduled_on: scheduledOn, starts_at: schedule.starts_at, ends_at: schedule.ends_at, booking_kind: "NOVO", assigned_to: access.profile.id, attendant_name_snapshot: access.profile.full_name, modality_name_snapshot: group.modality, instructor_name_snapshot: instructor?.full_name ?? null, actual_instructor_id: instructor?.id ?? null, actual_instructor_name_snapshot: instructor?.full_name ?? null, class_name_snapshot: group.name, whatsapp_opt_in: whatsappOptIn, survey_opt_in: whatsappOptIn, whatsapp_opt_in_at: whatsappOptIn ? stamp : null, welcome_video_url: videoUrl || null, welcome_delivery_status: !videoUrl ? "NAO_CONFIGURADO" : whatsappOptIn ? "PENDENTE" : "DISPENSADO", created_by: access.profile.id, updated_by: access.profile.id }).select("id").single();
+  const { data: appointment, error: appointmentError } = await access.admin.from("xpace_lead_appointments").insert({ tenant_company_id: access.company.id, lead_id: leadId, class_group_id: group.id, class_schedule_id: schedule.id, scheduled_on: scheduledOn, starts_at: schedule.starts_at, ends_at: schedule.ends_at, booking_kind: bookingKind, assigned_to: access.profile.id, attendant_name_snapshot: access.profile.full_name, modality_name_snapshot: group.modality, instructor_name_snapshot: instructor?.full_name ?? null, actual_instructor_id: instructor?.id ?? null, actual_instructor_name_snapshot: instructor?.full_name ?? null, class_name_snapshot: group.name, whatsapp_opt_in: whatsappOptIn, survey_opt_in: whatsappOptIn, whatsapp_opt_in_at: whatsappOptIn ? stamp : null, welcome_video_url: videoUrl || null, welcome_delivery_status: !videoUrl ? "NAO_CONFIGURADO" : whatsappOptIn ? "PENDENTE" : "DISPENSADO", created_by: access.profile.id, updated_by: access.profile.id }).select("id,rescheduled_from_appointment_id").single();
   if (appointmentError) {
     if (createdLead) await access.admin.from("xpace_leads").delete().eq("id", leadId).eq("tenant_company_id", access.company.id);
     throw appointmentError;
   }
   if (existing && ["NOVO", "ATENDIMENTO"].includes(existing.pipeline_stage)) await access.admin.from("xpace_leads").update({ pipeline_stage: "AULA_EXPERIMENTAL", updated_at: stamp }).eq("id", leadId).eq("tenant_company_id", access.company.id);
-  const { error: activityError } = await access.admin.from("xpace_lead_activities").insert({ tenant_company_id: access.company.id, lead_id: leadId, appointment_id: appointment.id, activity_type: "AGENDAMENTO_CRIADO", body: `EXPERIMENTAL ADICIONADA NA AGENDA: ${group.name} EM ${scheduledOn}.${studentId ? " CLIENTE JÁ CADASTRADO." : ""}`, payload: { source: "AGENDA", existingStudentId: studentId || null }, created_by: access.profile.id });
+  const { error: activityError } = await access.admin.from("xpace_lead_activities").insert({ tenant_company_id: access.company.id, lead_id: leadId, appointment_id: appointment.id, activity_type: "AGENDAMENTO_CRIADO", body: `${bookingKind === "REAGENDAMENTO" ? "REAGENDAMENTO APÓS FALTA ADICIONADO" : "EXPERIMENTAL ADICIONADA"} NA AGENDA: ${group.name} EM ${scheduledOn}.${studentId ? " CLIENTE JÁ CADASTRADO." : ""}`, payload: { source: "AGENDA", existingStudentId: studentId || null, bookingKind, rescheduledFromAppointmentId: appointment.rescheduled_from_appointment_id ?? null }, created_by: access.profile.id });
   if (activityError) console.error("XPACE DIRECT TRIAL ACTIVITY ERROR", activityError);
   if (whatsappOptIn) {
     try { await queueTrialMessages(access.admin, { companyId: access.company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: schedule.starts_at.slice(0, 5), className: group.name, instructor: instructor?.full_name ?? "PROFESSOR", roomName: schedule.room_name ?? "", videoUrl }); }

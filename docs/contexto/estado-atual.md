@@ -19,6 +19,14 @@ O visual é claro, compacto e segue identidade da empresa. Alceu prefere poucas 
 - Rolagem com mouse no desktop foi restaurada sem remover pull-to-refresh móvel. Não interceptar rolagem interna, controles/modais nem descartar formulário editado sem confirmação.
 - `components/BuildRevision.tsx` mostra `VERSÃO` usando `NEXT_PUBLIC_BUILD_REVISION`. `next.config.mjs` deriva a revisão do build/Git. Preservar identificação nas telas, sem fixar hash na interface.
 
+## Reagendamento após falta — regra autorizada em 01/10/2026
+
+Implementado no link público e na inclusão pela Agenda: identificar o lead por cadastro compatível e classificar automaticamente `REAGENDAMENTO` somente se a última aula não cancelada da **mesma modalidade** ficou `FALTOU`, encerrou em Brasília e antecede o novo horário. Outra modalidade continua `NOVO`, mantendo quota e consentimento existentes. CRM manual valida a mesma condição; não usar esse tipo para contornar quota de outra modalidade. Nome/telefone/e-mail ambíguos exigem equipe, sem misturar familiares nem fundir leads. Reconhecimento cadastral não é autenticação por SMS.
+
+Falta antiga, agendamento e histórico permanecem; o novo resultado pertence à nova aula. Última presença/pendência da modalidade impede reaproveitar uma falta antiga. Não confirmar, cancelar ou reagendar antecipadamente não equivale a `FALTOU`. Casos sem horário/modalidade ou empate ficam para conferência. Fonte auditável + guard invoker privado + índice único protegem a mesma falta de dois reagendamentos ativos; nenhum backfill/cron/permissão pública novo. Detalhes e limitações em `docs/xpace-reports.md`.
+
+Passaram localmente 23 testes Node de lógica/APIs, SQL PGlite com quota real/isolamento/fonte duplicada/correções/exclusões, regressões de experimentais/relatórios, TypeScript e build otimizado. Nenhuma aula ou WhatsApp real criado para teste. A prova de unicidade não é teste de duas sessões PostgreSQL reais. Migration `20261002010959_xpace_trial_reschedule_guard.sql` aplicada individualmente, com histórico remoto alinhado: coluna/trigger/índice único válidos, função invoker privada sem execução direta de anon/authenticated/service_role e RLS/grants de clientes preservados. Zero fontes preenchidas na conferência; sem backfill. Advisors não apontaram a nova função/índices; isso não significa ausência de avisos preexistentes no projeto. Código local pronto para push/publicação, ainda não comprovados nesta anotação.
+
 ## WhatsApp na nuvem
 
 Z-API está implantada/ativada; o usuário e recibos anteriores confirmaram operação. A saúde atual precisa ser consultada no painel/API, não deduzida deste arquivo. A instância/número também servem ao robô de atendimento. Preserve “Ao receber” do robô; não sobrescrever com o callback de recibos do XPACEBOX.
