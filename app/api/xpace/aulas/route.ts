@@ -10,8 +10,23 @@ function manager(role:string){if(!['platform_owner','company_manager'].includes(
 export async function GET(request:Request){
  try{
   const access=await requireCompanyAccess(request,'xpace',{allowTeacher:true});const{admin,company,profile,teacherInstructorId}=access;
-  const {start,end}=monthBounds(new URL(request.url).searchParams.get('month')||day().slice(0,7));
   const search=new URL(request.url).searchParams;
+  const canManage=['platform_owner','company_manager'].includes(profile.platform_role);
+  if(search.get('scope')==='grade')manager(profile.platform_role);
+  if(search.get('scope')==='occupation'){
+    const from=search.get('from')||day(),stamp=Date.parse(from+'T12:00:00Z');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!Number.isFinite(stamp)||new Date(stamp).toISOString().slice(0,10)!==from)throw new AccessError('SEMANA INVÁLIDA.',400);
+    const to=new Date(stamp+7*86400000).toISOString().slice(0,10);
+    const results=await Promise.all([
+      admin.from('xpace_class_schedules').select('id,class_group_id,weekday,starts_at,ends_at,room_id,room_name,teaching_enabled,teaching_from,teaching_until,color').eq('tenant_company_id',company.id).eq('active',true),
+      admin.from('xpace_class_groups').select('id,name').eq('tenant_company_id',company.id).eq('active',true),
+      admin.from('xpace_teaching_lessons').select('id,schedule_id,scheduled_on,starts_at,ends_at,room_id,room_name,class_name,status').eq('tenant_company_id',company.id).gte('scheduled_on',from).lt('scheduled_on',to).not('schedule_id','is',null),
+      admin.from('xpace_room_rentals').select('id,room_id,room_name,starts_at,ends_at').eq('tenant_company_id',company.id).neq('status','CANCELADA').lt('starts_at',to+'T00:00:00-03:00').gt('ends_at',from+'T00:00:00-03:00')
+    ]);
+    for(const result of results){if(result.error)throw result.error;if((result.data?.length??0)>=1000)throw new AccessError('SEMANA COM MUITOS REGISTROS. REDUZA O PERÍODO.',422);}
+    return NextResponse.json({success:true,schedules:results[0].data??[],groups:results[1].data??[],roomLessons:results[2].data??[],occupancy:results[3].data??[]});
+  }
+  const {start,end}=monthBounds(new URL(request.url).searchParams.get('month')||day().slice(0,7));
   let rentalFrom=start,rentalTo=end;
   if(search.has('from')){
     const from=search.get('from')??'',to=search.get('to')??'';
@@ -19,22 +34,22 @@ export async function GET(request:Request){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||!Number.isFinite(a)||!Number.isFinite(b)||new Date(a).toISOString().slice(0,10)!==from||new Date(b).toISOString().slice(0,10)!==to||b<a||b-a>365*86400000)throw new AccessError('ESCOLHA UM PERÍODO DE ATÉ 366 DIAS.',400);
     rentalFrom=from;rentalTo=new Date(b+86400000).toISOString().slice(0,10);
   }
-  const lessonQuery=admin.from('xpace_teaching_lessons').select('*').eq('tenant_company_id',company.id).gte('scheduled_on',start).lt('scheduled_on',end).order('scheduled_on').order('starts_at');
-  const rentalQuery=admin.from('xpace_room_rentals').select('id,room_id,room_name,instructor_id,renter_name,starts_at,ends_at,amount_cents,hourly_rate_cents,status,cancellation_charge_cents,cancellation_reason,request_id').eq('tenant_company_id',company.id).gte('starts_at',rentalFrom+'T00:00:00-03:00').lt('starts_at',rentalTo+'T00:00:00-03:00').order('starts_at');
+  const lessonQuery=admin.from('xpace_teaching_lessons').select('*').eq('tenant_company_id',company.id) .gte('scheduled_on',teacherInstructorId?day():start).lt('scheduled_on',teacherInstructorId?new Date(Date.parse(day()+'T12:00:00Z')+86400000).toISOString().slice(0,10):end).not('roster_id','is',null).order('scheduled_on').order('starts_at');
+  const rentalQuery=admin.from('xpace_room_rentals').select('id,room_id,room_name,instructor_id,renter_name,starts_at,ends_at,amount_cents,hourly_rate_cents,status,cancellation_charge_cents,cancellation_reason,request_id').eq('tenant_company_id',company.id).gt('ends_at',rentalFrom+'T00:00:00-03:00').lt('starts_at',rentalTo+'T00:00:00-03:00').order('starts_at');
   const [lessons,rooms,instructors,schedules,rentals,review,groups,roomLessons]=await Promise.all([
-    teacherInstructorId?lessonQuery.eq('instructor_id',teacherInstructorId):lessonQuery,
-    admin.from('xpace_rooms').select(teacherInstructorId?'id,name,active,hourly_rate_cents':'id,name,active,hourly_rate_cents,attendance_token').eq('tenant_company_id',company.id).eq('active',true).order('name'),
+    teacherInstructorId?lessonQuery.eq('instructor_id',teacherInstructorId).eq('scheduled_on',day()):canManage?lessonQuery:Promise.resolve({data:[],error:null}),
+    admin.from('xpace_rooms').select(!canManage?'id,name,active,hourly_rate_cents':'id,name,active,hourly_rate_cents,attendance_token').eq('tenant_company_id',company.id).eq('active',true).order('name'),
     admin.from('xpace_instructors').select('id,full_name,active,lesson_rate_cents').eq('tenant_company_id',company.id).eq('active',true).order('full_name'),
-    admin.from('xpace_class_schedules').select('id,class_group_id,weekday,starts_at,ends_at,room_id,room_name,instructor_id,teaching_enabled,teaching_from,teaching_until').eq('tenant_company_id',company.id).eq('active',true),
+    Promise.resolve({data:[],error:null}),
     rentalQuery,
     admin.from('xpace_teaching_months').select('reviewed_at').eq('tenant_company_id',company.id).eq('month',start).maybeSingle(),
-    admin.from('xpace_class_groups').select('id,name').eq('tenant_company_id',company.id).eq('active',true),
-    admin.from('xpace_teaching_lessons').select('id,schedule_id,scheduled_on,starts_at,ends_at,room_id,room_name,class_name,status').eq('tenant_company_id',company.id).gte('scheduled_on',start).lt('scheduled_on',end).order('starts_at')
+    Promise.resolve({data:[],error:null}),
+    Promise.resolve({data:[],error:null})
   ]);
   for(const result of[lessons,rooms,instructors,schedules,rentals,review,groups,roomLessons])if(result.error)throw result.error;
-  if((roomLessons.data?.length??0)>=1000||(schedules.data?.length??0)>=1000||(rentals.data?.length??0)>=1000)throw new AccessError('PERÍODO COM MUITOS REGISTROS. O RELATÓRIO NÃO FOI EXIBIDO PARA EVITAR UM TOTAL INCOMPLETO.',422);
+  if((lessons.data?.length??0)>=1000||(instructors.data?.length??0)>=1000||(roomLessons.data?.length??0)>=1000||(schedules.data?.length??0)>=1000||(rentals.data?.length??0)>=1000)throw new AccessError('PERÍODO COM MUITOS REGISTROS. O RELATÓRIO NÃO FOI EXIBIDO PARA EVITAR UM TOTAL INCOMPLETO.',422);
   // No student/lead identity, contacts, teacher pay or another teacher's rental bill.
-  const ownLessons=teacherInstructorId?(lessons.data??[]).map(({rate_cents,rate_override,confirmed_by,...l})=>l):lessons.data??[];
+  const ownLessons=teacherInstructorId?(lessons.data??[]).map(({rate_cents,rate_override,confirmed_by,...l})=>l):canManage?lessons.data??[]:[];
   const occupancy=(rentals.data??[]).filter(r=>r.status!=='CANCELADA').map(r=>({id:r.id,room_id:r.room_id,room_name:r.room_name,starts_at:r.starts_at,ends_at:r.ends_at}));
   const ownRentals=teacherInstructorId?(rentals.data??[]).filter(r=>r.instructor_id===teacherInstructorId):rentals.data??[];
   let qrRoomId:string|null=null;
@@ -42,7 +57,7 @@ export async function GET(request:Request){
   if(qr&&teacherInstructorId&&validUuid(qr)){
     const room=await admin.from('xpace_rooms').select('id').eq('tenant_company_id',company.id).eq('attendance_token',qr).eq('active',true).maybeSingle();if(room.error)throw room.error;qrRoomId=room.data?.id??null;
   }
-  return NextResponse.json({success:true,teacher:Boolean(teacherInstructorId),instructorId:teacherInstructorId,canManage:['platform_owner','company_manager'].includes(profile.platform_role),lessons:ownLessons,roomLessons:roomLessons.data??[],rooms:rooms.data??[],instructors:teacherInstructorId?[]:instructors.data??[],schedules:schedules.data??[],groups:groups.data??[],rentals:ownRentals,occupancy,reviewedAt:review.data?.reviewed_at??null,qrRoomId});
+  return NextResponse.json({success:true,teacher:Boolean(teacherInstructorId),instructorId:teacherInstructorId,canManage:['platform_owner','company_manager'].includes(profile.platform_role),lessons:ownLessons,roomLessons:roomLessons.data??[],rooms:rooms.data??[],instructors:teacherInstructorId?[]:canManage?instructors.data??[]:(instructors.data??[]).map(({lesson_rate_cents,...i})=>i),schedules:schedules.data??[],groups:groups.data??[],rentals:ownRentals,occupancy,reviewedAt:canManage||teacherInstructorId?review.data?.reviewed_at??null:null,qrRoomId});
  }catch(e){return failure(e);}
 }
 export async function POST(request:Request){
@@ -50,22 +65,19 @@ export async function POST(request:Request){
   const access=await requireCompanyAccess(request,'xpace',{allowTeacher:true});const{admin,company,user,profile,teacherInstructorId}=access;
   const body=await request.json() as Record<string,unknown>;const rpc=async(name:string,args:Record<string,unknown>)=>{const result=await admin.rpc(name,args);if(result.error)throw result.error;return result.data;};
   if(body.action==='PREPARE_MONTH'){
-    const {start}=monthBounds(body.month);await rpc('xpace_prepare_teaching_month',{p_company:company.id,p_month:start});
-  }else if(body.action==='CREATE_GRADE'){
+    manager(profile.platform_role);const {start}=monthBounds(body.month);const result=await admin.from('xpace_teaching_months').upsert({tenant_company_id:company.id,month:start},{onConflict:'tenant_company_id,month',ignoreDuplicates:true});if(result.error)throw result.error;
+  }else if(body.action==='CREATE_ROSTER'){
     manager(profile.platform_role);
-    if(!validUuid(body.instructorId)||!validUuid(body.roomId)||typeof body.title!=='string'||!Array.isArray(body.weekdays)||!body.weekdays.length||body.weekdays.some(d=>!Number.isInteger(d)||Number(d)<0||Number(d)>6)||new Set(body.weekdays).size!==body.weekdays.length||!/^\d{2}:\d{2}$/.test(String(body.startsAt))||!/^\d{2}:\d{2}$/.test(String(body.endsAt))||!/^\d{4}-\d{2}-\d{2}$/.test(String(body.from)))throw new AccessError('CONFIRA OS DADOS DA GRADE.',400);
-    await rpc('xpace_create_teaching_grade',{p_company:company.id,p_actor:user.id,p_title:body.title,p_instructor:body.instructorId,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt,p_from:body.from});
-  }else if(body.action==='ENABLE_SCHEDULE'){
-    manager(profile.platform_role);if(!validUuid(body.id))throw new AccessError('GRADE INVÁLIDA.',400);
-    const{data,error}=await admin.from('xpace_class_schedules').update({teaching_enabled:true,teaching_from:day()}).eq('id',body.id).eq('tenant_company_id',company.id).eq('active',true).eq('teaching_enabled',false).not('room_id','is',null).not('instructor_id','is',null).select('id').maybeSingle();
-    if(error)throw error;if(!data)throw new AccessError('A GRADE PRECISA DE SALA E PROFESSOR ATIVOS, OU JÁ FOI INCLUÍDA.',400);
+    if((body.instructorId!=null&&!validUuid(body.instructorId))||!validUuid(body.roomId)||typeof body.title!=='string'||!Array.isArray(body.weekdays)||!body.weekdays.length||body.weekdays.some(d=>!Number.isInteger(d)||Number(d)<0||Number(d)>6)||new Set(body.weekdays).size!==body.weekdays.length||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.startsAt))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.endsAt)))throw new AccessError('CONFIRA OS DADOS DA ESCALA.',400);
+    const {start}=monthBounds(body.month);await rpc('xpace_create_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:body.title,p_instructor:body.instructorId??null,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt});
   }else if(body.action==='LESSON'){
-    if(!teacherInstructorId&&body.rateOverride===true)manager(profile.platform_role);
+    if(!teacherInstructorId)manager(profile.platform_role);
     if(!validUuid(body.id)||!['PREVISTA','REALIZADA','CANCELADA'].includes(String(body.status)))throw new AccessError('AULA INVÁLIDA.',400);
-    if(!teacherInstructorId&&!validUuid(body.instructorId))throw new AccessError('ESCOLHA O PROFESSOR QUE DEU A AULA.',400);
+    if(!teacherInstructorId&&body.instructorId!=null&&!validUuid(body.instructorId))throw new AccessError('PROFESSOR INVÁLIDO.',400);
+    if(!teacherInstructorId&&(!validUuid(body.roomId)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.startsAt))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.endsAt))))throw new AccessError('CONFIRA SALA E HORÁRIOS.',400);
     if(body.rateCents!=null&&(!Number.isSafeInteger(body.rateCents)||Number(body.rateCents)<0||Number(body.rateCents)>100000000))throw new AccessError('VALOR DE AULA INVÁLIDO.',400);
     if(body.qrToken!=null&&!validUuid(body.qrToken))throw new AccessError('QR DA SALA INVÁLIDO.',400);
-    await rpc('xpace_change_teaching_lesson',{p_company:company.id,p_actor:user.id,p_lesson:body.id,p_status:body.status,p_instructor:teacherInstructorId||body.instructorId,p_rate:teacherInstructorId?null:body.rateCents??null,p_override:teacherInstructorId?false:body.rateOverride===true,p_note:typeof body.note==='string'?body.note:'',p_teacher:teacherInstructorId,p_qr:body.qrToken??null});
+    await rpc('xpace_update_roster_lesson',{p_company:company.id,p_actor:user.id,p_lesson:body.id,p_status:body.status,p_instructor:teacherInstructorId||body.instructorId||null,p_room:teacherInstructorId?null:body.roomId,p_start:teacherInstructorId?null:body.startsAt,p_end:teacherInstructorId?null:body.endsAt,p_rate:teacherInstructorId?null:body.rateCents??null,p_override:teacherInstructorId?false:body.rateOverride===true,p_note:typeof body.note==='string'?body.note:'',p_teacher:teacherInstructorId,p_qr:body.qrToken??null});
   }else if(body.action==='REVIEW_MONTH'){
     manager(profile.platform_role);const{start}=monthBounds(body.month);await rpc('xpace_review_teaching_month',{p_company:company.id,p_actor:user.id,p_month:start,p_reopen:body.reopen===true,p_reason:typeof body.reason==='string'?body.reason:''});
   }else if(body.action==='ROOM_RATE'){
@@ -77,9 +89,6 @@ export async function POST(request:Request){
   }else if(body.action==='CANCEL_RESERVATION'){
     if(!validUuid(body.id))throw new AccessError('RESERVA INVÁLIDA.',400);
     await rpc('xpace_cancel_teacher_reservation',{p_company:company.id,p_actor:user.id,p_id:body.id,p_teacher:teacherInstructorId,p_charge:null,p_decision:false,p_reason:typeof body.reason==='string'?body.reason:''});
-  }else if(body.action==='CANCELLATION_CHARGE'){
-    manager(profile.platform_role);if(!validUuid(body.id)||!Number.isSafeInteger(body.amountCents)||Number(body.amountCents)<0||Number(body.amountCents)>100000000||typeof body.reason!=='string'||body.reason.trim().length<3)throw new AccessError('INFORME VALOR E MOTIVO DA COBRANÇA.',400);
-    await rpc('xpace_cancel_teacher_reservation',{p_company:company.id,p_actor:user.id,p_id:body.id,p_teacher:null,p_charge:body.amountCents,p_decision:true,p_reason:body.reason});
   }else throw new AccessError('AÇÃO INVÁLIDA.',400);
   return NextResponse.json({success:true});
  }catch(e){return failure(e);}
@@ -87,10 +96,10 @@ export async function POST(request:Request){
 function failure(e:unknown){
  if(e instanceof AccessError)return NextResponse.json({success:false,message:e.message},{status:e.status});
  const message=String((e as {message?:string})?.message??'');
- const known:Record<string,string>={MONTH_CLOSED:'MÊS CONFERIDO. UM GESTOR PRECISA REABRIR PARA CORRIGIR.',MISSING_LESSON_RATE:'HÁ AULAS REALIZADAS SEM VALOR DEFINIDO.',ATTENDANCE_WINDOW_CLOSED:'CONFIRME ENTRE 15 MINUTOS ANTES E 30 MINUTOS APÓS A AULA.',TEACHER_FORBIDDEN:'VOCÊ SÓ PODE CONFIRMAR SUAS PRÓPRIAS AULAS.',ROOM_QR_INVALID:'ESTE QR NÃO CORRESPONDE À SALA DA SUA AULA.',REASON_REQUIRED:'INFORME O MOTIVO PARA REABRIR.',RESERVATION_INVALID:'ESCOLHA UM HORÁRIO FUTURO NO MESMO DIA, COM ATÉ 12 HORAS.',RESERVATION_REPLAY_MISMATCH:'ESTA TENTATIVA NÃO CORRESPONDE À RESERVA ORIGINAL.'};
+ const known:Record<string,string>={MONTH_CLOSED:'MÊS CONFERIDO. UM GESTOR PRECISA REABRIR PARA CORRIGIR.',MISSING_LESSON_RATE:'HÁ AULAS REALIZADAS SEM VALOR DEFINIDO.',ATTENDANCE_WINDOW_CLOSED:'CONFIRME NO DIA DA AULA, ENTRE 15 MINUTOS ANTES E 15 MINUTOS APÓS O INÍCIO.',TEACHER_FORBIDDEN:'VOCÊ SÓ PODE CONFIRMAR SUAS PRÓPRIAS AULAS.',ROOM_QR_INVALID:'ESTE QR NÃO CORRESPONDE À SALA DA SUA AULA.',REASON_REQUIRED:'INFORME O MOTIVO PARA REABRIR.',RESERVATION_INVALID:'ESCOLHA UM HORÁRIO FUTURO NO MESMO DIA, COM ATÉ 12 HORAS.',TEACHER_ROSTER_CONFLICT:'ESTE PROFESSOR JÁ ESTÁ ATRIBUÍDO A OUTRA AULA NESTE HORÁRIO.',LESSON_INVALID:'CONFIRA PROFESSOR, SALA E HORÁRIOS DA ESCALA.',ROSTER_INVALID:'CONFIRA OS DADOS DA ESCALA.',RESERVATION_REPLAY_MISMATCH:'ESTA TENTATIVA NÃO CORRESPONDE À RESERVA ORIGINAL.'};
  const mapped=Object.entries(known).find(([key])=>message.includes(key));
  if(mapped)return NextResponse.json({success:false,message:mapped[1]},{status:409});
  if((e as {code?:string})?.code==='23P01')return NextResponse.json({success:false,message:'ESTA SALA OU PROFESSOR JÁ ESTÁ OCUPADO NESTE HORÁRIO.'},{status:409});
- if((e as {code?:string})?.code==='23505')return NextResponse.json({success:false,message:'JÁ EXISTE UMA GRADE COM ESTE NOME.'},{status:409});
+ if((e as {code?:string})?.code==='23505')return NextResponse.json({success:false,message:'JÁ EXISTE UMA TURMA COM ESTE NOME NO MÊS.'},{status:409});
  console.error('XPACE TEACHING ERROR',e);return NextResponse.json({success:false,message:'NÃO FOI POSSÍVEL CONCLUIR. CONFIRA OS DADOS E A INSTALAÇÃO DA MIGRAÇÃO LOCAL.'},{status:500});
 }

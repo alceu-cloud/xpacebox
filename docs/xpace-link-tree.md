@@ -2,7 +2,7 @@
 
 Implementada em 02/10/2026 conforme as referências visuais de Alceu. Publicação autorizada após integrar a main do colega; migration aplicada individualmente ao projeto existente. Publicação funcional e76bc74 comprovada por Vercel/revisão pública em 02/10/2026; API sem sessão retorna 401. Primeiro salvar/ativar configuração e cadastrar destinos reais para disponibilizar /links/xpace; não foram inventados links ou eventos.
 
-Painel XPACE ou Loja XPACE → Árvore de links, com Links, Aparência e Estatísticas. Permite pesquisa, criação/edição de título e URL, ícone, ligar/desligar por link, reordenar, desligar a página inteira e copiar o endereço para colar no WhatsApp. Copiar não envia mensagens. A edição é restrita a gestores; equipe pode consultar. Professor não acessa este módulo.
+Somente Loja XPACE → cartão Árvore de links → Abrir árvore de links, com Links, Aparência e Estatísticas. Permite pesquisa, criação/edição de título e URL, ícone, ligar/desligar por link, reordenar, desligar a página inteira e copiar o endereço para colar no WhatsApp. Copiar não envia mensagens. O atalho separado do painel inicial foi removido a pedido de Alceu em 02/10/2026. A edição é restrita a gestores; equipe pode consultar. Professor não acessa este módulo.
 
 Página pública `/links/xpace`, com logo, título, descrição e botões. Logo por upload PNG/JPEG/WebP até 2 MB ou URL HTTPS; validação de assinatura do arquivo e gravação por endpoint de gestor. Aparência da escola ou personalizada, cor, tema claro/escuro e botões clássicos/minimalistas, com prévia ao vivo. Textos são escapados pelo React e destinos aceitam apenas HTTP/HTTPS sem credenciais.
 

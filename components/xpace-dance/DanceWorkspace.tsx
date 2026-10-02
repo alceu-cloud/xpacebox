@@ -8,7 +8,6 @@ import { WorkspaceNavigationProvider, useWorkspaceNavigation, useScreenHistory, 
 import { allowWorkspaceNavigation } from "@/components/navigation/navigation-guard";
 
 import BuildRevision from "@/components/BuildRevision";
-import { Link2 } from 'lucide-react';
 import LinkTreeWorkspace from '@/components/xpace-dance/LinkTreeWorkspace';
 import RefreshableScreen from "@/components/xpace-dance/RefreshableScreen";
 import StockWorkspace from "@/components/xpace-dance/StockWorkspace";
@@ -44,7 +43,6 @@ const modules = [
   { icon: ClipboardList, title: "ADMINISTRATIVO", description: "Operação interna", accent: "violet" },
   { icon: SlidersHorizontal, title: "CONFIGURAÇÕES", description: "Preferências", accent: "lilac" },
   { icon: ShoppingBag, title: "LOJA", description: "Produtos e inscrições", accent: "blue" },
-  { icon: Link2, title: "ÁRVORE DE LINKS", description: "Divulgação e acessos", accent: "violet" },
 ];
 
 export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccessCentral: boolean; onExit: () => Promise<void> }) {
@@ -145,7 +143,7 @@ function DanceWorkspaceContent({ canAccessCentral, onExit }: { canAccessCentral:
     <XpaceHomeOverview onPreferences={() => { setNotificationSettings(true); setScreen("SETTINGS"); }} onOpen={notice => { if (notice.leadId) { setLeadId(notice.leadId); setScreen("CRM"); } else if (notice.studentId && notice.target === "COMMUNITY") { setProfileId(notice.studentId); setScreen("PROFILE"); } else if (notice.target === "MESSAGE_CONNECTOR") setScreen("MESSAGE_CONNECTOR"); else if (notice.target === "FINANCE") setScreen("FINANCE"); else setScreen("SETTINGS"); }} />
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
-      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "DASHBOARD", "RELATÓRIOS", "CRM", "AGENDA", "FINANCEIRO", "ESTOQUE", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA", "ÁRVORE DE LINKS"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "ÁRVORE DE LINKS" ? setScreen("LINK_TREE") : title === "CLIENTES" ? setScreen("COMMUNITY") : title === "DASHBOARD" ? setScreen("DASHBOARD") : title === "RELATÓRIOS" ? openReports() : title === "CRM" ? openCrm() : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ESTOQUE" ? setScreen("STOCK") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
+      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "DASHBOARD", "RELATÓRIOS", "CRM", "AGENDA", "FINANCEIRO", "ESTOQUE", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "DASHBOARD" ? setScreen("DASHBOARD") : title === "RELATÓRIOS" ? openReports() : title === "CRM" ? openCrm() : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ESTOQUE" ? setScreen("STOCK") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
         <span className="xd-module-copy"><strong>{title === "ADMINISTRATIVO" ? "ADM" : title === "CONFIGURAÇÕES" ? "Config" : title}</strong><small>{description}</small></span>
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />

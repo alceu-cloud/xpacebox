@@ -1,48 +1,43 @@
-# Grade de aulas, professor e reserva de salas
+# Professores do mês e reserva de salas
 
-Implementada em 02/10/2026. Alceu autorizou integrar o trabalho concluído do colega e implantar; a main corrente foi integrada na cópia isolada, preservando navegação, planos e reagendamento. Nenhuma conta real, aula, reserva, mensagem ou cobrança foi criada para testar.
+Correção de 02/10/2026, conforme os esclarecimentos de Alceu. **Professores do mês é uma escala mensal independente das grades de aulas da Agenda.** Não cria turmas acadêmicas, horários, matrículas ou ocupação; não importa automaticamente a planilha ou seu histórico.
 
-## Fluxos implementados
+## Professores do mês
 
-- Agenda → Grade de aulas, depois de Ocupação. Nova grade recorrente com professor e sala existentes, dias, início, duração e data inicial. Horários já cadastrados podem ser incluídos sem duplicar a turma. Cada data tem presença, professor efetivo, observação e valor excepcional autorizado ao gestor.
-- Administrativo → Professores: valor completo por aula, acesso do professor com e-mail/senha inicial, troca de senha e ativação/desativação do vínculo. Valor não definido é `null`; zero precisa ser escolhido explicitamente.
-- `/xpace/professor`: login próprio e PWA com somente Grade de aulas, Ocupação e Reserva. Professores confirmam apenas suas aulas; equipe pode corrigir presença e substituição. Nenhum dado de aluno/lead ou salário de outro professor é retornado.
-- Ocupação da grade: horários das turmas, aulas por data e reservas, sem dados pessoais de alunos. Aulas canceladas são liberadas no controle por data. QR impresso por sala abre o aplicativo; após autenticação, confirma apenas uma aula elegível do professor naquela sala.
-- Configurações → Financeiro → Valor das salas: preço por hora, inicialmente R$ 35,00 em todas as salas existentes. As quatro salas existentes receberam o padrão R$ 35,00/h pela migration; nenhum cadastro novo de sala foi criado.
-- Reserva: duração proporcional, preço calculado no banco e congelado no registro, idempotência de tentativa e conflito verificado atomicamente com aulas e locações. O bloqueio também cobre as telas antigas de locação/edição de horários.
-- Cancelamento libera a sala e deixa a cobrança pendente da equipe. Gestor informa valor e motivo, com histórico. Não presumir que cancelamento é gratuito.
-- Relatórios → Aulas e reservas: aulas efetivamente realizadas, duração ministrada e total por professor para pagamento no mês seguinte; cobrança de salas com período próprio. Nenhum lançamento é integrado ao financeiro, nenhum valor é descontado automaticamente do professor.
-- Conferência mensal pelo gestor bloqueia alterações das aulas. Reabrir exige motivo. Não permite conferir quando há aula realizada com valor indefinido.
+Agenda → Professores do mês, com somente Montar escala e Conferência. Proprietário/administração e gerência têm acesso; professores e demais membros não podem abrir a escala completa, conferir remuneração ou alterar presenças da equipe. A restrição é validada na API, além da navegação.
 
-## Decisões autorizadas e padrões adotados
+Escolher o mês (inclusive o próximo), criar uma turma com título, sala, dias da semana, início e duração. O professor inicial é opcional: todas as datas podem começar sem professor, para preencher cada linha depois. Por data, o gestor escolhe professor, sala, início/fim, presença e observação; pode substituir um professor ou marcar que não houve aula. Há bloqueio de atribuições simultâneas do mesmo professor na escala mensal.
 
-Alceu confirmou pagamento **por aula inteira**, incluindo os 45 minutos de Alceu. As reservas cobram proporcionalmente ao tempo e a equipe define a cobrança ao cancelar. Professores acessam exatamente as três áreas acima.
+Tabela por turma com Professor / Horário / Dia / Sala / Check. Imprimir / PDF gera o mês completo, incluindo todos os professores e salas, para entregar à equipe. A janela de impressão permite Salvar como PDF; o documento não contém remuneração. Alterações da escala não modificam a Agenda.
 
-Na ausência de resposta, o usuário autorizou escolher padrões e avisar ao final:
+Administrativo → Professores tem **Valor da hora-aula · R$**, cobrado por aula inteira conforme decisão anterior, inclusive os 45 minutos de Alceu. Não é proporcional à duração. Valor indefinido é null, não zero. Ao confirmar, fica registrado o valor do professor daquela ocorrência; mudar o cadastro não reescreve uma aula já confirmada. Gestor pode escolher valor excepcional. Conferência mostra realizadas e remuneração por professor para pagamento no mês seguinte, sem lançamento financeiro automático. Fechar o mês protege alterações; reabrir exige motivo.
 
-1. Presença do professor entre 15 minutos antes do início e 30 minutos depois do fim, validada pelo relógio do banco. Correções posteriores cabem à equipe. QR identifica a sala, não comprova presença física; pode ser fotografado. Repetição não duplica presença.
-2. Pagamento atribuído ao professor efetivo daquela data; canceladas não entram automaticamente no total. Gestor pode escolher valor excepcional por aula. Mudança de preço não reescreve aula já confirmada.
-3. Conferência mensal manual; a reabertura tem motivo. Cobrança de reserva segue separada, inclusive cancelamentos aguardando decisão.
-4. Começar grades a partir da data escolhida, sem importar automaticamente a história da planilha, pagamentos, descontos ou nomes parecidos.
-5. Reservas futuras de minutos inteiros, no mesmo dia, até 12 horas e até 366 dias à frente. Valores são arredondados ao centavo mais próximo.
+## Aplicativo e QR
 
-A planilha original foi lida sem alterações, excluindo Cobranças conforme pedido. Professores variam por data; “Horas Mês” na planilha é contagem de aulas marcadas OK, não duração. “Pago” precisa permanecer separado de presença. Nomes parecidos com taxas diferentes não foram unidos automaticamente.
+Endereço: https://www.xpacebox.com.br/xpace/professor.
 
-## Segurança e integridade
+Administrativo → Professores → Acesso: criar login com e-mail/senha inicial (mínimo 10 caracteres), trocar senha e ativar/desativar o vínculo. Não converter uma conta administrativa existente. O perfil company_teacher não tem membership geral; vínculos, professor e perfil precisam estar ativos. Nenhuma conta real foi criada para teste.
 
-O perfil confiável é `profiles.platform_role = company_teacher`, com vínculo `xpace_teacher_access` ao professor/empresa. Não usar metadata editável. Esse perfil não recebe `company_members` ativo: os guards existentes negam APIs gerais e as políticas antigas por membership não concedem acesso direto. Alterar um perfil para professor desativa memberships existentes. Vínculo/professor/perfil precisam estar ativos.
+O app mostra **Minhas aulas** (somente as aulas do professor naquele dia) e **Reserva de sala**, que contém Reservar / Ocupação. Não mostra a escala mensal completa, cadastro de professores, gestão, conferência ou remuneração de terceiros. A confirmação manual e por QR é validada pelo relógio do banco: somente o professor atribuído, naquele dia em Brasília, entre **15 minutos antes e 15 minutos depois do início**. Para uma aula às 19h: 18h45–19h15, inclusive os limites. A interface acompanha a passagem do horário; o servidor continua sendo a autoridade.
 
-Servidor fornece tenant, autor e professor da sessão. Professor não define valor da reserva, salário, professor de outro cadastro ou cobrança de cancelamento. Novas tabelas têm RLS e acesso apenas por servidor; RPCs de mutação são `security invoker`, com `search_path` vazio e execução revogada para public/anon/authenticated.
+QR para impressão: Agenda → Reserva de sala → Ocupação → Imprimir QR da sala; também disponível na Ocupação principal, somente para gestores. Escanear abre o app com a identificação da sala; após login, confirma apenas uma ocorrência própria elegível. QR identifica sala, não autentica professor nem comprova localização física; repetição não duplica registro. Teste físico em sala/aparelho continua como validação operacional.
 
-Datas de presença são snapshots por aula. Alterações na grade recorrente não reescrevem as datas já geradas; para mudar professor de uma ocorrência, use Ajustar/Presença. O histórico de aulas impede exclusão destrutiva dos horários referenciados. Grades e reservas antigas continuam no banco.
+## Reserva e ocupação
 
-## Migration e validação
+Agenda → Reserva de sala, separada de Professores do mês. Reservar / Ocupação. A mesma visualização gráfica semanal é usada na Ocupação principal: segunda–domingo, 08h–22h, aulas da Agenda e reservas/locações. Principal: uma semana para todas as salas. Dentro de Reserva: navegação independente por sala, com filtro e recolher/expandir; passa corretamente por meses e anos. Ocupações fora da faixa aparecem em detalhe, sem anunciar disponibilidade quando a API falha. Dados sem nomes/contatos de alunos ou salário.
 
-Aplicada individualmente: `20261002165924_xpace_teaching_and_room_reservations.sql`, com arquivo alinhado à versão confirmada no histórico remoto. RLS/grants, funções invoker, preços das quatro salas e preservação dos triggers antigos foram verificados por leitura. Não houve aplicação em massa/repair ou criação de histórico fictício.
+O único relacionamento operacional com as grades acadêmicas é consultar seus horários para bloquear aluguel. A escala mensal de professores não ocupa salas. Reserva proporcional ao tempo, inicialmente R$35/h, preço congelado e tentativa idempotente; banco serializa conflitos com aulas e outras locações, inclusive telas antigas. Configurações → Financeiro → Valor das salas ajusta o preço por hora.
 
-Comandos: `npm run test:xpace-teaching`, `npm run test:xpace-links-teaching:browser`, build Next e TypeScript. Testes cobrem: recorrência/leap year, 45 minutos com pagamento inteiro, substituto e congelamento de valores, ausências/liberação de cota, vínculo e escopo de professor, QR correto/incorreto/janela/idempotência, conferência, salas/aulas/locações/intervalos adjacentes, cancelamento e valor parcial, preço proporcional e replay de reserva.
+O mês das reservas pode ser escolhido também pelo professor; escolher uma data de outro mês atualiza a lista correspondente. Isso não altera Minhas aulas: suas confirmações continuam limitadas ao dia atual em Brasília, inclusive quando a consulta de reservas estava em outro mês.
 
-Navegador com fixtures locais: abas reais, criação de grade de 45 minutos, relatório, professor somente com três áreas, presença própria e reserva R$ 17,50 por 30 minutos, desktop e celulares 320/390 pixels. Capturas são dados fictícios e não comprovam operação em produção. Teste de instalação/QR em aparelho físico e professor real continua para validação operacional; migrations remotas já aplicadas. Após integração, passaram novamente build, TypeScript, suites de aulas/estoque/SaaS/reagendamento/navegação e navegador local.
+Regra atual de Alceu: **cancelamento libera a sala, sai da lista e não gera cobrança nem decisão de pagamento**. Histórico é preservado. Cancelamentos antigos pendentes da XPACE são zerados com registro auditável; decisões já registradas não são apagadas. As listas e o relatório atual consideram somente reservas ativas. Cartão compacto em duas linhas, com letras maiores. Nenhuma integração com financeiro ou desconto automático da remuneração foi ativado.
 
+## Banco e validação
 
-Publicação funcional e76bc74 conferida em 02/10/2026: Vercel success, revisão no bundle, /xpace/professor HTTP 200 e APIs de aulas/acesso HTTP 401 sem sessão. Quatro salas existentes com R$ 35,00/h confirmadas; nenhum professor real recebeu conta nem foi criada aula/reserva para teste. Configurar taxas/acessos/grade pela equipe antes de usar os relatórios reais.
+Base anterior aplicada: 20261002165924_xpace_teaching_and_room_reservations.sql. Aplicadas individualmente em 02/10/2026: 20261002185328_xpace_independent_teacher_rosters.sql e 20261002185339_xpace_cancelled_reservations_no_charge.sql; arquivos alinhados aos timestamps confirmados no histórico remoto, sem reaplicação/repair. RLS, ausência de privilégios de cliente e funções invoker/search_path vazio conferidos por leitura; zero escalas reais criadas para teste e zero cancelamentos pendentes da XPACE após a regra nova.
+
+Nova escala tem fonte própria, xpace_teaching_rosters; suas ocorrências têm roster_id e nenhum schedule_id acadêmico. Estrutura antiga é preservada, sem eliminar histórico ou alterar grades existentes. Nova tabela com RLS, sem acesso anon/authenticated; RPCs security invoker/search_path vazio, execução apenas service_role. Tenant, autor e professor vêm da sessão validada; professor não escolhe salário, identidade de outro professor ou preço da reserva.
+
+Testes locais: TypeScript e build Next, test:xpace-teaching (incluindo escala independente com as nove segundas/quartas de setembro/2026, professor indefinido, substituição/valores congelados, janela QR 15/15 inclusive, dia/sala/professor corretos, idempotência, mês conferido, RLS, cancelamento sem cobrança e isolamento de outros tenants). Cadastro de acesso testado com Auth/admin fictícios, incluindo proteção de conta existente e rollback somente da conta recém-criada. Testes puros de ocupação cobrem viradas de mês/ano, ano bissexto, reservas atravessando a data e sobreposições.
+
+Navegador com fixtures em 1440/390/320: escala e PDF, acesso do professor, presença/QR, duas áreas permitidas com ocupação aninhada, navegação global e independente por sala, cancelamento sumindo e cartões maiores, QR de impressão, Loja → Árvore de links e retorno pelo título. Capturas/PDF são fictícios. Não houve aula, reserva, mensagem, conta ou cobrança real criada para testes; prova autenticada funcional é local, separada da conferência pública do deploy.

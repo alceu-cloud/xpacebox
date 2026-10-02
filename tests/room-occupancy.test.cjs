@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict'),exportsModule={};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/xpace/room-occupancy.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exportsModule,Date,Intl});
+const{mondayOf,shiftDay,occupancyEvents,eventLanes}=exportsModule,room={id:'room',name:'Sala 1'};
+assert.equal(mondayOf('2026-10-01'),'2026-09-28');assert.equal(mondayOf('2027-01-03'),'2026-12-28');assert.equal(shiftDay('2028-02-28',2),'2028-03-01');
+const data={schedules:[{id:'schedule',class_group_id:'group',weekday:1,starts_at:'19:00',ends_at:'20:00',room_id:'room',teaching_enabled:false}],groups:[{id:'group',name:'Teens'}],roomLessons:[],occupancy:[{id:'rental',room_id:null,room_name:' sala 1 ',starts_at:'2026-09-27T23:30:00-03:00',ends_at:'2026-09-28T08:30:00-03:00'}]};
+let events=occupancyEvents(data,room,'2026-09-28');assert.equal(events.length,2);assert.equal(events.find(e=>e.kind==='rental').start,0);assert.equal(events.find(e=>e.kind==='rental').end,510);
+data.roomLessons=[{id:'dated',schedule_id:'schedule',scheduled_on:'2026-09-28',room_id:'room',starts_at:'19:00',ends_at:'20:00',class_name:'Teens',status:'CANCELADA'}];events=occupancyEvents(data,room,'2026-09-28');assert.equal(events.filter(e=>e.kind==='class').length,0);
+data.roomLessons[0].status='PREVISTA';data.roomLessons[0].starts_at='20:00';events=occupancyEvents(data,room,'2026-09-28');assert.equal(events.filter(e=>e.kind==='class').length,1);assert.equal(events.find(e=>e.kind==='class').start,1200);
+const lanes=eventLanes([{id:'a',start:480,end:540},{id:'b',start:500,end:560},{id:'c',start:560,end:600}]);assert.equal(lanes[0].lanes,2);assert.equal(lanes[1].lane,1);assert.equal(lanes[2].lanes,1);
+console.log('Room occupancy: PASS (week/month/year/leap boundaries, cross-day rentals, dated override/cancellation, separate overlap lanes).');

@@ -38,7 +38,7 @@ export async function requireCompanyAccess(request: Request, slug: string, optio
 
   let teacherInstructorId: string | null = null;
   if (profile.platform_role === 'company_teacher') {
-    if (!options.allowTeacher) throw new AccessError('O PERFIL DE PROFESSOR ACESSA APENAS GRADE, OCUPAÇÃO E RESERVA.',403);
+    if (!options.allowTeacher) throw new AccessError('O PERFIL DE PROFESSOR ACESSA APENAS SUAS CONFIRMAÇÕES E RESERVA DE SALA COM OCUPAÇÃO.',403);
     const { data: binding, error: bindingError } = await admin.from('xpace_teacher_access').select('instructor_id').eq('profile_id',data.user.id).eq('tenant_company_id',company.id).eq('active',true).maybeSingle();
     if (bindingError) throw new AccessError('NÃO FOI POSSÍVEL VALIDAR O ACESSO DO PROFESSOR.',503);
     if (!binding) throw new AccessError('PROFESSOR SEM VÍNCULO ATIVO COM A ESCOLA.',403);
