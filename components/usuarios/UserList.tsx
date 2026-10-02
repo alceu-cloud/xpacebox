@@ -19,6 +19,8 @@ function traduzPerfil(perfil: string) {
       return "ADMINISTRADOR";
     case "company_manager":
       return "GERENTE";
+    case "company_teacher":
+      return "PROFESSOR";
     default:
       return "USUARIO";
   }

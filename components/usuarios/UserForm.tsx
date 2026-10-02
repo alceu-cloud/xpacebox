@@ -16,6 +16,14 @@ type UserFormProps = {
   setEmpresa: (v: string) => void;
   cargo: string;
   setCargo: (v: string) => void;
+  instructorId: string;
+  setInstructorId: (value:string)=>void;
+  teacherActive: boolean;
+  setTeacherActive: (value:boolean)=>void;
+  instructors: {id:string;full_name:string;active:boolean}[];
+  teacherCompanyId: string;
+  teacherLoading: boolean;
+  teacherError: string;
   companies: {
     id: string;
     name: string;
@@ -36,7 +44,7 @@ export default function UserForm({
   setEmpresa,
   cargo,
   setCargo,
-  companies,
+  companies,instructorId,setInstructorId,teacherActive,setTeacherActive,instructors,teacherCompanyId,teacherLoading,teacherError,
 }: UserFormProps) {
   const [alterandoSenha, setAlterandoSenha] = useState(false);
 
@@ -78,9 +86,10 @@ export default function UserForm({
             <option value="company_user">USUARIO</option>
             <option value="company_manager">GERENTE</option>
             <option value="platform_owner">ADMINISTRADOR</option>
-            {modoEdicao&&cargo==='company_teacher'?<option value="company_teacher">PROFESSOR · ACESSO RESTRITO</option>:null}
+            <option value="company_teacher">PROFESSOR</option>
           </select>
         </label>
+        {cargo==="company_teacher"?<><label style={labelStyle}>PROFESSOR CADASTRADO<select value={instructorId} onChange={e=>setInstructorId(e.target.value)} style={inputStyle} disabled={teacherLoading||empresa!==teacherCompanyId}><option value="">SELECIONE O PROFESSOR...</option>{instructors.map(i=><option key={i.id} value={i.id}>{i.full_name}{i.active?"":" · ARQUIVADO"}</option>)}</select></label><label style={{...labelStyle,display:"flex",alignItems:"center"}}><input type="checkbox" checked={teacherActive} onChange={e=>setTeacherActive(e.target.checked)}/>ACESSO DO PROFESSOR ATIVO</label><p style={{margin:0,color:"#667085",fontSize:13,lineHeight:1.6}}>{teacherLoading?"CARREGANDO PROFESSORES...":teacherError||empresa!==teacherCompanyId?"SELECIONE A EMPRESA XPACE PARA ESTE PERFIL.":"Este usuário entra pelo login do sistema e acessa somente suas aulas e Reserva de sala com Ocupação. O vínculo identifica suas aulas e reservas."}</p>{teacherError?<p role="alert" style={{color:"#b42318",fontSize:13}}>{teacherError}</p>:null}</>:null}
       </div>
 
       <div style={columnStyle}>

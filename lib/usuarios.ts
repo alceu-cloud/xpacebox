@@ -114,7 +114,9 @@ export async function criarUsuario(
   email:string,
   senha:string,
   empresa:string,
-  cargo:string
+  cargo:string,
+  instructorId?:string,
+  teacherActive=true
 ){
 
   const response =
@@ -141,7 +143,7 @@ export async function criarUsuario(
           email,
           senha,
           empresa,
-          cargo
+          cargo,instructorId,teacherActive
 
         })
 
@@ -179,7 +181,9 @@ export async function atualizarUsuario(
   email:string,
   cargo:string,
   empresa:string,
-  senha?:string
+  senha?:string,
+  instructorId?:string,
+  teacherActive=true
 ){
 
   const { data } = await supabase.auth.getSession();
@@ -211,7 +215,7 @@ export async function atualizarUsuario(
           email,
           cargo,
           empresa,
-          senha
+          senha,instructorId,teacherActive
 
         })
 
@@ -401,4 +405,10 @@ resultado.message ||
 return resultado;
 
 
+}
+export async function carregarProfessoresUsuario(profileId?:string){
+ const {data}=await supabase.auth.getSession();if(!data.session)throw new Error("SESSÃO EXPIRADA.");
+ const response=await fetch("/api/usuarios/professores"+(profileId?"?profileId="+encodeURIComponent(profileId):""),{headers:{Authorization:"Bearer "+data.session.access_token}});
+ const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||"NÃO FOI POSSÍVEL CARREGAR OS PROFESSORES.");
+ return result as {companyId:string;binding:{tenant_company_id:string;instructor_id:string;active:boolean}|null;instructors:{id:string;full_name:string;active:boolean}[]};
 }

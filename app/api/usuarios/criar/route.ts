@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {AccessError} from "@/lib/server/company-access";
+import {userRoles,validateTeacherUser,saveTeacherUser} from "@/lib/server/teacher-user-admin";
 
 
 type CriarUsuarioBody = {
@@ -8,6 +10,8 @@ type CriarUsuarioBody = {
   senha?: string;
   empresa?: string;
   cargo?: string;
+  instructorId?: string;
+  teacherActive?: boolean;
 };
 
 
@@ -232,6 +236,13 @@ export async function POST(request: Request) {
 
 
 
+    if(!userRoles.includes(cargo))throw new AccessError("PERFIL INVÁLIDO.",400);
+    if(cargo==="company_teacher"){
+      if(senha.length<10)throw new AccessError("USE UMA SENHA DE PELO MENOS 10 CARACTERES.",400);
+      await validateTeacherUser(supabaseAdmin,empresa,body.instructorId);
+    }
+    if(body.teacherActive!==undefined&&typeof body.teacherActive!=="boolean")throw new AccessError("DADOS DE ACESSO INVÁLIDOS.",400);
+
     const redirectTo =
       `${request.headers.get("origin")}/login`;
 
@@ -251,7 +262,6 @@ export async function POST(request: Request) {
 
       user_metadata:{
         full_name:nome,
-        platform_role:cargo,
       }
     }
   );
@@ -288,6 +298,12 @@ export async function POST(request: Request) {
 
 
 
+
+    if(cargo==="company_teacher"){
+      try{await saveTeacherUser(supabaseAdmin,{actor:usuarioLogado.id,id:novoUsuarioId,name:nome,email,role:cargo,company:empresa,instructor:body.instructorId!,teacherActive:body.teacherActive!==false});}
+      catch(error){await supabaseAdmin.auth.admin.deleteUser(novoUsuarioId);throw error;}
+      return NextResponse.json({success:true,message:"Usuário Professor criado com sucesso."},{status:201});
+    }
 
     const {
       error:erroPerfil
@@ -407,6 +423,7 @@ export async function POST(request: Request) {
 
 
   } catch(error){
+    if(error instanceof AccessError)return NextResponse.json({success:false,message:error.message},{status:error.status});
 
 
     console.error(

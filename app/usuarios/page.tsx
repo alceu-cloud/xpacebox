@@ -17,6 +17,7 @@ import {
   carregarUsuarioEmails,
   carregarUsuarios,
   criarUsuario,
+  carregarProfessoresUsuario,
   excluirUsuario,
 } from "@/lib/usuarios";
 import { supabase } from "@/lib/supabase";
@@ -39,6 +40,7 @@ type User = {
 export default function UsuariosPage() {
   const router = useRouter();
 
+  const [authorized,setAuthorized]=useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [empresas, setEmpresas] = useState<Company[]>([]);
   const [, setEmails] = useState<any[]>([]);
@@ -52,11 +54,18 @@ export default function UsuariosPage() {
   const [cargo, setCargo] = useState("company_user");
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [instructorId,setInstructorId]=useState("");
+  const [teacherActive,setTeacherActive]=useState(true);
+  const [teacherCompanyId,setTeacherCompanyId]=useState("");
+  const [instructors,setInstructors]=useState<{id:string;full_name:string;active:boolean}[]>([]);
+  const [teacherLoading,setTeacherLoading]=useState(false);
+  const [teacherError,setTeacherError]=useState("");
+  useEffect(()=>{if(!modalAberto||cargo!=="company_teacher")return;let cancelled=false;setTeacherLoading(true);setTeacherError("");
+    carregarProfessoresUsuario(usuarioEditando?.id).then(result=>{if(cancelled)return;setTeacherCompanyId(result.companyId);setInstructors(result.instructors);if(result.binding){setEmpresa(result.binding.tenant_company_id);setInstructorId(result.binding.instructor_id);setTeacherActive(result.binding.active);}else setEmpresa(current=>current||result.companyId);}).catch(error=>{if(!cancelled)setTeacherError(error instanceof Error?error.message:"ERRO AO CARREGAR PROFESSORES.");}).finally(()=>{if(!cancelled)setTeacherLoading(false);});return()=>{cancelled=true;};
+  },[modalAberto,cargo,usuarioEditando?.id]);
 
   useEffect(() => {
-    carregarLista();
-    carregarListaEmpresas();
-    carregarListaEmails();
+    async function check(){const {data}=await supabase.auth.getSession();if(!data.session){router.replace("/login");return;}const profile=await supabase.from("profiles").select("platform_role,active").eq("id",data.session.user.id).maybeSingle();if(!profile.data?.active||profile.data.platform_role!=="platform_owner"){router.replace(profile.data?.platform_role==="company_teacher"?"/xpace/professor":"/");return;}setAuthorized(true);await Promise.all([carregarLista(),carregarListaEmpresas(),carregarListaEmails()]);}void check();
   }, []);
 
   async function carregarLista() {
@@ -72,6 +81,7 @@ export default function UsuariosPage() {
   }
 
   function abrirNovo() {
+    setInstructorId("");setTeacherActive(true);setTeacherError("");
     setModoEdicao(false);
     setUsuarioEditando(null);
     setNome("");
@@ -84,6 +94,7 @@ export default function UsuariosPage() {
   }
 
   function abrirEditar(user: User) {
+    setInstructorId("");setTeacherActive(true);setTeacherError("");
     setModoEdicao(true);
     setUsuarioEditando(user);
     setNome(user.full_name ?? "");
@@ -102,10 +113,11 @@ export default function UsuariosPage() {
         return;
       }
 
+      if(cargo==="company_teacher"&&(teacherLoading||teacherError||empresa!==teacherCompanyId||!instructorId)){alert(teacherError||"ESCOLHA A EMPRESA XPACE E O PROFESSOR CADASTRADO.");return;}
       setSalvando(true);
 
       if (modoEdicao && usuarioEditando) {
-        await atualizarUsuario(usuarioEditando.id, nome, email, cargo, empresa);
+        await atualizarUsuario(usuarioEditando.id, nome, email, cargo, empresa, undefined, instructorId||undefined, teacherActive);
         if (senha) await alterarSenhaUsuario(usuarioEditando.id, senha);
       } else {
         const {
@@ -114,7 +126,7 @@ export default function UsuariosPage() {
 
         if (!session?.access_token) throw new Error("SESSAO EXPIRADA");
 
-        await criarUsuario(session.access_token, nome, email, senha, empresa, cargo);
+        await criarUsuario(session.access_token, nome, email, senha, empresa, cargo, instructorId||undefined, teacherActive);
       }
 
       await carregarLista();
@@ -145,6 +157,7 @@ export default function UsuariosPage() {
     setCargo("company_user");
   }
 
+  if(!authorized)return <main className="xd-loading" aria-busy="true">CONFERINDO SEU ACESSO...</main>;
   return (
     <main className="xb-users">
       <section style={panelStyle}>
@@ -194,6 +207,7 @@ export default function UsuariosPage() {
           cargo={cargo}
           setCargo={setCargo}
           companies={empresas}
+          instructorId={instructorId} setInstructorId={setInstructorId} teacherActive={teacherActive} setTeacherActive={setTeacherActive} instructors={instructors} teacherCompanyId={teacherCompanyId} teacherLoading={teacherLoading} teacherError={teacherError}
         />
       </UserModal>
     </main>

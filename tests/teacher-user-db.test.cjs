@@ -1,0 +1,31 @@
+// Transaction and permission tests in an isolated PostgreSQL-compatible database.
+const{PGlite}=require('@electric-sql/pglite'),assert=require('node:assert/strict'),fs=require('node:fs');const db=new PGlite(),id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
+(async()=>{try{
+ await db.exec(`create schema auth;create role anon;create role authenticated;create role service_role;
+ create table auth.users(id uuid primary key);create table companies(id uuid primary key,slug text,active boolean default true);
+ create table profiles(id uuid primary key references auth.users(id),full_name text,email text,platform_role text,active boolean default true);
+ create table company_members(profile_id uuid references profiles(id),company_id uuid references companies(id),active boolean default true,unique(company_id,profile_id));
+ create table xpace_instructors(id uuid primary key,tenant_company_id uuid references companies(id),active boolean default true,lesson_rate_cents int);
+ create table xpace_teacher_access(profile_id uuid primary key references profiles(id),tenant_company_id uuid references companies(id),instructor_id uuid references xpace_instructors(id),active boolean default true,unique(tenant_company_id,instructor_id));`);
+ await db.exec(fs.readFileSync('supabase/migrations/20261002204740_xpace_teacher_profile_in_users.sql','utf8'));
+ const c=id(1),other=id(2),admin=id(3),u=id(4),v=id(5),prof=id(6),foreign=id(7),inactive=id(8);
+ await db.query("insert into companies(id,slug) values($1,'xpace'),($2,'other')",[c,other]);for(const user of[admin,u,v])await db.query('insert into auth.users values($1)',[user]);
+ await db.query("insert into profiles(id,platform_role,full_name,email) values($1,'platform_owner','Admin','admin@example.test'),($2,'company_manager','Original','original@example.test'),($3,'company_user','Other','other@example.test')",[admin,u,v]);
+ await db.query('insert into company_members values($1,$2,true)',[u,c]);
+ await db.query('insert into xpace_instructors values($1,$2,true,5000),($3,$4,true,6000),($5,$2,false,7000)',[prof,c,foreign,other,inactive]);
+ const save=(user=u,role='company_teacher',person=prof,company=c,actor=admin,active=true)=>db.query("select xpace_save_teacher_user($1,$2,'Updated','updated@example.test',$3,$4,$5,$6)",[actor,user,role,company,person,active]);
+ await assert.rejects(()=>save(u,'company_teacher',foreign),/INSTRUCTOR_INVALID/);await assert.rejects(()=>save(u,'company_teacher',inactive),/INSTRUCTOR_INVALID/);await assert.rejects(()=>save(u,'company_teacher',prof,other),/TEACHER_COMPANY_INVALID/);await assert.rejects(()=>save(u,'company_teacher',prof,c,v),/USER_ADMIN_REQUIRED/);
+ assert.equal((await db.query('select platform_role from profiles where id=$1',[u])).rows[0].platform_role,'company_manager');
+ await save();assert.equal((await db.query('select active from company_members where profile_id=$1',[u])).rows[0].active,false);
+ assert.equal((await db.query('select instructor_id from xpace_teacher_access where profile_id=$1',[u])).rows[0].instructor_id,prof);
+ await assert.rejects(()=>save(v),/TEACHER_ALREADY_LINKED/);assert.equal((await db.query('select platform_role from profiles where id=$1',[v])).rows[0].platform_role,'company_user');
+ await save(u,'company_teacher',prof,c,admin,false);assert.equal((await db.query('select active from xpace_teacher_access where profile_id=$1',[u])).rows[0].active,false);
+ await save(u,'company_teacher',prof,c,admin,true);await save(u,'company_manager',null);
+ assert.equal((await db.query('select count(*)::int n from xpace_teacher_access where profile_id=$1',[u])).rows[0].n,0);assert.equal((await db.query('select active from company_members where profile_id=$1',[u])).rows[0].active,true);
+ await db.query('update profiles set active=false where id=$1',[u]);await save();assert.equal((await db.query('select active from profiles where id=$1',[u])).rows[0].active,false);
+ await assert.rejects(()=>save(admin),/USER_SELF_ROLE_CHANGE/);assert.equal((await db.query('select lesson_rate_cents from xpace_instructors where id=$1',[prof])).rows[0].lesson_rate_cents,5000);
+ const signature='public.xpace_save_teacher_user(uuid,uuid,text,text,text,uuid,uuid,boolean)';
+ for(const role of['anon','authenticated'])assert.equal((await db.query('select has_function_privilege($1,$2,$3) allowed',[role,signature,'EXECUTE'])).rows[0].allowed,false);
+ assert.equal((await db.query('select prosecdef from pg_proc where oid=$1::regprocedure',[signature])).rows[0].prosecdef,false);
+ console.log('Teacher user DB: PASS (atomic profile/binding/membership, owner-only, tenant/inactive/duplicate guards, role transitions, disabled access, inactive account preserved, pay unchanged and no client RPC execution).');
+}finally{await db.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

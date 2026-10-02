@@ -7,6 +7,7 @@ import LoginBackground from "@/components/login/LoginBackground";
 import LoginCard from "@/components/login/LoginCard";
 import LoginLogo from "@/components/login/LoginLogo";
 import { supabase } from "@/lib/supabase";
+import {teacherLoginReturn} from "@/lib/xpace/teacher-login-return";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -61,9 +62,10 @@ export default function LoginPage() {
       return;
     }
 
-    if (perfil.platform_role === 'company_teacher') { router.replace('/xpace/professor'); return; }
+    const teacherReturn=teacherLoginReturn(new URLSearchParams(window.location.search).get('next'));
+    if (perfil.platform_role === 'company_teacher') { router.replace(teacherReturn||'/xpace/professor'); return; }
     if (perfil.platform_role === "platform_owner") {
-      router.replace("/");
+      router.replace(teacherReturn||"/");
       return;
     }
 

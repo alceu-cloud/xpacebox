@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseAuth } from "@/lib/server/supabase-admin";
+import {AccessError} from "@/lib/server/company-access";
+import {userRoles,validateTeacherUser,saveTeacherUser} from "@/lib/server/teacher-user-admin";
 
 
 export async function POST(request: Request) {
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
       email,
       cargo,
       empresa,
-      senha
+      senha,instructorId,teacherActive
     } = body;
 
 
@@ -127,6 +129,12 @@ export async function POST(request: Request) {
 
 
 
+
+    if(!userRoles.includes(cargo))throw new AccessError("PERFIL INVÁLIDO.",400);
+    if(teacherActive!==undefined&&typeof teacherActive!=="boolean")throw new AccessError("DADOS DE ACESSO INVÁLIDOS.",400);
+    const previous=await supabaseAdmin.from("profiles").select("platform_role").eq("id",id).maybeSingle();
+    if(previous.error)throw previous.error;
+    if(cargo==="company_teacher")await validateTeacherUser(supabaseAdmin,empresa,instructorId,id);
 
     // CONFIRMA USUÁRIO NO AUTH
 
@@ -249,6 +257,11 @@ export async function POST(request: Request) {
 
 
 
+    if(cargo==="company_teacher"||previous.data?.platform_role==="company_teacher"){
+      await saveTeacherUser(supabaseAdmin,{actor:callerData.user.id,id,name:nome,email,role:cargo,company:empresa||null,instructor:cargo==="company_teacher"?instructorId:null,teacherActive:teacherActive!==false});
+      return NextResponse.json({success:true,message:"Usuário atualizado com sucesso."});
+    }
+
     // ATUALIZA PROFILE
 
 
@@ -344,6 +357,7 @@ export async function POST(request: Request) {
 
 
   } catch(error){
+    if(error instanceof AccessError)return NextResponse.json({success:false,message:error.message},{status:error.status});
 
 
 
