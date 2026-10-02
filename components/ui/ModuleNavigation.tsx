@@ -2,7 +2,7 @@
 
 import { Boxes, ChartNoAxesCombined, ContactRound, Settings2, Wallet, Calculator } from "lucide-react";
 import type { CSSProperties } from "react";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 
 const icons = { gerenciador: Settings2, clientes: ContactRound, produtos: Boxes, "formacao-preco": Calculator, financeiro: Wallet, relatorios: ChartNoAxesCombined };
 type ModuleKey = keyof typeof icons;
@@ -17,7 +17,7 @@ export default function ModuleNavigation({ company, modules, active, onSelect, o
 }) {
   return (
     <nav className="xb-module-strip" aria-label="Módulos da empresa">
-      <div className="xb-module-strip-heading">{onBack && active ? <BackButton onBack={onBack} /> : null}<span>Ambiente {company.toUpperCase()}{active ? ` · ${modules.find(module => module.key === active)?.nome || ""}` : ""}</span></div>
+      <div className="xb-module-strip-heading"><span>Ambiente {company.toUpperCase()}{active ? <> · {onBack ? <BackTitle title={`${modules.find(module => module.key === active)?.nome || active} · voltar à tela anterior`} onBack={onBack}>{modules.find(module => module.key === active)?.nome || active}</BackTitle> : modules.find(module => module.key === active)?.nome}</> : null}</span></div>
       <div className="xb-module-list">
         {modules.map((module) => {
           const Icon = icons[module.key];

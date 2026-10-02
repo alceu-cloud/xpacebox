@@ -1,7 +1,7 @@
 "use client";
 
 import BrandLogo from "@/components/ui/BrandLogo";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 import { ReactNode } from "react";
 
 type HeaderProps = {
@@ -47,7 +47,6 @@ export default function Header({
         />
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <BackButton />
           <div>
           <span
             style={{
@@ -70,7 +69,7 @@ export default function Header({
               fontWeight: 900,
             }}
           >
-            {titulo}
+            <BackTitle title={titulo} />
           </h1>
 
           <p

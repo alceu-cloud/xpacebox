@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, CreditCard, FileText, Info, MessageCircle, Save, UsersRound, WalletCards } from "lucide-react";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 import { useWorkspaceNavigation } from "@/components/navigation/WorkspaceNavigation";
 import { allowWorkspaceNavigation, useNavigationGuard } from "@/components/navigation/navigation-guard";
 import { supabase } from "@/lib/supabase";
@@ -59,8 +59,7 @@ export default function PlansPayments({ companySlug, onBack }: { companySlug: st
   }
   return <section className={`saas-store saas-plan${embedded ? " saas-plan--embedded" : ""}`} aria-busy={busy}>
     <header className="saas-plan-heading">
-      {!embedded ? <BackButton onBack={onBack} fallbackHref={companySlug === "xpace" ? "/xpace" : `/empresa/${encodeURIComponent(companySlug)}`} /> : null}
-      <div><span>CONFIG · MEU PLANO</span><h1>Planos e Pagamentos</h1><p>{data?.company.name || "Plano da empresa"}</p></div>
+      <div><span>CONFIG · MEU PLANO</span><h1>{embedded ? "Planos e Pagamentos" : <BackTitle title="Planos e Pagamentos" onBack={onBack} fallbackHref={companySlug === "xpace" ? "/xpace" : `/empresa/${encodeURIComponent(companySlug)}`} />}</h1><p>{data?.company.name || "Plano da empresa"}</p></div>
       <span className="saas-plan-badge">EM PREPARAÇÃO</span>
     </header>
     <aside className="saas-plan-info"><Info size={18} aria-hidden="true" /><p>Você pode salvar suas preferências. Contratação e cobrança automática ainda não estão ativas.</p></aside>

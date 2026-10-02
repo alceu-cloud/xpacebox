@@ -6,7 +6,7 @@ import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
 import PlansPayments from "@/components/saas/PlansPayments";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 import { useScreenHistory, useWorkspaceBack, useWorkspaceNavigation } from "@/components/navigation/WorkspaceNavigation";
 
 type Profile = {
@@ -26,8 +26,8 @@ const empty: Profile = {
   legalName: "", tradeName: "", cnpj: "", postalCode: "", street: "", streetNumber: "", complement: "", district: "", city: "", state: "",
 };
 
-function SettingsBack({ onBack }: { onBack: () => void }) {
-  return useWorkspaceNavigation() ? null : <BackButton onBack={onBack} />;
+function SettingsTitle({ title, onBack }: { title: string; onBack: () => void }) {
+  return useWorkspaceNavigation() ? title : <BackTitle title={title} onBack={onBack} />;
 }
 
 export default function SettingsWorkspace({ startWithNotifications = false, onBack }: { startWithNotifications?: boolean; onBack?: () => void }) {
@@ -48,7 +48,7 @@ export default function SettingsWorkspace({ startWithNotifications = false, onBa
       : view === "CRM_MENU" ? { title: "CRM", description: "Cadastros usados no relacionamento com leads.", icon: MapPinned, item: "MOTIVOS DE GANHO/PERDA", detail: "Motivos e origens do lead", next: "CRM_REASONS" as const }
       : { title: "FINANCEIRO", description: "Parâmetros dos lançamentos da escola.", icon: WalletCards, item: "CATEGORIAS DE DESPESA", detail: "Organize as contas a pagar", next: "EXPENSE_CATEGORIES" as const };
     const Icon = menu.icon;
-    return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><SettingsBack onBack={back} /><div><span>CONFIGURAÇÕES</span><h1>{menu.title}.</h1><p>{menu.description}</p></div></header><div className="xd-administration-grid xd-administration-grid--single"><button type="button" className="xd-administration-card" onClick={() => setView(menu.next)}><span><Icon size={22} /></span><strong>{menu.item}</strong><small>{menu.detail}</small></button></div></section>;
+    return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><div><span>CONFIGURAÇÕES</span><h1><SettingsTitle title={`${menu.title}.`} onBack={back} /></h1><p>{menu.description}</p></div></header><div className="xd-administration-grid xd-administration-grid--single"><button type="button" className="xd-administration-card" onClick={() => setView(menu.next)}><span><Icon size={22} /></span><strong>{menu.item}</strong><small>{menu.detail}</small></button></div></section>;
   }
 
   return <section className="xd-administration">
@@ -85,7 +85,7 @@ function CrmRegistries({ onBack }: { onBack: () => void }) {
   async function load() { try { const payload = await request<{ sources: Registry[]; lossReasons: Registry[]; winReasons: Registry[]; canManage: boolean }>("/api/xpace/leads"); setSources(payload.sources); setReasons(payload.lossReasons); setWinReasons(payload.winReasons); setCanManage(payload.canManage); } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL CARREGAR OS CADASTROS."); } }
   useEffect(() => { void load(); }, []);
   async function save(action: "SAVE_SOURCE" | "SAVE_LOSS_REASON" | "SAVE_WIN_REASON", setting: Partial<Registry>, done: () => void) { try { setNotice(""); await request("/api/xpace/leads", { method: "POST", body: JSON.stringify({ action, setting }) }); done(); await load(); } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL SALVAR O CADASTRO."); } }
-  return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><SettingsBack onBack={onBack} /><div><span>CONFIGURAÇÕES · CRM</span><h1>MOTIVOS DE GANHO/PERDA.</h1><p>Cadastros reutilizados no funil de leads. As origens existentes continuam aqui.</p></div></header><div className="xd-crm-registries">{notice ? <p className="xd-feedback">{notice}</p> : null}<RegistryEditor icon={<MapPinned size={18} />} title="ORIGENS DO LEAD" description="Como a pessoa conheceu a XPACE." items={sources} value={sourceName} onChange={setSourceName} add={() => save("SAVE_SOURCE", { name: sourceName, active: true }, () => setSourceName(""))} toggle={(item) => save("SAVE_SOURCE", { id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} /><RegistryEditor icon={<CircleCheck size={18} />} title="MOTIVOS DE GANHO" description="O que ajudou a concretizar a matrícula." items={winReasons} value={winReasonName} onChange={setWinReasonName} add={() => save("SAVE_WIN_REASON", { name: winReasonName, active: true }, () => setWinReasonName(""))} toggle={(item) => save("SAVE_WIN_REASON", { id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} /><RegistryEditor icon={<CircleX size={18} />} title="MOTIVOS DE PERDA" description="Por que o lead não avançou para matrícula." items={reasons} value={reasonName} onChange={setReasonName} add={() => save("SAVE_LOSS_REASON", { name: reasonName, active: true }, () => setReasonName(""))} toggle={(item) => save("SAVE_LOSS_REASON", { id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} /></div></section>;
+  return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><div><span>CONFIGURAÇÕES · CRM</span><h1><SettingsTitle title="MOTIVOS DE GANHO/PERDA." onBack={onBack} /></h1><p>Cadastros reutilizados no funil de leads. As origens existentes continuam aqui.</p></div></header><div className="xd-crm-registries">{notice ? <p className="xd-feedback">{notice}</p> : null}<RegistryEditor icon={<MapPinned size={18} />} title="ORIGENS DO LEAD" description="Como a pessoa conheceu a XPACE." items={sources} value={sourceName} onChange={setSourceName} add={() => save("SAVE_SOURCE", { name: sourceName, active: true }, () => setSourceName(""))} toggle={(item) => save("SAVE_SOURCE", { id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} /><RegistryEditor icon={<CircleCheck size={18} />} title="MOTIVOS DE GANHO" description="O que ajudou a concretizar a matrícula." items={winReasons} value={winReasonName} onChange={setWinReasonName} add={() => save("SAVE_WIN_REASON", { name: winReasonName, active: true }, () => setWinReasonName(""))} toggle={(item) => save("SAVE_WIN_REASON", { id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} /><RegistryEditor icon={<CircleX size={18} />} title="MOTIVOS DE PERDA" description="Por que o lead não avançou para matrícula." items={reasons} value={reasonName} onChange={setReasonName} add={() => save("SAVE_LOSS_REASON", { name: reasonName, active: true }, () => setReasonName(""))} toggle={(item) => save("SAVE_LOSS_REASON", { id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} /></div></section>;
 }
 
 function RegistryEditor({ icon, title, description, items, value, onChange, add, toggle, canManage }: { icon: ReactNode; title: string; description: string; items: Registry[]; value: string; onChange: (value: string) => void; add: () => void; toggle: (item: Registry) => void; canManage: boolean }) {
@@ -113,7 +113,7 @@ function ExpenseCategories({ onBack }: { onBack: () => void }) {
       done(); await load();
     } catch (error) { setNotice(error instanceof Error ? error.message : "NÃO FOI POSSÍVEL SALVAR A CATEGORIA."); }
   }
-  return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><SettingsBack onBack={onBack} /><div><span>CONFIGURAÇÕES · FINANCEIRO</span><h1>CATEGORIAS DE DESPESA.</h1><p>Classifique as contas a pagar; as categorias iniciais já estão cadastradas para a XPACE.</p></div></header><div className="xd-crm-registries">{notice ? <p className="xd-feedback" role="alert">{notice}</p> : null}{loading ? <p className="xd-feedback">CARREGANDO CATEGORIAS...</p> : <RegistryEditor icon={<Tags size={18} />} title="CATEGORIAS DE DESPESA" description="Desativar preserva os lançamentos antigos, mas remove a categoria de novos cadastros." items={categories} value={name} onChange={setName} add={() => save({ name, active: true }, () => setName(""))} toggle={(item) => save({ id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} />}</div></section>;
+  return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><div><span>CONFIGURAÇÕES · FINANCEIRO</span><h1><SettingsTitle title="CATEGORIAS DE DESPESA." onBack={onBack} /></h1><p>Classifique as contas a pagar; as categorias iniciais já estão cadastradas para a XPACE.</p></div></header><div className="xd-crm-registries">{notice ? <p className="xd-feedback" role="alert">{notice}</p> : null}{loading ? <p className="xd-feedback">CARREGANDO CATEGORIAS...</p> : <RegistryEditor icon={<Tags size={18} />} title="CATEGORIAS DE DESPESA" description="Desativar preserva os lançamentos antigos, mas remove a categoria de novos cadastros." items={categories} value={name} onChange={setName} add={() => save({ name, active: true }, () => setName(""))} toggle={(item) => save({ id: item.id, name: item.name, active: !item.active }, () => undefined)} canManage={canManage} />}</div></section>;
 }
 
 function SchoolProfile({ onBack }: { onBack: () => void }) {
@@ -143,8 +143,7 @@ function SchoolProfile({ onBack }: { onBack: () => void }) {
 
   return <section className="xd-administration">
     <header className="xd-administration-title xd-settings-title-with-action">
-      <SettingsBack onBack={onBack} />
-      <div><span>CONFIGURAÇÕES · PERFIL</span><h1>PERFIL DA ESCOLA.</h1><p>Dados usados nos contratos, cobranças e comunicações oficiais.</p></div>
+      <div><span>CONFIGURAÇÕES · PERFIL</span><h1><SettingsTitle title="PERFIL DA ESCOLA." onBack={onBack} /></h1><p>Dados usados nos contratos, cobranças e comunicações oficiais.</p></div>
     </header>
     <form className="xd-contract-builder" onSubmit={submit}>
       <fieldset className="xd-contract-builder-section">

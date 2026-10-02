@@ -4408,7 +4408,6 @@ input[type="email"] { text-transform: none !important; }
   .xd-topbar:has(.xd-topbar-context) .xd-topbar-tools { flex: 0 0 100%; width: 100%; justify-content: flex-start; }
   .xd-topbar:has(.xd-topbar-context) .xd-lead-sound-toggle { position: absolute; top: 7px; right: 0; }
   .xd-topbar:has(.xd-topbar-context) .xd-topbar-context { width: 100%; justify-content: flex-start; gap: 12px; }
-  .xd-topbar:has(.xd-topbar-context) .xb-back-button { width: 44px; height: 44px; flex-basis: 44px; }
   .xd-topbar:has(.xd-topbar-context) .xd-active-module { justify-items: start; text-align: left; }
   .xd-topbar:has(.xd-topbar-context) .xd-active-module strong { max-width: none; font-size: clamp(16px, 4.3vw, 21px); line-height: 1.15; white-space: normal; }
 }

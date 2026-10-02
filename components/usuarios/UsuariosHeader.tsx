@@ -1,6 +1,6 @@
 "use client";
 
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 
 type UsuariosHeaderProps = {
   onNovo: () => void;
@@ -20,7 +20,6 @@ export default function UsuariosHeader({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <BackButton />
           <div>
           <span
             style={{
@@ -41,7 +40,7 @@ export default function UsuariosHeader({
               fontWeight: 800,
             }}
           >
-            USUÁRIOS
+            <BackTitle title="USUÁRIOS" />
           </h1>
 
           <p

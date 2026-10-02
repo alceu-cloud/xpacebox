@@ -82,15 +82,15 @@ async function snapshot(page,name) {
       assert.ok((await page.locator('.xp-detail-hero').innerText()).includes('SALA HISTÓRICA · PROFESSORA LIZBETH'));
       await page.getByRole('button',{name:'Marcar ALUNO HORÁRIO ARQUIVADO como compareceu'}).click();
       await page.locator('.xp-attendance .is-present').waitFor();
-      await page.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
+      await page.locator('button.xb-back-title').click();
       assert.ok((await cards.filter({hasText:'ALUNO HORÁRIO ARQUIVADO'}).getAttribute('class')).includes('is-present'));
       await cards.filter({hasText:'ALUNO HORÁRIO ARQUIVADO'}).click();failAttendance=true;
       await page.getByRole('button',{name:'Marcar ALUNO HORÁRIO ARQUIVADO como faltou'}).click();
       await page.getByRole('alert').getByText('Fixture: presença não salva').waitFor();
-      await page.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
+      await page.locator('button.xb-back-title').click();
       assert.ok((await cards.filter({hasText:'ALUNO HORÁRIO ARQUIVADO'}).getAttribute('class')).includes('is-present'));
       failAttendance=false;
-      await page.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
+      await page.locator('button.xb-back-title').click();
       await page.getByRole('button',{name:'Agenda',exact:true}).click();
       await page.getByRole('button',{name:'Próxima semana',exact:true}).click();
       await page.getByRole('button',{name:'Dashboard',exact:true}).click();

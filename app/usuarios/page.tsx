@@ -2,7 +2,7 @@
 
 import { ui } from "@/lib/ui/styles";
 import BrandLogo from "@/components/ui/BrandLogo";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -154,10 +154,9 @@ export default function UsuariosPage() {
         </header>
 
         <section className="xb-users-toolbar">
-          <BackButton />
           <div>
           <span style={eyebrowStyle}>ADMINISTRACAO</span>
-          <h1 style={titleStyle}>USUARIOS</h1>
+          <h1 style={titleStyle}><BackTitle title="USUARIOS" /></h1>
           <p style={descriptionStyle}>
             CADASTRE E GERENCIE OS ACESSOS DA PLATAFORMA.
           </p>

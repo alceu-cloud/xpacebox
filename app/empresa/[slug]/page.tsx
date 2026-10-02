@@ -3,7 +3,7 @@
 import { ui } from "@/lib/ui/styles";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { ArrowLeft, Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
+import { Box, Building2, Calculator, CircleDollarSign, ContactRound, PackageSearch, Ruler, Truck, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 
@@ -817,7 +817,7 @@ function PricingPreview({
         }}
         accent="#ff3b25"
         items={[
-          { key: "back" as const, label: "FORMACAO DE PRECO", icon: ArrowLeft },
+          { key: "back" as const, label: "FORMACAO DE PRECO" },
           ...etapasPreco.map((step) => ({
           key: step,
           label: step,
@@ -838,7 +838,7 @@ function PricingPreview({
         }}
         accent="#ff3b25"
         items={[
-          { key: "back" as const, label: "FORMACAO DE PRECO", icon: ArrowLeft },
+          { key: "back" as const, label: "FORMACAO DE PRECO" },
           ...(["CLIENTE / PRODUTO", "LOTE & LOGISTICA", "VER PRECO"] as EngineeringPricingStep[]).map((step) => ({
           key: step,
           label: step,

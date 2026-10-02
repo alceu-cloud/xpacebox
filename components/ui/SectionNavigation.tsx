@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 export type SectionNavigationItem<Key extends string> = {
   key: Key;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   disabled?: boolean;
   title?: string;
 };
@@ -40,7 +40,7 @@ export default function SectionNavigation<Key extends string>({
               style={{ "--xb-module-color": accent } as CSSProperties}
               onClick={() => onChange(key)}
             >
-              <Icon size={19} strokeWidth={2.25} aria-hidden="true" />
+              {Icon ? <Icon size={19} strokeWidth={2.25} aria-hidden="true" /> : null}
               <strong>{itemLabel}</strong>
             </button>
           );

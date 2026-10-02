@@ -3,7 +3,7 @@
 import { AlertTriangle, BarChart3, ArrowUpRight, CalendarDays, ClipboardList, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 import { WorkspaceNavigationProvider, useWorkspaceNavigation, useScreenHistory, clearScreenHistory } from "@/components/navigation/WorkspaceNavigation";
 import { allowWorkspaceNavigation } from "@/components/navigation/navigation-guard";
 
@@ -90,7 +90,7 @@ function DanceWorkspaceContent({ canAccessCentral, onExit }: { canAccessCentral:
     : "WHATSAPP DESCONECTADO OU SEM CONFIRMAÇÃO DE CONEXÃO.";
   const topbar = <><header className={`xd-topbar${(screen === "DASHBOARD" || screen === "REPORTS") ? " xd-topbar--dashboard" : ""}`}>
     <button type="button" className="xd-brand xd-brand-home" aria-label="XPACE · ir para o início" onClick={() => { if (allowWorkspaceNavigation()) reset("HOME"); }}><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></button>
-    <div className="xd-topbar-tools"><NewLeadSoundToggle />{activeModule ? <div className="xd-topbar-context"><BackButton onBack={navigation?.action?.back || back} /><div className="xd-active-module"><span>MÓDULO ATIVO</span><strong>{navigation?.action?.title || activeModule}</strong></div></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}</div>
+    <div className="xd-topbar-tools"><NewLeadSoundToggle />{activeModule ? <div className="xd-topbar-context"><BackTitle title={navigation?.action?.title || activeModule} onBack={navigation?.action?.back || back} className="xd-active-module xd-active-module--return"><span>MÓDULO ATIVO</span><strong>{navigation?.action?.title || activeModule}</strong></BackTitle></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}</div>
   </header>{connectorHealth?.configured && connectorHealth.status !== "CONNECTED" ? <div className="xd-connector-alert" role="alert"><AlertTriangle size={18} aria-hidden="true" /><span><strong>{connectorAlert}</strong> As mensagens automáticas podem ficar na fila. Avise um gerente para conferir o Integrador na Loja.</span></div> : null}</>;
 
   if (screen === "COMMUNITY") return <RefreshableScreen screenKey={screen}>{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></RefreshableScreen>;

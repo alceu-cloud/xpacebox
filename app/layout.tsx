@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./workspace.css";
-import { RouteBackProvider } from "@/components/navigation/BackButton";
+import { RouteBackProvider } from "@/components/navigation/BackTitle";
 
 export const metadata: Metadata = {
   title: "XPACEBOX",

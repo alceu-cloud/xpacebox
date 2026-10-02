@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from "react";
 import { allowWorkspaceNavigation } from "./navigation-guard";
@@ -34,8 +33,8 @@ export function RouteBackProvider({ children }: { children: ReactNode }) {
   return <RouteContext.Provider value={back}>{children}</RouteContext.Provider>;
 }
 
-export default function BackButton({ onBack, fallbackHref = "/", className = "xb-back-button", label = "Voltar à tela anterior", disabled = false }: { onBack?: () => void; fallbackHref?: string; className?: string; label?: string; disabled?: boolean }) {
+export default function BackTitle({ title, children, onBack, fallbackHref = "/", className = "", disabled = false }: { title: string; children?: ReactNode; onBack?: () => void; fallbackHref?: string; className?: string; disabled?: boolean }) {
   const routeBack = useContext(RouteContext);
   const router = useRouter();
-  return <button type="button" className={className} aria-label={label} title={label} disabled={disabled} onClick={() => { if (allowWorkspaceNavigation()) { if (onBack) onBack(); else if (routeBack) routeBack(fallbackHref); else router.replace(fallbackHref); } }}><ArrowLeft size={18} aria-hidden="true" /></button>;
+  return <button type="button" className={`xb-back-title ${className}`.trim()} aria-label={title} title="Voltar à tela anterior" disabled={disabled} onClick={() => { if (allowWorkspaceNavigation()) { if (onBack) onBack(); else if (routeBack) routeBack(fallbackHref); else router.replace(fallbackHref); } }}>{children || title}</button>;
 }

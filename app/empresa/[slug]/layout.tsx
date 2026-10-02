@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { CrmOperationalLockProvider } from "@/components/clientes/CrmOperationalLock";
 import { supabase } from "@/lib/supabase";
 import { companyLogo } from "@/lib/company-branding";
-import BackButton from "@/components/navigation/BackButton";
+import BackTitle from "@/components/navigation/BackTitle";
 import { allowWorkspaceNavigation } from "@/components/navigation/navigation-guard";
 
 type EmpresaLayoutProps = { children: ReactNode };
@@ -102,8 +102,7 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
             {logoEmpresa ? <Image src={logoEmpresa} alt={nomeEmpresa} width={300} height={130} priority className="xb-company-logo" /> : <strong>{nomeEmpresa}</strong>}
           </button>
           <div className={`xb-company-context${pathname !== `/empresa/${slug}` ? " xb-company-context--with-back" : ""}`}>
-            {pathname !== `/empresa/${slug}` ? <BackButton fallbackHref={`/empresa/${encodeURIComponent(slug)}`} /> : null}
-            <span>{noGerenciador ? "Gerenciador" : "Área de trabalho"}</span>
+            <span>{pathname !== `/empresa/${slug}` ? <BackTitle title={noGerenciador ? "Gerenciador" : "Área de trabalho"} fallbackHref={`/empresa/${encodeURIComponent(slug)}`} /> : noGerenciador ? "Gerenciador" : "Área de trabalho"}</span>
             <strong>{noGerenciador ? `Configurações de ${nomeEmpresa}` : "Operação comercial e industrial"}</strong>
             {noGerenciador && emailLogado ? <small>{emailLogado}</small> : null}
           </div>

@@ -66,7 +66,7 @@ Passaram `npm run test:saas` (34 testes Node de regras/API/adapters/medição + 
 
 ### Interface do plano e navegação — 02/10/2026
 
-Planos e Pagamentos reorganizado conforme a identidade existente: resumo compacto de prévia/alunos/pagamento, preferências e faturas alinhadas, botão arredondado roxo, adicional com ícone e seções recolhíveis para preços/observações/explicação. O cabeçalho embutido usa a seta junto ao título superior; no link direto ela fica junto ao título da página. Regras de logo/histórico em [Navegação](navigation.md).
+Planos e Pagamentos reorganizado conforme a identidade existente: resumo compacto de prévia/alunos/pagamento, preferências e faturas alinhadas, botão arredondado roxo, adicional com ícone e seções recolhíveis para preços/observações/explicação. Conforme o esclarecimento de Alceu, o próprio título superior é clicável para voltar, sem flechinhas ou botão separado; no link direto a ação fica no título da página. Plano → Configurações → tela anterior respeita o caminho visitado. Regras de logo/histórico em [Navegação](navigation.md).
 
 Nada mudou na contratação: salvar envia somente preferência Pix/boleto/cartão e adicional como PREPARATION. Não liga integração, não guarda cartão e não cria autorização, assinatura, cobrança ou fatura. A contagem atual/observação não é medição faturável. XPACE continua isenta; mensalidade SaaS futura das outras escolas é receita da conta mãe e seus recebimentos de alunos pertencem à própria escola. Aprovação Asaas não dispensa implementar/homologar checkout, fechamento, conciliação e isolamento operacional listados abaixo. Nenhuma migration ou dado real foi alterado nesta revisão visual.
 
