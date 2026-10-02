@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { AccessError, requireCompanyAccess } from '@/lib/server/company-access';
 import { validUuid } from '@/lib/xpace/link-tree';
 import { teacherRosterDates } from '@/lib/xpace/teacher-roster';
+import { withinRoomReservationHours, reservationHoursMessage } from '@/lib/xpace/room-reservation';
 const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 function monthBounds(value:unknown){
  if(typeof value!=='string'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)||Number(value.slice(0,4))<2020||Number(value.slice(0,4))>2100)throw new AccessError('MÊS INVÁLIDO.',400);
@@ -93,6 +94,7 @@ export async function POST(request:Request){
     const{error}=await admin.from('xpace_rooms').update({hourly_rate_cents:body.rateCents,updated_by:user.id}).eq('id',body.id).eq('tenant_company_id',company.id);if(error)throw error;
   }else if(body.action==='RESERVE'){
     const instructor=teacherInstructorId||body.instructorId;if(!validUuid(instructor)||!validUuid(body.roomId)||!validUuid(body.requestId))throw new AccessError('ESCOLHA SALA E PROFESSOR.',400);
+    if(!withinRoomReservationHours(body.startsAt,body.endsAt))throw new AccessError(reservationHoursMessage,400);
     const id=await rpc('xpace_reserve_teacher_room',{p_company:company.id,p_actor:user.id,p_instructor:instructor,p_room:body.roomId,p_start:body.startsAt,p_end:body.endsAt,p_request:body.requestId});return NextResponse.json({success:true,id});
   }else if(body.action==='CANCEL_RESERVATION'){
     if(!validUuid(body.id))throw new AccessError('RESERVA INVÁLIDA.',400);
@@ -104,7 +106,7 @@ export async function POST(request:Request){
 function failure(e:unknown){
  if(e instanceof AccessError)return NextResponse.json({success:false,message:e.message},{status:e.status});
  const message=String((e as {message?:string})?.message??'');
- const known:Record<string,string>={ROSTER_ASSIGNMENTS_INVALID:'CONFIRA AS DATAS E PROFESSORES DA TURMA. NENHUMA PARTE DA ESCALA FOI SALVA.',INSTRUCTOR_INVALID:'UM PROFESSOR ESCOLHIDO ESTÁ INATIVO OU NÃO PERTENCE À ESCOLA.',MONTH_CLOSED:'MÊS CONFERIDO. UM GESTOR PRECISA REABRIR PARA CORRIGIR.',MISSING_LESSON_RATE:'HÁ AULAS REALIZADAS SEM VALOR DEFINIDO.',ATTENDANCE_WINDOW_CLOSED:'CONFIRME NO DIA DA AULA, ENTRE 15 MINUTOS ANTES E 15 MINUTOS APÓS O INÍCIO.',TEACHER_FORBIDDEN:'VOCÊ SÓ PODE CONFIRMAR SUAS PRÓPRIAS AULAS.',ROOM_QR_INVALID:'ESTE QR NÃO CORRESPONDE À SALA DA SUA AULA.',REASON_REQUIRED:'INFORME O MOTIVO PARA REABRIR.',RESERVATION_INVALID:'ESCOLHA UM HORÁRIO FUTURO NO MESMO DIA, COM ATÉ 12 HORAS.',TEACHER_ROSTER_CONFLICT:'ESTE PROFESSOR JÁ ESTÁ ATRIBUÍDO A OUTRA AULA NESTE HORÁRIO.',LESSON_INVALID:'CONFIRA PROFESSOR, SALA E HORÁRIOS DA ESCALA.',ROSTER_INVALID:'CONFIRA OS DADOS DA ESCALA.',RESERVATION_REPLAY_MISMATCH:'ESTA TENTATIVA NÃO CORRESPONDE À RESERVA ORIGINAL.'};
+ const known:Record<string,string>={RESERVATION_HOURS:reservationHoursMessage,ROSTER_ASSIGNMENTS_INVALID:'CONFIRA AS DATAS E PROFESSORES DA TURMA. NENHUMA PARTE DA ESCALA FOI SALVA.',INSTRUCTOR_INVALID:'UM PROFESSOR ESCOLHIDO ESTÁ INATIVO OU NÃO PERTENCE À ESCOLA.',MONTH_CLOSED:'MÊS CONFERIDO. UM GESTOR PRECISA REABRIR PARA CORRIGIR.',MISSING_LESSON_RATE:'HÁ AULAS REALIZADAS SEM VALOR DEFINIDO.',ATTENDANCE_WINDOW_CLOSED:'CONFIRME NO DIA DA AULA, ENTRE 15 MINUTOS ANTES E 15 MINUTOS APÓS O INÍCIO.',TEACHER_FORBIDDEN:'VOCÊ SÓ PODE CONFIRMAR SUAS PRÓPRIAS AULAS.',ROOM_QR_INVALID:'ESTE QR NÃO CORRESPONDE À SALA DA SUA AULA.',REASON_REQUIRED:'INFORME O MOTIVO PARA REABRIR.',RESERVATION_INVALID:'ESCOLHA UM HORÁRIO FUTURO NO MESMO DIA, ENTRE 08:00 E 22:00, COM TÉRMINO ATÉ 22:00.',TEACHER_ROSTER_CONFLICT:'ESTE PROFESSOR JÁ ESTÁ ATRIBUÍDO A OUTRA AULA NESTE HORÁRIO.',LESSON_INVALID:'CONFIRA PROFESSOR, SALA E HORÁRIOS DA ESCALA.',ROSTER_INVALID:'CONFIRA OS DADOS DA ESCALA.',RESERVATION_REPLAY_MISMATCH:'ESTA TENTATIVA NÃO CORRESPONDE À RESERVA ORIGINAL.'};
  const mapped=Object.entries(known).find(([key])=>message.includes(key));
  if(mapped)return NextResponse.json({success:false,message:mapped[1]},{status:409});
  if((e as {code?:string})?.code==='23P01')return NextResponse.json({success:false,message:'ESTA SALA OU PROFESSOR JÁ ESTÁ OCUPADO NESTE HORÁRIO.'},{status:409});
