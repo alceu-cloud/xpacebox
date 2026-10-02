@@ -11,3 +11,6 @@ Públicos centralizados em `lib/xpace/trial-schedule.ts`: Baby 4–6, Kids 7–1
 Testes API/SQL isolados: duas faltas, falta + presença, modalidade repetida após falta, identidade por telefone em cadastros diferentes, quota futura, tenants, transformação de falta em agendamento, correção histórica, exceção auditada e transição usada pelo job. Teste de semanas e virada de dia/ano do Pocket passou com os novos públicos.
 
 Integração preserva o reagendamento automático do colega e seu trigger separado, validando presença/pêndencia após reagendamento com a cota nova. Teste SQL real aplica os dois guards e cobre duas faltas, presença reagendada, duas aulas utilizadas, nova tentativa da mesma modalidade e vagas futuras. Job da meia-noite não foi alterado. Falta registrada antes do fim libera cota, mas só uma fonte realmente passada vira REAGENDAMENTO.
+
+
+Migration complementar aplicada individualmente: `20261002170923_xpace_trial_allowance_private_permissions.sql`, revogando execução direta do helper privado inclusive por service_role. Permissões reais conferidas; teste integrado com role de servidor confirma que inserts/updates continuam acionando ambos os triggers. Publicação funcional da integração e76bc74 comprovada por Vercel/revisão pública em 02/10/2026, sem agendamento real de teste.

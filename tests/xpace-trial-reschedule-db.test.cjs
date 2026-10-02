@@ -266,6 +266,9 @@ const migration = fs.readdirSync(migrations).find(name => name.endsWith('_xpace_
   // Latest allowance must compose with the actual reschedule guard, including
   // attended reschedules and pending seats across different modalities.
   await db.exec(fs.readFileSync(path.join(migrations,'20261002165847_xpace_trial_absences_preserve_allowance.sql'),'utf8'));
+  await db.exec(fs.readFileSync(path.join(migrations,'20261002170923_xpace_trial_allowance_private_permissions.sql'),'utf8'));
+  for (const role of ['anon','authenticated','service_role']) assert.equal((await db.query("select has_function_privilege($1,'private.enforce_xpace_trial_lesson_limit()','EXECUTE') allowed",[role])).rows[0].allowed,false);
+  await db.exec('set role service_role');
   for (const lead of [32,33,34]) await db.query('insert into public.xpace_leads values($1,$2,$3)',[id(lead),id(1000),'4799999'+String(lead).padStart(4,'0')]);
   await create(3200,32,{kind:'NOVO',status:'FALTOU',date:'2020-01-01'});
   await create(3201,32,{status:'COMPARECEU'});
@@ -280,6 +283,7 @@ const migration = fs.readdirSync(migrations).find(name => name.endsWith('_xpace_
   assert.equal((await create(3402,34)).rescheduled_from_appointment_id,id(3400));
   await create(3403,34,{kind:'NOVO',modality:'Ballet'});
   await rejected(3404,34,{modality:'Hip hop'},/XPACE_TRIAL_LIMIT_REQUIRES_FEE/);
+  await db.exec('reset role');
   await db.close();
   console.log('Trial reschedule SQL: eligibility, audit uniqueness, NOVO quota, corrections/security and integrated Brazil-midnight automatic absence → TS detection → reschedule → next automatic absence/child, idempotence and scope preservation passed.');
 })().catch(async error => { console.error(error); await db.close(); process.exitCode = 1; });
