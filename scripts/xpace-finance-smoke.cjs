@@ -33,6 +33,7 @@ const category = { id: '44444444-4444-4444-8444-444444444444', name: 'ALUGUEL', 
           return send([]);
         }
         if (url.pathname === '/api/empresas/xpace') return send({ success: true, canAccessCentral: false });
+        if (url.pathname === '/api/notifications') return send({ success: true, items: [], total: 0, unread: 0, issueCount: 0, issueSignals: [], todayErrors: 0, page: 0, pageSize: 2, snapshotAt: new Date().toISOString() });
         if (url.pathname === '/api/xpace/home') return send({ success: true, metrics: { activeClients: 0, newClientsThisMonth: 0 }, notifications: { items: [], total: 0, unread: 0, latestCreatedAt: null, page: 0, pageSize: 2 } });
         if (url.pathname === '/api/xpace/leads') return send({ success: true, canManage: true, sources: [], lossReasons: [], winReasons: [{ id: 'reason-test', name: 'ATENDIMENTO', active: true }], leads: [], appointments: [], activities: [], attendants: [], instructors: [], groups: [] });
         if (url.pathname === '/api/xpace/finance') {
@@ -75,7 +76,7 @@ const category = { id: '44444444-4444-4444-8444-444444444444', name: 'ALUGUEL', 
       assert.equal(saveReachable, true, `${label} recurrence save button cannot be reached by scrolling`);
       await page.screenshot({ path: path.join(output, `${label}-recorrencia-bottom.png`), fullPage: true });
       await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click();
-      await page.getByRole('button', { name: 'Voltar ao financeiro' }).click();
+      await page.getByRole('button', { name: 'Voltar à tela anterior', exact: true }).click();
       await page.getByRole('button', { name: /CONTAS A RECEBER/ }).click();
       await page.getByText('Plano de dança').waitFor();
       await page.getByText('Cobranças XPay são somente leitura aqui.').waitFor();
@@ -84,7 +85,7 @@ const category = { id: '44444444-4444-4444-8444-444444444444', name: 'ALUGUEL', 
       await page.getByRole('dialog').getByRole('combobox', { name: /Cliente cadastrado/ }).selectOption('55555555-5555-4555-8555-555555555555');
       await page.screenshot({ path: path.join(output, `${label}-receber-cliente.png`), fullPage: true });
       await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click();
-      await page.getByRole('button', { name: 'Voltar ao financeiro' }).click();
+      await page.getByRole('button', { name: 'Voltar à tela anterior', exact: true }).click();
       await page.getByRole('button', { name: /CONTAS FINANCEIRAS/ }).click();
       await page.getByText('Banco da escola').waitFor();
       await page.screenshot({ path: path.join(output, `${label}-contas.png`), fullPage: true });
@@ -92,14 +93,14 @@ const category = { id: '44444444-4444-4444-8444-444444444444', name: 'ALUGUEL', 
       await page.getByRole('dialog').getByRole('heading', { name: 'Nova conta financeira' }).waitFor();
       await page.screenshot({ path: path.join(output, `${label}-nova-conta.png`), fullPage: true });
       await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click();
-      await page.locator('.xd-active-module').click();
-      await page.locator('.xd-modules').getByRole('button', { name: /CONFIGURAÇÕES/ }).click();
+      await page.getByRole('button', { name: 'XPACE · ir para o início', exact: true }).click();
+      await page.locator('.xd-modules').getByRole('button', { name: /Config/ }).click();
       await page.getByRole('button', { name: /FINANCEIRO CATEGORIAS DE DESPESA/ }).click();
       await page.getByRole('button', { name: /CATEGORIAS DE DESPESA Organize/ }).click();
       await page.getByText('ALUGUEL').waitFor();
       await page.screenshot({ path: path.join(output, `${label}-categorias.png`), fullPage: true });
-      await page.getByRole('button', { name: 'Voltar para Financeiro' }).click();
-      await page.getByRole('button', { name: 'Voltar para Configurações' }).click();
+      await page.getByRole('button', { name: 'Voltar à tela anterior', exact: true }).click();
+      await page.getByRole('button', { name: 'Voltar à tela anterior', exact: true }).click();
       await page.getByRole('button', { name: /CRM MOTIVOS DE GANHO E PERDA/ }).click();
       await page.getByRole('button', { name: /MOTIVOS DE GANHO\/PERDA/ }).click();
       await page.getByText('MOTIVOS DE GANHO', { exact: true }).waitFor();

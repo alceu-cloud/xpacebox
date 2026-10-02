@@ -108,7 +108,7 @@ if (require.main === module) (async () => {
     assert.equal(await page.locator('.xd-topbar').isVisible(), false, 'Print hides application header');
     await page.screenshot({ path: path.join(output, 'print-sheet.png'), fullPage: true });
     await page.emulateMedia({ media: 'screen' });
-    await page.locator('.xd-active-module').click();
+    await page.getByRole('button', { name: 'XPACE · ir para o início', exact: true }).click();
     await page.locator('.xd-module').filter({ hasText: 'LOJA' }).click();
     await page.getByRole('button', { name: 'WHATSAPP E ENVIOS', exact: true }).click();
     await page.getByRole('button', { name: 'NOTIFICAÇÕES', exact: true }).click();

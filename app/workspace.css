@@ -1,4 +1,36 @@
 /* Geometry is shared across modules; status colors remain in their module rules. */
+.xb-back-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid #d9c5e8; border-radius: 10px; background: #fff; color: #7939bd; cursor: pointer; }
+.xb-back-button:hover { border-color: #8e4acb; background: #f9f2ff; }
+.xb-back-button:focus-visible, .xd-brand-home:focus-visible, .xb-brand-link:focus-visible, .xp-home-logo:focus-visible { outline: 3px solid #7939bd; outline-offset: 3px; border-radius: 10px; }
+.xb-back-button:disabled { opacity: .55; cursor: not-allowed; }
+.xd-brand-home { border: 0; background: transparent; padding: 0; font: inherit; cursor: pointer; text-align: left; }
+.xd-topbar-context > .xb-back-button { flex-basis: 38px; width: 38px; height: 38px; }
+.xd-settings-title-with-action:not(:has(button)) { grid-template-columns: minmax(0, 1fr); }
+.cn-preferences-heading { display: flex; align-items: center; gap: 12px; }
+.xb-brand-link { display: inline-flex; flex: 0 1 auto; min-width: 0; text-decoration: none; }
+.xb-central-topbar > .xb-brand-link .xb-brand-logo { width: 260px; }
+.xb-module-strip-heading { display: flex; align-items: center; gap: 10px; }
+.xb-users-toolbar > div { flex: 1; min-width: 0; }
+.xb-company-context > .xb-back-button { float: left; margin-right: 10px; }
+.saas-page-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: min(1200px, 100%); box-sizing: border-box; margin: 0 auto; padding: 18px 24px; border-bottom: 1px solid #e6d9ee; }
+.saas-page-topbar a { min-width: 0; text-decoration: none; color: #30203d; }
+.saas-page-topbar img { display: block; width: 170px; max-width: 100%; }
+.saas-page-topbar > span { color: #766c80; font-size: 9px; font-weight: 700; }
+.xp-title-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.xp-title-row > div, .xp-title-row > h1 { min-width: 0; flex: 1; }
+.xp-title-row h1, .xp-title-row p { margin: 0; }
+.xp-title-row .xp-eyebrow { margin-bottom: 5px; }
+.xp-home-logo { display: block; width: 112px; padding: 7px 10px; margin: 0 0 14px; border: 0; border-radius: 9px; background: #fff; cursor: pointer; }
+.xp-home-logo img { display: block; width: 100%; height: auto; }
+@media (max-width: 680px) {
+  .xb-central-topbar > .xb-brand-link .xb-brand-logo { width: 180px; }
+  .xb-company-actions > .xb-brand-link:has(.xb-platform-logo) { display: none; }
+  .xd-topbar-tools { gap: 8px; }
+  .xd-topbar-context { gap: 8px; }
+  .xd-active-module strong { max-width: 32vw; font-size: clamp(14px, 3.4vw, 20px); line-height: 1.05; }
+  .saas-page-topbar { padding: 16px; }
+  .saas-page-topbar img { width: 130px; }
+}
 .xb-brand-logo { display: block; width: 240px; max-width: 100%; height: auto; object-fit: contain; }
 .xb-central-topbar > .xb-brand-logo, .xb-login-brand .xb-brand-logo { width: 260px; }
 .xb-company-actions .xb-brand-logo { width: 184px; }
@@ -87,4 +119,11 @@
 @media (prefers-reduced-motion: reduce) {
   .xb-welcome-art { animation: none; }
   .xb-module-chip, .xb-company-card { transition: none; }
+}
+.xb-company-context--with-back { min-width: 44px; }
+@media (max-width: 860px) {
+  .xb-company-context--with-back { display: block; flex: 0 0 44px; }
+  .xb-company-context--with-back > span,
+  .xb-company-context--with-back > strong,
+  .xb-company-context--with-back > small { display: none; }
 }

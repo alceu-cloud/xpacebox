@@ -24,6 +24,7 @@ const bands = [{min:0,max:50,monthlyCents:9900},{min:51,max:200,monthlyCents:149
         return send({company:{name:'Escola fixture'},exempt:false,preferences:{payment_method:null,addons:[]},activeStudents:51,measurement:'PENDING',preview:{monthlyCents:14900},bands,addonMonthlyCents:15000,invoices:[],observations:[...observations.values()].slice(-5).reverse(),page:0,total:0,pageSize:10});
       });
       await f.page.goto(`${origin}/planos/school`);
+      await f.page.getByText('Contagem de alunos · preparação',{exact:true}).click();
       const capture=f.page.getByRole('button',{name:'Registrar contagem atual',exact:true});
       await capture.waitFor();
       if (width===320) failRead=true;

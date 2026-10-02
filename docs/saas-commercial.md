@@ -64,6 +64,12 @@ Passaram `npm run test:saas` (34 testes Node de regras/API/adapters/medição + 
 
 ## Próxima etapa antes de vender
 
+### Interface do plano e navegação — 02/10/2026
+
+Planos e Pagamentos reorganizado conforme a identidade existente: resumo compacto de prévia/alunos/pagamento, preferências e faturas alinhadas, botão arredondado roxo, adicional com ícone e seções recolhíveis para preços/observações/explicação. O cabeçalho embutido usa a seta junto ao título superior; no link direto ela fica junto ao título da página. Regras de logo/histórico em [Navegação](navigation.md).
+
+Nada mudou na contratação: salvar envia somente preferência Pix/boleto/cartão e adicional como PREPARATION. Não liga integração, não guarda cartão e não cria autorização, assinatura, cobrança ou fatura. A contagem atual/observação não é medição faturável. XPACE continua isenta; mensalidade SaaS futura das outras escolas é receita da conta mãe e seus recebimentos de alunos pertencem à própria escola. Aprovação Asaas não dispensa implementar/homologar checkout, fechamento, conciliação e isolamento operacional listados abaixo. Nenhuma migration ou dado real foi alterado nesta revisão visual.
+
 Prova de publicação em 01/10/2026 (America/Sao_Paulo): push funcional `7b27a5ce` confirmado na main, Vercel success, rotas XPACE/app/loja/plano 200 e revisão pública `7b27a5c` no plano (abreviação do provedor). Sem sessão, API do plano negou com 401; API de observação não aceita GET (405). Nenhum teste autenticado ou efeito financeiro real em produção foi realizado. Estes são fatos históricos; descobrir a revisão atual a cada continuação.
 
 1. Confirmar regras da medição e adicionais/competência/cancelamento. Se escolher média diária, definir arredondamento para a faixa e ampliar o enum configurável após autorização. Implementar captura confiável do fechamento, não usando observações manuais como substituto; média diária não pode ser reconstruída confiavelmente só pelo estado atual dos cadastros.

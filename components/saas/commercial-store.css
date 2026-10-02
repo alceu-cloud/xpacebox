@@ -28,3 +28,72 @@
 .saas-invoices li { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid #dfd3eb; border-radius: 10px; margin: 12px 0; }
 @media (max-width: 760px) { .saas-billing-grid { grid-template-columns: 1fr; gap: 0; } }
 @media (max-width: 640px) { .saas-store { padding: 12px; } .saas-products { grid-template-columns: 1fr; gap: 0; } .saas-fields { grid-template-columns: 1fr; } .saas-actions button { flex: 1 1 140px; } }
+
+/* Plan uses the existing compact XPACE typography, controls and panel rhythm. */
+.saas-plan { max-width: 1200px; padding: 28px 24px 46px; }
+.saas-plan--embedded { max-width: none; padding: 28px 0 46px; }
+.saas-plan-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.saas-plan-heading > div { flex: 1; min-width: 0; }
+.saas-plan-heading > div > span { color: #823bc1; font-size: 10px; font-weight: 900; }
+.saas-plan h1 { font-family: "Chillax", sans-serif; font-size: clamp(25px, 3vw, 34px); font-weight: 750; line-height: 1.15; text-wrap: balance; }
+.saas-plan-heading p { margin: 4px 0 0; color: #766c80; font-size: 12px; }
+.saas-plan-heading > .saas-plan-badge { flex: none; padding: 7px 10px; border-radius: 999px; background: #eee5f6; color: #66349e; font-size: 9px; font-weight: 800; }
+.saas-plan-info { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid #e6d9ee; border-radius: 12px; background: #f6f0fb; color: #665572; }
+.saas-plan-info svg { flex: none; color: #7939bd; }
+.saas-plan p { font-size: 12px; text-transform: none; text-wrap: pretty; }
+.saas-plan-info p { margin: 0; }
+.saas-plan .saas-panel { margin: 0; padding: 20px; border-color: #e0d6e9; }
+.saas-plan > .saas-panel, .saas-plan-grid { margin-top: 16px; }
+.saas-plan h2 { margin: 0; color: #30203d; font-family: "Chillax", sans-serif; font-size: 16px; font-weight: 750; line-height: 1.35; text-wrap: balance; }
+.saas-plan-overview-title { display: flex; align-items: center; gap: 12px; }
+.saas-plan-overview-title > div { flex: 1; }
+.saas-plan-overview-title p { margin: 4px 0 0; color: #766c80; }
+.saas-plan-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 12px; background: #f0e8f8; color: #7435b2; }
+.saas-plan-exempt-icon { color: #7435b2; flex: none; }
+.saas-plan-metrics { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 18px; margin: 20px 0 0; }
+.saas-plan-metrics > div { min-width: 0; padding-left: 18px; border-left: 1px solid #eee5f5; }
+.saas-plan-metrics > div:first-child { border: 0; padding-left: 0; }
+.saas-plan-metrics dt { color: #766c80; font-size: 10px; font-weight: 700; }
+.saas-plan-metrics dd { margin: 6px 0; font-family: "Chillax", sans-serif; font-size: 23px; font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.saas-plan-metrics small { display: block; color: #85798f; font-size: 10px; text-transform: none; line-height: 1.4; }
+.saas-plan-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.saas-plan-panel-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: #7939bd; }
+.saas-plan .saas-fields { margin: 0 0 14px; }
+.saas-plan .saas-fields label { color: #766c80; font-size: 10px; font-weight: 800; }
+.saas-plan .saas-fields select { height: 44px; font: inherit; font-size: 14px; font-weight: 600; }
+.saas-plan-addon { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid #e0d6e9; border-radius: 10px; cursor: pointer; }
+.saas-plan-addon > input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: #7939bd; }
+.saas-plan-addon > svg { flex: none; color: #7939bd; }
+.saas-plan-addon > span { display: grid; gap: 4px; min-width: 0; }
+.saas-plan-addon strong { font-size: 11px; }
+.saas-plan-addon small { color: #766c80; font-size: 11px; text-transform: none; }
+.saas-plan-helper { color: #766c80; margin: 14px 0; }
+.saas-plan button.saas-plan-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 0 18px; background: linear-gradient(100deg, #6d35c7, #d83cac); color: #fff; font-size: 10px; font-weight: 900; }
+.saas-plan-save-note { display: block; margin-top: 9px; color: #85798f; font-size: 10px; text-transform: none; }
+.saas-plan-empty { display: grid; justify-items: center; gap: 9px; padding: 22px 12px; text-align: center; color: #897696; }
+.saas-plan-empty strong { color: #5c486e; font-size: 12px; }
+.saas-plan-empty p { margin: 0; max-width: 280px; }
+.saas-plan-empty a, .saas-plan-link { color: #7939bd; font-size: 11px; font-weight: 700; text-underline-offset: 3px; }
+.saas-plan-details > summary { display: flex; align-items: center; gap: 10px; list-style: none; min-height: 28px; color: #7939bd; }
+.saas-plan-details > summary::-webkit-details-marker { display: none; }
+.saas-plan-details > summary::after { content: "+"; margin-left: auto; font-size: 20px; font-weight: 400; }
+.saas-plan-details[open] > summary::after { content: "−"; }
+.saas-plan-details > summary > svg { flex: none; }
+.saas-plan-details > p { color: #766c80; }
+.saas-plan .saas-price-list strong, .saas-plan .saas-invoices strong { font-variant-numeric: tabular-nums; }
+.saas-plan .saas-actions { align-items: center; justify-content: space-between; }
+.saas-plan-loading { margin-top: 16px; padding: 24px; border-radius: 14px; background: #fff; color: #766c80; }
+@media (max-width: 760px) { .saas-plan-grid { grid-template-columns: 1fr; } }
+@media (max-width: 540px) {
+  .saas-plan { padding: 22px 16px 36px; }
+  .saas-plan--embedded { padding-right: 0; padding-left: 0; }
+  .saas-plan-heading { flex-wrap: wrap; }
+  .saas-plan-heading > .saas-plan-badge { display: none; }
+  .saas-plan .saas-panel { padding: 16px; }
+  .saas-plan-metrics { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .saas-plan-metrics > div { border: 0; padding-left: 0; }
+  .saas-plan-metrics > div:last-child { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid #eee5f5; }
+  .saas-plan-metrics dd { font-size: 21px; }
+  .saas-plan button.saas-plan-primary { width: 100%; }
+  .saas-plan .saas-price-list li { font-size: 11px; gap: 8px; }
+}

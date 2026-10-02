@@ -79,6 +79,15 @@ const user={id:'00000000-0000-4000-8000-000000000001',email:'test@example.test',
     await page.locator('.cn-panel').getByRole('button',{name:'Usuário e notificações',exact:true}).click();
     const preferences=page.locator('.cn-preferences');await preferences.waitFor();await preferences.getByRole('button',{name:'SALVAR PREFERÊNCIAS'}).click();await preferences.getByRole('status').waitFor();
     await page.screenshot({path:path.join(out,`${slug}-${label}-preferences.png`),fullPage:true});
+    if(slug==='dawos'){
+      const modules=page.getByRole('navigation',{name:'Módulos da empresa'});
+      await modules.getByRole('button',{name:'CLIENTES',exact:true}).click();
+      await modules.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
+      assert.equal(await modules.getByRole('button',{name:'GERENCIADOR',exact:true}).getAttribute('aria-current'),'page');
+      await page.getByRole('button',{name:'DAWOS · ir para o início',exact:true}).click();
+      assert.equal(await modules.locator('button[aria-current="page"]').count(),0);
+      assert.equal(await modules.getByRole('button',{name:'Voltar à tela anterior',exact:true}).count(),0);
+    }
     assert.ok(writes.some(w=>w.action==='MARK_READ'));assert.ok(writes.some(w=>w.action==='PREFERENCES'));assert.deepEqual(errors,[]);
     await context.close();console.log(`PASS ${slug} ${label}: panel, read/issue separation, persistence, preferences and no overflow.`);
   }

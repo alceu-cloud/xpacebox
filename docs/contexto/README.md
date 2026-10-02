@@ -48,6 +48,7 @@ Os nomes não são orientação para recriar ou trocar chaves. Use configuraçõ
    - [Prazos e e-mails DAWOS](../dawos-sample-deadlines.md).
    - [Notificações por empresa](../company-notifications.md).
    - [Identidade visual por empresa](../company-branding.md).
+   - [Navegação: voltar no título e logo para o início](../navigation.md).
 
 `project_context.md` e `CONTEXTO-NOVA-TAREFA-CODEX.md` são contexto legado: contêm caminhos, branches e pendências superados. Não tratá-los como estado operacional atual. O documento Z-API preserva trechos de várias fases; “não ativado” no histórico não prevalece sobre a validação posterior.
 

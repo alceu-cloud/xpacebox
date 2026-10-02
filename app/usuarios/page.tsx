@@ -2,6 +2,7 @@
 
 import { ui } from "@/lib/ui/styles";
 import BrandLogo from "@/components/ui/BrandLogo";
+import BackButton from "@/components/navigation/BackButton";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -150,12 +151,10 @@ export default function UsuariosPage() {
         <header className="xb-central-topbar">
           <BrandLogo priority />
 
-          <button onClick={() => router.push("/")} className="xb-topbar-action">
-            VOLTAR A CENTRAL
-          </button>
         </header>
 
         <section className="xb-users-toolbar">
+          <BackButton />
           <div>
           <span style={eyebrowStyle}>ADMINISTRACAO</span>
           <h1 style={titleStyle}>USUARIOS</h1>

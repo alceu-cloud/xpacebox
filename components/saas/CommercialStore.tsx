@@ -1,4 +1,5 @@
 "use client";
+import BackButton from "@/components/navigation/BackButton";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { emptyPricebook, pricebookBlockers, type Pricebook } from "@/lib/saas/commercial";
@@ -49,7 +50,7 @@ export default function CommercialStore({ companySlug }: { companySlug: string }
     try { setConfig({ ...config, bands: config.bands.map((b, i) => i !== index ? b : { ...b, [field]: field === "monthlyCents" ? parseMoney(value) : field === "max" && !value ? null : Number(value) }) }); setError(""); } catch (e) { setError((e as Error).message); }
   }
   return <section className="saas-store" aria-busy={busy}>
-    <header><span>LOJA · ASSINATURAS</span><h1>{data?.company.name || "XPACEBOX"}</h1><p>Preparação comercial. Nenhuma cobrança automática está ativa.</p></header>
+    <header className="saas-plan-heading"><BackButton fallbackHref={companySlug === "xpace" ? "/xpace" : `/empresa/${encodeURIComponent(companySlug)}`} /><div><span>LOJA · ASSINATURAS</span><h1>{data?.company.name || "XPACEBOX"}</h1><p>Preparação comercial. Nenhuma cobrança automática está ativa.</p></div></header>
     {error ? <p className="saas-error" role="alert">{error}</p> : null}
     {notice ? <p className="saas-notice" role="status">{notice}</p> : null}
     {!data && !error ? <p role="status">Carregando configuração...</p> : null}

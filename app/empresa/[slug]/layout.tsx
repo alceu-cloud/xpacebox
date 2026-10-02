@@ -9,6 +9,8 @@ import { useEffect, useState } from "react";
 import { CrmOperationalLockProvider } from "@/components/clientes/CrmOperationalLock";
 import { supabase } from "@/lib/supabase";
 import { companyLogo } from "@/lib/company-branding";
+import BackButton from "@/components/navigation/BackButton";
+import { allowWorkspaceNavigation } from "@/components/navigation/navigation-guard";
 
 type EmpresaLayoutProps = { children: ReactNode };
 
@@ -96,10 +98,11 @@ export default function EmpresaLayout({ children }: EmpresaLayoutProps) {
     <CrmOperationalLockProvider>
       <div className="xb-company-shell">
         <header className="xb-company-topbar">
-          <button type="button" className="xb-company-brand" onClick={() => router.push(`/empresa/${slug}`)} aria-label={`Abrir ${nomeEmpresa}`}>
+          <button type="button" className="xb-company-brand" onClick={() => { if (!allowWorkspaceNavigation()) return; if (pathname === `/empresa/${slug}`) window.dispatchEvent(new CustomEvent("xpacebox:company-home", { detail: slug })); else router.push(`/empresa/${slug}`); }} aria-label={`${nomeEmpresa} · ir para o início`}>
             {logoEmpresa ? <Image src={logoEmpresa} alt={nomeEmpresa} width={300} height={130} priority className="xb-company-logo" /> : <strong>{nomeEmpresa}</strong>}
           </button>
-          <div className="xb-company-context">
+          <div className={`xb-company-context${pathname !== `/empresa/${slug}` ? " xb-company-context--with-back" : ""}`}>
+            {pathname !== `/empresa/${slug}` ? <BackButton fallbackHref={`/empresa/${encodeURIComponent(slug)}`} /> : null}
             <span>{noGerenciador ? "Gerenciador" : "Área de trabalho"}</span>
             <strong>{noGerenciador ? `Configurações de ${nomeEmpresa}` : "Operação comercial e industrial"}</strong>
             {noGerenciador && emailLogado ? <small>{emailLogado}</small> : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import BrandLogo from "@/components/ui/BrandLogo";
-import { useRouter } from "next/navigation";
+import BackButton from "@/components/navigation/BackButton";
 import { ReactNode } from "react";
 
 type HeaderProps = {
@@ -17,8 +17,6 @@ export default function Header({
   descricao,
   children,
 }: HeaderProps) {
-  const router = useRouter();
-
   return (
     <header
       style={{
@@ -48,7 +46,9 @@ export default function Header({
           }}
         />
 
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <BackButton />
+          <div>
           <span
             style={{
               display: "block",
@@ -83,6 +83,7 @@ export default function Header({
           >
             {descricao}
           </p>
+          </div>
         </div>
       </div>
 
@@ -95,20 +96,6 @@ export default function Header({
       >
         {children}
 
-        <button
-          onClick={() => router.back()}
-          style={{
-            padding: "14px 22px",
-            borderRadius: 14,
-            border: "1px solid rgba(255,255,255,.12)",
-            background: "transparent",
-            color: "#ffffff",
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          ← VOLTAR
-        </button>
       </div>
     </header>
   );

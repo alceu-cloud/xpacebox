@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
 
 import BuildRevision from "@/components/BuildRevision";
+import { useScreenHistory } from "@/components/navigation/WorkspaceNavigation";
 import ModuleNavigation from "@/components/ui/ModuleNavigation";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SectionNavigation from "@/components/ui/SectionNavigation";
@@ -217,7 +218,7 @@ export default function EmpresaPage() {
   const searchParams = useSearchParams();
   const { isBlocked: crmBlocked, lock: crmLock } = useCrmOperationalLock();
   const [podeGerenciar, setPodeGerenciar] = useState(false);
-  const [moduloAtivo, setModuloAtivo] = useState<ModuloKey | null>(null);
+  const { current: moduloAtivo, open: setModuloAtivo, back: backModule, reset: resetModules } = useScreenHistory<ModuloKey | null>(null, `company/${String(params.slug ?? "")}/modules`);
   const [clientInitialArea, setClientInitialArea] = useState<"crm" | "amostras" | undefined>();
   const [managerOpening, setManagerOpening] = useState(0);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
@@ -244,6 +245,12 @@ export default function EmpresaPage() {
   const [quoteContinuationOpen, setQuoteContinuationOpen] = useState(false);
 
   const slug = String(params.slug ?? "");
+
+  useEffect(() => {
+    const home = (event: Event) => { if ((event as CustomEvent).detail === slug && !crmBlocked) { setClientInitialArea(undefined); resetModules(null); } };
+    window.addEventListener("xpacebox:company-home", home);
+    return () => window.removeEventListener("xpacebox:company-home", home);
+  }, [slug, crmBlocked, resetModules]);
 
   useEffect(() => {
     const area = searchParams.get("clientArea");
@@ -275,7 +282,7 @@ export default function EmpresaPage() {
   }, []);
 
   useEffect(() => {
-    if (!podeGerenciar && moduloAtivo === "gerenciador") setModuloAtivo(null);
+    if (!podeGerenciar && moduloAtivo === "gerenciador") resetModules(null);
   }, [moduloAtivo, podeGerenciar]);
 
   useEffect(() => {
@@ -340,7 +347,7 @@ export default function EmpresaPage() {
 
   return (
     <main className="xb-operating-shell">
-      <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onSelect={module => { setClientInitialArea(undefined); if (module === "gerenciador") setManagerOpening(value => value + 1); setModuloAtivo(module); }} />
+      <ModuleNavigation company={slug} modules={modulosDisponiveis} active={moduloEmExibicao} onBack={crmBlocked ? undefined : backModule} onSelect={module => { setClientInitialArea(undefined); if (module === "gerenciador") setManagerOpening(value => value + 1); setModuloAtivo(module); }} />
 
       <section className={`xb-workspace${!moduloSelecionado ? " xb-workspace--welcome" : ""}`}>
         {!moduloSelecionado && <WorkspaceWelcome />}

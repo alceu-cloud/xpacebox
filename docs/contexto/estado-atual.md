@@ -2,6 +2,8 @@
 
 Última conferência desta base de contexto: 01/10/2026, America/Sao_Paulo. Este retrato reúne a documentação de continuidade do colega e a entrega de grade de tamanhos, relatório e cadastro de produtos desta conversa. Leia commits e mudanças posteriores antes de assumir que o retrato continua atual. A referência de atualização é a `main` corrente, nunca um hash congelado neste arquivo.
 
+Atualização de interface/navegação em 02/10/2026 abaixo. Ela não renova snapshots antigos de saldo, integrações ou dados do banco: nenhum dado operacional foi modificado ou reconferido nesta tarefa.
+
 ## Arquitetura e módulos
 
 XPACEBOX é SaaS multiempresa/modular em Next.js, React, TypeScript, Supabase Auth/Postgres/Storage e Vercel. Há ambientes/regras para XPACE, DAWOS, CARCAT e GTA. Preserve administração da plataforma separada das empresas, vínculos por usuário, módulos autorizados e isolamento de dados.
@@ -165,6 +167,18 @@ Alceu pediu um novo item opcional na Loja, tipo Linktree: R$19,90/mês no contex
 Helpers puros, validação preliminar de destinos e cinco testes novos preparados. Passaram 39 testes Node SaaS e dois suites SQL isolados, TypeScript, build otimizado e navegador com fixtures (desktop1440/mobile320/390 e Loja XPACE). Screenshot móvel inspecionado sem overflow; endereço preservado em minúsculas. `LINK_HUB` não integra ainda o pricebook, preferência ou quote: não mudar cobranças antigas silenciosamente. Nenhuma migration, escrita em produção, mensagem, conta/assinatura, callback ou cron financeiro alterado. Detalhes e etapas em `docs/saas-link-hub.md`. Lembrete local de uma execução criado para 02/10 às 09h Brasília, apenas para avisar da retomada, sem continuar sozinho.
 
 Ajuste visual de 02/10/2026 concluído separadamente, sem retomar a implementação comercial: Árvore de links com painel roxo e ícone ramificado no mesmo padrão de XPay/Mensagens, lateral no desktop e acima no celular. Preço/isenção/PREPARAÇÃO/prévia preservados. Regressão de 39 testes Node + dois suites SQL, TypeScript/build e navegador isolado (loja genérica1440/390/320, Loja XPACE1440/768/390/320) conferidos. Nenhuma API, migration, cobrança ou ativação alterada. As pendências abaixo continuam válidas; o ajuste de aparência não publica a página pública.
+
+## Planos e Pagamentos e navegação — 02/10/2026
+
+Pedido de Alceu: corrigir tela desalinhada, seguir botões/identidade existentes, colocar seta junto ao título superior e fazer Voltar retornar à tela anterior, enquanto a logo abre o início. Regra permanente incluída no `AGENTS.md` e detalhada em [Navegação](../navigation.md); entrada de leitura atualizada. Esses documentos ficam no Git, não há cópia desse contexto em tabela do banco.
+
+Planos e Pagamentos agora separa resumo, preferências e faturas, com botão roxo arredondado, ícones, menor espaço vazio e preços/observações/explicação recolhíveis. A interface explica PREPARATION: salvar preferências não contrata, não liga integração, não captura cartão e não cria fatura/cobrança. XPACE permanece isenta; medição faturável e homologação continuam pendentes. Não houve API financeira, migration, credencial, cron, integração ou escrita de clientes alterada.
+
+Revisados os cabeçalhos de XPACE, Config/Notificações, financeiro, XPay, app, central/usuários, outras empresas e páginas genéricas da loja/plano. Cabeçalho móvel tem duas linhas quando necessário, sem cortar título. Histórico de telas substitui destinos fixos; Config e módulos usam IDs na entrada de navegação da aba para recuperar o plano ao voltar da loja genérica. Logo reinicia o painel; logo XPACEBOX abre central. Bloqueio operacional obrigatório do CRM preservado. Isso não promete recuperar rascunhos ou todos os filtros internos dos módulos legados; formulário/modal mantém suas ações específicas. Plano pede confirmação para abandonar preferências não salvas.
+
+Testes locais nesta entrega: três testes puros de navegação; suite de navegador própria em1440/1024/768/390/320, incluindo seta única/título inteiro, caminho Loja→benefícios→conta, Config→notificações, níveis financeiros, preferência não salva, logo, plano→loja genérica→volta ao plano e fallback de link direto. Regressões SaaS (39 testes Node + dois suites SQL isolados e navegador), estoque (SQL/API/validação/relatório e navegador com grades/baixas), financeiro visual, app/semanas/presença e notificações DAWOS/XPACE aprovadas; também rolagem/pull-to-refresh e TypeScript/build. Screenshots desktop/celular inspecionados. Fixtures interceptam autenticação/APIs/provedores, sem movimentos, faturas ou envios reais. Scripts legados tiveram seletores ajustados e respostas de notificações completadas para corresponder ao contrato atual; falha de fixture não foi atribuída a dados reais.
+
+`BuildRevision` foi preservado, assim como alterações preexistentes `supabase/.temp/cli-latest` e `output/`. Publicação deve ser verificada separadamente por commit/deploy/revisão visível; provas autenticadas destas telas são locais. As pendências SaaS/Árvore de links abaixo continuam abertas: redesenho e regra de navegação não concluem sua implementação comercial.
 
 ## Nota temporária — continuação
 

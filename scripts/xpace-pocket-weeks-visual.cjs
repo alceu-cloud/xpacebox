@@ -8,7 +8,7 @@ const origin = process.env.TEST_ORIGIN || 'http://localhost:3007';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(origin).hostname));
 const out = path.join(os.tmpdir(),'xpace-pocket-weeks');
 fs.mkdirSync(out,{recursive:true});
-const publicUrl = fs.readFileSync('.env.local','utf8').match(/^NEXT_PUBLIC_SUPABASE_URL\s*=\s*["']?([^\s"']+)/m)?.[1];
+const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || fs.readFileSync('.env.local','utf8').match(/^NEXT_PUBLIC_SUPABASE_URL\s*=\s*["']?([^\s"']+)/m)?.[1];
 const project = new URL(publicUrl).hostname.split('.')[0];
 const user={id:'00000000-0000-4000-8000-000000000001',email:'fixture@example.test',aud:'authenticated',role:'authenticated',created_at:'2026-01-01T00:00:00Z',app_metadata:{provider:'email'},user_metadata:{}};
 const today='2026-09-30';
@@ -46,6 +46,7 @@ async function snapshot(page,name) {
             return route.abort();
           }
           if(url.pathname==='/api/empresas/xpace')return send({success:true,canAccessCentral:true});
+          if(url.pathname==='/api/notifications')return send({success:true,items:[],total:0,unread:0,issueCount:0,issueSignals:[],todayErrors:0,page:0,pageSize:2,snapshotAt:new Date().toISOString()});
           if(url.pathname==='/api/xpace/home')return send({success:true,metrics:{activeClients:1,newClientsThisMonth:1},notifications:{items:[],total:0,unread:0,page:0,pageSize:2,latestCreatedAt:null}});
           if(url.pathname==='/api/xpace/leads/signal')return send({success:true,latest:null});
           if(url.pathname==='/api/xpace/mobile/overview')return send({success:true,profileName:'EQUIPE',metrics:{trialsThisWeek:1,trialsNextWeek:2,activeClients:1,newClientsThisMonth:1,newLeadsThisMonth:1},notifications:[]});
@@ -81,15 +82,15 @@ async function snapshot(page,name) {
       assert.ok((await page.locator('.xp-detail-hero').innerText()).includes('SALA HISTÓRICA · PROFESSORA LIZBETH'));
       await page.getByRole('button',{name:'Marcar ALUNO HORÁRIO ARQUIVADO como compareceu'}).click();
       await page.locator('.xp-attendance .is-present').waitFor();
-      await page.getByRole('button',{name:'Voltar para os leads'}).click();
+      await page.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
       assert.ok((await cards.filter({hasText:'ALUNO HORÁRIO ARQUIVADO'}).getAttribute('class')).includes('is-present'));
       await cards.filter({hasText:'ALUNO HORÁRIO ARQUIVADO'}).click();failAttendance=true;
       await page.getByRole('button',{name:'Marcar ALUNO HORÁRIO ARQUIVADO como faltou'}).click();
       await page.getByRole('alert').getByText('Fixture: presença não salva').waitFor();
-      await page.getByRole('button',{name:'Voltar para os leads'}).click();
+      await page.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
       assert.ok((await cards.filter({hasText:'ALUNO HORÁRIO ARQUIVADO'}).getAttribute('class')).includes('is-present'));
       failAttendance=false;
-      await page.getByRole('button',{name:'Voltar',exact:true}).click();
+      await page.getByRole('button',{name:'Voltar à tela anterior',exact:true}).click();
       await page.getByRole('button',{name:'Agenda',exact:true}).click();
       await page.getByRole('button',{name:'Próxima semana',exact:true}).click();
       await page.getByRole('button',{name:'Dashboard',exact:true}).click();
