@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Clock3, MapPin, Music2, PartyPopper, Phone, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { classAudiences } from "@/lib/xpace/trial-schedule";
 
 type ClassLevel = "INICIANTE" | "INICIANTE_INTERMEDIARIO" | "INTERMEDIARIO" | "AVANCADO";
 type AgeGroup = "BABY" | "KIDS" | "TEENS" | "ADULTO";
@@ -9,7 +10,7 @@ type Slot = { classGroupId: string; classScheduleId: string; scheduledOn: string
 type LeadSource = { id: string; name: string };
 
 const classLevels: Array<{ value: ClassLevel; label: string }> = [{ value: "INICIANTE", label: "INICIANTE" }, { value: "INICIANTE_INTERMEDIARIO", label: "INICIANTE / INTERMEDIÁRIO" }, { value: "INTERMEDIARIO", label: "INTERMEDIÁRIO" }, { value: "AVANCADO", label: "AVANÇADO" }];
-const ageGroups: Array<{ value: AgeGroup; label: string }> = [{ value: "BABY", label: "BABY (4 A 6)" }, { value: "KIDS", label: "KIDS (7 A 11)" }, { value: "TEENS", label: "TEENS (12 A 17)" }, { value: "ADULTO", label: "ADULT (18+)" }];
+const ageGroups: Array<{ value: AgeGroup; label: string }> = classAudiences.map(item => ({ value: item.value, label: item.label.toLocaleUpperCase("pt-BR") }));
 
 export default function TrialBookingPage() {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -94,7 +95,7 @@ export default function TrialBookingPage() {
 
 function supportsSelectedLevel(slotLevel: ClassLevel, selectedLevel: ClassLevel | "") { return selectedLevel === "INICIANTE_INTERMEDIARIO" ? slotLevel === "INICIANTE" || slotLevel === "INICIANTE_INTERMEDIARIO" : Boolean(selectedLevel) && slotLevel === selectedLevel; }
 function classLevelLabel(level: ClassLevel) { return classLevels.find((item) => item.value === level)?.label ?? "INICIANTE"; }
-function ageGroupLabel(ageGroup: AgeGroup) { return ageGroups.find((item) => item.value === ageGroup)?.label ?? "ADULT (18+)"; }
+function ageGroupLabel(ageGroup: AgeGroup) { return ageGroups.find((item) => item.value === ageGroup)?.label ?? "ADULTO (17+)"; }
 function ageGroupsLabel(values: AgeGroup[]) { return values.map(ageGroupLabel).join(" · "); }
 function formatPhone(value: string) { const digits = value.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "").slice(0, 11); if (digits.length < 3) return digits ? `(${digits}` : ""; if (digits.length < 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`; if (digits.length < 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`; return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`; }
 function slotKey(slot: Slot) { return `${slot.classGroupId}:${slot.classScheduleId}:${slot.scheduledOn}`; }

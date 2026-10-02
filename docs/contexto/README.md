@@ -43,6 +43,9 @@ Os nomes não são orientação para recriar ou trocar chaves. Use configuraçõ
    - [Push no iPhone](../xpace-iphone-push.md).
    - [Presença em experimentais](../xpace-trial-midnight-attendance.md).
    - [Relatórios XPACE](../xpace-reports.md).
+   - [Grade de aulas, professores e salas](../xpace-teaching-workload.md).
+   - [Árvore de links](../xpace-link-tree.md).
+   - [Faltas, cota de experimentais e públicos](../xpace-trial-allowance.md).
    - [Prazos e e-mails DAWOS](../dawos-sample-deadlines.md).
    - [Notificações por empresa](../company-notifications.md).
    - [Identidade visual por empresa](../company-branding.md).

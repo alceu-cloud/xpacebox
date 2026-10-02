@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import BuildRevision from "@/components/BuildRevision";
+import { Link2 } from 'lucide-react';
+import LinkTreeWorkspace from '@/components/xpace-dance/LinkTreeWorkspace';
 import RefreshableScreen from "@/components/xpace-dance/RefreshableScreen";
 import StockWorkspace from "@/components/xpace-dance/StockWorkspace";
 import CommunityWorkspace from "@/components/xpace-dance/CommunityWorkspace";
@@ -39,11 +41,12 @@ const modules = [
   { icon: ClipboardList, title: "ADMINISTRATIVO", description: "Operação interna", accent: "violet" },
   { icon: SlidersHorizontal, title: "CONFIGURAÇÕES", description: "Preferências", accent: "lilac" },
   { icon: ShoppingBag, title: "LOJA", description: "Produtos e inscrições", accent: "blue" },
+  { icon: Link2, title: "ÁRVORE DE LINKS", description: "Divulgação e acessos", accent: "violet" },
 ];
 
 export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccessCentral: boolean; onExit: () => Promise<void> }) {
   const router = useRouter();
-  const [screen, setScreen] = useState<"HOME" | "REPORTS" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "STOCK" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT" | "MESSAGE_CONNECTOR">("HOME");
+  const [screen, setScreen] = useState<"HOME" | "REPORTS" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "STOCK" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT" | "MESSAGE_CONNECTOR" | "LINK_TREE">("HOME");
   const [profileId, setProfileId] = useState("");
   const [leadId, setLeadId] = useState("");
   const [reportActions, setReportActions] = useState(false);
@@ -72,7 +75,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
     document.addEventListener("visibilitychange", checkConnector);
     return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", checkConnector); };
   }, []);
-  const activeModule = screen === "REPORTS" ? "RELATÓRIOS" : screen === "DASHBOARD" ? "DASHBOARD" : screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "STOCK" ? "ESTOQUE" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "LOJA" : null;
+  const activeModule = screen === "LINK_TREE" ? "ÁRVORE DE LINKS" : screen === "REPORTS" ? "RELATÓRIOS" : screen === "DASHBOARD" ? "DASHBOARD" : screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "STOCK" ? "ESTOQUE" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "LOJA" : null;
   const returnScreen = screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVE" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "STORE" : "HOME";
   const returnTitle = screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "Voltar ao Administrativo" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "Voltar à Loja" : "Voltar ao Painel";
 
@@ -93,6 +96,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   if (screen === "AGENDA") return <RefreshableScreen screenKey={screen}>{topbar}<AgendaWorkspace /></RefreshableScreen>;
   if (screen === "FINANCE") return <RefreshableScreen screenKey={screen}>{topbar}<FinanceWorkspace /></RefreshableScreen>;
   if (screen === "STOCK") return <RefreshableScreen screenKey={screen}>{topbar}<StockWorkspace /></RefreshableScreen>;
+  if (screen === "LINK_TREE") return <RefreshableScreen screenKey={screen}>{topbar}<LinkTreeWorkspace /></RefreshableScreen>;
   if (screen === "STORE") return <RefreshableScreen screenKey={screen}>{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onOpenMessages={() => setScreen("MESSAGE_CONNECTOR")} /></RefreshableScreen>;
   if (screen === "MESSAGE_CONNECTOR") return <RefreshableScreen screenKey={screen}>{topbar}<MessageConnectorWorkspace /></RefreshableScreen>;
   if (screen === "XPAY_BENEFITS") return <RefreshableScreen screenKey={screen}>{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></RefreshableScreen>;
@@ -133,7 +137,7 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
     <XpaceHomeOverview onPreferences={() => { setNotificationSettings(true); setScreen("SETTINGS"); }} onOpen={notice => { if (notice.leadId) { setLeadId(notice.leadId); setScreen("CRM"); } else if (notice.studentId && notice.target === "COMMUNITY") { setProfileId(notice.studentId); setScreen("PROFILE"); } else if (notice.target === "MESSAGE_CONNECTOR") setScreen("MESSAGE_CONNECTOR"); else if (notice.target === "FINANCE") setScreen("FINANCE"); else setScreen("SETTINGS"); }} />
 
     <section className="xd-modules" aria-label="Módulos da XPACE Escola de Dança">
-      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "DASHBOARD", "RELATÓRIOS", "CRM", "AGENDA", "FINANCEIRO", "ESTOQUE", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "CLIENTES" ? setScreen("COMMUNITY") : title === "DASHBOARD" ? setScreen("DASHBOARD") : title === "RELATÓRIOS" ? openReports() : title === "CRM" ? openCrm() : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ESTOQUE" ? setScreen("STOCK") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
+      {modules.map(({ icon: Icon, title, description, accent }) => <button className={`xd-module xd-module--${accent}`} type="button" key={title} title={`${title}: ${["CLIENTES", "DASHBOARD", "RELATÓRIOS", "CRM", "AGENDA", "FINANCEIRO", "ESTOQUE", "ADMINISTRATIVO", "CONFIGURAÇÕES", "LOJA", "ÁRVORE DE LINKS"].includes(title) ? "abrir módulo" : "em preparação"}`} onClick={() => title === "ÁRVORE DE LINKS" ? setScreen("LINK_TREE") : title === "CLIENTES" ? setScreen("COMMUNITY") : title === "DASHBOARD" ? setScreen("DASHBOARD") : title === "RELATÓRIOS" ? openReports() : title === "CRM" ? openCrm() : title === "AGENDA" ? setScreen("AGENDA") : title === "FINANCEIRO" ? setScreen("FINANCE") : title === "ESTOQUE" ? setScreen("STOCK") : title === "ADMINISTRATIVO" ? setScreen("ADMINISTRATIVE") : title === "CONFIGURAÇÕES" ? setScreen("SETTINGS") : title === "LOJA" ? setScreen("STORE") : undefined}>
         <span className="xd-module-icon"><Icon size={20} aria-hidden="true" /></span>
         <span className="xd-module-copy"><strong>{title === "ADMINISTRATIVO" ? "ADM" : title === "CONFIGURAÇÕES" ? "Config" : title}</strong><small>{description}</small></span>
         <ArrowUpRight className="xd-module-arrow" size={17} aria-hidden="true" />

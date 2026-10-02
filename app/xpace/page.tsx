@@ -16,6 +16,10 @@ export default function XpacePage() {
   useEffect(() => {
     async function checkAccess() {
       const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const profile=await supabase.from("profiles").select("platform_role").eq("id",session.user.id).maybeSingle();
+        if(profile.data?.platform_role === "company_teacher"){router.replace("/xpace/professor");return;}
+      }
       if (!session) {
         router.replace("/login");
         return;

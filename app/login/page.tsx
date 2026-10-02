@@ -61,6 +61,7 @@ export default function LoginPage() {
       return;
     }
 
+    if (perfil.platform_role === 'company_teacher') { router.replace('/xpace/professor'); return; }
     if (perfil.platform_role === "platform_owner") {
       router.replace("/");
       return;

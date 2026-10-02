@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, CircleCheck, CircleX, MapPinned, Plus, Tags, Wall
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { RoomRates } from "./TeachingWorkspace";
 import NotificationPreferencesPanel from "@/components/notifications/NotificationPreferencesPanel";
 
 type Profile = {
@@ -24,10 +25,11 @@ const empty: Profile = {
 };
 
 export default function SettingsWorkspace({ startWithNotifications = false }: { startWithNotifications?: boolean }) {
-  const [view, setView] = useState<"HOME" | "PROFILE_MENU" | "CRM_MENU" | "FINANCE_MENU" | "SCHOOL_PROFILE" | "CRM_REASONS" | "EXPENSE_CATEGORIES" | "NOTIFICATIONS">(startWithNotifications ? "NOTIFICATIONS" : "HOME");
+  const [view, setView] = useState<"HOME" | "PROFILE_MENU" | "CRM_MENU" | "FINANCE_MENU" | "SCHOOL_PROFILE" | "CRM_REASONS" | "EXPENSE_CATEGORIES" | "NOTIFICATIONS" | "ROOM_RATES">(startWithNotifications ? "NOTIFICATIONS" : "HOME");
 
   if (view === "NOTIFICATIONS") return <section className="xd-administration"><button type="button" className="xd-settings-back" onClick={() => setView("HOME")} aria-label="Voltar para Configurações"><ArrowLeft size={18} /></button><NotificationPreferencesPanel slug="xpace" /></section>;
 
+  if (view === "ROOM_RATES") return <section className="xd-administration"><button className="xd-settings-back" onClick={() => setView("FINANCE_MENU")} aria-label="Voltar para Financeiro"><ArrowLeft size={18}/></button><RoomRates/></section>;
   if (view === "SCHOOL_PROFILE") return <SchoolProfile onBack={() => setView("PROFILE_MENU")} />;
   if (view === "CRM_REASONS") return <CrmRegistries onBack={() => setView("CRM_MENU")} />;
   if (view === "EXPENSE_CATEGORIES") return <ExpenseCategories onBack={() => setView("FINANCE_MENU")} />;
@@ -37,7 +39,7 @@ export default function SettingsWorkspace({ startWithNotifications = false }: { 
       : view === "CRM_MENU" ? { title: "CRM", description: "Cadastros usados no relacionamento com leads.", icon: MapPinned, item: "MOTIVOS DE GANHO/PERDA", detail: "Motivos e origens do lead", next: "CRM_REASONS" as const }
       : { title: "FINANCEIRO", description: "Parâmetros dos lançamentos da escola.", icon: WalletCards, item: "CATEGORIAS DE DESPESA", detail: "Organize as contas a pagar", next: "EXPENSE_CATEGORIES" as const };
     const Icon = menu.icon;
-    return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><button type="button" className="xd-settings-back" onClick={() => setView("HOME")} aria-label="Voltar para Configurações"><ArrowLeft size={18} /></button><div><span>CONFIGURAÇÕES</span><h1>{menu.title}.</h1><p>{menu.description}</p></div></header><div className="xd-administration-grid xd-administration-grid--single"><button type="button" className="xd-administration-card" onClick={() => setView(menu.next)}><span><Icon size={22} /></span><strong>{menu.item}</strong><small>{menu.detail}</small></button></div></section>;
+    return <section className="xd-administration"><header className="xd-administration-title xd-settings-title-with-action"><button type="button" className="xd-settings-back" onClick={() => setView("HOME")} aria-label="Voltar para Configurações"><ArrowLeft size={18} /></button><div><span>CONFIGURAÇÕES</span><h1>{menu.title}.</h1><p>{menu.description}</p></div></header><div className="xd-administration-grid xd-administration-grid--single"><button type="button" className="xd-administration-card" onClick={() => setView(menu.next)}><span><Icon size={22} /></span><strong>{menu.item}</strong><small>{menu.detail}</small></button>{view === "FINANCE_MENU" ? <button type="button" className="xd-administration-card" onClick={() => setView("ROOM_RATES")}><span><WalletCards size={22}/></span><strong>VALOR DAS SALAS</strong><small>Preço por hora de reserva</small></button> : null}</div></section>;
   }
 
   return <section className="xd-administration">

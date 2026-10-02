@@ -54,7 +54,7 @@ const imports = admin => ({
 (async () => {
   assert.deepEqual(trial.trialScheduleDetails(null),{level:'',ageGroups:[]});
   assert.deepEqual(trial.trialScheduleDetails({class_level:'AVANCADO',age_groups:['TEENS','KIDS','TEENS']}),{level:'AVANCADO',ageGroups:['KIDS','TEENS']});
-  assert.equal(trial.trialClassLabel('AVANCADO',['KIDS','TEENS']),'Nível: Avançado · Público: Kids (7 a 11) / Teens (12 a 17)');
+  assert.equal(trial.trialClassLabel('AVANCADO',['KIDS','TEENS']),'Nível: Avançado · Público: Kids (7 a 11) / Teens (12 a 16)');
   assert.equal(trial.trialClassLabel('',[]),'');
   for (const [now,from,to,end] of [
     ['2026-09-30T12:00:00Z','2026-09-28','2026-10-05','2026-10-12'],

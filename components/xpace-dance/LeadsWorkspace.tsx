@@ -5,6 +5,7 @@ import { DragEvent, FormEvent, Fragment, useEffect, useMemo, useState } from "re
 
 import { supabase } from "@/lib/supabase";
 import { trialClassLabel } from "@/lib/xpace/trial-schedule";
+import { countsTowardTrialAllowance } from "@/lib/xpace/trial-allowance";
 
 const stages = ["NOVO", "ATENDIMENTO", "AULA_EXPERIMENTAL", "NEGOCIACAO", "GANHO", "PERDIDO"] as const;
 const stageLabel: Record<string, string> = { NOVO: "NOVOS", ATENDIMENTO: "ATENDIMENTO", AULA_EXPERIMENTAL: "EXPERIMENTAL", NEGOCIACAO: "NEGOCIAÇÃO", GANHO: "GANHOS", PERDIDO: "PERDIDOS" };
@@ -83,7 +84,7 @@ function LeadDetail({ lead, workspace, onClose, onAction, onDelete }: { lead: Le
   const latestAppointment = appointments[0];
   const whatsappBlocked = Boolean(latestAppointment && latestAppointment.whatsapp_opt_in !== true && !latestAppointment.whatsapp_legacy_allowed_at);
   const legacyWhatsapp = Boolean(latestAppointment?.whatsapp_legacy_allowed_at && !latestAppointment.whatsapp_opt_in);
-  const trialPhone = phone(lead.mobile); const leadIdsWithSamePhone = new Set(workspace.leads.filter((item) => trialPhone && phone(item.mobile) === trialPhone).map((item) => item.id)); const usedTrialCount = trialPhone ? workspace.appointments.filter((item) => leadIdsWithSamePhone.has(item.lead_id) && item.booking_kind === "NOVO" && item.attendance_status !== "CANCELADO").length : 0; const sameModalityUsed = Boolean(selectedGroup && workspace.appointments.some((item) => leadIdsWithSamePhone.has(item.lead_id) && item.booking_kind === "NOVO" && item.attendance_status !== "CANCELADO" && item.modality_name_snapshot?.trim().toLocaleLowerCase("pt-BR") === selectedGroup.modality.trim().toLocaleLowerCase("pt-BR"))); const requiresTrialOverride = booking.bookingKind === "NOVO" && (usedTrialCount >= 2 || sameModalityUsed);
+  const trialPhone = phone(lead.mobile); const leadIdsWithSamePhone = new Set(workspace.leads.filter((item) => trialPhone && phone(item.mobile) === trialPhone).map((item) => item.id)); const usedTrialCount = trialPhone ? workspace.appointments.filter((item) => leadIdsWithSamePhone.has(item.lead_id) && countsTowardTrialAllowance(item)).length : 0; const sameModalityUsed = Boolean(selectedGroup && workspace.appointments.some((item) => leadIdsWithSamePhone.has(item.lead_id) && countsTowardTrialAllowance(item) && item.modality_name_snapshot?.trim().toLocaleLowerCase("pt-BR") === selectedGroup.modality.trim().toLocaleLowerCase("pt-BR"))); const requiresTrialOverride = booking.bookingKind === "NOVO" && (usedTrialCount >= 2 || sameModalityUsed);
   useEffect(() => { setStage(lead.pipeline_stage); setFullName(lead.full_name); setMobile(formatLeadPhone(lead.mobile ?? "")); setEmail(lead.email ?? ""); setSourceId(lead.source_id ?? ""); setAssignedTo(lead.assigned_to ?? ""); setLossReasonId(lead.loss_reason_id ?? ""); setWinReasonId(lead.win_reason_id ?? ""); setLossNote(lead.loss_note ?? ""); setShowTrialOverride(false); }, [lead]);
   async function createAppointment(trialLimitOverride = false) { const saved = await onAction({ action: "CREATE_APPOINTMENT", appointment: { ...booking, leadId: lead.id, trialLimitOverride } }, trialLimitOverride ? "AULA COM TAXA LIBERADA E AGENDADA." : "AULA EXPERIMENTAL AGENDADA."); if (saved) setShowTrialOverride(false); }
   const [deleteError, setDeleteError] = useState("");

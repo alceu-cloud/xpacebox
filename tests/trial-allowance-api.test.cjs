@@ -1,0 +1,22 @@
+// Isolated public booking fixtures; no provider calls or production database.
+const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');const ts=require('typescript');
+function load(file,imports={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>{if(n in imports)return imports[n];throw Error('Unexpected import '+n)},Date,Intl,URL,console});return exports}
+const allowance=load('lib/xpace/trial-allowance.ts');
+assert.equal(allowance.countsTowardTrialAllowance({booking_kind:'NOVO',attendance_status:'FALTOU'}),false);
+assert.equal(allowance.countsTowardTrialAllowance({booking_kind:'NOVO',attendance_status:'CANCELADO'}),false);
+assert.equal(allowance.countsTowardTrialAllowance({booking_kind:'NOVO',attendance_status:'COMPARECEU'}),true);
+assert.equal(allowance.countsTowardTrialAllowance({booking_kind:'NOVO',attendance_status:'AGENDADO'}),true);
+const audiences=require('../lib/xpace/trial-schedule.ts');
+assert.equal(audiences.trialClassLabel('INICIANTE',['TEENS','ADULTO']),'Nível: Iniciante · Público: Teens (12 a 16) / Adulto (17+)');
+const tables={companies:[{id:'tenant',slug:'xpace',active:true}],xpace_lead_sources:[{id:'source',tenant_company_id:'tenant',active:true,name:'Internet'}],xpace_class_groups:[{id:'group',tenant_company_id:'tenant',active:true,name:'Teens',modality:'Teens',settings:{allowLeads:true}}],xpace_class_schedules:[{id:'schedule',tenant_company_id:'tenant',class_group_id:'group',weekday:1,active:true,starts_at:'19:00',ends_at:'20:00',settings:{allowLeads:true}}],xpace_leads:[{id:'lead',tenant_company_id:'tenant',mobile:'47999999999',created_at:'2026-01-01',source_id:'source'}]};
+function admin(trials){const calls=[];return{calls,from(table){const call={table,filters:[],operation:'select'},q={};for(const method of ['select','insert','update','eq','neq','in','order','limit','single','maybeSingle'])q[method]=(...args)=>{if(['insert','update'].includes(method)){call.operation=method;call.value=args[0]}if(['eq','neq','in'].includes(method))call.filters.push([method,...args]);if(['single','maybeSingle'].includes(method))call.one=true;return q};q.then=(yes,no)=>{calls.push(call);let rows=table==='xpace_lead_appointments'?trials:tables[table]??[];rows=rows.filter(row=>call.filters.every(([m,k,v])=>m==='eq'?row[k]===v:m==='neq'?row[k]!==v:v.includes(row[k])));return Promise.resolve({data:call.operation==='insert'?{id:'new'}:call.one?rows[0]??null:rows,error:null}).then(yes,no)};return q}}}
+(async()=>{
+const row=(status,modality='Teens')=>({id:status+modality,tenant_company_id:'tenant',lead_id:'lead',booking_kind:'NOVO',attendance_status:status,modality_name_snapshot:modality});
+for(const [trials,expected]of[[[row('FALTOU'),row('FALTOU')],201],[[row('COMPARECEU','Jazz'),row('FALTOU')],201],[[row('COMPARECEU','Jazz'),row('AGENDADO','Heels')],409],[[row('COMPARECEU')],409]]){
+ const fixture=admin(trials),api=load('app/api/public/xpace/aula-experimental/route.ts',{'next/server':{after:()=>{},NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},'@/lib/server/supabase-admin':{createSupabaseAdmin:()=>fixture},'@/lib/server/xpace-web-push':{sendNewAppointmentPush:()=>{}},'@/lib/server/xpace-automatic-messages':{queueTrialInstructorMessage:async()=> 'QUEUED',queueTrialMessages:async()=>{}},'@/lib/xpace/natural-sort':{sortNaturally:rows=>rows}});
+ const now=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());let scheduledOn=now;while(new Date(scheduledOn+'T12:00:00Z').getUTCDay()!==1){const next=new Date(scheduledOn+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);scheduledOn=next.toISOString().slice(0,10)}
+ const response=await api.POST({json:async()=>({fullName:'Pessoa fixture',mobile:'47999999999',email:'fixture@example.test',sourceId:'source',classGroupId:'group',classScheduleId:'schedule',scheduledOn,whatsappOptIn:false})});
+ assert.equal(response.status,expected,JSON.stringify(response.body));assert.equal(fixture.calls.some(c=>c.table==='xpace_lead_appointments'&&c.operation==='insert'),expected===201);
+}
+console.log('Trial allowance API: PASS (public retries after absences, presence and pending limits, shared age labels).');
+})().catch(error=>{console.error(error);process.exitCode=1});

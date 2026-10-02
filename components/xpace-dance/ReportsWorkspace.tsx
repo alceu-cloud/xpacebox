@@ -8,10 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { attendanceTone, modalityAction, professorAction, professorSample, rate, type TrialGroup, type TrialRecord, type TrialReport, type TrialStats } from "@/lib/xpace/report-metrics";
 import type { HistoryMonth } from "@/lib/server/xpace-report-history";
 import ConversionWorkspace from "./ConversionWorkspace";
+import TeachingWorkspace from "./TeachingWorkspace";
 import StockReportWorkspace from "./StockReportWorkspace";
 import { dateInSaoPaulo } from "@/lib/xpace/dashboard-metrics";
 
-type Section = "ACOES" | "COMPARECIMENTO" | "CONVERSAO" | "PROFESSORES" | "EXPERIMENTAIS" | "METAS" | "FINANCEIRO" | "ORIGEM" | "ESTOQUE";
+type Section = "ACOES" | "COMPARECIMENTO" | "CONVERSAO" | "PROFESSORES" | "EXPERIMENTAIS" | "METAS" | "FINANCEIRO" | "ORIGEM" | "ESTOQUE" | "AULAS";
 type SystemMonth = { month: string; future: boolean; partial: boolean; active: number | null; newClients: number | null; churn: number | null; salesCents: number | null; ticketCents: number | null; revenueCents: number | null };
 type Payload = { success: true; from: string; to: string; today: string; report: Omit<TrialReport, "records">; history: Array<HistoryMonth & { fullMonth: boolean }>; systemMonths: SystemMonth[]; transition: boolean; historySource: { file: string; inspectedOn: string }; historySources: Array<{ name: string; count: number }>; historyDestinations: Array<{ name: string; count: number }> };
 type DetailSelection = { group: "month" | "modality" | "instructor" | "all"; key: string; label: string };
@@ -22,6 +23,7 @@ const tabs: Array<{ id: Section; label: string; icon: typeof BarChart3 }> = [
   { id: "PROFESSORES", label: "PROFESSORES", icon: GraduationCap }, { id: "EXPERIMENTAIS", label: "EXPERIMENTAIS", icon: CalendarDays },
   { id: "METAS", label: "METAS E RETENÇÃO", icon: Target }, { id: "FINANCEIRO", label: "FINANCEIRO GERENCIAL", icon: WalletCards },
   { id: "ORIGEM", label: "ORIGEM E DESTINO", icon: UsersRound },
+  { id: "AULAS", label: "AULAS E RESERVAS", icon: CalendarDays },
   { id: "ESTOQUE", label: "ESTOQUE · ENTRADAS E BAIXAS", icon: Package },
 ];
 const green = "#25835a", red = "#be425b", violet = "#7134b2", amber = "#bd8421";
@@ -61,7 +63,7 @@ export default function ReportsWorkspace({ onOpenLead = () => {}, startWithActio
     catch (cause) { if (!signal.aborted) setError(cause instanceof Error ? cause.message : "Falha no carregamento."); }
     finally { if (!signal.aborted) setLoading(false); }
   }, [period, request]);
-  const separateReport = section === "ACOES" || section === "ESTOQUE";
+  const separateReport = section === "ACOES" || section === "ESTOQUE" || section === "AULAS";
   useEffect(() => { if (separateReport) return; const controller = new AbortController(); setPayload(null); void load(controller.signal); return () => controller.abort(); }, [load, separateReport]);
   useEffect(() => () => refreshRequest.current?.abort(), []);
   function refresh() { refreshRequest.current?.abort(); const controller = new AbortController(); refreshRequest.current = controller; void load(controller.signal); }
@@ -80,13 +82,13 @@ export default function ReportsWorkspace({ onOpenLead = () => {}, startWithActio
 
   return <section className="xdd-workspace xpr-workspace">
     <header className="xdd-heading"><div><span>ACOMPANHAMENTO · XPACE</span><h1>Relatórios<span>.</span></h1><p>Entenda os números, investigue os resultados e planeje suas ações.</p></div>{!separateReport ? <button type="button" className="xdd-refresh" disabled={loading} onClick={refresh} aria-label="Atualizar relatórios"><RefreshCw size={16} aria-hidden="true" /> Atualizar</button> : null}</header>
-    <form className="xdd-period" onSubmit={(event) => { event.preventDefault(); if (from > to) { setPeriodError("A data inicial deve ser anterior à final."); return; } setPeriodError(""); refreshRequest.current?.abort(); setDetail(null); setPeriod({ from, to }); }}>
+    {section !== 'AULAS' ? <form className="xdd-period" onSubmit={(event) => { event.preventDefault(); if (from > to) { setPeriodError("A data inicial deve ser anterior à final."); return; } setPeriodError(""); refreshRequest.current?.abort(); setDetail(null); setPeriod({ from, to }); }}>
       <div><CalendarDays size={18} aria-hidden="true" /><span>PERÍODO DE ANÁLISE</span></div><label>DE<input type="date" required value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>ATÉ<input type="date" required value={to} onChange={(e) => setTo(e.target.value)} /></label><button type="submit">APLICAR</button><small>{section === "ESTOQUE" ? "Movimentações usam a data do lançamento, no horário de Brasília." : "Experimentais usam a data da aula. Histórico manual permanece identificado."}</small>
-    </form>
+    </form> : null}
     <nav className="xdd-tabs xpr-tabs" aria-label="Áreas dos relatórios">{tabs.map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-pressed={section === id} className={section === id ? "is-active" : ""} onClick={() => setSection(id)}><Icon size={17} aria-hidden="true" />{label}</button>)}</nav>
     {periodError ? <p className="xdd-alert" role="alert">{periodError}</p> : null}
     {section === "ACOES" ? <ConversionWorkspace from={period.from} to={period.to} onOpenLead={onOpenLead} /> : null}
-    {section === "ESTOQUE" ? <StockReportWorkspace from={period.from} to={period.to} /> : null}
+    {section === "AULAS" ? <TeachingWorkspace reportOnly /> : null}{section === "ESTOQUE" ? <StockReportWorkspace from={period.from} to={period.to} /> : null}
     {!separateReport && error ? <div className="xdd-alert" role="alert"><CircleAlert size={18} aria-hidden="true" />{error}<button type="button" onClick={refresh}>Tentar novamente</button></div> : null}
     {!separateReport && loading ? <div className="xdd-loading" role="status">CARREGANDO RELATÓRIOS...</div> : null}
     {!separateReport && !loading && !error && report && payload ? <div className="xdd-content">

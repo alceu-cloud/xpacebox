@@ -78,6 +78,7 @@ export default function UserForm({
             <option value="company_user">USUARIO</option>
             <option value="company_manager">GERENTE</option>
             <option value="platform_owner">ADMINISTRADOR</option>
+            {modoEdicao&&cargo==='company_teacher'?<option value="company_teacher">PROFESSOR · ACESSO RESTRITO</option>:null}
           </select>
         </label>
       </div>

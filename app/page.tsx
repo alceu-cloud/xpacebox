@@ -24,6 +24,7 @@ export default function HomePage() {
     if (!user) { router.replace("/login"); return; }
     const { data: profile } = await supabase.from("profiles").select("platform_role").eq("id", user.id).single();
     const userRole = profile?.platform_role ?? "company_user";
+    if (userRole === 'company_teacher') { router.replace('/xpace/professor'); return; }
     setRole(userRole);
     if (userRole === "platform_owner") {
       const { data } = await supabase.from("companies").select("id, name, slug").eq("active", true).order("name");

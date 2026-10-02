@@ -1,6 +1,6 @@
 import { createSupabaseAdmin, createSupabaseAuth } from "@/lib/server/supabase-admin";
 
-export async function requireCompanyAccess(request: Request, slug: string) {
+export async function requireCompanyAccess(request: Request, slug: string, options: { allowTeacher?: boolean } = {}) {
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) {
     throw new AccessError("SESSAO NAO ENCONTRADA.", 401);
@@ -36,7 +36,16 @@ export async function requireCompanyAccess(request: Request, slug: string) {
   if (!profile) throw new AccessError("SEU USUÁRIO NÃO POSSUI PERFIL DE ACESSO CADASTRADO.", 403);
   if (!profile.active) throw new AccessError("SEU USUÁRIO ESTÁ DESATIVADO. PEÇA A UM GESTOR PARA REATIVÁ-LO.", 403);
 
-  if (profile.platform_role !== "platform_owner") {
+  let teacherInstructorId: string | null = null;
+  if (profile.platform_role === 'company_teacher') {
+    if (!options.allowTeacher) throw new AccessError('O PERFIL DE PROFESSOR ACESSA APENAS GRADE, OCUPAÇÃO E RESERVA.',403);
+    const { data: binding, error: bindingError } = await admin.from('xpace_teacher_access').select('instructor_id').eq('profile_id',data.user.id).eq('tenant_company_id',company.id).eq('active',true).maybeSingle();
+    if (bindingError) throw new AccessError('NÃO FOI POSSÍVEL VALIDAR O ACESSO DO PROFESSOR.',503);
+    if (!binding) throw new AccessError('PROFESSOR SEM VÍNCULO ATIVO COM A ESCOLA.',403);
+    const instructor = await admin.from('xpace_instructors').select('id').eq('id',binding.instructor_id).eq('tenant_company_id',company.id).eq('active',true).maybeSingle();
+    if (instructor.error || !instructor.data) throw new AccessError('CADASTRO DE PROFESSOR INATIVO.',403);
+    teacherInstructorId=binding.instructor_id;
+  } else if (profile.platform_role !== "platform_owner") {
     const { data: membership } = await admin
       .from("company_members")
       .select("company_id")
@@ -48,7 +57,7 @@ export async function requireCompanyAccess(request: Request, slug: string) {
     if (!membership) throw new AccessError("SEM ACESSO A ESTA EMPRESA.", 403);
   }
 
-  return { admin, company, user: data.user, profile };
+  return { admin, company, user: data.user, profile, teacherInstructorId };
 }
 
 export async function requireCompanyProfile(

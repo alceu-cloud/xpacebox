@@ -300,7 +300,7 @@ export async function POST(request: Request) {
 
     }
 
-    if (empresa) {
+    if (empresa && cargo !== 'company_teacher') {
       const { data: company, error: companyError } = await supabaseAdmin
         .from("companies")
         .select("id")

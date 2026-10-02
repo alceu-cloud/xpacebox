@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     if (leadLookupError) throw leadLookupError;
     const existingLeadIds = (existingLeads ?? []).map((lead) => lead.id);
     if (existingLeadIds.length) {
-      const { data: previousTrials, error: previousCountError } = await admin.from("xpace_lead_appointments").select("id,modality_name_snapshot").eq("tenant_company_id", company.id).in("lead_id", existingLeadIds).eq("booking_kind", "NOVO").neq("attendance_status", "CANCELADO");
+      const { data: previousTrials, error: previousCountError } = await admin.from("xpace_lead_appointments").select("id,modality_name_snapshot").eq("tenant_company_id", company.id).in("lead_id", existingLeadIds).eq("booking_kind", "NOVO").neq("attendance_status", "CANCELADO").neq("attendance_status", "FALTOU");
       if (previousCountError) throw previousCountError;
       if ((previousTrials?.length ?? 0) >= 2) throw new PublicError("ESTE TELEFONE JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. PARA UMA NOVA AULA, FALE COM A EQUIPE XPACE.", 409);
       if (previousTrials?.some((trial) => trial.modality_name_snapshot?.trim().toLocaleLowerCase("pt-BR") === snapshot.modality.trim().toLocaleLowerCase("pt-BR"))) throw new PublicError("VOCÊ JÁ FEZ UMA EXPERIMENTAL NESTA MODALIDADE. A SEGUNDA AULA GRATUITA DEVE SER EM OUTRA MODALIDADE.", 409);

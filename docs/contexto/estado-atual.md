@@ -125,6 +125,22 @@ Pedido adicional de 01/10/2026: no computador, alinhar `PRODUTOS`, pesquisa, cat
 
 Publicação funcional comprovada em 01/10/2026: push à `main` confirmado e status Vercel `success` para `xpacebox/pricing-app-1`. `/xpace` e `/xpace/app` responderam HTTP 200; os arquivos públicos em produção continham a revisão da entrega, a lista/pesquisa por nome, o seletor desktop e a barra alinhada. A conferência foi somente de leitura, sem sessão, dados ou mensagens reais; testes de operação autenticada/alerta físico continuam sujeitos às provas já descritas. Não confundir confirmação dos arquivos publicados com movimentação real de estoque.
 
+## Preparação local — aulas, salas, experimentais e árvore de links (02/10/2026)
+
+Alceu pediu explicitamente **não commitar/publicar antes da validação**, e esperar o colega terminar antes de buscar/integrar seus commits. Trabalhar na cópia isolada `C:/Users/User/Documents/Codex/2026-10-01/ola/work/xpacebox-product-list`, branch `feat/stock-product-list-20261001`; preservar a cópia do colega e a nota SaaS abaixo. Não interpretar o pedido anterior de commit do estoque como autorização para este pacote.
+
+Código/telas preparados localmente: Agenda → Grade de aulas; recorrência/atribuição por data, valor completo por aula e conferência mensal; perfil/PWA de professor com apenas Grade, Ocupação e Reserva; QR de sala com login/janela/idempotência; preços de salas R$ 35/h e reserva proporcional/atômica; cancelamento com cobrança decidida pela equipe; relatório sem integração automática ao financeiro. Planilha lida sem alterá-la, Cobranças ignorada e sem importação histórica automática. Detalhes/decisões: [aulas e salas](../xpace-teaching-workload.md).
+
+Experimentais: faltas liberam a cota, preservando identidade por telefone, agendamentos pendentes e job da meia-noite. Teens 12–16 e Adulto 17+ centralizados, preservando responsável de menor de 18 anos. [Regra e testes](../xpace-trial-allowance.md).
+
+Árvore de links: módulo com Links/Aparência/Estatísticas, criação/edição, switches, ordem, copiar endereço, upload de logo, prévia e página pública; acessos/visitantes anônimos/cliques por período. [Detalhes](../xpace-link-tree.md). Não foram copiados dados/estatísticas dos prints para o cadastro.
+
+Três migrations locais pendentes: `20261002134706_xpace_trial_absences_preserve_allowance.sql`, `20261002140248_xpace_link_tree.sql` e `20261002141514_xpace_teaching_and_room_reservations.sql`. Nenhuma aplicada em produção. APIs, SQL PostgreSQL WASM, TypeScript, build, regressão de estoque e navegador 320/390/1440 com dados fictícios foram conferidos; instalação/QR em aparelho físico e dados reais continuam para a validação autorizada. Não criar contas reais, enviar mensagens ou cobranças para demonstrar.
+
+Esquema/histórico Supabase foram consultados somente por leitura. Existe migration remota de reagendamento posterior à base local; seu trigger separado foi preservado. Git do colega ainda não foi integrado. Antes de entrega/publicação: reconferir remoto, revisar conflitos sobretudo nos guards de acesso/Agenda/Professores/Configurações, repetir validações e revisar/aplicar somente as migrations pendentes conforme autorização vigente.
+
+Decisões sem resposta, autorizadas pelo usuário: QR/presença de 15 minutos antes até 30 depois; pagamento ao professor efetivo; cancelada sem pagamento automático; conferência mensal manual/reabertura com motivo; sem histórico automático da planilha; reservas no mesmo dia, até 12 horas, até 366 dias. O usuário pode alterar essas decisões antes do commit. QR não comprova presença física e número de visitantes é estimativa por navegador.
+
 ## Nota temporária — continuação
 
 Checkpoint de 01/10/2026: conversa interrompida para alinhar a passagem, não por esgotamento de crédito. A última consulta mostrava 48% disponíveis na janela de cinco horas. Essa porcentagem é histórica e deve ser consultada novamente ao retomar.
