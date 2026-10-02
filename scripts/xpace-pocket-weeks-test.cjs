@@ -10,7 +10,7 @@ function moduleFrom(file, imports, now = '2026-09-30T12:00:00Z') {
   const exports = {};
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return Date.parse(now); } }
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  vm.runInNewContext(source, { exports, require: name => { if (name in imports) return imports[name]; throw Error('Unexpected import: ' + name); }, Date: Clock, Intl, URL, console });
+  vm.runInNewContext(source, { exports, require: name => { if (name in imports) return imports[name]; if (['@/lib/xpace/trial-rebooking','@/lib/server/xpace-trial-rebooking'].includes(name)) return moduleFrom(name.replace('@/','')+'.ts',{...imports,'server-only':{}},now); throw Error('Unexpected import: ' + name); }, Date: Clock, Intl, URL, console });
   return exports;
 }
 function fakeAdmin(tables) {

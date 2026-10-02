@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Filter, MessageCircle, Plus, Search, Send, UserPlus, UsersRound } from "lucide-react";
+import { Filter, MessageCircle, Plus, Search, Send, UserPlus, UsersRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -87,7 +87,7 @@ export default function CommunityWorkspace({ onOpenProfile }: { onOpenProfile: (
   }
 
   if (mode === "FORM") return <section className="xd-community">
-    <header className="xd-community-header"><button type="button" className="xd-return" onClick={() => setMode("LIST")}><ArrowLeft size={17} /> COMUNIDADE</button><span>NOVO CADASTRO</span></header>
+    <header className="xd-community-header"><button type="button" className="xd-return" onClick={() => setMode("LIST")}>COMUNIDADE</button><span>NOVO CADASTRO</span></header>
     <form className="xd-person-form" onSubmit={submit}>
       <section className="xd-form-block"><div><span>01</span><h2>ALUNO</h2><p>Identificação e contatos da pessoa que vai frequentar a escola.</p></div><div className="xd-fields xd-fields--three">
         <Field label="CPF" value={student.cpf} onChange={(value) => updateDraft(setStudent, student, "cpf", formatCpf(value))} inputMode="numeric" />

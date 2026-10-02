@@ -1,6 +1,6 @@
 # Grade de aulas, professor e reserva de salas
 
-Preparação local em 02/10/2026. **Sem commit, push, deploy, contas reais ou aplicação de migrations.** A cópia do colega não foi modificada. O usuário pediu para integrar o trabalho do colega somente depois de ele terminar e validar estas mudanças antes de commitar.
+Implementada em 02/10/2026. Alceu autorizou integrar o trabalho concluído do colega e implantar; a main corrente foi integrada na cópia isolada, preservando navegação, planos e reagendamento. Nenhuma conta real, aula, reserva, mensagem ou cobrança foi criada para testar.
 
 ## Fluxos implementados
 
@@ -8,7 +8,7 @@ Preparação local em 02/10/2026. **Sem commit, push, deploy, contas reais ou ap
 - Administrativo → Professores: valor completo por aula, acesso do professor com e-mail/senha inicial, troca de senha e ativação/desativação do vínculo. Valor não definido é `null`; zero precisa ser escolhido explicitamente.
 - `/xpace/professor`: login próprio e PWA com somente Grade de aulas, Ocupação e Reserva. Professores confirmam apenas suas aulas; equipe pode corrigir presença e substituição. Nenhum dado de aluno/lead ou salário de outro professor é retornado.
 - Ocupação da grade: horários das turmas, aulas por data e reservas, sem dados pessoais de alunos. Aulas canceladas são liberadas no controle por data. QR impresso por sala abre o aplicativo; após autenticação, confirma apenas uma aula elegível do professor naquela sala.
-- Configurações → Financeiro → Valor das salas: preço por hora, inicialmente R$ 35,00 em todas as salas existentes. Não inventar salas novas nem atualizar o banco real nesta preparação.
+- Configurações → Financeiro → Valor das salas: preço por hora, inicialmente R$ 35,00 em todas as salas existentes. As quatro salas existentes receberam o padrão R$ 35,00/h pela migration; nenhum cadastro novo de sala foi criado.
 - Reserva: duração proporcional, preço calculado no banco e congelado no registro, idempotência de tentativa e conflito verificado atomicamente com aulas e locações. O bloqueio também cobre as telas antigas de locação/edição de horários.
 - Cancelamento libera a sala e deixa a cobrança pendente da equipe. Gestor informa valor e motivo, com histórico. Não presumir que cancelamento é gratuito.
 - Relatórios → Aulas e reservas: aulas efetivamente realizadas, duração ministrada e total por professor para pagamento no mês seguinte; cobrança de salas com período próprio. Nenhum lançamento é integrado ao financeiro, nenhum valor é descontado automaticamente do professor.
@@ -38,8 +38,8 @@ Datas de presença são snapshots por aula. Alterações na grade recorrente nã
 
 ## Migration e validação
 
-Pendente: `20261002141514_xpace_teaching_and_room_reservations.sql`, gerada pela CLI e testada em PostgreSQL WASM isolado. Não aplicar antes da revisão de concorrência, autorização vigente e histórico remoto. Esquema de `profiles.platform_role` conferido por leitura: texto, sem enum/constraint de valores. Histórico remoto foi consultado sem escrita; não substitui a integração Git posterior.
+Aplicada individualmente: `20261002165924_xpace_teaching_and_room_reservations.sql`, com arquivo alinhado à versão confirmada no histórico remoto. RLS/grants, funções invoker, preços das quatro salas e preservação dos triggers antigos foram verificados por leitura. Não houve aplicação em massa/repair ou criação de histórico fictício.
 
 Comandos: `npm run test:xpace-teaching`, `npm run test:xpace-links-teaching:browser`, build Next e TypeScript. Testes cobrem: recorrência/leap year, 45 minutos com pagamento inteiro, substituto e congelamento de valores, ausências/liberação de cota, vínculo e escopo de professor, QR correto/incorreto/janela/idempotência, conferência, salas/aulas/locações/intervalos adjacentes, cancelamento e valor parcial, preço proporcional e replay de reserva.
 
-Navegador com fixtures locais: abas reais, criação de grade de 45 minutos, relatório, professor somente com três áreas, presença própria e reserva R$ 17,50 por 30 minutos, desktop e celulares 320/390 pixels. Capturas são dados fictícios e não comprovam operação em produção. Teste de instalação em aparelho físico, professor real e migrations remotas fica para a validação autorizada.
+Navegador com fixtures locais: abas reais, criação de grade de 45 minutos, relatório, professor somente com três áreas, presença própria e reserva R$ 17,50 por 30 minutos, desktop e celulares 320/390 pixels. Capturas são dados fictícios e não comprovam operação em produção. Teste de instalação/QR em aparelho físico e professor real continua para validação operacional; migrations remotas já aplicadas. Após integração, passaram novamente build, TypeScript, suites de aulas/estoque/SaaS/reagendamento/navegação e navegador local.

@@ -11,7 +11,7 @@ export async function POST(request:Request,{params}:{params:Promise<{slug:string
     const body=await request.json() as {eventId?:unknown;visitorId?:unknown;linkId?:unknown};
     if(!validUuid(body.eventId)||!validUuid(body.visitorId)||(body.linkId!=null&&!validUuid(body.linkId))) return new NextResponse(null,{status:400});
     const {slug}=await params;
-    if(!/^[a-z0-9-]{1,80}$/.test(slug)) return new NextResponse(null,{status:404});
+    if(slug !== 'xpace' || !/^[a-z0-9-]{1,80}$/.test(slug)) return new NextResponse(null,{status:404});
     const admin=createSupabaseAdmin();
     const {data:company,error}=await admin.from('companies').select('id').eq('slug',slug).eq('active',true).maybeSingle();
     if(error) throw error;

@@ -4398,3 +4398,16 @@ input[type="email"] { text-transform: none !important; }
 .cn-preferences strong { font-size: 12px; }.cn-preferences small { font-size: 11px; color: #695a76; }
 .cn-preferences button:focus-visible, .cn-preferences input:focus-visible { outline: 2px solid #7438aa; outline-offset: 3px; }
 @media (max-width: 980px) { .cn-dawos-home { grid-template-columns: 1fr; }.cn-dawos-home .xb-welcome, .cn-dawos-home .xb-manager-empty { min-height: 250px; } }
+
+/* Long module titles need their own row; hiding overflow does not make them fit. */
+@media (max-width: 680px) {
+  .xd-topbar:has(.xd-topbar-context) { flex-wrap: wrap; gap: 10px; padding-bottom: 12px; }
+  .xd-topbar:has(.xd-topbar-context) .xd-brand { min-height: 48px; gap: 10px; max-width: calc(100% - 44px); }
+  .xd-topbar:has(.xd-topbar-context) .xd-brand-logo { width: 145px; max-width: 100%; }
+  .xd-topbar:has(.xd-topbar-context) .xd-school-name { font-size: 7px; padding-left: 10px; }
+  .xd-topbar:has(.xd-topbar-context) .xd-topbar-tools { flex: 0 0 100%; width: 100%; justify-content: flex-start; }
+  .xd-topbar:has(.xd-topbar-context) .xd-lead-sound-toggle { position: absolute; top: 7px; right: 0; }
+  .xd-topbar:has(.xd-topbar-context) .xd-topbar-context { width: 100%; justify-content: flex-start; gap: 12px; }
+  .xd-topbar:has(.xd-topbar-context) .xd-active-module { justify-items: start; text-align: left; }
+  .xd-topbar:has(.xd-topbar-context) .xd-active-module strong { max-width: none; font-size: clamp(16px, 4.3vw, 21px); line-height: 1.15; white-space: normal; }
+}

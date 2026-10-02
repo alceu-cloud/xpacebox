@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, ChevronRight, ClipboardList, ContactRound, PackageCheck, TrendingUp, X } from "lucide-react";
+import { CalendarDays, ChevronRight, ClipboardList, ContactRound, PackageCheck, TrendingUp, X } from "lucide-react";
 
 import {
   deactivateClient,
@@ -373,7 +373,7 @@ export default function ClientesEmpresa({
           }}
           accent="#8f63f4"
           items={[
-            ...(!forceCrm ? [{ key: "back" as const, label: "CLIENTES", icon: ArrowLeft }] : []),
+            ...(!forceCrm ? [{ key: "back" as const, label: "CLIENTES" }] : []),
             { key: "agenda" as const, label: "AGENDA", icon: CalendarDays },
             { key: "carteira" as const, label: "CARTEIRA", icon: ContactRound },
             { key: "pipeline" as const, label: "OPORTUNIDADES", icon: TrendingUp },

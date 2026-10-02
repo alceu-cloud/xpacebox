@@ -1,4 +1,4 @@
--- Local preparation only: FALTOU and CANCELADO do not consume a free trial.
+-- FALTOU and CANCELADO do not consume a free trial, including reschedules.
 -- Pending bookings still reserve an allowance. Midnight automation is unchanged.
 create or replace function private.enforce_xpace_trial_lesson_limit()
 returns trigger language plpgsql set search_path = '' as $$
@@ -8,13 +8,13 @@ declare
   repeated_modality integer;
   requested_modality text;
 begin
-  if new.booking_kind <> 'NOVO' or new.attendance_status in ('CANCELADO', 'FALTOU') then
+  if new.booking_kind not in ('NOVO', 'REAGENDAMENTO') or new.attendance_status in ('CANCELADO', 'FALTOU') then
     return new;
   end if;
   -- Preserve historical attendance correction, but revalidate a missed booking
   -- when it is restored to AGENDADO and therefore reserves a new allowance.
   if tg_op = 'UPDATE'
-    and old.booking_kind = 'NOVO' and old.attendance_status <> 'CANCELADO'
+    and old.booking_kind = new.booking_kind and old.attendance_status <> 'CANCELADO'
     and (old.attendance_status <> 'FALTOU' or new.attendance_status = 'COMPARECEU')
     and old.lead_id = new.lead_id
     and old.class_group_id is not distinct from new.class_group_id
@@ -43,7 +43,7 @@ begin
   left join public.xpace_class_groups g on g.id = a.class_group_id and g.tenant_company_id = a.tenant_company_id
   where a.tenant_company_id = new.tenant_company_id
     and l.tenant_company_id = new.tenant_company_id and l.mobile = lead_mobile
-    and a.booking_kind = 'NOVO' and a.attendance_status not in ('CANCELADO', 'FALTOU')
+    and a.booking_kind in ('NOVO', 'REAGENDAMENTO') and a.attendance_status not in ('CANCELADO', 'FALTOU')
     and a.id <> new.id;
   if used_trials >= 2 then raise exception 'XPACE_TRIAL_LIMIT_REQUIRES_FEE'; end if;
   if requested_modality <> '' and repeated_modality > 0 then

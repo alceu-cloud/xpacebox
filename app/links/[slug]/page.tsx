@@ -5,7 +5,7 @@ import type { LinkPage, TreeLink } from '@/lib/xpace/link-tree';
 export const dynamic='force-dynamic';
 export default async function Page({params}:{params:Promise<{slug:string}>}) {
   const {slug}=await params;
-  if(!/^[a-z0-9-]{1,80}$/.test(slug)) notFound();
+  if(slug !== 'xpace' || !/^[a-z0-9-]{1,80}$/.test(slug)) notFound();
   const admin=createSupabaseAdmin();
   const company=await admin.from('companies').select('id').eq('slug',slug).eq('active',true).maybeSingle();
   if(company.error) throw company.error;

@@ -3,6 +3,9 @@
 import { AlertTriangle, BarChart3, ArrowUpRight, CalendarDays, ClipboardList, LayoutDashboard, MessagesSquare, Package, ReceiptText, ShoppingBag, SlidersHorizontal, Sparkles, UsersRound, WalletCards } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import BackTitle from "@/components/navigation/BackTitle";
+import { WorkspaceNavigationProvider, useWorkspaceNavigation, useScreenHistory, clearScreenHistory } from "@/components/navigation/WorkspaceNavigation";
+import { allowWorkspaceNavigation } from "@/components/navigation/navigation-guard";
 
 import BuildRevision from "@/components/BuildRevision";
 import { Link2 } from 'lucide-react';
@@ -45,8 +48,15 @@ const modules = [
 ];
 
 export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccessCentral: boolean; onExit: () => Promise<void> }) {
+  return <WorkspaceNavigationProvider><DanceWorkspaceContent canAccessCentral={canAccessCentral} onExit={onExit} /></WorkspaceNavigationProvider>;
+}
+
+function DanceWorkspaceContent({ canAccessCentral, onExit }: { canAccessCentral: boolean; onExit: () => Promise<void> }) {
   const router = useRouter();
-  const [screen, setScreen] = useState<"HOME" | "REPORTS" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "STOCK" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT" | "MESSAGE_CONNECTOR" | "LINK_TREE">("HOME");
+  type Screen = "HOME" | "REPORTS" | "DASHBOARD" | "COMMUNITY" | "PROFILE" | "CRM" | "AGENDA" | "FINANCE" | "STOCK" | "ADMINISTRATIVE" | "CONTRACTS" | "SERVICES" | "MODALITIES" | "INSTRUCTORS" | "SETTINGS" | "ROOMS" | "STORE" | "XPAY_BENEFITS" | "XPAY_ACCOUNT" | "MESSAGE_CONNECTOR" | "LINK_TREE";
+  const { current: screen, open, back, reset } = useScreenHistory<Screen>("HOME", "xpace/screens");
+  function setScreen(next: Screen) { if (next === "SETTINGS") clearScreenHistory("xpace/settings"); open(next); }
+  const navigation = useWorkspaceNavigation();
   const [profileId, setProfileId] = useState("");
   const [leadId, setLeadId] = useState("");
   const [reportActions, setReportActions] = useState(false);
@@ -76,16 +86,14 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
     return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", checkConnector); };
   }, []);
   const activeModule = screen === "LINK_TREE" ? "ÁRVORE DE LINKS" : screen === "REPORTS" ? "RELATÓRIOS" : screen === "DASHBOARD" ? "DASHBOARD" : screen === "COMMUNITY" || screen === "PROFILE" ? "CLIENTES" : screen === "CRM" ? "CRM" : screen === "AGENDA" ? "AGENDA" : screen === "FINANCE" ? "FINANCEIRO" : screen === "STOCK" ? "ESTOQUE" : screen === "ADMINISTRATIVE" || screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVO" : screen === "SETTINGS" ? "CONFIGURAÇÕES" : screen === "STORE" || screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "LOJA" : null;
-  const returnScreen = screen === "PROFILE" ? "COMMUNITY" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "ADMINISTRATIVE" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "STORE" : "HOME";
-  const returnTitle = screen === "PROFILE" ? "Voltar à Comunidade" : screen === "CONTRACTS" || screen === "SERVICES" || screen === "MODALITIES" || screen === "INSTRUCTORS" || screen === "ROOMS" ? "Voltar ao Administrativo" : screen === "XPAY_BENEFITS" || screen === "XPAY_ACCOUNT" || screen === "MESSAGE_CONNECTOR" ? "Voltar à Loja" : "Voltar ao Painel";
 
   const connectorAlert = connectorHealth?.status === "PREPARING" ? "TROCA PARA Z-API EM PREPARAÇÃO. FILA AGUARDANDO TESTE E ATIVAÇÃO."
     : connectorHealth?.status === "PAUSED" ? "FILA DE WHATSAPP PAUSADA NA Z-API."
     : connectorHealth?.status === "SCHEDULER_ERROR" ? "AGENDADOR DA Z-API SEM EXECUÇÃO RECENTE CONFIRMADA."
     : "WHATSAPP DESCONECTADO OU SEM CONFIRMAÇÃO DE CONEXÃO.";
   const topbar = <><header className={`xd-topbar${(screen === "DASHBOARD" || screen === "REPORTS") ? " xd-topbar--dashboard" : ""}`}>
-    <div className="xd-brand" aria-label="XPACE Escola de Dança"><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></div>
-    <div className="xd-topbar-tools"><NewLeadSoundToggle />{activeModule ? <div className="xd-topbar-context"><button type="button" className="xd-active-module xd-active-module--return" onClick={() => setScreen(returnScreen)} title={returnTitle}><span>MÓDULO ATIVO</span><strong>{activeModule}</strong></button></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}</div>
+    <button type="button" className="xd-brand xd-brand-home" aria-label="XPACE · ir para o início" onClick={() => { if (allowWorkspaceNavigation()) reset("HOME"); }}><img className="xd-brand-logo" src="/brands/xpace-logo.png" alt="XPACE" /><span className="xd-school-name">ESCOLA DE DANÇA</span></button>
+    <div className="xd-topbar-tools"><NewLeadSoundToggle />{activeModule ? <div className="xd-topbar-context"><BackTitle title={navigation?.action?.title || activeModule} onBack={navigation?.action?.back || back} className="xd-active-module xd-active-module--return"><span>MÓDULO ATIVO</span><strong>{navigation?.action?.title || activeModule}</strong></BackTitle></div> : canAccessCentral ? <button type="button" className="xd-back" onClick={() => router.push("/")}>CENTRAL</button> : <button type="button" className="xd-back" onClick={() => void onExit()}>SAIR</button>}</div>
   </header>{connectorHealth?.configured && connectorHealth.status !== "CONNECTED" ? <div className="xd-connector-alert" role="alert"><AlertTriangle size={18} aria-hidden="true" /><span><strong>{connectorAlert}</strong> As mensagens automáticas podem ficar na fila. Avise um gerente para conferir o Integrador na Loja.</span></div> : null}</>;
 
   if (screen === "COMMUNITY") return <RefreshableScreen screenKey={screen}>{topbar}<CommunityWorkspace onOpenProfile={(id) => { setProfileId(id); setScreen("PROFILE"); }} /></RefreshableScreen>;
@@ -97,16 +105,16 @@ export default function DanceWorkspace({ canAccessCentral, onExit }: { canAccess
   if (screen === "FINANCE") return <RefreshableScreen screenKey={screen}>{topbar}<FinanceWorkspace /></RefreshableScreen>;
   if (screen === "STOCK") return <RefreshableScreen screenKey={screen}>{topbar}<StockWorkspace /></RefreshableScreen>;
   if (screen === "LINK_TREE") return <RefreshableScreen screenKey={screen}>{topbar}<LinkTreeWorkspace /></RefreshableScreen>;
-  if (screen === "STORE") return <RefreshableScreen screenKey={screen}>{topbar}<XPayStore onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onOpenMessages={() => setScreen("MESSAGE_CONNECTOR")} /></RefreshableScreen>;
+  if (screen === "STORE") return <RefreshableScreen screenKey={screen}>{topbar}<XPayStore onOpenLinks={() => setScreen("LINK_TREE")} onOpenBenefits={() => setScreen("XPAY_BENEFITS")} onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onOpenMessages={() => setScreen("MESSAGE_CONNECTOR")} /></RefreshableScreen>;
   if (screen === "MESSAGE_CONNECTOR") return <RefreshableScreen screenKey={screen}>{topbar}<MessageConnectorWorkspace /></RefreshableScreen>;
-  if (screen === "XPAY_BENEFITS") return <RefreshableScreen screenKey={screen}>{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={() => setScreen("STORE")} /></RefreshableScreen>;
-  if (screen === "XPAY_ACCOUNT") return <RefreshableScreen screenKey={screen}>{topbar}<XPayAccount onBack={() => setScreen("STORE")} /></RefreshableScreen>;
+  if (screen === "XPAY_BENEFITS") return <RefreshableScreen screenKey={screen}>{topbar}<XPayBenefits onOpenAccount={() => setScreen("XPAY_ACCOUNT")} onBack={back} /></RefreshableScreen>;
+  if (screen === "XPAY_ACCOUNT") return <RefreshableScreen screenKey={screen}>{topbar}<XPayAccount onBack={back} /></RefreshableScreen>;
   if (screen === "ADMINISTRATIVE") return <RefreshableScreen screenKey={screen}>{topbar}<AdministrativeWorkspace onOpenContracts={() => setScreen("CONTRACTS")} onOpenServices={() => setScreen("SERVICES")} onOpenModalities={() => setScreen("MODALITIES")} onOpenInstructors={() => setScreen("INSTRUCTORS")} onOpenRooms={() => setScreen("ROOMS")} /></RefreshableScreen>;
   if (screen === "CONTRACTS") return <RefreshableScreen screenKey={screen}>{topbar}<ContractsWorkspace /></RefreshableScreen>;
   if (screen === "SERVICES") return <RefreshableScreen screenKey={screen}>{topbar}<ServicesWorkspace /></RefreshableScreen>;
   if (screen === "MODALITIES") return <RefreshableScreen screenKey={screen}>{topbar}<ModalitiesWorkspace /></RefreshableScreen>;
   if (screen === "INSTRUCTORS") return <RefreshableScreen screenKey={screen}>{topbar}<InstructorsWorkspace /></RefreshableScreen>;
-  if (screen === "SETTINGS") return <RefreshableScreen screenKey={screen}>{topbar}<SettingsWorkspace startWithNotifications={notificationSettings} /></RefreshableScreen>;
+  if (screen === "SETTINGS") return <RefreshableScreen screenKey={screen}>{topbar}<SettingsWorkspace startWithNotifications={notificationSettings} onBack={back} /></RefreshableScreen>;
   if (screen === "ROOMS") return <RefreshableScreen screenKey={screen}>{topbar}<RoomsWorkspace /></RefreshableScreen>;
 
   return <RefreshableScreen screenKey={screen}>

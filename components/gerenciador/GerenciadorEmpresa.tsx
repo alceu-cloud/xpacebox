@@ -3,7 +3,7 @@
 import { ui } from "@/lib/ui/styles";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { ArrowLeft, Boxes, Building2, ClipboardList, DollarSign, FileText, Layers3, Package, Palette, Plug, Settings2, SlidersHorizontal, Target, Timer, Truck, Wrench, type LucideIcon } from "lucide-react";
+import { Boxes, Building2, ClipboardList, DollarSign, FileText, Layers3, Package, Palette, Plug, Settings2, SlidersHorizontal, Target, Timer, Truck, Wrench, type LucideIcon } from "lucide-react";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import ManagerWelcome from "@/components/ui/ManagerWelcome";
 import { SearchableFilter, SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -325,7 +325,6 @@ export default function GerenciadorEmpresa({
             setForm(null);
           }}
         >
-          <ArrowLeft size={19} strokeWidth={1.8} aria-hidden="true" />
           <strong>GERENCIADOR</strong>
         </button>
         {managerSection === "gerais" ? (

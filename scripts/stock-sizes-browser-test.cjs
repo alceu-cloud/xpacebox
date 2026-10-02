@@ -43,7 +43,7 @@ family.variants = ['PP','P','M','G','GG','XG'].map((size, index) => ({ ...item, 
   await picker.getByRole('button',{name:'CANCELAR / OUTRO PRODUTO',exact:true}).click();
   await picker.getByRole('button',{name:`Selecionar ${family.description}`,exact:true}).waitFor();
   await picker.getByRole('button',{name:'Fechar',exact:true}).click();
-  await f.page.locator('.xd-active-module').click();
+  await f.page.getByRole('button',{name:'XPACE · ir para o início',exact:true}).click();
   await f.page.locator('.xd-module').filter({hasText:'RELATÓRIOS'}).click();
   await f.page.getByRole('button',{name:'ESTOQUE · ENTRADAS E BAIXAS',exact:true}).click();
   await f.page.getByText('Operador fixture',{exact:true}).waitFor();

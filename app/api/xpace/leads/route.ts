@@ -5,6 +5,8 @@ import { queueSatisfactionAfterAttendance, queueTrialInstructorMessage } from "@
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
 import { scheduleAllowsTrial, trialScheduleDetails, trialScheduleSettings } from "@/lib/xpace/trial-schedule";
+import { reschedulePredecessor } from "@/lib/xpace/trial-rebooking";
+import { loadTrialHistory, trialRescheduleError } from "@/lib/server/xpace-trial-rebooking";
 
 const companySlug = "xpace";
 export const maxDuration = 30;
@@ -207,13 +209,20 @@ async function createAppointment(access: Awaited<ReturnType<typeof requireCompan
   const [leadResult, snapshot] = await Promise.all([access.admin.from("xpace_leads").select("id,full_name,pipeline_stage,mobile").eq("id", leadId).eq("tenant_company_id", access.company.id).maybeSingle(), classSnapshot(access, classGroupId, classScheduleId, scheduledOn)]);
   if (leadResult.error) throw leadResult.error;
   if (!leadResult.data) throw new RequestError("LEAD NÃO ENCONTRADO.", 404);
+  if (bookingKind === "REAGENDAMENTO" && !reschedulePredecessor(await loadTrialHistory(access.admin, access.company.id, leadId), { modality: snapshot.modality, scheduledOn, startsAt: snapshot.startsAt })) {
+    throw new RequestError("REAGENDAMENTO EXIGE UMA FALTA ANTERIOR DESTE LEAD NA MESMA MODALIDADE, SEM OUTRA AULA PENDENTE.", 409);
+  }
   if (bookingKind === "NOVO" && !phone(leadResult.data.mobile)) throw new RequestError("CADASTRE UM TELEFONE VÁLIDO NO LEAD ANTES DE AGENDAR UMA NOVA EXPERIMENTAL.", 400);
   const stamp = new Date().toISOString();
   const payload = { tenant_company_id: access.company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: bookingKind, assigned_to: access.profile.id, attendant_name_snapshot: access.profile.full_name, modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, whatsapp_opt_in: false, whatsapp_opt_in_at: null, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: snapshot.welcomeVideoUrl ? "DISPENSADO" : "NAO_CONFIGURADO", trial_limit_override: trialLimitOverride, trial_limit_override_by: trialLimitOverride ? access.profile.id : null, trial_limit_override_at: trialLimitOverride ? stamp : null, created_by: access.profile.id, updated_by: access.profile.id };
-  const { data, error } = await access.admin.from("xpace_lead_appointments").insert(payload).select("id").single();
-  if (error) throw error;
+  const { data, error } = await access.admin.from("xpace_lead_appointments").insert(payload).select("id,rescheduled_from_appointment_id").single();
+  if (error) {
+    const message = trialRescheduleError(error);
+    if (message) throw new RequestError(message, 409);
+    throw error;
+  }
   if (!stages.includes(leadResult.data.pipeline_stage as typeof stages[number]) || ["NOVO", "ATENDIMENTO"].includes(leadResult.data.pipeline_stage)) await access.admin.from("xpace_leads").update({ pipeline_stage: "AULA_EXPERIMENTAL", updated_by: access.profile.id, updated_at: new Date().toISOString() }).eq("id", leadId);
-  await activity(access, leadId, data.id, "AGENDAMENTO_CRIADO", `${bookingKind}: ${snapshot.className} em ${scheduledOn}.${trialLimitOverride ? " LIBERAÇÃO EXCEPCIONAL COM TAXA REGISTRADA POR GERÊNCIA/ADMINISTRAÇÃO." : ""}`, trialLimitOverride ? { trialLimitOverride: true, trialLimitOverrideBy: access.profile.id } : {});
+  await activity(access, leadId, data.id, "AGENDAMENTO_CRIADO", `${bookingKind}: ${snapshot.className} em ${scheduledOn}.${trialLimitOverride ? " LIBERAÇÃO EXCEPCIONAL COM TAXA REGISTRADA POR GERÊNCIA/ADMINISTRAÇÃO." : ""}`, { bookingKind, rescheduledFromAppointmentId: data.rescheduled_from_appointment_id ?? null, ...(trialLimitOverride ? { trialLimitOverride: true, trialLimitOverrideBy: access.profile.id } : {}) });
   after(() => sendNewAppointmentPush(access.company.id, data.id, scheduledOn));
   after(async () => {
     try { await queueTrialInstructorMessage(access.admin, { companyId: access.company.id, leadId, appointmentId: data.id,

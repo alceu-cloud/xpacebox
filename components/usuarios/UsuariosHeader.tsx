@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import BackTitle from "@/components/navigation/BackTitle";
 
 type UsuariosHeaderProps = {
   onNovo: () => void;
@@ -9,8 +9,6 @@ type UsuariosHeaderProps = {
 export default function UsuariosHeader({
   onNovo,
 }: UsuariosHeaderProps) {
-  const router = useRouter();
-
   return (
     <>
       <div
@@ -21,7 +19,8 @@ export default function UsuariosHeader({
           marginBottom: 30,
         }}
       >
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div>
           <span
             style={{
               color: "#c084fc",
@@ -41,7 +40,7 @@ export default function UsuariosHeader({
               fontWeight: 800,
             }}
           >
-            USUÁRIOS
+            <BackTitle title="USUÁRIOS" />
           </h1>
 
           <p
@@ -53,6 +52,7 @@ export default function UsuariosHeader({
           >
             Gerencie os acessos da plataforma.
           </p>
+          </div>
         </div>
 
         <div
@@ -61,20 +61,6 @@ export default function UsuariosHeader({
             gap: 12,
           }}
         >
-          <button
-            onClick={() => router.push("/")}
-            style={{
-              padding: "14px 22px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,.12)",
-              background: "transparent",
-              color: "#ffffff",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            ← CENTRAL
-          </button>
 
           <button
             onClick={onNovo}

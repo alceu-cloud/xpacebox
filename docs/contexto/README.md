@@ -38,6 +38,8 @@ Os nomes não são orientação para recriar ou trocar chaves. Use configuraçõ
 2. Git atual e [Estado atual](estado-atual.md), distinguindo decisões de snapshots antigos.
 3. [Arquitetura multiempresa](../../ARQUITETURA-V2.md).
 4. Documentação do módulo em questão:
+   - [SaaS comercial, loja e Planos e Pagamentos](../saas-commercial.md).
+   - [Árvore de links — pré-montagem e continuação](../saas-link-hub.md).
    - [Estoque](../xpace-stock.md).
    - [Z-API e histórico da migração](../xpace-zapi-handoff.md).
    - [Push no iPhone](../xpace-iphone-push.md).
@@ -49,12 +51,15 @@ Os nomes não são orientação para recriar ou trocar chaves. Use configuraçõ
    - [Prazos e e-mails DAWOS](../dawos-sample-deadlines.md).
    - [Notificações por empresa](../company-notifications.md).
    - [Identidade visual por empresa](../company-branding.md).
+   - [Navegação: voltar no título e logo para o início](../navigation.md).
 
 `project_context.md` e `CONTEXTO-NOVA-TAREFA-CODEX.md` são contexto legado: contêm caminhos, branches e pendências superados. Não tratá-los como estado operacional atual. O documento Z-API preserva trechos de várias fases; “não ativado” no histórico não prevalece sobre a validação posterior.
 
 ## Como manter esta entrada útil
 
 Atualize o estado/documentação na mesma mudança que alterou comportamento relevante. Use datas de conferência, evidências e limites; deixe a revisão atual ser descoberta no Git. Documentação esquecida não se atualiza sozinha, e a regra de leitura não substitui inspeção do código/banco.
+
+Pedido de 02/10/2026: ao preparar uma mudança para aguardar liberação, terminar os testes locais necessários antes de declarar pronta. A liberação fica para reconferência do remoto, validações exigidas pela integração e publicação. Ao concluir, aparar das notas temporárias os itens resolvidos e atualizar a documentação do módulo; preservar apenas pendências reais, sem empilhar recados.
 
 Uma mudança apenas documental pode disparar build pela integração Git/Vercel. Quando outro agente estiver trabalhando, não publique na `main` sem a autorização vigente e a conferência do remoto. Se o usuário pedir para esperar “publica”, mantenha o pacote somente na cópia local até nova autorização.
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./workspace.css";
+import { RouteBackProvider } from "@/components/navigation/BackTitle";
 
 export const metadata: Metadata = {
   title: "XPACEBOX",
@@ -24,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body><RouteBackProvider>{children}</RouteBackProvider></body>
     </html>
   );
 }

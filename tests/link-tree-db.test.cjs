@@ -4,7 +4,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const db=new PGlite();const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 (async()=>{try{
  await db.exec(`create role anon;create role authenticated;create role service_role;create table companies(id uuid primary key,active boolean default true);create table profiles(id uuid primary key);create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit int,allowed_mime_types text[]);`);
- await db.exec(fs.readFileSync('supabase/migrations/20261002140248_xpace_link_tree.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261002165917_xpace_link_tree.sql','utf8'));
  const a=id(1),b=id(2),visitor=id(5),link=id(3),other=id(4);
  await db.query('insert into companies(id) values($1),($2)',[a,b]);
  await db.query('insert into xpace_link_pages(tenant_company_id) values($1),($2)',[a,b]);

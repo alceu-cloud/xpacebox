@@ -11,6 +11,8 @@ function moduleFrom(file, imports = {}) {
     if (name in imports) return imports[name];
     if (name === '@/lib/server/xpace-message-worker') return moduleFrom('lib/server/xpace-message-worker.ts', imports);
     if (name === '@/lib/xpace/trial-schedule') return require('../lib/xpace/trial-schedule.ts');
+    if (name === '@/lib/xpace/trial-rebooking') return require('../lib/xpace/trial-rebooking.ts');
+    if (name === '@/lib/server/xpace-trial-rebooking') return moduleFrom('lib/server/xpace-trial-rebooking.ts', imports);
     if (name === 'node:crypto') return require(name);
     throw new Error('Unexpected import: ' + name);
   }, Date, Intl, URL, console });

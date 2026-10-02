@@ -3,7 +3,7 @@
 import { ui } from "@/lib/ui/styles";
 import { isPendingCrmAgenda } from "@/lib/crm-agenda";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BarChart3, BriefcaseBusiness, Factory, FileBarChart2, PackageSearch, ShoppingCart } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Factory, FileBarChart2, PackageSearch, ShoppingCart } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -159,7 +159,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
       }}
       accent="#c026d3"
       items={[
-        { key: "back", label: "RELATORIOS", icon: ArrowLeft },
+        { key: "back", label: "RELATORIOS" },
         ...visibleCategories.map((category) => ({
           key: category.key,
           label: category.label,
@@ -176,7 +176,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
       }}
       accent="#c026d3"
       items={[
-        { key: "back", label: activeCategoryDefinition.label, icon: ArrowLeft },
+        { key: "back", label: activeCategoryDefinition.label },
         ...categoryReports.map((item) => ({ key: item.key, label: item.title, icon: FileBarChart2, disabled: item.managerOnly && !data?.isManager, title: item.managerOnly && !data?.isManager ? "DISPONIVEL PARA GERENCIA" : undefined })),
       ]}
     /> : null}
@@ -186,7 +186,7 @@ export default function RelatoriosEmpresa({ slug }: { slug: string }) {
       onChange={(value) => { if (value === "back") setNavigationLevel("area"); }}
       accent="#c026d3"
       items={[
-        { key: "back", label: "RELATORIOS", icon: ArrowLeft },
+        { key: "back", label: "RELATORIOS" },
         { key: "materials", label: "COMPARATIVO DE MATERIA PRIMA", icon: ShoppingCart },
       ]}
     /> : null}

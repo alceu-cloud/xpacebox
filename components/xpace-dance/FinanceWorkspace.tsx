@@ -1,10 +1,12 @@
 "use client";
 
-import { ArrowLeft, ArrowUpRight, Banknote, Check, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, CreditCard, Filter, Landmark, Plus, Search, WalletCards, X } from "lucide-react";
+import { ArrowUpRight, Banknote, Check, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, CreditCard, Filter, Landmark, Plus, Search, WalletCards, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 import { shiftedFinanceDate, type RecurrenceFrequency } from "@/lib/xpace/finance-recurrence";
+import BackTitle from "@/components/navigation/BackTitle";
+import { useWorkspaceBack } from "@/components/navigation/WorkspaceNavigation";
 
 type View = "HUB" | "PAGAR" | "RECEBER" | "CONTAS";
 type DateBy = "VENCIMENTO" | "PAGAMENTO" | "COMPETENCIA";
@@ -71,6 +73,8 @@ export default function FinanceWorkspace() {
     const filters = initialFilters(); setDraft(filters); setApplied(filters);
   }
 
+  const embedded = useWorkspaceBack(view === "PAGAR" ? "CONTAS A PAGAR" : view === "RECEBER" ? "CONTAS A RECEBER" : "CONTAS FINANCEIRAS", view === "HUB" ? null : () => open("HUB"));
+
   function apply() {
     if (view !== "CONTAS" && draft.from && draft.to && draft.from > draft.to) { setError("A data inicial não pode ser maior que a final."); return; }
     setPage(0); setApplied({ ...draft });
@@ -96,8 +100,7 @@ export default function FinanceWorkspace() {
   const data = view === "CONTAS" ? accountData : entries;
   const canManage = data?.canManage ?? false;
   return <section className="xdf-workspace">
-    <button type="button" className="xdf-back" onClick={() => open("HUB")}><ArrowLeft size={17} /> Voltar ao financeiro</button>
-    <div className="xdf-heading"><div><span>FINANCEIRO XPACE</span><h1>{view === "CONTAS" ? "Contas financeiras" : receive ? "Contas a receber" : "Contas a pagar"}</h1><p>{view === "CONTAS" ? "Bancos, caixa e carteiras usados pela escola. Não são subcontas Asaas." : receive ? "Pagamento confirmado aparece como recebido, inclusive no cartão; repasse será tratado em relatório próprio." : "Acompanhe despesas e registre baixas sem alterar cobranças da escola."}</p></div>{canManage ? <button type="button" className="xdf-primary" onClick={() => setModal(view === "CONTAS" ? "ACCOUNT" : "ENTRY")}><Plus size={19} /> {view === "CONTAS" ? "Conta financeira" : receive ? "Conta a receber" : "Conta a pagar"}</button> : null}</div>
+    <div className="xdf-heading"><div><span>FINANCEIRO XPACE</span><h1>{embedded ? (view === "CONTAS" ? "Contas financeiras" : receive ? "Contas a receber" : "Contas a pagar") : <BackTitle title={view === "CONTAS" ? "Contas financeiras" : receive ? "Contas a receber" : "Contas a pagar"} onBack={() => open("HUB")} />}</h1><p>{view === "CONTAS" ? "Bancos, caixa e carteiras usados pela escola. Não são subcontas Asaas." : receive ? "Pagamento confirmado aparece como recebido, inclusive no cartão; repasse será tratado em relatório próprio." : "Acompanhe despesas e registre baixas sem alterar cobranças da escola."}</p></div>{canManage ? <button type="button" className="xdf-primary" onClick={() => setModal(view === "CONTAS" ? "ACCOUNT" : "ENTRY")}><Plus size={19} /> {view === "CONTAS" ? "Conta financeira" : receive ? "Conta a receber" : "Conta a pagar"}</button> : null}</div>
     <form className="xdf-filters" onSubmit={(event) => { event.preventDefault(); apply(); }}>
       <label className="xdf-search"><Search size={18} /><input aria-label={view === "CONTAS" ? "Pesquisar conta financeira" : "Pesquisar conta"} value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} placeholder={view === "CONTAS" ? "Pesquisar conta financeira" : "Pesquisar descrição ou pessoa"} /></label>
       {view !== "CONTAS" ? <><label><span>Pesquisar por</span><select value={draft.dateBy} onChange={(event) => setDraft({ ...draft, dateBy: event.target.value as DateBy })}><option value="VENCIMENTO">Vencimento</option><option value="PAGAMENTO">{receive ? "Recebimento" : "Pagamento"}</option><option value="COMPETENCIA">Competência</option></select></label><label><span>Data inicial</span><input type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} /></label><label><span>Data final</span><input type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} /></label><label className="xdf-status-filter"><span><Filter size={14} /> Situação</span><select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as StatusFilter })}><option value="TODOS">Abertos e fechados</option><option value="ABERTOS">Só abertos</option><option value="FECHADOS">Só fechados</option></select></label></> : null}

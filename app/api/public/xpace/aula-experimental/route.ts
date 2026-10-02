@@ -4,6 +4,8 @@ import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { sendNewAppointmentPush } from "@/lib/server/xpace-web-push";
 import { queueTrialInstructorMessage, queueTrialMessages } from "@/lib/server/xpace-automatic-messages";
 import { sortNaturally } from "@/lib/xpace/natural-sort";
+import { publicLeadMatch, reschedulePredecessor } from "@/lib/xpace/trial-rebooking";
+import { loadTrialHistory, trialRescheduleError } from "@/lib/server/xpace-trial-rebooking";
 
 const companySlug = "xpace";
 const bookingHorizonDays = 35;
@@ -66,18 +68,22 @@ export async function POST(request: Request) {
     if (sourceError) throw sourceError;
     if (!source) throw new PublicError("SELECIONE UMA ORIGEM DE CONTATO VÁLIDA.", 400);
     const snapshot = await classSnapshot(admin, company.id, classGroupId, classScheduleId, scheduledOn);
-    const { data: existingLeads, error: leadLookupError } = await admin.from("xpace_leads").select("id,pipeline_stage,source_id").eq("tenant_company_id", company.id).eq("mobile", mobile).order("created_at", { ascending: false }).limit(25);
+    const { data: existingLeads, error: leadLookupError } = await admin.from("xpace_leads").select("id,pipeline_stage,source_id,full_name,email").eq("tenant_company_id", company.id).eq("mobile", mobile).order("created_at", { ascending: false }).limit(26);
     if (leadLookupError) throw leadLookupError;
+    if ((existingLeads?.length ?? 0) > 25) throw new Error("XPACE_TRIAL_IDENTITY_AMBIGUOUS");
+    const existingLead = publicLeadMatch(existingLeads ?? [], { fullName, email });
+    const predecessor = existingLead ? reschedulePredecessor(await loadTrialHistory(admin, company.id, existingLead.id), { modality: snapshot.modality, scheduledOn, startsAt: snapshot.startsAt }) : null;
+    const bookingKind = predecessor ? "REAGENDAMENTO" : "NOVO";
     const existingLeadIds = (existingLeads ?? []).map((lead) => lead.id);
     if (existingLeadIds.length) {
-      const { data: previousTrials, error: previousCountError } = await admin.from("xpace_lead_appointments").select("id,modality_name_snapshot").eq("tenant_company_id", company.id).in("lead_id", existingLeadIds).eq("booking_kind", "NOVO").neq("attendance_status", "CANCELADO").neq("attendance_status", "FALTOU");
+      const { data: previousTrials, error: previousCountError } = await admin.from("xpace_lead_appointments").select("id,modality_name_snapshot").eq("tenant_company_id", company.id).in("lead_id", existingLeadIds).in("booking_kind", ["NOVO", "REAGENDAMENTO"]).neq("attendance_status", "CANCELADO").neq("attendance_status", "FALTOU");
       if (previousCountError) throw previousCountError;
       if ((previousTrials?.length ?? 0) >= 2) throw new PublicError("ESTE TELEFONE JÁ UTILIZOU AS DUAS AULAS EXPERIMENTAIS. PARA UMA NOVA AULA, FALE COM A EQUIPE XPACE.", 409);
       if (previousTrials?.some((trial) => trial.modality_name_snapshot?.trim().toLocaleLowerCase("pt-BR") === snapshot.modality.trim().toLocaleLowerCase("pt-BR"))) throw new PublicError("VOCÊ JÁ FEZ UMA EXPERIMENTAL NESTA MODALIDADE. A SEGUNDA AULA GRATUITA DEVE SER EM OUTRA MODALIDADE.", 409);
     }
-    let leadId = existingLeads?.[0]?.id;
+    let leadId = existingLead?.id;
     if (leadId) {
-      if (!existingLeads?.[0]?.source_id) {
+      if (!existingLead?.source_id) {
         const { error: sourceUpdateError } = await admin.from("xpace_leads").update({ source_id: source.id, updated_at: new Date().toISOString() }).eq("id", leadId).eq("tenant_company_id", company.id);
         if (sourceUpdateError) throw sourceUpdateError;
       }
@@ -87,9 +93,9 @@ export async function POST(request: Request) {
       leadId = newLead.id;
       await addActivity(admin, company.id, leadId, null, "LEAD_CRIADO", "LEAD CRIADO PELO AGENDAMENTO PÚBLICO.");
     }
-    const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments").insert({ tenant_company_id: company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: "NOVO", modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, whatsapp_opt_in: whatsappOptIn, survey_opt_in: whatsappOptIn, whatsapp_opt_in_at: whatsappOptIn ? new Date().toISOString() : null, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: !snapshot.welcomeVideoUrl ? "NAO_CONFIGURADO" : whatsappOptIn ? "PENDENTE" : "DISPENSADO" }).select("id").single();
+    const { data: appointment, error: appointmentError } = await admin.from("xpace_lead_appointments").insert({ tenant_company_id: company.id, lead_id: leadId, class_group_id: classGroupId, class_schedule_id: classScheduleId, scheduled_on: scheduledOn, starts_at: snapshot.startsAt, ends_at: snapshot.endsAt, booking_kind: bookingKind, modality_name_snapshot: snapshot.modality, instructor_name_snapshot: snapshot.instructor, actual_instructor_id: snapshot.instructorId || null, actual_instructor_name_snapshot: snapshot.instructorId ? snapshot.instructor : null, class_name_snapshot: snapshot.className, whatsapp_opt_in: whatsappOptIn, survey_opt_in: whatsappOptIn, whatsapp_opt_in_at: whatsappOptIn ? new Date().toISOString() : null, welcome_video_url: snapshot.welcomeVideoUrl || null, welcome_delivery_status: !snapshot.welcomeVideoUrl ? "NAO_CONFIGURADO" : whatsappOptIn ? "PENDENTE" : "DISPENSADO" }).select("id,rescheduled_from_appointment_id").single();
     if (appointmentError) throw appointmentError;
-    await addActivity(admin, company.id, leadId, appointment.id, "AGENDAMENTO_CRIADO", `AGENDAMENTO PÚBLICO: ${snapshot.className} em ${scheduledOn}.`);
+    await addActivity(admin, company.id, leadId, appointment.id, "AGENDAMENTO_CRIADO", `${bookingKind === "REAGENDAMENTO" ? "REAGENDAMENTO PÚBLICO APÓS FALTA" : "AGENDAMENTO PÚBLICO"}: ${snapshot.className} em ${scheduledOn}.`, { bookingKind, rescheduledFromAppointmentId: appointment.rescheduled_from_appointment_id ?? null });
     if (snapshot.welcomeVideoUrl && whatsappOptIn) await addActivity(admin, company.id, leadId, appointment.id, "VIDEO_PENDENTE", "VÍDEO DE BOAS-VINDAS PENDENTE DE ENVIO.", { url: snapshot.welcomeVideoUrl });
     if (whatsappOptIn) {
       try { await queueTrialMessages(admin, { companyId: company.id, leadId, appointmentId: appointment.id, name: fullName, mobile, scheduledOn, startsAt: snapshot.startsAt, className: snapshot.className, instructor: snapshot.instructor, roomName: snapshot.roomName, videoUrl: snapshot.welcomeVideoUrl }); }
@@ -101,7 +107,10 @@ export async function POST(request: Request) {
     } catch (error) { console.error("XPACE TEACHER MESSAGE QUEUE ERROR", { appointmentId: appointment.id, error }); }
     after(() => sendNewAppointmentPush(company.id, appointment.id, scheduledOn));
     return NextResponse.json({ success: true, message: "AULA EXPERIMENTAL AGENDADA! A EQUIPE XPACE CONFIRMARÁ OS DETALHES COM VOCÊ." }, { status: 201 });
-  } catch (error) { return handleError(error); }
+  } catch (error) {
+    const message = trialRescheduleError(error);
+    return message ? NextResponse.json({ success: false, message }, { status: 409 }) : handleError(error);
+  }
 }
 
 async function classSnapshot(admin: ReturnType<typeof createSupabaseAdmin>, companyId: string, groupId: string, scheduleId: string, scheduledOn: string) {

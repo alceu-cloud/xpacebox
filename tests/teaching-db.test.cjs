@@ -8,7 +8,7 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
  create table xpace_class_schedules(id uuid primary key default gen_random_uuid(),tenant_company_id uuid,class_group_id uuid references xpace_class_groups(id),weekday int,starts_at time,ends_at time,room_id uuid,room_name text,instructor_id uuid,active boolean default true,created_by uuid);
  create table xpace_room_rentals(id uuid primary key default gen_random_uuid(),tenant_company_id uuid,room_name text,renter_name text,starts_at timestamptz,ends_at timestamptz,amount_cents int,status text default 'RESERVADA',note text,created_by uuid,updated_at timestamptz default now());`);
  await db.exec(fs.readFileSync('supabase/migrations/20260914172043_xpace_rooms_and_schedule_conflicts.sql','utf8').split('create or replace function private.enforce_xpace_schedule_conflicts()')[1].split('alter table public.xpace_rooms enable')[0].replace(/^/,'create or replace function private.enforce_xpace_schedule_conflicts()'));
- await db.exec(fs.readFileSync('supabase/migrations/20261002141514_xpace_teaching_and_room_reservations.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261002165924_xpace_teaching_and_room_reservations.sql','utf8'));
  const c=id(1),other=id(2),actor=id(3),teacher=id(4),room=id(5),prof=id(6),sub=id(7);
  await db.query('insert into companies values($1),($2)',[c,other]);await db.query("insert into profiles(id,platform_role) values($1,'platform_owner'),($2,'company_teacher')",[actor,teacher]);
  await db.query("insert into xpace_instructors(id,tenant_company_id,full_name,lesson_rate_cents) values($1,$2,'Alceu',5000),($3,$2,'Substituto',4000)",[prof,c,sub]);

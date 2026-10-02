@@ -25,6 +25,7 @@ Antes de alterar este repositório, leia completamente `docs/contexto/README.md`
 - Nunca `reset --hard`, checkout destrutivo ou force push sem autorização específica.
 - Antes de publicar, confira novamente o remoto e mudanças concorrentes. Publique somente os arquivos relacionados ao pedido; não acrescente credenciais nem artefatos de teste.
 - Rode build e testes proporcionais ao risco. Falha de teste/build impede publicação da mudança incompleta em produção.
+- Quando Alceu pedir "fazer e esperar", conclua a implementação, revisão, TypeScript, build e testes locais necessários, inclusive navegador quando a interface mudar, antes de avisar que está pronto. Resolva falhas e prepare documentação/checklist ainda durante a espera; não adie esses testes para a liberação de commit. Ao liberar, reconfira o remoto e revalide somente o que a integração ou alterações novas exigirem. Escritas/migrations em produção continuam dependentes da autorização de publicação vigente.
 - Falha ou resultado desconhecido de push exige consultar o remoto antes de repetir.
 - Não faça deploy manual extra enquanto a integração Git/Vercel já estiver publicando, salvo necessidade confirmada.
 
@@ -46,6 +47,7 @@ Antes de alterar este repositório, leia completamente `docs/contexto/README.md`
 - Produtos com grade têm saldo por tamanho; ao ler o QR do modelo, exija escolher o tamanho antes do movimento. Não juntar saldos dos SKUs nem inventar saldo inicial.
 - Presença do lead é `COMPARECEU`/`FALTOU`; não matricule automaticamente.
 - Preserve padrão visual compacto, identidade por empresa, rolagem no desktop e pull-to-refresh móvel sem perder formulários.
+- Navegação: o próprio título superior (CRM, Configurações, Planos e Pagamentos etc.) é clicável e retorna ao passo/tela realmente anterior. Não adicionar flechinhas, botões quadrados ou um "voltar para Config" separado; manter a aparência original do título, com foco de teclado e área de toque acessíveis. Exemplo: Início → Configurações → Planos e Pagamentos; clicar no título do plano volta para Configurações, clicar em Configurações volta para Início. A logo da empresa é o atalho para o início dessa empresa; a logo XPACEBOX abre a central. Reutilize os componentes compartilhados e preserve bloqueios operacionais. No celular, o título deve caber inteiro; esconder overflow não comprova isso. Setas de paginação/calendário não são botões de retorno de tela. Documentação e critérios em `docs/navigation.md`.
 
 ## Manutenção do contexto
 
