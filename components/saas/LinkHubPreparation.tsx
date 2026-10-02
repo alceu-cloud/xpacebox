@@ -21,7 +21,7 @@ export default function LinkHubPreparation({ companySlug, companyName, exempt, o
     </header>
     <p>Uma página com a identidade da empresa para reunir contratos, produtos, eventos e agendamento de aulas experimentais.</p>
     {onOpen ? <button type="button" className="xd-secondary" onClick={onOpen}>ABRIR ÁRVORE DE LINKS</button> : <p className="saas-link-hub-note">Adicional em preparação. Contratação e publicação ainda indisponíveis.</p>}
-    <details className="saas-link-hub-preview">
+    {onOpen ? <p className="saas-link-hub-note">Edite seus links, personalize a aparência e veja como a página ficará para o visitante.</p> : <details className="saas-link-hub-preview">
       <summary>Ver prévia da árvore de links</summary>
       <div className="saas-link-hub-preview-content">
         <strong className="saas-link-hub-company">{companyName}</strong>
@@ -31,7 +31,7 @@ export default function LinkHubPreparation({ companySlug, companyName, exempt, o
         </ul>
         <p className="saas-link-hub-address">Endereço: <code>{plannedPath || "A definir"}</code><small>{onOpen ? "Configure os links e ative a página no editor." : "Não publicado. Nenhum endereço público ativo nesta preparação."}</small></p>
       </div>
-    </details>
+    </details>}
     </div>
   </article>;
 }

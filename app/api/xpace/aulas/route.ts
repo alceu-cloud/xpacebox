@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AccessError, requireCompanyAccess } from '@/lib/server/company-access';
 import { validUuid } from '@/lib/xpace/link-tree';
+import { teacherRosterDates } from '@/lib/xpace/teacher-roster';
 const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 function monthBounds(value:unknown){
  if(typeof value!=='string'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)||Number(value.slice(0,4))<2020||Number(value.slice(0,4))>2100)throw new AccessError('MÊS INVÁLIDO.',400);
@@ -69,7 +70,14 @@ export async function POST(request:Request){
   }else if(body.action==='CREATE_ROSTER'){
     manager(profile.platform_role);
     if((body.instructorId!=null&&!validUuid(body.instructorId))||!validUuid(body.roomId)||typeof body.title!=='string'||!Array.isArray(body.weekdays)||!body.weekdays.length||body.weekdays.some(d=>!Number.isInteger(d)||Number(d)<0||Number(d)>6)||new Set(body.weekdays).size!==body.weekdays.length||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.startsAt))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.endsAt)))throw new AccessError('CONFIRA OS DADOS DA ESCALA.',400);
-    const {start}=monthBounds(body.month);await rpc('xpace_create_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:body.title,p_instructor:body.instructorId??null,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt});
+    const {start}=monthBounds(body.month);
+    if(body.assignments!==undefined){
+      const expected=teacherRosterDates(start.slice(0,7),body.weekdays as number[]);
+      if(!Array.isArray(body.assignments)||body.assignments.length!==expected.length)throw new AccessError('ESCOLHA OS PROFESSORES DAS DATAS DESTE MÊS.',400);
+      const assignments=body.assignments as {day:unknown;instructorId:unknown}[];
+      if(assignments.some(a=>!a||typeof a.day!=='string'||!expected.includes(a.day)||(a.instructorId!==null&&!validUuid(a.instructorId)))||new Set(assignments.map(a=>a.day)).size!==expected.length)throw new AccessError('CONFIRA OS PROFESSORES E AS DATAS DA TURMA.',400);
+      await rpc('xpace_create_assigned_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:body.title,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt,p_assignments:assignments.map(a=>({day:a.day,instructorId:a.instructorId}))});
+    }else await rpc('xpace_create_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:body.title,p_instructor:body.instructorId??null,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt});
   }else if(body.action==='LESSON'){
     if(!teacherInstructorId)manager(profile.platform_role);
     if(!validUuid(body.id)||!['PREVISTA','REALIZADA','CANCELADA'].includes(String(body.status)))throw new AccessError('AULA INVÁLIDA.',400);
@@ -96,7 +104,7 @@ export async function POST(request:Request){
 function failure(e:unknown){
  if(e instanceof AccessError)return NextResponse.json({success:false,message:e.message},{status:e.status});
  const message=String((e as {message?:string})?.message??'');
- const known:Record<string,string>={MONTH_CLOSED:'MÊS CONFERIDO. UM GESTOR PRECISA REABRIR PARA CORRIGIR.',MISSING_LESSON_RATE:'HÁ AULAS REALIZADAS SEM VALOR DEFINIDO.',ATTENDANCE_WINDOW_CLOSED:'CONFIRME NO DIA DA AULA, ENTRE 15 MINUTOS ANTES E 15 MINUTOS APÓS O INÍCIO.',TEACHER_FORBIDDEN:'VOCÊ SÓ PODE CONFIRMAR SUAS PRÓPRIAS AULAS.',ROOM_QR_INVALID:'ESTE QR NÃO CORRESPONDE À SALA DA SUA AULA.',REASON_REQUIRED:'INFORME O MOTIVO PARA REABRIR.',RESERVATION_INVALID:'ESCOLHA UM HORÁRIO FUTURO NO MESMO DIA, COM ATÉ 12 HORAS.',TEACHER_ROSTER_CONFLICT:'ESTE PROFESSOR JÁ ESTÁ ATRIBUÍDO A OUTRA AULA NESTE HORÁRIO.',LESSON_INVALID:'CONFIRA PROFESSOR, SALA E HORÁRIOS DA ESCALA.',ROSTER_INVALID:'CONFIRA OS DADOS DA ESCALA.',RESERVATION_REPLAY_MISMATCH:'ESTA TENTATIVA NÃO CORRESPONDE À RESERVA ORIGINAL.'};
+ const known:Record<string,string>={ROSTER_ASSIGNMENTS_INVALID:'CONFIRA AS DATAS E PROFESSORES DA TURMA. NENHUMA PARTE DA ESCALA FOI SALVA.',INSTRUCTOR_INVALID:'UM PROFESSOR ESCOLHIDO ESTÁ INATIVO OU NÃO PERTENCE À ESCOLA.',MONTH_CLOSED:'MÊS CONFERIDO. UM GESTOR PRECISA REABRIR PARA CORRIGIR.',MISSING_LESSON_RATE:'HÁ AULAS REALIZADAS SEM VALOR DEFINIDO.',ATTENDANCE_WINDOW_CLOSED:'CONFIRME NO DIA DA AULA, ENTRE 15 MINUTOS ANTES E 15 MINUTOS APÓS O INÍCIO.',TEACHER_FORBIDDEN:'VOCÊ SÓ PODE CONFIRMAR SUAS PRÓPRIAS AULAS.',ROOM_QR_INVALID:'ESTE QR NÃO CORRESPONDE À SALA DA SUA AULA.',REASON_REQUIRED:'INFORME O MOTIVO PARA REABRIR.',RESERVATION_INVALID:'ESCOLHA UM HORÁRIO FUTURO NO MESMO DIA, COM ATÉ 12 HORAS.',TEACHER_ROSTER_CONFLICT:'ESTE PROFESSOR JÁ ESTÁ ATRIBUÍDO A OUTRA AULA NESTE HORÁRIO.',LESSON_INVALID:'CONFIRA PROFESSOR, SALA E HORÁRIOS DA ESCALA.',ROSTER_INVALID:'CONFIRA OS DADOS DA ESCALA.',RESERVATION_REPLAY_MISMATCH:'ESTA TENTATIVA NÃO CORRESPONDE À RESERVA ORIGINAL.'};
  const mapped=Object.entries(known).find(([key])=>message.includes(key));
  if(mapped)return NextResponse.json({success:false,message:mapped[1]},{status:409});
  if((e as {code?:string})?.code==='23P01')return NextResponse.json({success:false,message:'ESTA SALA OU PROFESSOR JÁ ESTÁ OCUPADO NESTE HORÁRIO.'},{status:409});

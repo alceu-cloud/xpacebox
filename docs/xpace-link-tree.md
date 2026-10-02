@@ -4,6 +4,8 @@ Implementada em 02/10/2026 conforme as referências visuais de Alceu. Publicaç�
 
 Somente Loja XPACE → cartão Árvore de links → Abrir árvore de links, com Links, Aparência e Estatísticas. Permite pesquisa, criação/edição de título e URL, ícone, ligar/desligar por link, reordenar, desligar a página inteira e copiar o endereço para colar no WhatsApp. Copiar não envia mensagens. O atalho separado do painel inicial foi removido a pedido de Alceu em 02/10/2026. A edição é restrita a gestores; equipe pode consultar. Professor não acessa este módulo.
 
+Esclarecimento posterior em02/10: Ver prévia da árvore de links no cartão era um modelo estático da preparação antiga, não a configuração real. Esse modelo foi retirado do cartão XPACE. Abrir árvore de links entra no editor; Aparência apresenta a prévia real ao vivo. A preparação comercial de outras empresas foi preservada.
+
 Página pública `/links/xpace`, com logo, título, descrição e botões. Logo por upload PNG/JPEG/WebP até 2 MB ou URL HTTPS; validação de assinatura do arquivo e gravação por endpoint de gestor. Aparência da escola ou personalizada, cor, tema claro/escuro e botões clássicos/minimalistas, com prévia ao vivo. Textos são escapados pelo React e destinos aceitam apenas HTTP/HTTPS sem credenciais.
 
 Estatísticas por período: acessos, visitantes, novos/recorrentes, gráfico diário e ranking de cliques. Datas agrupadas em America/Sao_Paulo. Visitante é código aleatório anônimo do navegador, não pessoa identificada; limpar armazenamento ou trocar aparelho muda a identidade. Não registra telefone, nome, IP ou user agent. Prévia não emite eventos. Telemetria não impede abrir os links quando falha.

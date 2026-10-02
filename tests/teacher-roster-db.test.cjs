@@ -11,6 +11,7 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
  await db.exec(fs.readFileSync('supabase/migrations/20261002165924_xpace_teaching_and_room_reservations.sql','utf8'));
 
  await db.exec(fs.readFileSync('supabase/migrations/20261002185328_xpace_independent_teacher_rosters.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261002194108_xpace_save_assigned_teacher_roster.sql','utf8'));
  await db.exec("alter table companies add column slug text;");
  const c=id(1),other=id(2),actor=id(3),teacher=id(4),room=id(5),prof=id(6),sub=id(7),room2=id(8);
  await db.query("insert into companies(id,slug) values($1,'xpace'),($2,'other')",[c,other]);await db.query("insert into profiles(id,platform_role) values($1,'platform_owner'),($2,'company_teacher')",[actor,teacher]);
@@ -25,6 +26,30 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
  assert.deepEqual(lessons.map(l=>l.scheduled_on.toISOString().slice(0,10)),['2026-09-02','2026-09-07','2026-09-09','2026-09-14','2026-09-16','2026-09-21','2026-09-23','2026-09-28','2026-09-30']);
  assert.ok(lessons.every(l=>l.instructor_id===null&&l.schedule_id===null));
  await assert.rejects(()=>create(),/duplicate key/);
+ const bulkDays=['2027-10-04','2027-10-06','2027-10-11','2027-10-13','2027-10-18','2027-10-20','2027-10-25','2027-10-27'];
+ const assignments=bulkDays.map((day,i)=>({day,instructorId:i%2?sub:prof}));
+ const bulk=(title,entries=assignments,r=room)=>db.query("select xpace_create_assigned_teacher_roster($1,$2,'2027-10-01',$3,$4,array[1,3],'19:00','20:00',$5::jsonb) id",[c,actor,title,r,JSON.stringify(entries)]);
+ const saved=(await bulk('Teens completo')).rows[0].id;
+ const savedRows=(await db.query('select * from xpace_teaching_lessons where roster_id=$1 order by scheduled_on',[saved])).rows;
+ assert.deepEqual(savedRows.map(l=>l.instructor_id),assignments.map(a=>a.instructorId));assert.ok(savedRows.every(l=>l.status==='PREVISTA'&&l.schedule_id===null&&l.room_id===room));
+ const snapshot=await db.query('select count(*)::int n from xpace_teaching_rosters');
+ await assert.rejects(()=>bulk('Falha no último professor',assignments.map((a,i)=>({...a,instructorId:i===7?id(999):null}))),/INSTRUCTOR_INVALID/);
+ assert.deepEqual((await db.query('select count(*)::int n from xpace_teaching_rosters')).rows,snapshot.rows);
+ await assert.rejects(()=>bulk('Conflito de professor',assignments),/TEACHER_ROSTER_CONFLICT/);
+ await assert.rejects(()=>bulk('Falta uma data',assignments.slice(1)),/ROSTER_ASSIGNMENTS_INVALID/);
+ await assert.rejects(()=>bulk('Data duplicada',assignments.map(a=>({...a,day:bulkDays[0]}))),/ROSTER_ASSIGNMENTS_INVALID/);
+ await assert.rejects(()=>bulk('Outro mês',assignments.map(a=>({...a,day:a.day.replace('10-','11-')}))),/ROSTER_ASSIGNMENTS_INVALID/);
+ await db.query("insert into xpace_instructors(id,tenant_company_id,full_name,lesson_rate_cents) values($1,$2,'Outro tenant',5000)",[id(998),other]);
+ await assert.rejects(()=>bulk('Outro tenant',assignments.map(a=>({...a,instructorId:id(998)}))),/INSTRUCTOR_INVALID/);
+ assert.deepEqual((await db.query('select count(*)::int n from xpace_teaching_rosters')).rows,snapshot.rows);
+ await db.query('update xpace_instructors set active=false where id=$1',[prof]);
+ await assert.rejects(()=>bulk('Professor desativado',assignments.map((a,i)=>({...a,instructorId:i===7?prof:null}))),/INSTRUCTOR_INVALID/);
+ await db.query('update xpace_instructors set active=true where id=$1',[prof]);
+ await db.query("update xpace_teaching_months set reviewed_at=now() where tenant_company_id=$1 and month='2027-10-01'",[c]);
+ await assert.rejects(()=>bulk('Mês fechado',assignments.map(a=>({...a,instructorId:null}))),/MONTH_CLOSED/);
+ await db.query("update xpace_teaching_months set reviewed_at=null where tenant_company_id=$1 and month='2027-10-01'",[c]);
+ assert.deepEqual((await db.query('select count(*)::int n from xpace_teaching_rosters')).rows,snapshot.rows);
+ assert.equal((await db.query("select has_function_privilege('authenticated','xpace_create_assigned_teacher_roster(uuid,uuid,date,text,uuid,integer[],time,time,jsonb)','execute') f")).rows[0].f,false);
  const lesson=lessons[0];const update=(person=prof,status='PREVISTA',teacherId=null,qr=null,r=room,start='19:00',end='19:45',company=c)=>db.query('select xpace_update_roster_lesson($1,$2,$3,$4,$5,$6,$7::time,$8::time,null,false,\'\',$9,$10)',[company,teacherId?teacher:actor,lesson.id,status,person,r,start,end,teacherId,qr]);
  await update(prof,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,5000);
  await db.query('update xpace_instructors set lesson_rate_cents=6000 where id=$1',[prof]);await update(prof,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,5000);
