@@ -50,10 +50,15 @@ export async function GET(request:Request){
   ]);
   for(const result of[lessons,rooms,instructors,schedules,rentals,review,groups,roomLessons])if(result.error)throw result.error;
   if((lessons.data?.length??0)>=1000||(instructors.data?.length??0)>=1000||(roomLessons.data?.length??0)>=1000||(schedules.data?.length??0)>=1000||(rentals.data?.length??0)>=1000)throw new AccessError('PERÍODO COM MUITOS REGISTROS. O RELATÓRIO NÃO FOI EXIBIDO PARA EVITAR UM TOTAL INCOMPLETO.',422);
-  // No student/lead identity, contacts, teacher pay or another teacher's rental bill.
+  // Occupancy has no identities/contacts; teachers receive only their own rental contact.
   const ownLessons=teacherInstructorId?(lessons.data??[]).map(({rate_cents,rate_override,confirmed_by,...l})=>l):canManage?lessons.data??[]:[];
   const occupancy=(rentals.data??[]).filter(r=>r.status!=='CANCELADA').map(r=>({id:r.id,room_id:r.room_id,room_name:r.room_name,starts_at:r.starts_at,ends_at:r.ends_at}));
-  const ownRentals=teacherInstructorId?(rentals.data??[]).filter(r=>r.instructor_id===teacherInstructorId):rentals.data??[];
+  const visibleRentals=teacherInstructorId?(rentals.data??[]).filter(r=>r.instructor_id===teacherInstructorId):rentals.data??[];
+  const renterIds=[...new Set(visibleRentals.map(r=>r.instructor_id).filter(Boolean))];
+  const contacts=renterIds.length?await admin.from('xpace_instructors').select('id,full_name,mobile').eq('tenant_company_id',company.id).in('id',renterIds):{data:[],error:null};
+  if(contacts.error)throw contacts.error;
+  const renters=new Map((contacts.data??[]).map(i=>[i.id,i]));
+  const ownRentals=visibleRentals.map(r=>({...r,renter_name:renters.get(r.instructor_id)?.full_name||r.renter_name,renter_mobile:renters.get(r.instructor_id)?.mobile||''}));
   let qrRoomId:string|null=null;
   const qr=new URL(request.url).searchParams.get('qr');
   if(qr&&teacherInstructorId&&validUuid(qr)){
