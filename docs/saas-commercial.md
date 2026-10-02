@@ -63,6 +63,8 @@ Passaram `npm run test:saas` (34 testes Node de regras/API/adapters/medição + 
 
 ## Próxima etapa antes de vender
 
+Prova de publicação em 01/10/2026 (America/Sao_Paulo): push funcional `7b27a5ce` confirmado na main, Vercel success, rotas XPACE/app/loja/plano 200 e revisão pública `7b27a5c` no plano (abreviação do provedor). Sem sessão, API do plano negou com 401; API de observação não aceita GET (405). Nenhum teste autenticado ou efeito financeiro real em produção foi realizado. Estes são fatos históricos; descobrir a revisão atual a cada continuação.
+
 1. Confirmar regras da medição e adicionais/competência/cancelamento. Se escolher média diária, definir arredondamento para a faixa e ampliar o enum configurável após autorização. Implementar captura confiável do fechamento, não usando observações manuais como substituto; média diária não pode ser reconstruída confiavelmente só pelo estado atual dos cadastros.
 2. Completar onboarding financeiro por tenant e vinculação da mãe XPACE, com persistência de IDs e credenciais, reaproveitando o guard e reconciliação dos resultados incertos. Não criar contas reais até liberação Asaas/autorização.
 3. Implementar checkout hospedado de cartão, assinatura/cliente **da conta mãe** para cobrar o SaaS, boleto e Pix; guardar apenas IDs/token cifrado quando necessário + bandeira/final do cartão vindo do provedor. Conta da escola permanece responsável pelos recebimentos dos alunos. Não capturar PAN/CVV no sistema.
