@@ -1,5 +1,9 @@
 # Professores do mês e reserva de salas
 
+Pedido posterior de02/10/2026 ainda pendente: Alceu quer selecionar a grade completa, com estilo/modalidade, nível, público, sala e horários já em Montar turma, no quadro e na impressão/PDF. A seleção simples publicada trouxe apenas id/nome; não atende ainda esta ampliação. Diagnóstico registrado na nota de continuação do contexto; implementação interrompida antes de começar ao atingir90% usados na janela, conforme AGENTS.md. Preservar snapshot histórico e impedir mistura de grades de mesmo nome; nenhuma migration/dado real alterado neste novo pedido.
+
+Esclarecimento com imagem: a lista atual é somente de estilos/modalidades. Deve listar grades específicas com nível/público/horário, puxando sala, dias e horário corretos ao escolher para atribuir os professores por data e depois imprimir. Essas informações precisam estar visíveis na própria montagem; não é só uma alteração do PDF.
+
 Correção de 02/10/2026, conforme os esclarecimentos de Alceu. **Professores do mês é uma escala mensal independente das grades de aulas da Agenda.** Não cria turmas acadêmicas, horários, matrículas ou ocupação; não importa automaticamente a planilha ou seu histórico.
 
 ## Professores do mês
