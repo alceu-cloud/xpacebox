@@ -32,7 +32,11 @@ const rosterDates=load('lib/xpace/teacher-roster.ts');const link=load('lib/xpace
  assert.equal((await api.POST(request({...reserveInput,startsAt:today+'T08:00:00Z',endsAt:today+'T09:00:00Z'}))).status,400);
  assert.equal((await api.POST(request({...reserveInput,startsAt:today+'T21:30:00-03:00',endsAt:today+'T22:00:00.001-03:00'}))).status,400);
  assert.equal((await api.POST(request({...reserveInput,startsAt:today+'T21:30:00-03:00',endsAt:today+'T22:00:00'}))).status,400);
- const anotherMonth=request();const nextMonth=new Date(today.slice(0,7)+'-01T12:00:00Z');nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);anotherMonth.url='http://localhost/api/xpace/aulas?month='+nextMonth.toISOString().slice(0,7);assert.equal((await api.GET(anotherMonth)).body.lessons.length,1);
+ const anotherMonth=request();const nextMonth=new Date(today.slice(0,7)+'-01T12:00:00Z');nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);anotherMonth.url='http://localhost/api/xpace/aulas?month='+nextMonth.toISOString().slice(0,7);assert.equal((await api.GET(anotherMonth)).body.lessons.length,0);
+ const ownMonthly={...rows.xpace_teaching_lessons[0],id:id(200),scheduled_on:today.slice(0,7)+'-28',note:'Internal admin note'};
+ rows.xpace_teaching_lessons.push(ownMonthly,{...ownMonthly,id:id(201),instructor_id:other},{...ownMonthly,id:id(202),tenant_company_id:id(99)},{...ownMonthly,id:id(203),scheduled_on:nextMonth.toISOString().slice(0,7)+'-01'});
+ const monthly=await api.GET(request());assert.equal(monthly.body.lessons.length,2);assert.deepEqual(Array.from(monthly.body.lessons,l=>l.id),[lesson,id(200)]);assert.equal('note' in monthly.body.lessons[1],false);assert.equal('rate_cents' in monthly.body.lessons[1],false);
+ const nextRead=await api.GET(anotherMonth);assert.equal(nextRead.body.lessons.length,1);assert.equal(nextRead.body.lessons[0].id,id(203));
  const gradeRequest=request();gradeRequest.url+='&scope=grade';assert.equal((await api.GET(gradeRequest)).status,403);
  const occupationRequest=request();occupationRequest.url+='&scope=occupation&from='+today;const occupation=await api.GET(occupationRequest);assert.equal(occupation.status,200);assert.equal('lessons'in occupation.body,false);assert.equal('rentals'in occupation.body,false);assert.equal('rooms'in occupation.body,false);assert.equal(occupation.body.roomLessons.length,0);assert.equal(JSON.stringify(occupation.body).includes('47999999999'),false);assert.equal(JSON.stringify(occupation.body).includes('47888888888'),false);
  occupationRequest.url='http://localhost/api/xpace/aulas?scope=occupation&from=2026-02-30';assert.equal((await api.GET(occupationRequest)).status,400);
@@ -40,7 +44,12 @@ const rosterDates=load('lib/xpace/teacher-roster.ts');const link=load('lib/xpace
  assert.equal((await api.GET(gradeRequest)).status,403);assert.equal((await api.POST(request({action:'PREPARE_MONTH',month:today.slice(0,7)}))).status,403);
  assert.equal((await api.POST(request({action:'LESSON',id:lesson,status:'REALIZADA',instructorId:instructor}))).status,403);
  const staffRead=await api.GET(request());assert.equal(staffRead.status,200);assert.equal(staffRead.body.lessons.length,0);assert.equal(staffRead.body.groups.length,0);assert.equal('lesson_rate_cents'in staffRead.body.instructors[0],false);assert.equal('attendance_token'in staffRead.body.rooms[0],false);assert.equal(staffRead.body.rentals[1].renter_name,'Professor arquivado');assert.equal(staffRead.body.rentals[1].renter_mobile,'47888888888');assert.equal(JSON.stringify(staffRead.body).includes('11977777777'),false);
- rows.profiles[0].platform_role='company_manager';const managerRead=await api.GET(gradeRequest);assert.equal(managerRead.status,200);assert.deepEqual(JSON.parse(JSON.stringify(managerRead.body.groups)),[{id:classGroup,name:'Teens'}]);
+ rows.profiles[0].platform_role='company_manager';assert.equal((await api.GET(gradeRequest)).status,403);
+ const restricted=await api.GET(request());assert.equal(restricted.body.lessons.length,0);assert.equal(restricted.body.canAdminister,false);assert.equal('lesson_rate_cents' in restricted.body.instructors[0],false);
+ for(const action of ['PREPARE_MONTH','CREATE_ROSTER','REVIEW_MONTH','LESSON'])assert.equal((await api.POST(request({action,month:today.slice(0,7)}))).status,403);
+ rows.profiles[0].platform_role='platform_owner';const managerRead=await api.GET(gradeRequest);assert.equal(managerRead.status,200);
+ assert.equal((await api.POST(request({action:'LESSON',id:lesson,status:'FALTOU',instructorId:instructor,roomId:room,startsAt:'19:00',endsAt:'19:45'}))).status,200);assert.equal(calls.at(-1).args.p_status,'FALTOU');assert.deepEqual(JSON.parse(JSON.stringify(managerRead.body.groups)),[{id:classGroup,name:'Teens'}]);
+
  const dates=Array.from(rosterDates.teacherRosterDates('2026-10',[1,3]));assert.deepEqual(dates,['2026-10-05','2026-10-07','2026-10-12','2026-10-14','2026-10-19','2026-10-21','2026-10-26','2026-10-28']);
  const complete={action:'CREATE_ROSTER',classGroupId:classGroup,scheduleId:id(120),title:'Nome adulterado',month:'2026-10',roomId:room,weekdays:[1,3],startsAt:'19:00',endsAt:'20:00',assignments:dates.map((day,i)=>({day,instructorId:i%2?null:instructor})),tenantCompanyId:other,actorId:other};
  assert.equal((await api.POST(request(complete))).status,200);assert.equal(calls.at(-1).name,'xpace_create_grade_teacher_roster');assert.equal(calls.at(-1).args.p_title,'Teens');assert.equal(calls.at(-1).args.p_room,room);assert.equal(calls.at(-1).args.p_details.level,'INICIANTE');assert.equal(calls.at(-1).args.p_details.ageGroups[0],'TEENS');assert.equal(calls.at(-1).args.p_company,company);assert.equal(calls.at(-1).args.p_actor,user);assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1).args.p_assignments)),complete.assignments);
@@ -54,7 +63,8 @@ const rosterDates=load('lib/xpace/teacher-roster.ts');const link=load('lib/xpace
  assert.equal((await api.POST(request({...complete,assignments:complete.assignments.map(a=>({...a,instructorId:'invalid'}))}))).status,400);
  assert.equal((await api.POST(request({...complete,assignments:complete.assignments.map(a=>({...a,day:a.day.replace('10-','11-')}))}))).status,400);
  rows.profiles[0].platform_role='company_teacher';rows.company_members.length=0;
+ assert.equal((await api.POST(request({action:'LESSON',id:lesson,status:'FALTOU'}))).status,403);
  assert.equal((await api.POST(request(complete))).status,403);
  rows.xpace_teacher_access[0].active=false;await assert.rejects(()=>access.requireCompanyAccess(request(),'xpace',{allowTeacher:true}),e=>e.status===403);rows.xpace_teacher_access[0].active=true;rows.xpace_instructors[0].active=false;await assert.rejects(()=>access.requireCompanyAccess(request(),'xpace',{allowTeacher:true}),e=>e.status===403);
- console.log('Teaching access/API: PASS (teacher default denial, active binding, own lessons/rentals, no other bills/pay/room tokens, manager-only actions, server-owned tenant/actor/instructor and price).');
+ console.log('Teaching access/API: PASS (teacher default denial, active binding, own lessons/rentals, no other bills/pay/room tokens, administrator-only roster/payroll, teacher own month/absence denial, server-owned tenant/actor/instructor and price).');
 })().catch(e=>{console.error(e);process.exitCode=1;});

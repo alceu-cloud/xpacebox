@@ -16,7 +16,7 @@ export function printTeacherMonth(entries:Entry[],month:string){
   for(const text of ['Professor','Horário','Dia','Sala','Check']){const cell=doc.createElement('th');cell.textContent=text;row.append(cell);}thead.append(row);table.append(thead);
   const tbody=doc.createElement('tbody');for(const entry of items.sort((a,b)=>a.scheduled_on.localeCompare(b.scheduled_on)||a.starts_at.localeCompare(b.starts_at))){
    const tr=doc.createElement('tr'),weekday=new Intl.DateTimeFormat('pt-BR',{weekday:'short',timeZone:'UTC'}).format(new Date(entry.scheduled_on+'T12:00:00Z'));
-   for(const text of [entry.instructor_name||'A definir',entry.starts_at.slice(0,5)+'–'+entry.ends_at.slice(0,5),entry.scheduled_on.slice(8,10)+'/'+entry.scheduled_on.slice(5,7)+' ('+weekday+')',entry.room_name,entry.status==='REALIZADA'?'OK':entry.status==='CANCELADA'?'Não teve aula':'']){const cell=doc.createElement('td');cell.textContent=text;tr.append(cell);}tbody.append(tr);
+   for(const text of [entry.instructor_name||'A definir',entry.starts_at.slice(0,5)+'–'+entry.ends_at.slice(0,5),entry.scheduled_on.slice(8,10)+'/'+entry.scheduled_on.slice(5,7)+' ('+weekday+')',entry.room_name,entry.status==='REALIZADA'?'OK':entry.status==='FALTOU'?'Faltou':entry.status==='CANCELADA'?'Não teve aula':'']){const cell=doc.createElement('td');cell.textContent=text;tr.append(cell);}tbody.append(tr);
   }table.append(tbody);section.append(table);doc.body.append(section);
  }
  const footer=doc.createElement('footer');footer.textContent='Escala mensal · Salve como PDF na janela de impressão.';doc.body.append(footer);popup.focus();popup.print();

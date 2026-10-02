@@ -13,6 +13,8 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
  await db.exec(fs.readFileSync('supabase/migrations/20261002185328_xpace_independent_teacher_rosters.sql','utf8'));
  await db.exec(fs.readFileSync('supabase/migrations/20261002194108_xpace_save_assigned_teacher_roster.sql','utf8'));
  await db.exec(fs.readFileSync('supabase/migrations/20261002214429_xpace_roster_grade_snapshot.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261002220527_xpace_teacher_month_attendance.sql','utf8'));
+
  await db.exec("alter table companies add column slug text;");
  const c=id(1),other=id(2),actor=id(3),teacher=id(4),room=id(5),prof=id(6),sub=id(7),room2=id(8);
  await db.query("insert into companies(id,slug) values($1,'xpace'),($2,'other')",[c,other]);await db.query("insert into profiles(id,platform_role) values($1,'platform_owner'),($2,'company_teacher')",[actor,teacher]);
@@ -64,11 +66,16 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
  await update(prof,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,5000);
  await db.query('update xpace_instructors set lesson_rate_cents=6000 where id=$1',[prof]);await update(prof,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,5000);
  await update(sub,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,4000);
+ await update(sub,'FALTOU');const absent=(await db.query('select status,rate_cents,confirmed_at,confirmed_by,confirmation_source from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0];assert.equal(absent.status,'FALTOU');assert.equal(absent.rate_cents,null);assert.equal(absent.confirmed_at,null);assert.equal(absent.confirmed_by,null);assert.equal(absent.confirmation_source,null);
+ assert.equal((await db.query("select coalesce(sum(rate_cents) filter(where status='REALIZADA'),0)::int total from xpace_teaching_lessons where roster_id=$1",[roster])).rows[0].total,0);
+ await db.query("update profiles set platform_role='company_manager' where id=$1",[actor]);await assert.rejects(()=>update(sub,'REALIZADA'),/ADMIN_REQUIRED/);await db.query("update profiles set platform_role='platform_owner' where id=$1",[actor]);
+ await update(sub,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,4000);
  await update(null);assert.equal((await db.query('select instructor_id from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].instructor_id,null);
  await assert.rejects(()=>update(null,'REALIZADA'),/LESSON_INVALID/);
  await update(prof);await assert.rejects(()=>update(prof,'REALIZADA',sub),/TEACHER_FORBIDDEN/);
  await assert.rejects(()=>update(prof,'REALIZADA',prof),/ATTENDANCE_WINDOW_CLOSED/);
  await db.query("update xpace_teaching_lessons set scheduled_on=$2::date, starts_at=(now() at time zone 'America/Sao_Paulo')::time,ends_at='23:59:59' where id=$1",[lesson.id,now.today]);
+ await update(prof,'FALTOU');await assert.rejects(()=>update(prof,'REALIZADA',prof),/ATTENDANCE_WINDOW_CLOSED/);await assert.rejects(()=>update(prof,'FALTOU',prof),/TEACHER_FORBIDDEN/);await update(prof,'PREVISTA');await db.query("update xpace_teaching_lessons set starts_at=(now() at time zone 'America/Sao_Paulo')::time,ends_at='23:59:59' where id=$1",[lesson.id]);
  const token=(await db.query('select attendance_token from xpace_rooms where id=$1',[room])).rows[0].attendance_token;
  await assert.rejects(()=>update(prof,'REALIZADA',prof,id(999)),/ROOM_QR_INVALID/);
  await update(prof,'REALIZADA',prof,token);assert.equal((await db.query('select rate_cents,confirmation_source from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,6000);

@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { attendanceTone, modalityAction, professorAction, professorSample, rate, type TrialGroup, type TrialRecord, type TrialReport, type TrialStats } from "@/lib/xpace/report-metrics";
 import type { HistoryMonth } from "@/lib/server/xpace-report-history";
 import ConversionWorkspace from "./ConversionWorkspace";
-import TeachingWorkspace from "./TeachingWorkspace";
+import TeachingWorkspace, { teachingApi } from "./TeachingWorkspace";
 import StockReportWorkspace from "./StockReportWorkspace";
 import { dateInSaoPaulo } from "@/lib/xpace/dashboard-metrics";
 
@@ -35,6 +35,8 @@ function kind(value: string) { return ({ NOVO: "Novo", REAGENDAMENTO: "Reagendad
 function status(value: string) { return ({ COMPARECEU: "Compareceu", FALTOU: "Faltou", AGENDADO: "Agendado", NAO_INFORMADO: "Não informado", MATRICULOU: "Matriculou", NAO_MATRICULOU: "Não matriculou", PENDENTE: "Pendente" } as Record<string, string>)[value] ?? value; }
 
 export default function ReportsWorkspace({ onOpenLead = () => {}, startWithActions = false }: { onOpenLead?: (id: string) => void; startWithActions?: boolean }) {
+  const [canAdministerTeaching, setCanAdministerTeaching] = useState(false);
+  useEffect(() => { let active = true; void teachingApi<{canAdminister:boolean}>("/api/xpace/aulas").then(data => { if(active) setCanAdministerTeaching(data.canAdminister); }).catch(() => {}); return () => { active = false; }; }, []);
   const today = dateInSaoPaulo(new Date().toISOString());
   const year = today.slice(0, 4);
   const initialFrom = startWithActions ? `${today.slice(0,7)}-01` : `${year}-01-01`;
@@ -85,10 +87,10 @@ export default function ReportsWorkspace({ onOpenLead = () => {}, startWithActio
     {section !== 'AULAS' ? <form className="xdd-period" onSubmit={(event) => { event.preventDefault(); if (from > to) { setPeriodError("A data inicial deve ser anterior à final."); return; } setPeriodError(""); refreshRequest.current?.abort(); setDetail(null); setPeriod({ from, to }); }}>
       <div><CalendarDays size={18} aria-hidden="true" /><span>PERÍODO DE ANÁLISE</span></div><label>DE<input type="date" required value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>ATÉ<input type="date" required value={to} onChange={(e) => setTo(e.target.value)} /></label><button type="submit">APLICAR</button><small>{section === "ESTOQUE" ? "Movimentações usam a data do lançamento, no horário de Brasília." : "Experimentais usam a data da aula. Histórico manual permanece identificado."}</small>
     </form> : null}
-    <nav className="xdd-tabs xpr-tabs" aria-label="Áreas dos relatórios">{tabs.map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-pressed={section === id} className={section === id ? "is-active" : ""} onClick={() => setSection(id)}><Icon size={17} aria-hidden="true" />{label}</button>)}</nav>
+    <nav className="xdd-tabs xpr-tabs" aria-label="Áreas dos relatórios">{tabs.filter(tab => tab.id !== "AULAS" || canAdministerTeaching).map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-pressed={section === id} className={section === id ? "is-active" : ""} onClick={() => setSection(id)}><Icon size={17} aria-hidden="true" />{label}</button>)}</nav>
     {periodError ? <p className="xdd-alert" role="alert">{periodError}</p> : null}
     {section === "ACOES" ? <ConversionWorkspace from={period.from} to={period.to} onOpenLead={onOpenLead} /> : null}
-    {section === "AULAS" ? <TeachingWorkspace reportOnly /> : null}{section === "ESTOQUE" ? <StockReportWorkspace from={period.from} to={period.to} /> : null}
+    {section === "AULAS" && canAdministerTeaching ? <TeachingWorkspace reportOnly /> : null}{section === "ESTOQUE" ? <StockReportWorkspace from={period.from} to={period.to} /> : null}
     {!separateReport && error ? <div className="xdd-alert" role="alert"><CircleAlert size={18} aria-hidden="true" />{error}<button type="button" onClick={refresh}>Tentar novamente</button></div> : null}
     {!separateReport && loading ? <div className="xdd-loading" role="status">CARREGANDO RELATÓRIOS...</div> : null}
     {!separateReport && !loading && !error && report && payload ? <div className="xdd-content">

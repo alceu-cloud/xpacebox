@@ -14,6 +14,7 @@
     "test:navigation": "node --test tests/navigation.test.cjs",
     "test:navigation:browser": "node scripts/navigation-browser-test.cjs",
     "test:xpace-teaching": "node tests/teaching-workload.test.cjs && node tests/teaching-access-api.test.cjs && node tests/teacher-account-api.test.cjs && node tests/teacher-user-api.test.cjs && node tests/teacher-user-db.test.cjs && node tests/teaching-db.test.cjs && node tests/teacher-roster-db.test.cjs && node tests/room-occupancy.test.cjs && node tests/trial-allowance-api.test.cjs && node tests/trial-allowance-db.test.cjs && node scripts/xpace-pocket-weeks-test.cjs",
+    "test:xpace-teaching:mobile": "node scripts/teacher-mobile-browser-test.cjs",
     "test:xpace-links": "node tests/link-tree-validation.test.cjs && node tests/link-tree-db.test.cjs",
     "test:xpace-links-teaching:browser": "node scripts/xpace-links-teaching-browser-test.cjs"
   },

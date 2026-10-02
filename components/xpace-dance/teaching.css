@@ -7,3 +7,15 @@
 .tw-professor .xb-build-revision,.tw-professor-login .xb-build-revision{position:static;display:block;width:fit-content;margin:12px 0 0 auto}
 @media(max-width:1000px){.tw-days{grid-template-columns:1fr}.tw-reservation-layout{grid-template-columns:320px 1fr}.tw-report-metrics strong{font-size:24px}.tw-report header{align-items:flex-start;flex-direction:column}}
 @media(max-width:650px){.tw-workspace{padding:18px 0 30px}.tw-heading{flex-direction:column;align-items:flex-start;gap:15px}.tw-heading h2{font-size:25px}.tw-month{width:100%;justify-content:space-between}.tw-month input{max-width:170px}.tw-nav button{padding:11px 12px;font-size:8px}.tw-toolbar{align-items:flex-start;flex-direction:column}.tw-toolbar>div{width:100%;justify-content:space-between}.tw-toolbar select{min-width:0;max-width:55%}.tw-primary,.tw-secondary{font-size:9px;padding:11px 12px}.tw-lesson{padding:14px 11px;gap:10px}.tw-lesson-copy>strong{font-size:11px}.tw-lesson-copy>span{font-size:8px}.tw-lesson-actions{gap:9px}.tw-lesson-actions .tw-text-button{font-size:7px}.tw-time{width:39px}.tw-time strong{font-size:11px}.tw-status{font-size:8px;padding:4px 6px}.tw-rooms{grid-template-columns:1fr}.tw-room{padding:17px}.tw-room article{gap:10px}.tw-reservation-layout{grid-template-columns:1fr}.tw-report-metrics{grid-template-columns:1fr;gap:10px}.tw-report-metrics article{padding:16px;gap:8px}.tw-report-metrics strong{font-size:27px}.tw-report{padding:17px}.tw-modal form{padding:23px}.tw-modal header h3{font-size:20px}.tw-weekdays span{padding:9px 7px}.tw-two{gap:10px}.tw-professor{padding:20px 14px}.tw-professor-header .tw-secondary{font-size:8px;padding:9px}.tw-reservation-list{padding:18px}.tw-reservation-list article small{font-size:9px}.tw-lesson-actions .tw-confirm{font-size:8px;padding:7px}.tw-modal{padding:12px}}
+
+/* The professor route keeps one phone-sized column, including on larger screens. */
+.tw-professor{max-width:480px;box-sizing:border-box;min-height:100dvh;padding:20px 14px calc(24px + env(safe-area-inset-bottom,0px))}
+.tw-professor .tw-days{grid-template-columns:minmax(0,1fr)}
+.tw-professor .tw-heading{flex-direction:column;align-items:flex-start;gap:15px}
+.tw-professor .tw-month{width:100%;box-sizing:border-box;justify-content:space-between}
+.tw-professor .tw-month input,.tw-professor .tw-form input,.tw-professor .tw-form select,.tw-professor textarea{font-size:16px}
+.tw-professor button{min-height:44px;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.tw-professor .tw-lesson-actions{max-width:112px}
+.tw-professor .tw-lesson-actions .tw-small{text-align:right;font-size:9px}
+.tw-professor .tw-reservation-layout{grid-template-columns:minmax(0,1fr)}
+.tw-FALTOU .tw-status,.tw-roster-FALTOU .tw-status{background:#faf0f2;color:#a03855}
