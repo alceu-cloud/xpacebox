@@ -45,11 +45,11 @@ export async function GET(request:Request){
     Promise.resolve({data:[],error:null}),
     rentalQuery,
     admin.from('xpace_teaching_months').select('reviewed_at').eq('tenant_company_id',company.id).eq('month',start).maybeSingle(),
-    Promise.resolve({data:[],error:null}),
+    canManage?admin.from('xpace_class_groups').select('id,name').eq('tenant_company_id',company.id).eq('active',true).order('name'):Promise.resolve({data:[],error:null}),
     Promise.resolve({data:[],error:null})
   ]);
   for(const result of[lessons,rooms,instructors,schedules,rentals,review,groups,roomLessons])if(result.error)throw result.error;
-  if((lessons.data?.length??0)>=1000||(instructors.data?.length??0)>=1000||(roomLessons.data?.length??0)>=1000||(schedules.data?.length??0)>=1000||(rentals.data?.length??0)>=1000)throw new AccessError('PERÍODO COM MUITOS REGISTROS. O RELATÓRIO NÃO FOI EXIBIDO PARA EVITAR UM TOTAL INCOMPLETO.',422);
+  if((groups.data?.length??0)>=1000||(lessons.data?.length??0)>=1000||(instructors.data?.length??0)>=1000||(roomLessons.data?.length??0)>=1000||(schedules.data?.length??0)>=1000||(rentals.data?.length??0)>=1000)throw new AccessError('PERÍODO COM MUITOS REGISTROS. O RELATÓRIO NÃO FOI EXIBIDO PARA EVITAR UM TOTAL INCOMPLETO.',422);
   // Occupancy has no identities/contacts; teachers receive only their own rental contact.
   const ownLessons=teacherInstructorId?(lessons.data??[]).map(({rate_cents,rate_override,confirmed_by,...l})=>l):canManage?lessons.data??[]:[];
   const occupancy=(rentals.data??[]).filter(r=>r.status!=='CANCELADA').map(r=>({id:r.id,room_id:r.room_id,room_name:r.room_name,starts_at:r.starts_at,ends_at:r.ends_at}));
@@ -75,15 +75,19 @@ export async function POST(request:Request){
     manager(profile.platform_role);const {start}=monthBounds(body.month);const result=await admin.from('xpace_teaching_months').upsert({tenant_company_id:company.id,month:start},{onConflict:'tenant_company_id,month',ignoreDuplicates:true});if(result.error)throw result.error;
   }else if(body.action==='CREATE_ROSTER'){
     manager(profile.platform_role);
-    if((body.instructorId!=null&&!validUuid(body.instructorId))||!validUuid(body.roomId)||typeof body.title!=='string'||!Array.isArray(body.weekdays)||!body.weekdays.length||body.weekdays.some(d=>!Number.isInteger(d)||Number(d)<0||Number(d)>6)||new Set(body.weekdays).size!==body.weekdays.length||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.startsAt))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.endsAt)))throw new AccessError('CONFIRA OS DADOS DA ESCALA.',400);
+    if(!validUuid(body.classGroupId))throw new AccessError('ESCOLHA UMA TURMA DAS GRADES CADASTRADAS.',400);
+    const group=await admin.from('xpace_class_groups').select('id,name').eq('tenant_company_id',company.id).eq('id',body.classGroupId).eq('active',true).maybeSingle();
+    if(group.error)throw group.error;
+    if(!group.data)throw new AccessError('TURMA NÃO ENCONTRADA OU ARQUIVADA. ATUALIZE AS GRADES CADASTRADAS.',400);
+    if((body.instructorId!=null&&!validUuid(body.instructorId))||!validUuid(body.roomId)||!Array.isArray(body.weekdays)||!body.weekdays.length||body.weekdays.some(d=>!Number.isInteger(d)||Number(d)<0||Number(d)>6)||new Set(body.weekdays).size!==body.weekdays.length||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.startsAt))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.endsAt)))throw new AccessError('CONFIRA OS DADOS DA ESCALA.',400);
     const {start}=monthBounds(body.month);
     if(body.assignments!==undefined){
       const expected=teacherRosterDates(start.slice(0,7),body.weekdays as number[]);
       if(!Array.isArray(body.assignments)||body.assignments.length!==expected.length)throw new AccessError('ESCOLHA OS PROFESSORES DAS DATAS DESTE MÊS.',400);
       const assignments=body.assignments as {day:unknown;instructorId:unknown}[];
       if(assignments.some(a=>!a||typeof a.day!=='string'||!expected.includes(a.day)||(a.instructorId!==null&&!validUuid(a.instructorId)))||new Set(assignments.map(a=>a.day)).size!==expected.length)throw new AccessError('CONFIRA OS PROFESSORES E AS DATAS DA TURMA.',400);
-      await rpc('xpace_create_assigned_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:body.title,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt,p_assignments:assignments.map(a=>({day:a.day,instructorId:a.instructorId}))});
-    }else await rpc('xpace_create_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:body.title,p_instructor:body.instructorId??null,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt});
+      await rpc('xpace_create_assigned_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:group.data.name,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt,p_assignments:assignments.map(a=>({day:a.day,instructorId:a.instructorId}))});
+    }else await rpc('xpace_create_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:group.data.name,p_instructor:body.instructorId??null,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt});
   }else if(body.action==='LESSON'){
     if(!teacherInstructorId)manager(profile.platform_role);
     if(!validUuid(body.id)||!['PREVISTA','REALIZADA','CANCELADA'].includes(String(body.status)))throw new AccessError('AULA INVÁLIDA.',400);
