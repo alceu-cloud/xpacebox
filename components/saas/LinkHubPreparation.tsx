@@ -1,3 +1,4 @@
+import { Link2, Network } from "lucide-react";
 import { linkHubAddon, linkHubSections, publicLinkHubPath } from "@/lib/saas/link-hub";
 import "./link-hub-preparation.css";
 
@@ -9,6 +10,11 @@ export default function LinkHubPreparation({ companySlug, companyName, exempt }:
   try { plannedPath = publicLinkHubPath(companySlug); } catch { /* A prévia não deve impedir o acesso à loja por um slug legado inválido. */ }
 
   return <article className="saas-link-hub">
+    <div className="xd-xpay-card-visual saas-link-hub-visual" aria-hidden="true">
+      <div className="xd-xpay-mark"><Network size={42} /><i><Link2 size={12} /></i></div>
+      <span>LINKS</span>
+    </div>
+    <div className="saas-link-hub-copy">
     <header className="saas-link-hub-heading">
       <div><h2>{linkHubAddon.name}</h2><span className="saas-link-hub-status">PREPARAÇÃO</span></div>
       <strong className="saas-link-hub-price">{exempt ? "Isento de mensalidade" : `${monthlyPrice} / mês`}</strong>
@@ -26,5 +32,6 @@ export default function LinkHubPreparation({ companySlug, companyName, exempt }:
         <p className="saas-link-hub-address">Endereço planejado: <code>{plannedPath || "A definir"}</code><small>Não publicado. Nenhum endereço público ativo nesta preparação.</small></p>
       </div>
     </details>
+    </div>
   </article>;
 }
