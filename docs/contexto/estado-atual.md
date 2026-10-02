@@ -158,9 +158,19 @@ Pedido adicional de 01/10/2026: no computador, alinhar `PRODUTOS`, pesquisa, cat
 
 Publicação funcional comprovada em 01/10/2026: push à `main` confirmado e status Vercel `success` para `xpacebox/pricing-app-1`. `/xpace` e `/xpace/app` responderam HTTP 200; os arquivos públicos em produção continham a revisão da entrega, a lista/pesquisa por nome, o seletor desktop e a barra alinhada. A conferência foi somente de leitura, sem sessão, dados ou mensagens reais; testes de operação autenticada/alerta físico continuam sujeitos às provas já descritas. Não confundir confirmação dos arquivos publicados com movimentação real de estoque.
 
+## Árvore de links — preparação de 01/10/2026
+
+Alceu pediu um novo item opcional na Loja, tipo Linktree: R$19,90/mês no contexto dos adicionais SaaS, XPACE isenta, com endereço por empresa e seções de contratos/planos, produtos, eventos e agendamento de aula. Pedido explícito de pré-montagem e conclusão amanhã. Cartão/prévia reutilizado na loja genérica e na Loja XPACE, com preço ou isenção validada no servidor da loja genérica, teclado nativo e aviso de publicação indisponível. Caminho `/links/[companySlug]` é somente planejado: nenhuma página pública ativa nem contratação nesta entrega.
+
+Helpers puros, validação preliminar de destinos e cinco testes novos preparados. Passaram 39 testes Node SaaS e dois suites SQL isolados, TypeScript, build otimizado e navegador com fixtures (desktop1440/mobile320/390 e Loja XPACE). Screenshot móvel inspecionado sem overflow; endereço preservado em minúsculas. `LINK_HUB` não integra ainda o pricebook, preferência ou quote: não mudar cobranças antigas silenciosamente. Nenhuma migration, escrita em produção, mensagem, conta/assinatura, callback ou cron financeiro alterado. Detalhes e etapas em `docs/saas-link-hub.md`. Lembrete local de uma execução criado para 02/10 às 09h Brasília, apenas para avisar da retomada, sem continuar sozinho.
+
 ## Nota temporária — continuação
 
-Checkpoint de 01/10/2026: base comercial e observações de alunos preparadas; mudanças de estoque do amigo preservadas após integração. A janela de cinco horas renovou durante a retomada; não houve esgotamento de crédito. O motivo da passagem é a necessidade de definição comercial e homologação/autorizações ainda pendentes, não o limite de uso. Não declarar SaaS inteiro pronto para vender.
+Checkpoint atualizado em 01/10/2026: base comercial e observações de alunos preparadas; mudanças de estoque do amigo preservadas após integração. Acrescentada a pré-montagem da Árvore de links. Alceu pediu deixar sua conclusão para amanhã, e a janela de uso já estava próxima da margem de parada; não houve esgotamento total. A preparação financeira anterior continua aguardando definição comercial/homologação. Não declarar SaaS inteiro pronto para vender nem a árvore publicada.
+
+### Prioridade da retomada — Árvore de links
+
+Ler `docs/saas-link-hub.md` e executar suas etapas em ordem após conferir Git. Ponto de parada: cartão/preview, catálogo puro e testes; ainda faltam persistência/editor por tenant, rota pública e destinos reais, publicação/entitlement e integração do adicional à mensalidade. Não ativar cobrança real. Periodicidade mensal foi assumida do contexto; confirmar antes de ligar contratação. Arquivos em `C:/XpaceBox`, main; conferir a revisão atual. Testes/build/publicação devem ser consultados nas evidências finais do módulo, não presumidos pelo lembrete.
 
 ### Escopo autorizado e bloqueios
 

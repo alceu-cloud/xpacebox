@@ -4,6 +4,7 @@ import { ArrowLeft, BadgeCheck, Building2, Check, ChevronRight, CircleDollarSign
 import { FormEvent, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import LinkHubPreparation from "@/components/saas/LinkHubPreparation";
 
 type Account = { id: string; environment: "SANDBOX" | "PRODUCAO"; label: string; status: string; legalEntityType: "PJ" | "PF"; companyType: string | null; legalName: string; tradeName: string; documentNumber: string; email: string; phone: string; mobilePhone: string; monthlyIncomeCents: number; postalCode: string; address: string; addressNumber: string; neighborhood: string; complement: string; responsibleName: string; responsibleDocument: string; responsibleBirthDate: string; onboardingRequestedAt: string | null; lastProviderStatusAt: string | null; providerStatusNote: string; closedAt: string | null; createdAt: string };
 type XPayPayload = { success: boolean; providerConfigured: boolean; environment: "SANDBOX" | "PRODUCAO"; accounts: Account[] };
@@ -47,6 +48,7 @@ export function XPayStore({ onOpenBenefits, onOpenAccount, onOpenMessages }: { o
       <div className="xd-xpay-card-copy"><div><h2>Integrador de mensagens</h2><div className="xd-xpay-chips"><span className="is-usage">Z-API NA NUVEM</span><span className="is-usage">ENVIOS ACOMPANHADOS</span></div></div><p>Acompanhe avisos de aulas e notificações da escola em filas separadas, com confirmação de entrega.</p><small>NÃO DEPENDE DO COMPUTADOR LIGADO · INTEGRAÇÃO DE TERCEIROS, SUJEITA ÀS REGRAS DO WHATSAPP.</small></div>
       <footer><button type="button" className="xd-xpay-edit" onClick={onOpenMessages}><MessageCircle size={17} /> WHATSAPP E ENVIOS</button></footer>
     </article>
+    <LinkHubPreparation companySlug="xpace" companyName="XPACE" exempt />
     {notice ? <p className="xd-feedback">{notice}</p> : null}
   </section>;
 }
