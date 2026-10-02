@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AccessError, requireCompanyAccess } from '@/lib/server/company-access';
 import { validUuid } from '@/lib/xpace/link-tree';
+import { rosterGrades } from '@/lib/xpace/roster-grade';
 import { teacherRosterDates } from '@/lib/xpace/teacher-roster';
 import { withinRoomReservationHours, reservationHoursMessage } from '@/lib/xpace/room-reservation';
 const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -42,10 +43,10 @@ export async function GET(request:Request){
     teacherInstructorId?lessonQuery.eq('instructor_id',teacherInstructorId).eq('scheduled_on',day()):canManage?lessonQuery:Promise.resolve({data:[],error:null}),
     admin.from('xpace_rooms').select(!canManage?'id,name,active,hourly_rate_cents':'id,name,active,hourly_rate_cents,attendance_token').eq('tenant_company_id',company.id).eq('active',true).order('name'),
     admin.from('xpace_instructors').select('id,full_name,active,lesson_rate_cents').eq('tenant_company_id',company.id).eq('active',true).order('full_name'),
-    Promise.resolve({data:[],error:null}),
+    canManage?admin.from('xpace_class_schedules').select('id,class_group_id,weekday,starts_at,ends_at,room_id,room_name,class_level,age_group,age_groups').eq('tenant_company_id',company.id).eq('active',true).order('weekday').order('starts_at'):Promise.resolve({data:[],error:null}),
     rentalQuery,
     admin.from('xpace_teaching_months').select('reviewed_at').eq('tenant_company_id',company.id).eq('month',start).maybeSingle(),
-    canManage?admin.from('xpace_class_groups').select('id,name').eq('tenant_company_id',company.id).eq('active',true).order('name'):Promise.resolve({data:[],error:null}),
+    canManage?admin.from('xpace_class_groups').select('id,name,modality,class_level').eq('tenant_company_id',company.id).eq('active',true).order('name'):Promise.resolve({data:[],error:null}),
     Promise.resolve({data:[],error:null})
   ]);
   for(const result of[lessons,rooms,instructors,schedules,rentals,review,groups,roomLessons])if(result.error)throw result.error;
@@ -64,7 +65,7 @@ export async function GET(request:Request){
   if(qr&&teacherInstructorId&&validUuid(qr)){
     const room=await admin.from('xpace_rooms').select('id').eq('tenant_company_id',company.id).eq('attendance_token',qr).eq('active',true).maybeSingle();if(room.error)throw room.error;qrRoomId=room.data?.id??null;
   }
-  return NextResponse.json({success:true,teacher:Boolean(teacherInstructorId),instructorId:teacherInstructorId,canManage:['platform_owner','company_manager'].includes(profile.platform_role),lessons:ownLessons,roomLessons:roomLessons.data??[],rooms:rooms.data??[],instructors:teacherInstructorId?[]:canManage?instructors.data??[]:(instructors.data??[]).map(({lesson_rate_cents,...i})=>i),schedules:schedules.data??[],groups:groups.data??[],rentals:ownRentals,occupancy,reviewedAt:canManage||teacherInstructorId?review.data?.reviewed_at??null:null,qrRoomId});
+  return NextResponse.json({success:true,teacher:Boolean(teacherInstructorId),instructorId:teacherInstructorId,canManage:['platform_owner','company_manager'].includes(profile.platform_role),lessons:ownLessons,roomLessons:roomLessons.data??[],rooms:rooms.data??[],instructors:teacherInstructorId?[]:canManage?instructors.data??[]:(instructors.data??[]).map(({lesson_rate_cents,...i})=>i),schedules:[],groups:(groups.data??[]).map(g=>({id:g.id,name:g.name})),rosterGrades:canManage?rosterGrades(groups.data??[],schedules.data??[]):[],rentals:ownRentals,occupancy,reviewedAt:canManage||teacherInstructorId?review.data?.reviewed_at??null:null,qrRoomId});
  }catch(e){return failure(e);}
 }
 export async function POST(request:Request){
@@ -75,19 +76,20 @@ export async function POST(request:Request){
     manager(profile.platform_role);const {start}=monthBounds(body.month);const result=await admin.from('xpace_teaching_months').upsert({tenant_company_id:company.id,month:start},{onConflict:'tenant_company_id,month',ignoreDuplicates:true});if(result.error)throw result.error;
   }else if(body.action==='CREATE_ROSTER'){
     manager(profile.platform_role);
-    if(!validUuid(body.classGroupId))throw new AccessError('ESCOLHA UMA TURMA DAS GRADES CADASTRADAS.',400);
-    const group=await admin.from('xpace_class_groups').select('id,name').eq('tenant_company_id',company.id).eq('id',body.classGroupId).eq('active',true).maybeSingle();
-    if(group.error)throw group.error;
-    if(!group.data)throw new AccessError('TURMA NÃO ENCONTRADA OU ARQUIVADA. ATUALIZE AS GRADES CADASTRADAS.',400);
-    if((body.instructorId!=null&&!validUuid(body.instructorId))||!validUuid(body.roomId)||!Array.isArray(body.weekdays)||!body.weekdays.length||body.weekdays.some(d=>!Number.isInteger(d)||Number(d)<0||Number(d)>6)||new Set(body.weekdays).size!==body.weekdays.length||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.startsAt))||!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.endsAt)))throw new AccessError('CONFIRA OS DADOS DA ESCALA.',400);
-    const {start}=monthBounds(body.month);
-    if(body.assignments!==undefined){
-      const expected=teacherRosterDates(start.slice(0,7),body.weekdays as number[]);
-      if(!Array.isArray(body.assignments)||body.assignments.length!==expected.length)throw new AccessError('ESCOLHA OS PROFESSORES DAS DATAS DESTE MÊS.',400);
-      const assignments=body.assignments as {day:unknown;instructorId:unknown}[];
-      if(assignments.some(a=>!a||typeof a.day!=='string'||!expected.includes(a.day)||(a.instructorId!==null&&!validUuid(a.instructorId)))||new Set(assignments.map(a=>a.day)).size!==expected.length)throw new AccessError('CONFIRA OS PROFESSORES E AS DATAS DA TURMA.',400);
-      await rpc('xpace_create_assigned_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:group.data.name,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt,p_assignments:assignments.map(a=>({day:a.day,instructorId:a.instructorId}))});
-    }else await rpc('xpace_create_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:group.data.name,p_instructor:body.instructorId??null,p_room:body.roomId,p_days:body.weekdays,p_start:body.startsAt,p_end:body.endsAt});
+    if(!validUuid(body.classGroupId)||!validUuid(body.scheduleId))throw new AccessError('ESCOLHA UMA GRADE COMPLETA CADASTRADA.',400);
+    const [groups,schedules]=await Promise.all([
+      admin.from('xpace_class_groups').select('id,name,modality,class_level').eq('tenant_company_id',company.id).eq('id',body.classGroupId).eq('active',true),
+      admin.from('xpace_class_schedules').select('id,class_group_id,weekday,starts_at,ends_at,room_id,room_name,class_level,age_group,age_groups').eq('tenant_company_id',company.id).eq('class_group_id',body.classGroupId).eq('active',true)
+    ]);
+    if(groups.error)throw groups.error;if(schedules.error)throw schedules.error;
+    if((schedules.data?.length??0)>=1000)throw new AccessError('GRADE COM MUITOS HORÁRIOS.',422);
+    const grade=rosterGrades(groups.data??[],schedules.data??[]).find(g=>g.id===body.scheduleId);
+    if(!grade)throw new AccessError('GRADE NÃO ENCONTRADA OU ARQUIVADA. ATUALIZE A AGENDA.',400);
+    const {start}=monthBounds(body.month),expected=teacherRosterDates(start.slice(0,7),grade.weekdays);
+    if(!Array.isArray(body.assignments)||body.assignments.length!==expected.length)throw new AccessError('ESCOLHA OS PROFESSORES DAS DATAS DESTE MÊS.',400);
+    const assignments=body.assignments as {day:unknown;instructorId:unknown}[];
+    if(assignments.some(a=>!a||typeof a.day!=='string'||!expected.includes(a.day)||(a.instructorId!==null&&!validUuid(a.instructorId)))||new Set(assignments.map(a=>a.day)).size!==expected.length)throw new AccessError('CONFIRA OS PROFESSORES E AS DATAS DA TURMA.',400);
+    await rpc('xpace_create_grade_teacher_roster',{p_company:company.id,p_actor:user.id,p_month:start,p_title:grade.name,p_room:grade.roomId,p_days:grade.weekdays,p_start:grade.startsAt,p_end:grade.endsAt,p_assignments:assignments.map(a=>({day:a.day,instructorId:a.instructorId})),p_details:grade,p_key:grade.scheduleIds.join(',')});
   }else if(body.action==='LESSON'){
     if(!teacherInstructorId)manager(profile.platform_role);
     if(!validUuid(body.id)||!['PREVISTA','REALIZADA','CANCELADA'].includes(String(body.status)))throw new AccessError('AULA INVÁLIDA.',400);

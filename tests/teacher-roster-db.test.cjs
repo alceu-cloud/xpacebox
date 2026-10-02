@@ -12,6 +12,7 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
 
  await db.exec(fs.readFileSync('supabase/migrations/20261002185328_xpace_independent_teacher_rosters.sql','utf8'));
  await db.exec(fs.readFileSync('supabase/migrations/20261002194108_xpace_save_assigned_teacher_roster.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261002214429_xpace_roster_grade_snapshot.sql','utf8'));
  await db.exec("alter table companies add column slug text;");
  const c=id(1),other=id(2),actor=id(3),teacher=id(4),room=id(5),prof=id(6),sub=id(7),room2=id(8);
  await db.query("insert into companies(id,slug) values($1,'xpace'),($2,'other')",[c,other]);await db.query("insert into profiles(id,platform_role) values($1,'platform_owner'),($2,'company_teacher')",[actor,teacher]);
@@ -50,6 +51,15 @@ const{PGlite}=require('@electric-sql/pglite');const assert=require('node:assert/
  await db.query("update xpace_teaching_months set reviewed_at=null where tenant_company_id=$1 and month='2027-10-01'",[c]);
  assert.deepEqual((await db.query('select count(*)::int n from xpace_teaching_rosters')).rows,snapshot.rows);
  assert.equal((await db.query("select has_function_privilege('authenticated','xpace_create_assigned_teacher_roster(uuid,uuid,date,text,uuid,integer[],time,time,jsonb)','execute') f")).rows[0].f,false);
+ const gradeDetails={name:'Street Dance',modality:'Street Dance',level:'INICIANTE',ageGroups:['TEENS'],roomName:'Sala 1',weekdays:[1,3],startsAt:'19:00',endsAt:'20:00'};
+ const fullGrade=(key,details=gradeDetails,entries=assignments.map(a=>({...a,instructorId:null})),who=actor)=>db.query("select xpace_create_grade_teacher_roster($1,$2,'2027-10-01','Street Dance',$3,array[1,3],'19:00','20:00',$4::jsonb,$5::jsonb,$6) id",[c,who,room,JSON.stringify(entries),JSON.stringify(details),key]);
+ const fullId=(await fullGrade('grade-teens')).rows[0].id;const adultId=(await fullGrade('grade-adulto',{...gradeDetails,ageGroups:['ADULTO']})).rows[0].id;
+ assert.notEqual(fullId,adultId);assert.equal((await db.query('select grade_details from xpace_teaching_lessons where roster_id=$1',[fullId])).rows[0].grade_details.level,'INICIANTE');
+ const beforeGradeFailure=(await db.query('select count(*)::int n from xpace_teaching_rosters')).rows[0].n;
+ await assert.rejects(()=>fullGrade('grade-teens'),/duplicate key/);await assert.rejects(()=>fullGrade('grade-failure',gradeDetails,assignments.map((a,i)=>({...a,instructorId:i===7?id(999):null}))),/INSTRUCTOR_INVALID/);
+ assert.equal((await db.query('select count(*)::int n from xpace_teaching_rosters')).rows[0].n,beforeGradeFailure);
+ await assert.rejects(()=>fullGrade('grade-forbidden',gradeDetails,undefined,teacher),/TEACHER_FORBIDDEN/);
+ assert.equal((await db.query("select has_function_privilege('authenticated','xpace_create_grade_teacher_roster(uuid,uuid,date,text,uuid,integer[],time,time,jsonb,jsonb,text)','execute') f")).rows[0].f,false);
  const lesson=lessons[0];const update=(person=prof,status='PREVISTA',teacherId=null,qr=null,r=room,start='19:00',end='19:45',company=c)=>db.query('select xpace_update_roster_lesson($1,$2,$3,$4,$5,$6,$7::time,$8::time,null,false,\'\',$9,$10)',[company,teacherId?teacher:actor,lesson.id,status,person,r,start,end,teacherId,qr]);
  await update(prof,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,5000);
  await db.query('update xpace_instructors set lesson_rate_cents=6000 where id=$1',[prof]);await update(prof,'REALIZADA');assert.equal((await db.query('select rate_cents from xpace_teaching_lessons where id=$1',[lesson.id])).rows[0].rate_cents,5000);
