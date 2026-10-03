@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import TeachingWorkspace,{schoolToday,teachingApi} from '@/components/xpace-dance/TeachingWorkspace';
 import BuildRevision from '@/components/BuildRevision';
+import RefreshableScreen from '@/components/xpace-dance/RefreshableScreen';
 import {supabase} from '@/lib/supabase';
 import '@/components/xpace-dance/teaching.css';
 export default function ProfessorPage(){
@@ -17,5 +18,5 @@ export default function ProfessorPage(){
  },[router]);
  async function logout(){await supabase.auth.signOut();router.replace('/login');}
  if(!access)return <main className="xd-loading" aria-busy={!notice}>{notice?<div><p role="alert">{notice}</p><button className="tw-secondary" onClick={()=>router.replace('/login')}>IR PARA O LOGIN</button></div>:'CONFERINDO SEU ACESSO…'}</main>;
- return <main className="tw-professor"><header className="tw-professor-header"><img src="/brands/xpace-logo.png" alt="XPACE"/><div><button className="tw-secondary" onClick={()=>window.location.reload()}>ATUALIZAR</button><button className="tw-secondary" onClick={()=>void logout()}>SAIR</button></div></header><TeachingWorkspace teacherMode/><BuildRevision/></main>;
+ return <RefreshableScreen screenKey="professor" className="tw-professor"><header className="tw-professor-header"><img src="/brands/xpace-logo.png" alt="XPACE"/><div><button className="tw-secondary" onClick={()=>window.location.reload()}>ATUALIZAR</button><button className="tw-secondary" onClick={()=>void logout()}>SAIR</button></div></header><TeachingWorkspace teacherMode/><BuildRevision/></RefreshableScreen>;
 }

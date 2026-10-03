@@ -22,6 +22,14 @@ async function fixture(browser,width,teacher=false,owner=true,authenticated=true
  return ctx;
 }
 async function clock(context,time='18:55:00'){await context.addInitScript(fixed=>{const OriginalDate=Date;window.Date=class extends OriginalDate{constructor(...args){if(args.length)super(...args);else super(fixed);}static now(){return fixed;}};},Date.parse(today+'T'+time+'-03:00'));}
+async function drag(page,{target='.tw-heading h2',dx=0,dy=200,cancel=false}={}){
+ await page.locator(target).evaluate((element,{dx,dy,cancel})=>{
+  for(const[type,x,y]of[['touchstart',20,20],['touchmove',20+dx,20+dy],[cancel?'touchcancel':'touchend',20+dx,20+dy]]){
+   const touch=new Touch({identifier:1,target:element,clientX:x,clientY:y});
+   element.dispatchEvent(new TouchEvent(type,{bubbles:true,touches:type==='touchend'||type==='touchcancel'?[]:[touch],changedTouches:[touch]}));
+  }
+ },{dx,dy,cancel});
+}
 (async()=>{await fs.mkdir(output,{recursive:true});const browser=await chromium.launch({headless:true,channel:'chrome'});
 try{
  for(const width of[390,320]){
@@ -51,6 +59,44 @@ try{
   assert.equal(await page.getByRole('button',{name:'IMPRIMIR QR DA SALA',exact:true}).count(),0);
   await noOverflow(page,'Occupation '+width);await page.screenshot({path:path.join(output,'ocupacao-'+width+'.png'),fullPage:true});
   assert.deepEqual(errors,[]);await context.close();
+ }
+ for(const width of[390,320]){
+  const{context,page,writes,errors,data}=await fixture(browser,width,true);await clock(context);
+  const reads=[];page.on('request',request=>{if(request.method()==='GET'&&request.url().includes('/api/xpace/aulas'))reads.push(request.url());});
+  await page.goto(origin+'/xpace/professor');await page.getByText('Aula do dia 28',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Próximo mês',exact:true}).click();
+  await page.getByText('Nenhuma aula atribuída a você neste mês.',{exact:true}).waitFor();
+  const selectedMonth=await page.getByLabel('Mês das minhas aulas').inputValue(),before=reads.length;
+  data.lessons.push({...data.lessons[0],id:id(13),class_name:'Aula atualizada pelo gesto',scheduled_on:selectedMonth+'-05'});
+  await drag(page);await page.getByText('Aula atualizada pelo gesto',{exact:true}).waitFor();
+  assert.equal(reads.length,before+1);assert.equal(await page.getByLabel('Mês das minhas aulas').inputValue(),selectedMonth);
+  assert.ok(reads.at(-1).includes('month='+selectedMonth));
+  let baseline=reads.length;
+  for(const gesture of[{dy:30},{dx:220,dy:60},{cancel:true},{target:'.tw-month input'}])await drag(page,gesture);
+  assert.equal(reads.length,baseline,'short/horizontal/cancelled/control gestures must not refresh');
+  await page.locator('main').evaluate(element=>{const space=document.createElement('div');space.id='scroll-fixture';space.style.height='1800px';element.append(space);window.scrollTo(0,150);});
+  await page.waitForFunction(()=>window.scrollY>100);await drag(page);assert.equal(reads.length,baseline,'pull below page top must not refresh');
+  await page.evaluate(()=>{document.getElementById('scroll-fixture').remove();window.scrollTo(0,0);});
+  await page.getByRole('button',{name:'RESERVA DE SALA',exact:true}).click();await page.getByLabel(/^SALA/).selectOption(id(6));
+  await page.getByLabel('DIA',{exact:true}).fill(selectedMonth+'-05');await page.getByLabel('INÍCIO',{exact:true}).fill('18:00');await page.getByLabel('FIM',{exact:true}).fill('18:30');
+  baseline=reads.length;page.once('dialog',dialog=>dialog.dismiss());await drag(page);assert.equal(reads.length,baseline,'declined refresh preserves unsaved reservation');
+  page.once('dialog',dialog=>dialog.accept());await drag(page);
+  await page.waitForFunction(()=>!document.querySelector('.xd-pull-feedback.is-visible'));
+  assert.equal(reads.length,baseline+1);
+  assert.equal(await page.getByLabel('DIA',{exact:true}).inputValue(),selectedMonth+'-05');
+  assert.equal(await page.getByLabel('INÍCIO',{exact:true}).inputValue(),'18:00');
+  assert.equal(await page.getByLabel('FIM',{exact:true}).inputValue(),'18:30');
+  assert.equal(await page.getByLabel(/^SALA/).inputValue(),id(6));
+  await page.locator('.tw-subnav').getByRole('button',{name:'OCUPAÇÃO',exact:true}).click();await page.locator('.ro-grid').first().waitFor();
+  await page.getByLabel('Filtrar sala').selectOption(id(6));await page.getByRole('button',{name:'Próxima semana de Sala 1',exact:true}).click();
+  await page.locator('.ro-grid').waitFor();const weekLabel=await page.locator('.ro-week-nav strong').innerText();
+  baseline=reads.length;const occupationBefore=reads.filter(url=>url.includes('scope=occupation')).length;
+  await page.evaluate(()=>window.scrollTo(0,0));await drag(page);
+  await page.waitForFunction(()=>!document.querySelector('.xd-pull-feedback.is-visible'));await page.locator('.ro-grid').waitFor();
+  assert.equal(reads.length,baseline+2);assert.equal(reads.filter(url=>url.includes('scope=occupation')).length,occupationBefore+1);
+  assert.equal(await page.getByLabel('Filtrar sala').inputValue(),id(6));assert.equal(await page.locator('.ro-week-nav strong').innerText(),weekLabel);
+  assert.equal(writes.length,0,'refresh must never submit attendance or reserve a room');assert.deepEqual(errors,[]);
+  await noOverflow(page,'Teacher pull refresh '+width);await context.close();
  }
  for(const time of['18:44:00','19:16:00']){
   const{context,page,writes}=await fixture(browser,390,true);await clock(context,time);await page.goto(origin+'/xpace/professor');
@@ -114,5 +160,5 @@ try{
   assert.equal(await page.getByRole('button',{name:'PROFESSORES DO MÊS',exact:true}).count(),owner?1:0);
   assert.deepEqual(errors,[]);await context.close();
  }
- console.log('Teacher mobile browser PASS: optimized build, 320/390, own month/month change, check-in/window/repeat, common login and QR, reservations/occupation, admin attendance/payroll, manager exclusion, no viewport overflow.');
+ console.log('Teacher mobile browser PASS: optimized build, 320/390, own month/month change, check-in/window/repeat, common login and QR, pull refresh/month/reservation/room/week preservation and gesture guards, reservations/occupation, admin attendance/payroll, manager exclusion, no viewport overflow.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 
 // Never prevent native scrolling or remount a form without the user's agreement.
-export default function RefreshableScreen({ children, screenKey }: { children: ReactNode; screenKey: string }) {
+export default function RefreshableScreen({ children, screenKey, className = "xd-shell" }: { children: ReactNode; screenKey: string; className?: string }) {
   const [version, setVersion] = useState(0);
   const [distance, setDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,7 +45,7 @@ export default function RefreshableScreen({ children, screenKey }: { children: R
       dirty.current = false;
     } finally { busy.current = false; setRefreshing(false); }
   }
-  return <main className="xd-shell xd-refreshable" onTouchStart={begin} onTouchMove={move} onTouchEnd={() => void end()} onTouchCancel={() => { start.current = null; pulled.current = 0; setDistance(0); }} onChangeCapture={event => { const target = event.target as HTMLElement; if (!target.matches('input[type="search"]') && target.closest('form, [data-unsaved-form]')) dirty.current = true; }}>
+  return <main className={`${className} xd-refreshable`} onTouchStart={begin} onTouchMove={move} onTouchEnd={() => void end()} onTouchCancel={() => { start.current = null; pulled.current = 0; setDistance(0); }} onChangeCapture={event => { const target = event.target as HTMLElement; if (!target.matches('input[type="search"]') && target.closest('form, [data-unsaved-form]')) dirty.current = true; }}>
     <div className={`xd-pull-feedback${refreshing || distance ? " is-visible" : ""}`} role="status" style={{ height: refreshing ? 42 : Math.min(42, distance) }}><RefreshCw size={17} className={refreshing ? "xd-spin" : ""} /><span>{refreshing ? "Atualizando..." : distance >= 62 ? "Solte para atualizar" : "Puxe para atualizar"}</span></div>
     <Fragment key={`${screenKey}:${version}`}>{children}</Fragment>
   </main>;

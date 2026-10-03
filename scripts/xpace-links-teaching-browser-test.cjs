@@ -42,7 +42,7 @@ async function setup(browser,width,teacher=false,owner=true,authenticated=true){
    events.push(url.pathname);return json({success:true});
   }
   if(!['127.0.0.1','localhost'].includes(url.hostname))return route.abort();return route.continue();
- });const page=await context.newPage(),errors=[];page.setDefaultNavigationTimeout(120000);page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));return{context,page,writes,events,errors};}
+ });const page=await context.newPage(),errors=[];page.setDefaultNavigationTimeout(120000);page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));return{context,page,writes,events,errors,data};}
 async function noOverflow(page,label){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' must fit the viewport');}
 module.exports={setup,noOverflow,id,today};
 if(require.main===module){
